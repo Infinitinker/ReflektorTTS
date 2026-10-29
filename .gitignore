@@ -1,0 +1,15 @@
+# Local reference copy of the proof of concept (large models, venvs)
+_old_poc/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+build/
+dist/
+
+# Tools
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/

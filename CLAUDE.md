@@ -1,0 +1,58 @@
+# ReflektorTTS
+
+Reads game text aloud (dialogues, cutscene subtitles, messages) and can optionally translate it in the Polish "lektor" style: one voice over the original soundtrack. Configured per game through profiles, and from inside the game through an overlay.
+
+The design is in `_old_poc/ARCHITEKTURA.md` (in Polish, still to be translated into `ARCHITECTURE.md`).
+
+## Language and naming
+
+- Everything is written in English: code, comments, docs, commit messages, UI strings.
+- The name is **ReflektorTTS** in prose and UI, and `reflektortts` with no dash or underscore everywhere else: repo, PyPI package, import name, plugin entry-point groups (`reflektortts.sources`), config dirs.
+
+## Open source
+
+- The project will be published on GitHub under **GPL-3.0-or-later**, so others can use it and contribute game profiles. GPL is required anyway: `piper-tts` (with espeak-ng) and `pedalboard` are GPL-3.0.
+- Every new dependency must have a GPL-3.0-compatible license (MIT, BSD, Apache-2.0, LGPL, GPL). Check the license before adding one.
+- Voice models have their own licenses (in each voice's model card). Check them before bundling a voice or making it a default; never bundle non-commercial-only voices.
+- Write code, docs and commit history as if strangers will read them: no personal paths, secrets or machine-specific settings in the repo.
+
+## `_old_poc/` is read-only
+
+The original proof of concept. Read it and port proven code and findings from it (e.g. the GTA2 memory pointer, Polish text normalization), but never edit, run or repair anything there. Its venvs are broken on purpose; leave them alone. New code does not import from `_old_poc/`.
+
+## Principles
+
+The goal is clean code, modularity, portability, and an app other people can install and use without help.
+
+### Clean code
+- Small modules with one job each. If a file needs a section comment to separate unrelated parts, split it.
+- Type hints on all public functions and classes. Use dataclasses or protocols for data and contracts, not loose dicts passed around.
+- No dead code, commented-out code or speculative abstractions. Build interfaces from the existing cases (OCR, memory, clipboard) and validate them on the next one (STT); don't design for imagined ones.
+- Errors are explicit: raise specific exceptions, and never swallow them silently. A failing source or plugin must not take down the core; report it as a `source.error` event.
+- Use `logging`, not `print`.
+- Tests sit next to the code they cover and run without a game, GPU or network. Hardware- and game-dependent parts sit behind interfaces so they can be faked.
+
+### Modularity
+- Sources, processing stages and outputs are plugins behind the `Source`, `Stage` and `Sink` protocols. Adding a plugin must not require changes in the core or the UI.
+- Each plugin declares its settings as JSON Schema; UIs generate forms from it.
+- Core rule: **module ≠ process**. Split code into modules everywhere; use a separate process only for isolation, heavy resources (TTS, STT, GPU) or code that must live elsewhere (the in-game overlay DLL).
+- The core runs headless. Every UI (overlay, desktop) is a client of the same versioned local API (`/v1`, HTTP + WebSocket on 127.0.0.1).
+- Logic lives in Python. The C++ overlay only draws UI, captures input and grabs frames.
+
+### Portability
+- Windows is the main platform, Linux the second one; macOS is out of scope. The core and the UIs must not depend on any OS.
+- Platform-specific code (window capture, OCR engine, process memory, audio loopback) lives only inside plugins or behind a small interface with one implementation per OS. No `win32` imports in core modules.
+- Use `pathlib` and never hardcode paths. User data (profiles, settings, logs, model cache) goes in the per-user directories (e.g. via `platformdirs`), never next to the code or in the repo.
+- Keep dependencies few and justified. Heavy or optional ones (Whisper, GPU stacks, translation models) are optional extras, loaded only when a profile uses them.
+
+### Ease of use
+- A new user should get from download to hearing a game read aloud without editing files or using a terminal. Sensible defaults: a working voice, a ready profile for at least one known game.
+- One profile = one game = one JSON file with a `version` field and migrations, so profiles can be shared and stay readable after upgrades.
+- Community profiles are a core feature: the profile format has a published JSON Schema, profiles are validated against it, and writing one is documented for non-programmers.
+- Error messages say what went wrong and what to do about it, in user terms ("Game window not found: is the game running?"), not stack traces.
+- Everything configurable in the overlay must work without Alt+Tab; older games often crash when they lose focus.
+- Write user-facing docs (install, first run, writing a profile) alongside the features, not after.
+
+## Tooling
+
+- Python environments are managed with `uv` (installed on this machine).

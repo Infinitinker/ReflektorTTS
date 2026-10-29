@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "game": {
+    "title": "Grand Theft Auto 2",
+    "year": 1999
+  },
+  "match": {
+    "process": ["gta2.exe"]
+  }
+}
