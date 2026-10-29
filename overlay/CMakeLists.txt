@@ -14,11 +14,7 @@ FetchContent_Declare(imgui
     GIT_REPOSITORY https://github.com/ocornut/imgui.git
     GIT_TAG v1.92.9
     GIT_SHALLOW TRUE)
-FetchContent_Declare(minhook
-    GIT_REPOSITORY https://github.com/TsudaKageyu/minhook.git
-    GIT_TAG v1.3.4
-    GIT_SHALLOW TRUE)
-FetchContent_MakeAvailable(imgui minhook)
+FetchContent_MakeAvailable(imgui)
 
 add_library(imgui STATIC
     ${imgui_SOURCE_DIR}/imgui.cpp
@@ -26,17 +22,27 @@ add_library(imgui STATIC
     ${imgui_SOURCE_DIR}/imgui_tables.cpp
     ${imgui_SOURCE_DIR}/imgui_widgets.cpp
     ${imgui_SOURCE_DIR}/backends/imgui_impl_win32.cpp
-    ${imgui_SOURCE_DIR}/backends/imgui_impl_dx11.cpp)
+    ${imgui_SOURCE_DIR}/backends/imgui_impl_dx9.cpp
+    ${imgui_SOURCE_DIR}/backends/imgui_impl_dx11.cpp
+    ${imgui_SOURCE_DIR}/backends/imgui_impl_dx12.cpp)
 target_include_directories(imgui PUBLIC ${imgui_SOURCE_DIR} ${imgui_SOURCE_DIR}/backends)
-target_link_libraries(imgui PUBLIC d3d11 d3dcompiler dwmapi imm32 gdi32)
+target_link_libraries(imgui PUBLIC d3dcompiler dxgi dwmapi imm32 gdi32)
 
+# Direct3D DLLs are looked up at runtime, not linked, so the overlay only touches
+# the APIs the game has loaded.
 add_library(reflektortts-overlay SHARED
     src/dllmain.cpp
-    src/d3d11_hook.cpp
-    src/imgui_renderer.cpp
+    src/probe_window.cpp
+    src/dxgi_hook.cpp
+    src/d3d11_renderer.cpp
+    src/d3d12_queue_hook.cpp
+    src/d3d12_renderer.cpp
+    src/d3d9_hook.cpp
+    src/d3d9_renderer.cpp
+    src/overlay_frame.cpp
     src/ui.cpp)
 set_target_properties(reflektortts-overlay PROPERTIES PREFIX "")
-target_link_libraries(reflektortts-overlay PRIVATE imgui minhook dxgi)
+target_link_libraries(reflektortts-overlay PRIVATE imgui)
 
 add_executable(reflektortts-inject injector/inject.cpp)
 
