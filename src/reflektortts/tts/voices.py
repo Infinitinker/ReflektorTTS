@@ -6,9 +6,6 @@ from pathlib import Path
 
 import platformdirs
 
-# Trained on the public-domain LJ Speech dataset, so it can be bundled and used by default.
-DEFAULT_VOICE = "en_US-ljspeech-medium"
-
 
 class VoiceDownloadError(Exception):
     """A voice could not be downloaded."""

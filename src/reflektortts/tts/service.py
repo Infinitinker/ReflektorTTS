@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from multiprocessing.connection import Connection
 from typing import Protocol
 
-from reflektortts.tts.engine import AudioChunk, TtsEngine
+from reflektortts.tts.engine import AudioChunk, TtsEngine, load_engine_plugin, parse_voice
 
 logger = logging.getLogger(__name__)
 
@@ -108,13 +108,16 @@ def serve(connection: Connection, speaker: SpeakerControl) -> None:
 
 
 def run(connection: Connection, voice: str, log_level: int) -> None:
-    """Entry point of the TTS process."""
+    """Entry point of the TTS process. voice is "engine:name", e.g. "windows:Microsoft Adam"."""
     logging.basicConfig(level=log_level, format="%(asctime)s %(processName)s %(name)s: %(message)s")
-    # Piper pulls in onnxruntime; importing it only here keeps it out of the core process.
-    from reflektortts.tts.engines.piper import PiperEngine
     from reflektortts.tts.playback import Player
-    from reflektortts.tts.voices import ensure_voice
 
-    engine = PiperEngine(ensure_voice(voice))
+    parsed = parse_voice(voice)
+    try:
+        engine = load_engine_plugin(parsed.engine).create(parsed.name)
+    except Exception as error:
+        # Exiting closes the connection, so the core's next line fails with TtsServiceError.
+        logger.error("Cannot use the voice %s: %s", voice, error)
+        return
     logger.info("Voice %s loaded", voice)
     serve(connection, Speaker(engine, Player()))

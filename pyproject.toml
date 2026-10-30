@@ -15,10 +15,19 @@ dependencies = [
     "platformdirs>=4.14",
     "psutil>=7.2",
     "sounddevice>=0.5",
+    "winrt-runtime>=3.0; sys_platform == 'win32'",
+    "winrt-Windows.Foundation>=3.0; sys_platform == 'win32'",
+    "winrt-Windows.Foundation.Collections>=3.0; sys_platform == 'win32'",
+    "winrt-Windows.Media.SpeechSynthesis>=3.0; sys_platform == 'win32'",
+    "winrt-Windows.Storage.Streams>=3.0; sys_platform == 'win32'",
 ]
 
 [project.entry-points."reflektortts.sources"]
 memory = "reflektortts.sources.memory.plugin:PLUGIN"
+
+[project.entry-points."reflektortts.tts_engines"]
+piper = "reflektortts.tts.engines.piper:PLUGIN"
+windows = "reflektortts.tts.engines.windows:PLUGIN"
 
 [project.entry-points."reflektortts.stages"]
 replace = "reflektortts.stages.replace:PLUGIN"

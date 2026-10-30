@@ -7,7 +7,7 @@ import threading
 from pathlib import Path
 
 from reflektortts.app import default_profiles_dir, run
-from reflektortts.tts.voices import DEFAULT_VOICE
+from reflektortts.tts.engine import DEFAULT_VOICE
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -18,7 +18,11 @@ def main(argv: list[str] | None = None) -> int:
         default=default_profiles_dir(),
         help="folder with game profiles (default: %(default)s)",
     )
-    parser.add_argument("--voice", default=DEFAULT_VOICE, help="Piper voice (default: %(default)s)")
+    parser.add_argument(
+        "--voice",
+        default=DEFAULT_VOICE,
+        help='voice as engine:name, e.g. "windows:Microsoft Adam" (default: %(default)s)',
+    )
     args = parser.parse_args(argv)
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
