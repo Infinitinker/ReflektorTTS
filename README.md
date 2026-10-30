@@ -45,6 +45,10 @@ Press **Ctrl+Shift+R** to open the ReflektorTTS panel: it shows the last line re
 
 The chosen voice is saved in `%LOCALAPPDATA%\reflektortts\settings.json`.
 
+## Game sound
+
+While a line is spoken, ReflektorTTS lowers the game's sound, like a *lektor* speaking over the original, and brings it back half a second after the voice stops. By default the game drops to 30% of its own volume; the panel's Voice & language section switches this off or sets the level. Only the game's slider in the Windows volume mixer is changed, not other apps. If ReflektorTTS stops while the game is lowered, the game's own volume is kept in `%LOCALAPPDATA%\reflektortts\lowered-games.json` and put back the next time the game starts.
+
 ## Translation
 
 ReflektorTTS can translate a game into the speech language, in the style of a Polish *lektor*. Set the game language and the speech language in the panel; when they differ, profiles with a `translate` stage translate each line before it is spoken. To turn it off, untick `translate` in the panel's Text processing section.

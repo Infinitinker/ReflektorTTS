@@ -9,6 +9,7 @@ from typing import Any
 
 import platformdirs
 
+from reflektortts.ducking.ducker import DEFAULT_LEVEL
 from reflektortts.languages import AUTO, DEFAULT_SPEECH_LANGUAGE
 from reflektortts.tts.engine import DEFAULT_VOICE
 
@@ -27,6 +28,10 @@ class Settings:
     """The voice last chosen for each speech language, e.g. {"pl": "windows:Microsoft Adam"}."""
     disabled_stages: dict[str, list[str]] = field(default_factory=dict)
     """Stages switched off by the player, by profile ID: {"grand-theft-auto-2-1999": ["messages/2:normalize"]}."""
+    ducking: bool = True
+    """Whether the game's sound is lowered while lines are spoken."""
+    duck_volume: float = DEFAULT_LEVEL
+    """The game's volume while lines are spoken, as a fraction of its own volume (0.0 to 1.0)."""
 
 
 def settings_path() -> Path:
@@ -36,6 +41,18 @@ def settings_path() -> Path:
 def _text(data: dict[str, Any], key: str, default: str) -> str:
     value = data.get(key)
     return value if isinstance(value, str) else default
+
+
+def _flag(data: dict[str, Any], key: str, default: bool) -> bool:
+    value = data.get(key)
+    return value if isinstance(value, bool) else default
+
+
+def _fraction(data: dict[str, Any], key: str, default: float) -> float:
+    value = data.get(key)
+    if isinstance(value, int | float) and not isinstance(value, bool) and 0.0 <= value <= 1.0:
+        return float(value)
+    return default
 
 
 def _text_map(value: object) -> dict[str, str]:
@@ -75,6 +92,8 @@ def load_settings(path: Path) -> Settings:
         speech_language=speech_language,
         voices_by_language=_text_map(data.get("voices_by_language")),
         disabled_stages=_list_map(data.get("disabled_stages")),
+        ducking=_flag(data, "ducking", defaults.ducking),
+        duck_volume=_fraction(data, "duck_volume", defaults.duck_volume),
     )
 
 

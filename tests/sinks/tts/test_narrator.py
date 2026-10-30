@@ -1,9 +1,12 @@
+from collections.abc import Callable
+
 from reflektortts.sinks.tts.narrator import Narrator
 
 
 class FakeClient:
-    def __init__(self, voice: str) -> None:
+    def __init__(self, voice: str, on_speaking: Callable[[bool], None]) -> None:
         self.voice = voice
+        self.on_speaking = on_speaking
         self.said: list[str] = []
         self.stopped = 0
         self.closed = False
@@ -22,8 +25,8 @@ class Clients:
     def __init__(self) -> None:
         self.started: list[FakeClient] = []
 
-    def start(self, voice: str) -> FakeClient:
-        self.started.append(FakeClient(voice))
+    def start(self, voice: str, on_speaking: Callable[[bool], None]) -> FakeClient:
+        self.started.append(FakeClient(voice, on_speaking))
         return self.started[-1]
 
 
@@ -63,6 +66,20 @@ def test_switching_voice_starts_a_new_service_and_closes_the_old_one() -> None:
     assert clients.started[0].closed
     assert clients.started[1].said == ["hi"]
     assert narrator.voice == "windows:Microsoft Adam"
+
+
+def test_speaking_is_reported_across_a_voice_switch() -> None:
+    clients = Clients()
+    reported: list[bool] = []
+    narrator = Narrator("piper:a", clients.start, reported.append)
+
+    clients.started[0].on_speaking(True)
+    narrator.use_voice("windows:Microsoft Adam")
+    clients.started[1].on_speaking(True)
+    clients.started[0].on_speaking(False)
+    clients.started[1].on_speaking(False)
+
+    assert reported == [True, False]
 
 
 def test_close_closes_the_service() -> None:

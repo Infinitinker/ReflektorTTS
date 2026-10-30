@@ -34,6 +34,8 @@ class FakeCore:
             game_language="auto",
             speech_language="en",
             paused=False,
+            ducking=True,
+            duck_volume=0.3,
             sources=(SourceStages("messages", (TRACKER,)),),
         )
 
@@ -57,6 +59,10 @@ class FakeCore:
     def set_speech_language(self, language: str) -> Status:
         check_speech_language(language)
         self.current = replace(self.current, speech_language=language)
+        return self.current
+
+    def set_ducking(self, enabled: bool, volume: float) -> Status:
+        self.current = replace(self.current, ducking=enabled, duck_volume=volume)
         return self.current
 
     def set_paused(self, paused: bool) -> Status:
@@ -96,6 +102,8 @@ def test_status() -> None:
             "game_language": "auto",
             "speech_language": "en",
             "paused": False,
+            "ducking": True,
+            "duck_volume": 0.3,
             "sources": [
                 {
                     "name": "messages",
@@ -150,10 +158,23 @@ def test_changing_all_settings_together() -> None:
     with_client(FakeCore(), test)
 
 
+def test_ducking_can_be_changed_alone_or_with_its_level() -> None:
+    async def test(client: TestClient[Any, Any]) -> None:
+        body = await (await client.patch("/v1/settings", json={"duck_volume": 0.5})).json()
+        assert (body["ducking"], body["duck_volume"]) == (True, 0.5)
+        body = await (await client.patch("/v1/settings", json={"ducking": False})).json()
+        assert (body["ducking"], body["duck_volume"]) == (False, 0.5)
+
+    with_client(FakeCore(), test)
+
+
 @pytest.mark.parametrize(
     ("body", "message"),
     [
         ({"voice": "piper:missing"}, 'There is no voice "piper:missing".'),
+        ({"ducking": "yes"}, SETTINGS_HELP),
+        ({"duck_volume": 1.5}, SETTINGS_HELP),
+        ({"duck_volume": True}, SETTINGS_HELP),
         ({"speech_language": "auto"}, 'There is no language "auto". Available: en, pl.'),
         ({"game_language": "xx"}, 'There is no language "xx". Available: auto, en, pl.'),
         ({"voice": 5}, SETTINGS_HELP),

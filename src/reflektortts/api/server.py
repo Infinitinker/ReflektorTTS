@@ -46,6 +46,9 @@ class CoreControl(Protocol):
     def set_speech_language(self, language: str) -> Status:
         """Raises LanguageError if the language is not supported."""
 
+    def set_ducking(self, enabled: bool, volume: float) -> Status:
+        """volume is the game's volume while speaking, from 0.0 to 1.0 of its own."""
+
     def set_paused(self, paused: bool) -> Status: ...
 
     def stop_line(self) -> Status: ...
@@ -75,6 +78,8 @@ def status_json(status: Status) -> dict[str, Any]:
         "game_language": status.game_language,
         "speech_language": status.speech_language,
         "paused": status.paused,
+        "ducking": status.ducking,
+        "duck_volume": status.duck_volume,
         "sources": [
             {"name": source.source, "stages": [stage_json(stage) for stage in source.stages]}
             for source in status.sources
@@ -111,8 +116,11 @@ async def get_languages(request: web.Request) -> web.Response:
     return web.json_response({"languages": [{"code": code, "name": name} for code, name in LANGUAGES.items()]})
 
 
-SETTINGS_FIELDS = ("game_language", "speech_language", "voice")
-SETTINGS_HELP = 'Send any of "game_language", "speech_language" and "voice", e.g. {"speech_language": "pl"}.'
+TEXT_SETTINGS = ("game_language", "speech_language", "voice")
+SETTINGS_HELP = (
+    'Send any of "game_language", "speech_language" and "voice" (text), "ducking" (true or false) '
+    'and "duck_volume" (a number from 0 to 1), e.g. {"speech_language": "pl"}.'
+)
 STAGES_HELP = 'Send {"key": "<stage key from the status>", "enabled": true or false}.'
 
 
@@ -124,20 +132,33 @@ async def read_object(request: web.Request) -> dict[str, Any] | None:
     return body if isinstance(body, dict) else None
 
 
+def is_fraction(value: object) -> bool:
+    return isinstance(value, int | float) and not isinstance(value, bool) and 0 <= value <= 1
+
+
 async def patch_settings(request: web.Request) -> web.Response:
-    """Applies the game language, then the speech language, then the voice; each is optional.
+    """Applies ducking, the game language, then the speech language, then the voice; each is optional.
 
     Changing the speech language may also switch the voice, so an explicit voice comes last.
     """
     body = await read_object(request)
     if body is None:
         return error_response("The request body must be a JSON object.")
-    values = {field: body[field] for field in SETTINGS_FIELDS if field in body}
-    if not values or any(not isinstance(value, str) for value in values.values()):
+    values = {field: body[field] for field in TEXT_SETTINGS if field in body}
+    if any(not isinstance(value, str) for value in values.values()):
+        return error_response(SETTINGS_HELP)
+    if "ducking" in body and not isinstance(body["ducking"], bool):
+        return error_response(SETTINGS_HELP)
+    if "duck_volume" in body and not is_fraction(body["duck_volume"]):
+        return error_response(SETTINGS_HELP)
+    if not values and "ducking" not in body and "duck_volume" not in body:
         return error_response(SETTINGS_HELP)
     core = request.app[CORE]
     try:
         status = core.status()
+        if "ducking" in body or "duck_volume" in body:
+            enabled = body.get("ducking", status.ducking)
+            status = core.set_ducking(enabled, float(body.get("duck_volume", status.duck_volume)))
         if "game_language" in values:
             status = core.set_game_language(values["game_language"])
         if "speech_language" in values:

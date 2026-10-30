@@ -62,5 +62,9 @@ class Status:
     game_language: str
     speech_language: str
     paused: bool
+    ducking: bool
+    """Whether the game's sound is lowered while lines are spoken."""
+    duck_volume: float
+    """The game's volume while lines are spoken, as a fraction of its own volume."""
     sources: tuple[SourceStages, ...] = ()
     """The stages of the game being read, per source; empty while waiting for a game."""

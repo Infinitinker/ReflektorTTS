@@ -16,6 +16,8 @@ The status object, returned by several requests and sent as an event:
   "game_language": "auto",
   "speech_language": "pl",
   "paused": false,
+  "ducking": true,
+  "duck_volume": 0.3,
   "sources": [
     {
       "name": "messages",
@@ -40,6 +42,8 @@ The status object, returned by several requests and sent as an event:
 | `game_language` | The language of the game's text (ISO 639-1 code), or `auto` to let e.g. translation detect it |
 | `speech_language` | The language lines are prepared and spoken in (ISO 639-1 code) |
 | `paused` | Whether reading is paused |
+| `ducking` | Whether the game's sound is lowered while lines are spoken |
+| `duck_volume` | The game's volume while lines are spoken, as a fraction of its own volume (0 to 1) |
 | `sources` | The stages of the game being read, per source in the game's profile, with whether the player has each switched on; empty while waiting for a game |
 
 A stage's `type` is its name in the profile and `summary` says in a few words what it does; `warning` (or `null`) is shown while the stage is switched off, if reading breaks without it. `key` identifies the stage for `PATCH /v1/stages`.
@@ -86,8 +90,10 @@ Changes settings and saves them. Send any of the fields:
 - `game_language`: a `code` from `/v1/languages`, or `auto`.
 - `speech_language`: a `code` from `/v1/languages`. Lines read from then on are prepared for it. If the current voice does not speak it, the core switches to the voice last chosen for that language, or else the first voice that speaks it; with no such voice, the voice stays.
 - `voice`: an `id` from `/v1/voices`. Switching starts a new speech process; the next line is spoken with the new voice. The voice is also remembered for its language.
+- `ducking`: `true` or `false`, whether the game's sound is lowered while lines are spoken.
+- `duck_volume`: a number from 0 to 1, the game's volume while lines are spoken as a fraction of its own; applies at once, also while lowered.
 
-Fields are applied in that order, so an explicit `voice` wins over the one a new speech language picks. Returns the status.
+The ducking fields are applied first, then the others in the order listed, so an explicit `voice` wins over the one a new speech language picks. Returns the status.
 
 ### `PATCH /v1/stages`
 

@@ -47,7 +47,8 @@ Its main ideas:
 2. The runner polls each source on its interval. A source returns the text currently shown, or nothing.
 3. Each reading carries the player's **game language** and **speech language**. The text passes through that source's stages, e.g. the **tracker**, which passes a line on once it has settled and only once; **replace**, which removes formatting marks; **translate**, which translates the line into the speech language when it differs from the game language; and **normalize**, which spells out numbers, money and percentages in the speech language. Stages the player switched off in the overlay are skipped.
 4. Finished lines go to every sink: the **TTS sink** sends the line to the TTS service, which cuts off the line still being spoken and speaks the new one; the **events sink** publishes it to the event bus, from which the API sends it to the overlay.
-5. When the game exits, the core closes its sources and waits for the next game.
+5. The TTS service tells the core when it starts speaking and when it falls silent, and the core's **ducker** lowers the game's sound for that time, lektor style: it fades the game's own audio sessions down (to 30% by default) and back up half a second after the voice stops, so the game does not pump between close lines. Windows keeps each app's mixer volume between runs, so while a game is lowered its original volume is also kept in a file, and a later run puts it back if this one stopped first.
+6. When the game exits, the core closes its sources and waits for the next game.
 
 A failing source, stage or sink is reported once as a `source.error`, `stage.error` or `sink.error` event and never stops the rest.
 
@@ -63,6 +64,7 @@ A failing source, stage or sink is reported once as a `source.error`, `stage.err
 | `sources/`, `stages/`, `sinks/` | Built-in plugins |
 | `sinks/tts/` | The tts sink: the core's side of speech (the narrator, which pauses and switches voices, and the client that starts the TTS process) |
 | `tts/` | The TTS service process: speech engines, playback and voices |
+| `ducking/` | Lowers the game's sound while lines are spoken; the per-app volume has one implementation per OS (`windows.py`, WASAPI audio sessions) |
 | `languages.py` | Supported languages and their checks |
 | `api/server.py` | The local API |
 | `settings.py` | Per-user settings |
@@ -74,7 +76,7 @@ A failing source, stage or sink is reported once as a `source.error`, `stage.err
 How the folders are organized:
 
 - **Plugin folders** (`sources/`, `stages/`, `sinks/`) hold one plugin each. A plugin is a single module while it is small (`stages/tracker.py`) and becomes a package when it needs several files (`stages/normalize/`, `sources/memory/`, `sinks/tts/`).
-- **Subsystems** that are not plugins sit at the top level: `pipeline/`, `profiles/`, `games/`, `api/`, `tts/`.
+- **Subsystems** that are not plugins sit at the top level: `pipeline/`, `profiles/`, `games/`, `api/`, `tts/`, `ducking/`.
 - **A folder's code runs in one process.** Code for a separate process gets its own folder, so the layout shows what runs where: `tts/` is the TTS process, and its client in the core lives with the sink in `sinks/tts/`.
 
 Writing plugins: [plugins.md](plugins.md). The local API: [api.md](api.md).
@@ -127,7 +129,7 @@ Known pitfalls of older games and how the overlay handles them:
 ### Platforms
 
 - **Windows** is the main platform.
-- **Linux** second: games under Proton/Wine with the same overlay DLL; native games through a Vulkan layer and `LD_PRELOAD` for OpenGL (as MangoHud does). Sources to port: memory (`process_vm_readv`), OCR (Tesseract), clipboard.
+- **Linux** second: games under Proton/Wine with the same overlay DLL; native games through a Vulkan layer and `LD_PRELOAD` for OpenGL (as MangoHud does). Sources to port: memory (`process_vm_readv`), OCR (Tesseract), clipboard. Ducking needs a per-app volume through PipeWire/PulseAudio (e.g. `pulsectl`).
 - **macOS** is out of scope: the hardened runtime and SIP block injection, and reading memory (`task_for_pid`) needs extra permissions.
 - The core and its UIs stay portable; platform-specific code lives only in plugins and the overlay.
 

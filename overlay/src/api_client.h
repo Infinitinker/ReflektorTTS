@@ -39,6 +39,8 @@ struct CoreState {
     std::string game_language;    // A code, or "auto".
     std::string speech_language;  // A code, e.g. "pl".
     bool paused = false;
+    bool ducking = true;       // Whether the game's sound is lowered while speaking.
+    float duck_volume = 0.3f;  // The game's volume while speaking, as a fraction of its own.
     std::vector<SourceStages> sources;
     std::string last_line;
     std::string last_error;
@@ -58,6 +60,8 @@ void request_voice(const std::string& voice_id);
 void request_game_language(const std::string& code);
 void request_speech_language(const std::string& code);
 void request_stage_enabled(const std::string& key, bool enabled);
+void request_ducking(bool enabled);
+void request_duck_volume(float volume);
 
 // Hides the last error until a new one arrives.
 void dismiss_error();

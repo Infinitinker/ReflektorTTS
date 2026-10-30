@@ -16,6 +16,7 @@ dependencies = [
     "piper-tts>=1.8",
     "platformdirs>=4.14",
     "psutil>=7.2",
+    "pycaw>=20260927; sys_platform == 'win32'",
     "sounddevice>=0.5",
     "winrt-runtime>=3.0; sys_platform == 'win32'",
     "winrt-Windows.Foundation>=3.0; sys_platform == 'win32'",
@@ -55,5 +56,5 @@ strict = true
 files = ["src", "tests"]
 
 [[tool.mypy.overrides]]
-module = ["sounddevice", "num2words", "ctranslate2", "sacremoses", "subword_nmt.*"]
+module = ["sounddevice", "num2words", "ctranslate2", "sacremoses", "subword_nmt.*", "pycaw.*", "comtypes"]
 ignore_missing_imports = true

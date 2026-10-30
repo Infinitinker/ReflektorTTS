@@ -4,6 +4,7 @@
 
 #include <cctype>
 #include <cfloat>
+#include <cmath>
 #include <string>
 
 #include "api_client.h"
@@ -203,11 +204,35 @@ void draw_voice_combo(const CoreState& state) {
     ImGui::EndCombo();
 }
 
+void draw_ducking(const CoreState& state) {
+    bool ducking = state.ducking;
+    if (ImGui::Checkbox("Lower game sound while speaking", &ducking)) {
+        request_ducking(ducking);
+    }
+    // While dragging, the slider shows its own value; the core gets it on release.
+    static int dragged_percent = -1;
+    int percent = dragged_percent >= 0 ? dragged_percent : static_cast<int>(std::lround(state.duck_volume * 100.0f));
+    ImGui::BeginDisabled(!state.ducking);
+    ImGui::Indent();
+    if (ImGui::SliderInt("Game volume", &percent, 0, 100, "%d%%", ImGuiSliderFlags_AlwaysClamp)) {
+        dragged_percent = percent;
+    }
+    if (ImGui::IsItemDeactivatedAfterEdit()) {
+        request_duck_volume(static_cast<float>(percent) / 100.0f);
+    }
+    if (!ImGui::IsItemActive()) {
+        dragged_percent = -1;
+    }
+    ImGui::Unindent();
+    ImGui::EndDisabled();
+}
+
 void draw_voice_and_language(const CoreState& state) {
     begin_box("Voice & language");
     draw_language_combo("Game language", state, state.game_language, true, request_game_language);
     draw_language_combo("Speech language", state, state.speech_language, false, request_speech_language);
     draw_voice_combo(state);
+    draw_ducking(state);
     end_box();
 }
 

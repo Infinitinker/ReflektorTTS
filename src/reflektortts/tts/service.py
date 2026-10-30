@@ -2,7 +2,7 @@
 
 import logging
 import threading
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from multiprocessing.connection import Connection
 from typing import Protocol
@@ -24,6 +24,13 @@ class Stop:
     """Stop speaking and drop any line waiting to be spoken."""
 
 
+@dataclass(frozen=True)
+class Speaking:
+    """Sent to the core when the service starts speaking (active) and when it falls silent."""
+
+    active: bool
+
+
 class AudioPlayer(Protocol):
     def play(self, chunks: Iterable[AudioChunk], cancel: threading.Event) -> bool: ...
 
@@ -32,12 +39,20 @@ class Speaker:
     """Speaks on a background thread; a new line cuts off the current one.
 
     Only the newest line matters: in a game, a line that has been replaced on screen
-    is not worth finishing.
+    is not worth finishing. on_speaking is called with True when a line starts after
+    silence and with False once nothing is playing or waiting; a line cutting off
+    another one does not count as silence.
     """
 
-    def __init__(self, engine: TtsEngine, player: AudioPlayer) -> None:
+    def __init__(
+        self,
+        engine: TtsEngine,
+        player: AudioPlayer,
+        on_speaking: Callable[[bool], None] = lambda active: None,
+    ) -> None:
         self._engine = engine
         self._player = player
+        self._on_speaking = on_speaking
         self._changed = threading.Condition()
         self._pending: str | None = None
         self._cancel = threading.Event()
@@ -64,7 +79,13 @@ class Speaker:
         self._thread.join()
 
     def _run(self) -> None:
+        speaking = False
         while True:
+            with self._changed:
+                idle = self._pending is None
+            if idle and speaking:
+                speaking = False
+                self._on_speaking(False)
             with self._changed:
                 while self._pending is None:
                     if self._closed:
@@ -74,6 +95,9 @@ class Speaker:
                     return
                 text, self._pending = self._pending, None
                 cancel = self._cancel = threading.Event()
+            if not speaking:
+                speaking = True
+                self._on_speaking(True)
             try:
                 self._player.play(self._engine.synthesize(text), cancel)
             except Exception:
@@ -107,8 +131,23 @@ def serve(connection: Connection, speaker: SpeakerControl) -> None:
         speaker.close()
 
 
-def run(connection: Connection, voice: str, log_level: int) -> None:
-    """Entry point of the TTS process. voice is "engine:name", e.g. "windows:Microsoft Adam"."""
+def report_to(events: Connection) -> Callable[[bool], None]:
+    """Sends Speaking messages to the core; a core that has gone away is not an error here."""
+
+    def report(active: bool) -> None:
+        try:
+            events.send(Speaking(active))
+        except OSError:
+            logger.debug("The core stopped listening for speaking events")
+
+    return report
+
+
+def run(connection: Connection, events: Connection, voice: str, log_level: int) -> None:
+    """Entry point of the TTS process. Commands arrive on connection; Speaking messages go to events.
+
+    voice is "engine:name", e.g. "windows:Microsoft Adam".
+    """
     logging.basicConfig(level=log_level, format="%(asctime)s %(processName)s %(name)s: %(message)s")
     from reflektortts.tts.playback import Player
 
@@ -120,4 +159,4 @@ def run(connection: Connection, voice: str, log_level: int) -> None:
         logger.error("Cannot use the voice %s: %s", voice, error)
         return
     logger.info("Voice %s loaded", voice)
-    serve(connection, Speaker(engine, Player()))
+    serve(connection, Speaker(engine, Player(), report_to(events)))

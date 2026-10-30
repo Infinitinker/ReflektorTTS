@@ -86,6 +86,36 @@ def test_stop_cuts_off_the_current_line() -> None:
     assert player.outcomes == [False]
 
 
+class SpeakingRecorder:
+    def __init__(self) -> None:
+        self.states: list[bool] = []
+        self.changed = threading.Semaphore(0)
+
+    def __call__(self, active: bool) -> None:
+        self.states.append(active)
+        self.changed.release()
+
+
+def test_speaking_is_reported_once_per_stretch_of_speech() -> None:
+    player, recorder = BlockingPlayer(), SpeakingRecorder()
+    speaker = Speaker(RecordingEngine(), player, recorder)
+    try:
+        speaker.say("first")
+        assert player.started.acquire(timeout=TIMEOUT)
+        speaker.say("second")
+        assert player.started.acquire(timeout=TIMEOUT)
+        player.finish()
+        assert recorder.changed.acquire(timeout=TIMEOUT) and recorder.changed.acquire(timeout=TIMEOUT)
+        speaker.say("third")
+        assert player.started.acquire(timeout=TIMEOUT)
+        speaker.stop()
+        assert recorder.changed.acquire(timeout=TIMEOUT) and recorder.changed.acquire(timeout=TIMEOUT)
+    finally:
+        speaker.close()
+
+    assert recorder.states == [True, False, True, False]
+
+
 def test_a_failing_line_does_not_stop_the_speaker(caplog: pytest.LogCaptureFixture) -> None:
     player = FailingPlayer()
     speaker = Speaker(RecordingEngine(), player)

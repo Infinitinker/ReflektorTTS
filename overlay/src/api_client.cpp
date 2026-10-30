@@ -123,6 +123,8 @@ void apply_status(const json& status) {
     std::string game_language = status.at("game_language").get<std::string>();
     std::string speech_language = status.at("speech_language").get<std::string>();
     bool paused = status.at("paused").get<bool>();
+    bool ducking = status.at("ducking").get<bool>();
+    float duck_volume = status.at("duck_volume").get<float>();
     std::vector<SourceStages> sources = read_sources(status.at("sources"));
 
     std::lock_guard lock(g_state_mutex);
@@ -131,6 +133,8 @@ void apply_status(const json& status) {
     g_state.game_language = std::move(game_language);
     g_state.speech_language = std::move(speech_language);
     g_state.paused = paused;
+    g_state.ducking = ducking;
+    g_state.duck_volume = duck_volume;
     g_state.sources = std::move(sources);
 }
 
@@ -331,6 +335,14 @@ void request_speech_language(const std::string& code) {
 
 void request_stage_enabled(const std::string& key, bool enabled) {
     enqueue({L"PATCH", L"/v1/stages", json{{"key", key}, {"enabled", enabled}}.dump()});
+}
+
+void request_ducking(bool enabled) {
+    enqueue({L"PATCH", L"/v1/settings", json{{"ducking", enabled}}.dump()});
+}
+
+void request_duck_volume(float volume) {
+    enqueue({L"PATCH", L"/v1/settings", json{{"duck_volume", volume}}.dump()});
 }
 
 void dismiss_error() {

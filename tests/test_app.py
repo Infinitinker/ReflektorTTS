@@ -8,6 +8,8 @@ import pytest
 from reflektortts.api.server import StageError
 from reflektortts.app import Core, build_routes, read_game
 from reflektortts.bus import Event
+from reflektortts.ducking.records import DuckRecords
+from reflektortts.ducking.volume import OpenAppVolume
 from reflektortts.events import ErrorEvent, GameInfo, Status, TextEvent
 from reflektortts.games.detector import ProcessInfo, RunningGame
 from reflektortts.languages import LanguageError, Languages
@@ -136,13 +138,19 @@ GTA2 = Profile(
 )
 
 
+def no_sound() -> OpenAppVolume:
+    return lambda pid: None
+
+
 def make_core(tmp_path: Path, clients: Clients, voices: list[VoiceInfo] | None = None) -> Core:
     return Core(
         profiles=[GTA2],
         settings_file=tmp_path / "settings.json",
-        narrator_factory=lambda voice: Narrator(voice, clients.start),
+        narrator_factory=lambda voice, on_speaking: Narrator(voice, clients.start, on_speaking),
         list_voices=lambda: [LJSPEECH, ADAM, PAULINA] if voices is None else voices,
         stages=STAGES,
+        open_app_volume=no_sound,
+        duck_records=DuckRecords(tmp_path / "lowered-games.json"),
     )
 
 
@@ -154,7 +162,13 @@ def test_core_saves_a_new_voice_and_remembers_it_for_its_language(tmp_path: Path
     status = core.set_voice("windows:Microsoft Paulina")
 
     assert status == Status(
-        game=None, voice="windows:Microsoft Paulina", game_language="auto", speech_language="en", paused=False
+        game=None,
+        voice="windows:Microsoft Paulina",
+        game_language="auto",
+        speech_language="en",
+        paused=False,
+        ducking=True,
+        duck_volume=0.3,
     )
     assert events == [status]
     saved = load_settings(tmp_path / "settings.json")
@@ -216,6 +230,17 @@ def test_languages_are_saved_and_checked(tmp_path: Path) -> None:
         core.set_game_language("xx")
 
 
+def test_ducking_settings_are_saved(tmp_path: Path) -> None:
+    core = make_core(tmp_path, Clients())
+
+    status = core.set_ducking(False, 0.5)
+
+    assert (status.ducking, status.duck_volume) == (False, 0.5)
+    saved = load_settings(tmp_path / "settings.json")
+    assert (saved.ducking, saved.duck_volume) == (False, 0.5)
+    core.close()
+
+
 def test_pause_resume_and_stop_line(tmp_path: Path) -> None:
     clients = Clients()
     core = make_core(tmp_path, clients)
@@ -271,10 +296,12 @@ def test_source_errors_after_the_game_exits_are_not_reported(tmp_path: Path) -> 
     core = Core(
         profiles=[],
         settings_file=tmp_path / "settings.json",
-        narrator_factory=lambda voice: Narrator(voice, Clients().start),
+        narrator_factory=lambda voice, on_speaking: Narrator(voice, Clients().start, on_speaking),
         list_voices=lambda: [ADAM],
         is_running=lambda pid: pid in running,
         stages=STAGES,
+        open_app_volume=no_sound,
+        duck_records=DuckRecords(tmp_path / "lowered-games.json"),
     )
     core._game = GameInfo("Game", 42)
     events: list[Event] = []

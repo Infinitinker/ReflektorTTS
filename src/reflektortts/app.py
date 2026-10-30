@@ -11,6 +11,9 @@ import psutil
 
 from reflektortts.api.server import ApiServer, StageError
 from reflektortts.bus import EventBus, Listener
+from reflektortts.ducking.ducker import Ducker
+from reflektortts.ducking.records import DuckRecords, records_path
+from reflektortts.ducking.volume import DuckingUnavailableError, OpenAppVolume, system_app_volume
 from reflektortts.events import ErrorEvent, GameInfo, SourceStages, StageState, Status
 from reflektortts.games.detector import RunningGame, find_running_games
 from reflektortts.languages import (
@@ -40,6 +43,19 @@ GAME_CHECK_SECONDS = 2.0
 
 def default_profiles_dir() -> Path:
     return platformdirs.user_data_path("reflektortts", appauthor=False) / "profiles"
+
+
+def start_narrator(voice: str, on_speaking: Callable[[bool], None]) -> Narrator:
+    return Narrator(voice, on_speaking=on_speaking)
+
+
+def app_volume() -> OpenAppVolume:
+    """This system's per-app volume, or one that finds no sound, so nothing is lowered."""
+    try:
+        return system_app_volume()
+    except DuckingUnavailableError as error:
+        logger.info("%s", error)
+        return lambda pid: None
 
 
 def stage_key(source: str, position: int, stage_type: str) -> str:
@@ -113,10 +129,12 @@ class Core:
         profiles: Sequence[Profile],
         settings_file: Path,
         overlay_dirs: Sequence[Path] = (),
-        narrator_factory: Callable[[str], Narrator] = Narrator,
+        narrator_factory: Callable[[str, Callable[[bool], None]], Narrator] = start_narrator,
         list_voices: Callable[[], list[VoiceInfo]] = available_voices,
         is_running: Callable[[int], bool] = psutil.pid_exists,
         stages: Mapping[str, StagePlugin] | None = None,
+        open_app_volume: Callable[[], OpenAppVolume] = app_volume,
+        duck_records: DuckRecords | None = None,
     ) -> None:
         self._profiles = profiles
         self._is_running = is_running
@@ -125,7 +143,13 @@ class Core:
         self._overlay_dirs = overlay_dirs
         self._list_voices = list_voices
         self._stages = stage_plugins() if stages is None else stages
-        self._narrator = narrator_factory(self._settings.voice)
+        self._ducker = Ducker(
+            open_app_volume(),
+            DuckRecords(records_path()) if duck_records is None else duck_records,
+            self._settings.ducking,
+            self._settings.duck_volume,
+        )
+        self._narrator = narrator_factory(self._settings.voice, self._ducker.speaking)
         self._bus = EventBus()
         self._game: GameInfo | None = None
         self._profile: Profile | None = None
@@ -137,6 +161,8 @@ class Core:
             game_language=self._settings.game_language,
             speech_language=self._settings.speech_language,
             paused=self._narrator.paused,
+            ducking=self._settings.ducking,
+            duck_volume=self._settings.duck_volume,
             sources=self._source_stages(),
         )
 
@@ -168,6 +194,12 @@ class Core:
         self._narrator.use_voice(voice)
         remembered = self._settings.voices_by_language | {primary_language(voices[voice].language): voice}
         self._save(replace(self._settings, voice=voice, voices_by_language=remembered))
+        return self._publish_status()
+
+    def set_ducking(self, enabled: bool, volume: float) -> Status:
+        """Whether, and how far, the game's sound is lowered while lines are spoken."""
+        self._ducker.configure(enabled, volume)
+        self._save(replace(self._settings, ducking=enabled, duck_volume=volume))
         return self._publish_status()
 
     def set_paused(self, paused: bool) -> Status:
@@ -216,6 +248,7 @@ class Core:
             self._game = GameInfo(title=game.profile.game.title, pid=game.process.pid)
             self._profile = game.profile
             self._publish_status()
+            self._ducker.watch(game.process)
             if self._overlay_dirs:
                 inject_overlay(game.process.pid, self._overlay_dirs)
             routes = build_routes(game, sources, self._stages, self._report, self.is_stage_enabled)
@@ -225,12 +258,14 @@ class Core:
                 logger.error("%s is running, but none of its sources could start.", game.profile.game.title)
             read_game(game, routes, sinks, stop, self._report, self._is_running, languages=self.languages)
             logger.info("%s closed", game.profile.game.title)
+            self._ducker.watch(None)
             self._game = None
             self._profile = None
             self._publish_status()
 
     def close(self) -> None:
         self._narrator.close()
+        self._ducker.close()
 
     def _source_stages(self) -> tuple[SourceStages, ...]:
         profile = self._profile
