@@ -9,7 +9,7 @@ from pathlib import Path
 import platformdirs
 import psutil
 
-from reflektortts.api.server import ApiServer, StageError
+from reflektortts.api.server import ApiServer, SourceError, StageError
 from reflektortts.bus import EventBus, Listener
 from reflektortts.ducking.ducker import Ducker
 from reflektortts.ducking.records import DuckRecords, records_path
@@ -67,16 +67,30 @@ def _enabled_check(source: str, types: Sequence[str], is_enabled: Callable[[str]
     return lambda position: is_enabled(stage_key(source, position, types[position]))
 
 
+def _source_check(source: str, is_source_enabled: Callable[[str], bool]) -> Callable[[], bool]:
+    return lambda: is_source_enabled(source)
+
+
+def _switched(disabled: dict[str, list[str]], profile_id: str, key: str, enabled: bool) -> dict[str, list[str]]:
+    """Switched-off keys by profile ID, with key switched on or off for one profile."""
+    keys = set(disabled.get(profile_id, []))
+    keys = keys - {key} if enabled else keys | {key}
+    stored = disabled | {profile_id: sorted(keys)}
+    return {profile: keys for profile, keys in stored.items() if keys}
+
+
 def build_routes(
     game: RunningGame,
     sources: Mapping[str, SourcePlugin],
     stages: Mapping[str, StagePlugin],
     on_error: Callable[[ErrorEvent], None],
     is_enabled: Callable[[str], bool] = lambda key: True,
+    is_source_enabled: Callable[[str], bool] = lambda name: True,
 ) -> list[Route]:
     """Creates the game's sources and their stages; a source that cannot start is reported and skipped.
 
-    is_enabled tells, by stage key, whether the player has the stage switched on.
+    is_enabled tells, by stage key, whether the player has the stage switched on; is_source_enabled
+    tells the same for a source, by name.
     """
     routes = []
     for settings in game.profile.sources:
@@ -91,6 +105,7 @@ def build_routes(
                 source,
                 [stages[stage.type].create(stage.settings) for stage in settings.stages],
                 _enabled_check(settings.name, types, is_enabled),
+                _source_check(settings.name, is_source_enabled),
             )
         )
     return routes
@@ -213,6 +228,22 @@ class Core:
         self._narrator.stop_line()
         return self.status()
 
+    def is_source_enabled(self, name: str) -> bool:
+        profile = self._profile
+        return profile is None or name not in self._settings.disabled_sources.get(profile.id, [])
+
+    def set_source_enabled(self, name: str, enabled: bool) -> Status:
+        """Switches a source of the game being read on or off; the choice is saved for that game."""
+        profile = self._profile
+        if profile is None:
+            raise SourceError("No game is being read.")
+        names = [source.name for source in profile.sources]
+        if name not in names:
+            raise SourceError(f'{profile.game.title} has no source "{name}". Its sources: {", ".join(names)}.')
+        disabled = _switched(self._settings.disabled_sources, profile.id, name, enabled)
+        self._save(replace(self._settings, disabled_sources=disabled))
+        return self._publish_status()
+
     def is_stage_enabled(self, key: str) -> bool:
         profile = self._profile
         return profile is None or key not in self._settings.disabled_stages.get(profile.id, [])
@@ -225,10 +256,8 @@ class Core:
         keys = [stage.key for source in self._source_stages() for stage in source.stages]
         if key not in keys:
             raise StageError(f'{profile.game.title} has no stage "{key}". Its stages: {", ".join(keys)}.')
-        disabled = set(self._settings.disabled_stages.get(profile.id, []))
-        disabled = disabled - {key} if enabled else disabled | {key}
-        stored = self._settings.disabled_stages | {profile.id: sorted(disabled)}
-        self._save(replace(self._settings, disabled_stages={game: keys for game, keys in stored.items() if keys}))
+        disabled = _switched(self._settings.disabled_stages, profile.id, key, enabled)
+        self._save(replace(self._settings, disabled_stages=disabled))
         return self._publish_status()
 
     def subscribe(self, listener: Listener) -> Callable[[], None]:
@@ -251,7 +280,9 @@ class Core:
             self._ducker.watch(game.process)
             if self._overlay_dirs:
                 inject_overlay(game.process.pid, self._overlay_dirs)
-            routes = build_routes(game, sources, self._stages, self._report, self.is_stage_enabled)
+            routes = build_routes(
+                game, sources, self._stages, self._report, self.is_stage_enabled, self.is_source_enabled
+            )
             if routes:
                 logger.info("Reading %s aloud", game.profile.game.title)
             else:
@@ -274,6 +305,8 @@ class Core:
         return tuple(
             SourceStages(
                 source=source.name,
+                type=source.type,
+                enabled=self.is_source_enabled(source.name),
                 stages=tuple(
                     self._stage_state(stage_key(source.name, position, stage.type), stage.type)
                     for position, stage in enumerate(source.stages)

@@ -5,7 +5,7 @@ from typing import Any
 
 import pytest
 
-from reflektortts.api.server import StageError
+from reflektortts.api.server import SourceError, StageError
 from reflektortts.app import Core, build_routes, read_game
 from reflektortts.bus import Event
 from reflektortts.ducking.records import DuckRecords
@@ -275,7 +275,22 @@ def test_switching_stages_needs_a_game_and_a_known_stage(tmp_path: Path) -> None
         core.set_stage_enabled("messages/9:x", False)
 
 
-def test_build_routes_asks_whether_each_stage_is_enabled() -> None:
+def test_sources_of_the_game_being_read_can_be_switched_off_and_stay_off(tmp_path: Path) -> None:
+    core = make_core(tmp_path, Clients())
+    core._profile = GTA2
+
+    status = core.set_source_enabled("messages", False)
+
+    assert (status.sources[0].type, status.sources[0].enabled) == ("fixed", False)
+    assert not core.is_source_enabled("messages")
+    assert load_settings(tmp_path / "settings.json").disabled_sources == {GTA2.id: ["messages"]}
+    core.set_source_enabled("messages", True)
+    assert load_settings(tmp_path / "settings.json").disabled_sources == {}
+    with pytest.raises(SourceError, match='has no source "signs"'):
+        core.set_source_enabled("signs", False)
+
+
+def test_build_routes_asks_whether_each_source_and_stage_is_enabled() -> None:
     game = game_with(
         SourceSettings("fixed", "messages", 0.25, {"text": "hi"}, (StageSettings("suffix", {"suffix": "!"}),))
     )
@@ -285,10 +300,11 @@ def test_build_routes_asks_whether_each_stage_is_enabled() -> None:
         asked.append(key)
         return False
 
-    routes = build_routes(game, SOURCES, STAGES, lambda error: None, is_enabled)
+    routes = build_routes(game, SOURCES, STAGES, lambda error: None, is_enabled, is_enabled)
 
     assert routes[0].is_enabled(0) is False
-    assert asked == ["messages/0:suffix"]
+    assert routes[0].is_source_enabled() is False
+    assert asked == ["messages/0:suffix", "messages"]
 
 
 def test_source_errors_after_the_game_exits_are_not_reported(tmp_path: Path) -> None:

@@ -130,20 +130,22 @@ void draw_header(const CoreState& state) {
     ImGui::Separator();
 }
 
-void draw_reading(const CoreState& state) {
-    begin_box("Reading");
-    ImGui::TextUnformatted(state.game.empty() ? "Waiting for a game" : state.game.c_str());
+// The game being read, and whether reading is active or paused.
+void draw_status(const CoreState& state) {
+    ImGui::TextUnformatted(state.game.c_str());
     const char* reading = state.paused ? "Paused" : "Active";
     align_right(dot_label_width(reading));
     dot_label(state.paused ? kAmber : kGreen, reading);
-    if (ImGui::Button(state.paused ? "Resume reading" : "Pause reading")) {
-        request_paused(!state.paused);
-    }
-    ImGui::SameLine();
-    if (ImGui::Button("Stop this line")) {
-        request_stop_line();
-    }
-    end_box();
+}
+
+// A small arrow between groups, showing which way text flows through the app.
+void draw_flow_arrow() {
+    float size = ImGui::GetFontSize() * 0.5f;
+    ImVec2 top = ImGui::GetCursorScreenPos();
+    float center = top.x + ImGui::GetContentRegionAvail().x * 0.5f;
+    ImGui::GetWindowDrawList()->AddTriangleFilled(ImVec2(center - size, top.y), ImVec2(center + size, top.y),
+                                                  ImVec2(center, top.y + size), ImGui::GetColorU32(ImGuiCol_TextDisabled));
+    ImGui::Dummy(ImVec2(0.0f, size));
 }
 
 void draw_language_combo(const char* label, const CoreState& state, const std::string& current, bool with_auto,
@@ -213,7 +215,6 @@ void draw_ducking(const CoreState& state) {
     static int dragged_percent = -1;
     int percent = dragged_percent >= 0 ? dragged_percent : static_cast<int>(std::lround(state.duck_volume * 100.0f));
     ImGui::BeginDisabled(!state.ducking);
-    ImGui::Indent();
     if (ImGui::SliderInt("Game volume", &percent, 0, 100, "%d%%", ImGuiSliderFlags_AlwaysClamp)) {
         dragged_percent = percent;
     }
@@ -223,16 +224,37 @@ void draw_ducking(const CoreState& state) {
     if (!ImGui::IsItemActive()) {
         dragged_percent = -1;
     }
-    ImGui::Unindent();
     ImGui::EndDisabled();
 }
 
-void draw_voice_and_language(const CoreState& state) {
-    begin_box("Voice & language");
+// Where text comes from: the game's language and its sources, each of which can be switched off.
+void draw_game(const CoreState& state) {
+    begin_box("Game");
     draw_language_combo("Game language", state, state.game_language, true, request_game_language);
-    draw_language_combo("Speech language", state, state.speech_language, false, request_speech_language);
+    for (const SourceStages& source : state.sources) {
+        bool enabled = source.enabled;
+        if (ImGui::Checkbox((source.source + "##source:" + source.source).c_str(), &enabled)) {
+            request_source_enabled(source.source, enabled);
+        }
+        ImGui::SameLine();
+        ImGui::TextDisabled("%s", source.type.c_str());
+    }
+    end_box();
+}
+
+// Where text goes: the language it is prepared in, and how it is spoken.
+void draw_output(const CoreState& state) {
+    begin_box("Output");
+    draw_language_combo("Language", state, state.speech_language, false, request_speech_language);
     draw_voice_combo(state);
     draw_ducking(state);
+    if (ImGui::Button(state.paused ? "Resume reading" : "Pause reading")) {
+        request_paused(!state.paused);
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Stop this line")) {
+        request_stop_line();
+    }
     end_box();
 }
 
@@ -254,12 +276,11 @@ void draw_stage(const StageOption& stage) {
 
 void draw_text_processing(const CoreState& state) {
     begin_box("Text processing");
-    if (state.sources.empty()) {
-        ImGui::TextDisabled("Shown while a game is being read.");
-    }
     // Source names matter only when a game has more than one source.
     bool headings = state.sources.size() > 1;
     for (const SourceStages& source : state.sources) {
+        // A switched-off source's stages stay visible, greyed out, and keep their own state.
+        ImGui::BeginDisabled(!source.enabled);
         if (headings) {
             ImGui::TextUnformatted(source.source.c_str());
             ImGui::Indent();
@@ -270,6 +291,7 @@ void draw_text_processing(const CoreState& state) {
         if (headings) {
             ImGui::Unindent();
         }
+        ImGui::EndDisabled();
     }
     end_box();
 }
@@ -309,9 +331,13 @@ void draw_panel(const CoreState& state) {
     if (!state.connected) {
         ImGui::TextWrapped("Not connected to ReflektorTTS. Is it running?");
     } else {
-        draw_reading(state);
-        draw_voice_and_language(state);
+        // Top to bottom, the way a line goes through the app: game, processing, output.
+        draw_status(state);
+        draw_game(state);
+        draw_flow_arrow();
         draw_text_processing(state);
+        draw_flow_arrow();
+        draw_output(state);
         draw_last_spoken(state);
     }
     draw_footer(state);

@@ -21,6 +21,8 @@ The status object, returned by several requests and sent as an event:
   "sources": [
     {
       "name": "messages",
+      "type": "memory",
+      "enabled": true,
       "stages": [
         {
           "key": "messages/0:tracker",
@@ -46,7 +48,7 @@ The status object, returned by several requests and sent as an event:
 | `duck_volume` | The game's volume while lines are spoken, as a fraction of its own volume (0 to 1) |
 | `sources` | The stages of the game being read, per source in the game's profile, with whether the player has each switched on; empty while waiting for a game |
 
-A stage's `type` is its name in the profile and `summary` says in a few words what it does; `warning` (or `null`) is shown while the stage is switched off, if reading breaks without it. `key` identifies the stage for `PATCH /v1/stages`.
+A source's `name` is its name in the profile, `type` its plugin, and `enabled` whether the player has it switched on; `name` identifies it for `PATCH /v1/sources`. A stage's `type` is its name in the profile and `summary` says in a few words what it does; `warning` (or `null`) is shown while the stage is switched off, if reading breaks without it. `key` identifies the stage for `PATCH /v1/stages`.
 
 ## Requests
 
@@ -94,6 +96,16 @@ Changes settings and saves them. Send any of the fields:
 - `duck_volume`: a number from 0 to 1, the game's volume while lines are spoken as a fraction of its own; applies at once, also while lowered.
 
 The ducking fields are applied first, then the others in the order listed, so an explicit `voice` wins over the one a new speech language picks. Returns the status.
+
+### `PATCH /v1/sources`
+
+Switches a source of the game being read on or off. A switched-off source is not read until switched on again; its stages keep their own settings. The choice is saved per game:
+
+```json
+{ "name": "messages", "enabled": false }
+```
+
+Returns the status.
 
 ### `PATCH /v1/stages`
 

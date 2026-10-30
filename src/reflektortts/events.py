@@ -48,7 +48,12 @@ class StageState:
 
 @dataclass(frozen=True)
 class SourceStages:
+    """One source of the game being read and its stages, as the player sees them."""
+
     source: str
+    type: str
+    """The source plugin, e.g. "memory"."""
+    enabled: bool
     stages: tuple[StageState, ...]
 
 

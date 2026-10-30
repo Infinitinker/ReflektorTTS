@@ -102,7 +102,8 @@ std::optional<Response> send(const Request& request) {
 std::vector<SourceStages> read_sources(const json& sources) {
     std::vector<SourceStages> result;
     for (const json& source : sources) {
-        SourceStages entry{source.at("name").get<std::string>(), {}};
+        SourceStages entry{source.at("name").get<std::string>(), source.at("type").get<std::string>(),
+                           source.at("enabled").get<bool>(), {}};
         for (const json& stage : source.at("stages")) {
             const json& warning = stage.at("warning");
             entry.stages.push_back({stage.at("key").get<std::string>(), stage.at("type").get<std::string>(),
@@ -331,6 +332,10 @@ void request_game_language(const std::string& code) {
 
 void request_speech_language(const std::string& code) {
     enqueue({L"PATCH", L"/v1/settings", json{{"speech_language", code}}.dump()});
+}
+
+void request_source_enabled(const std::string& name, bool enabled) {
+    enqueue({L"PATCH", L"/v1/sources", json{{"name", name}, {"enabled", enabled}}.dump()});
 }
 
 void request_stage_enabled(const std::string& key, bool enabled) {

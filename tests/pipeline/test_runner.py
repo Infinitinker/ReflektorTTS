@@ -99,6 +99,20 @@ def test_switched_off_stages_are_skipped() -> None:
     assert texts(sink) == ["HELLO", "hello"]
 
 
+def test_switched_off_sources_are_not_read() -> None:
+    sink = RecordingSink()
+    source = ScriptedSource("memory", ["one", "two"])
+    on = [False]
+    runner = Runner([Route(source, is_source_enabled=lambda: on[0])], [sink])
+
+    runner.poll(0.0)
+    on[0] = True
+    runner.poll(1.0)
+
+    assert source.reads == 1
+    assert texts(sink) == ["one"]
+
+
 def test_sources_are_read_only_when_due() -> None:
     fast = ScriptedSource("fast", [], poll_interval=0.25)
     slow = ScriptedSource("slow", [], poll_interval=1.0)

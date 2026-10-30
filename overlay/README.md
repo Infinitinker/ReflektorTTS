@@ -7,11 +7,12 @@ A DLL loaded into the game process. It hooks the point where the game shows each
 The core loads the overlay into a game when it detects it (see the main README, `--overlay`). For the first 10 seconds a hint shows in the top-left corner. Then:
 
 - **Ctrl+Shift+R** opens and closes the panel (only while the game window is in front).
-- The panel has a header with the connection state, then:
-  - **Reading**: the game being read and whether reading is active, with **Pause/Resume reading** and **Stop this line**.
-  - **Voice & language**: **Game language** (or Auto), **Speech language**, and **Voice**, listing only the voices that speak the speech language, grouped by engine. Changing the speech language switches to the voice last used for it. If no voice speaks it, the panel says where to get one. **Lower game sound while speaking** and its **Game volume** slider set how far the game is turned down while a line is spoken.
-  - **Text processing**: a tick for each stage of the game's profile (grouped by source when there are several), to switch it off and on; saved per game.
+- The panel has a header with the connection state and a line with the game being read and whether reading is active or paused. Below it, three groups follow the way a line goes through the app, joined by arrows:
+  - **Game**: **Game language** (or Auto), and a tick for each source of the game's profile, with its type, to switch it off and on.
+  - **Text processing**: a tick for each stage of the game's profile, to switch it off and on. With several sources, stages are grouped under their source's name; a switched-off source's stages are greyed out and keep their own ticks.
+  - **Output**: **Language**, the language lines are prepared and spoken in, and **Voice**, listing only the voices that speak it, grouped by engine. Changing the language switches to the voice last used for it; if no voice speaks it, the panel says where to get one. **Lower game sound while speaking** and its **Game volume** slider set how far the game is turned down while a line is spoken. **Pause/Resume reading** and **Stop this line**.
   - **Last spoken**: the last line sent to the voice, up to 9 lines, at the bottom so the controls above never move.
+- Source and stage ticks are saved per game.
 - Changes take effect for the next line and are saved.
 - The overlay draws its own mouse cursor while the panel is open, since games often hide the system one.
 

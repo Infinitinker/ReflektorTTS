@@ -26,6 +26,8 @@ class Settings:
     """The language lines are prepared and spoken in (ISO 639-1)."""
     voices_by_language: dict[str, str] = field(default_factory=dict)
     """The voice last chosen for each speech language, e.g. {"pl": "windows:Microsoft Adam"}."""
+    disabled_sources: dict[str, list[str]] = field(default_factory=dict)
+    """Sources switched off by the player, by profile ID: {"grand-theft-auto-2-1999": ["messages"]}."""
     disabled_stages: dict[str, list[str]] = field(default_factory=dict)
     """Stages switched off by the player, by profile ID: {"grand-theft-auto-2-1999": ["messages/2:normalize"]}."""
     ducking: bool = True
@@ -91,6 +93,7 @@ def load_settings(path: Path) -> Settings:
         game_language=_text(data, "game_language", defaults.game_language),
         speech_language=speech_language,
         voices_by_language=_text_map(data.get("voices_by_language")),
+        disabled_sources=_list_map(data.get("disabled_sources")),
         disabled_stages=_list_map(data.get("disabled_stages")),
         ducking=_flag(data, "ducking", defaults.ducking),
         duck_volume=_fraction(data, "duck_volume", defaults.duck_volume),

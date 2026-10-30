@@ -28,6 +28,8 @@ struct StageOption {
 
 struct SourceStages {
     std::string source;
+    std::string type;  // The source plugin, e.g. "memory".
+    bool enabled = true;
     std::vector<StageOption> stages;
 };
 
@@ -59,6 +61,7 @@ void request_stop_line();
 void request_voice(const std::string& voice_id);
 void request_game_language(const std::string& code);
 void request_speech_language(const std::string& code);
+void request_source_enabled(const std::string& name, bool enabled);
 void request_stage_enabled(const std::string& key, bool enabled);
 void request_ducking(bool enabled);
 void request_duck_volume(float volume);

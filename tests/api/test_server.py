@@ -8,7 +8,16 @@ from typing import Any
 import pytest
 from aiohttp.test_utils import TestClient, TestServer
 
-from reflektortts.api.server import SETTINGS_HELP, STAGES_HELP, ApiError, ApiServer, StageError, create_app
+from reflektortts.api.server import (
+    SETTINGS_HELP,
+    SOURCES_HELP,
+    STAGES_HELP,
+    ApiError,
+    ApiServer,
+    SourceError,
+    StageError,
+    create_app,
+)
 from reflektortts.bus import EventBus, Listener
 from reflektortts.events import ErrorEvent, GameInfo, SourceStages, StageState, Status, TextEvent
 from reflektortts.languages import LanguageError, check_game_language, check_speech_language
@@ -36,7 +45,7 @@ class FakeCore:
             paused=False,
             ducking=True,
             duck_volume=0.3,
-            sources=(SourceStages("messages", (TRACKER,)),),
+            sources=(SourceStages("messages", "memory", True, (TRACKER,)),),
         )
 
     def status(self) -> Status:
@@ -73,11 +82,17 @@ class FakeCore:
         self.stopped_lines += 1
         return self.current
 
+    def set_source_enabled(self, name: str, enabled: bool) -> Status:
+        if name != "messages":
+            raise SourceError(f'Grand Theft Auto 2 has no source "{name}".')
+        self.current = replace(self.current, sources=(replace(self.current.sources[0], enabled=enabled),))
+        return self.current
+
     def set_stage_enabled(self, key: str, enabled: bool) -> Status:
         if key != TRACKER.key:
             raise StageError(f'Grand Theft Auto 2 has no stage "{key}".')
         stage = replace(TRACKER, enabled=enabled)
-        self.current = replace(self.current, sources=(SourceStages("messages", (stage,)),))
+        self.current = replace(self.current, sources=(replace(self.current.sources[0], stages=(stage,)),))
         return self.current
 
     def subscribe(self, listener: Listener) -> Callable[[], None]:
@@ -107,6 +122,8 @@ def test_status() -> None:
             "sources": [
                 {
                     "name": "messages",
+                    "type": "memory",
+                    "enabled": True,
                     "stages": [
                         {
                             "key": "messages/0:tracker",
@@ -188,6 +205,31 @@ def test_bad_settings_are_rejected_with_a_message(body: Any, message: str) -> No
             response = await client.patch("/v1/settings", data=body)
         else:
             response = await client.patch("/v1/settings", json=body)
+        assert response.status == 400
+        assert await response.json() == {"error": message}
+
+    with_client(FakeCore(), test)
+
+
+def test_switching_a_source_off() -> None:
+    async def test(client: TestClient[Any, Any]) -> None:
+        response = await client.patch("/v1/sources", json={"name": "messages", "enabled": False})
+        assert (await response.json())["sources"][0]["enabled"] is False
+
+    with_client(FakeCore(), test)
+
+
+@pytest.mark.parametrize(
+    ("body", "message"),
+    [
+        ({"name": "signs", "enabled": False}, 'Grand Theft Auto 2 has no source "signs".'),
+        ({"name": "messages", "enabled": "no"}, SOURCES_HELP),
+        ({"enabled": True}, SOURCES_HELP),
+    ],
+)
+def test_bad_source_requests_are_rejected_with_a_message(body: dict[str, Any], message: str) -> None:
+    async def test(client: TestClient[Any, Any]) -> None:
+        response = await client.patch("/v1/sources", json=body)
         assert response.status == 400
         assert await response.json() == {"error": message}
 

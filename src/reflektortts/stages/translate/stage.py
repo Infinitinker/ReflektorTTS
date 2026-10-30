@@ -78,5 +78,5 @@ PLUGIN = StagePlugin(
     type="translate",
     settings_schema=load_schema("reflektortts.stages.translate", "translate.schema.json"),
     create=create,
-    summary="Translates into the speech language",
+    summary="Translates into the output language",
 )

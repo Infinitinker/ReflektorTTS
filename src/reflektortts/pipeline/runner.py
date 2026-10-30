@@ -21,6 +21,10 @@ def always_enabled(position: int) -> bool:
     return True
 
 
+def always_on() -> bool:
+    return True
+
+
 @dataclass
 class Route:
     """One source and the stages its text passes through. Stages keep state per route."""
@@ -29,6 +33,8 @@ class Route:
     stages: Sequence[Stage] = ()
     is_enabled: Callable[[int], bool] = always_enabled
     """Whether the stage at a position runs; the player can switch stages off while playing."""
+    is_source_enabled: Callable[[], bool] = always_on
+    """Whether the source is read; the player can switch sources off while playing."""
     next_poll: float = field(default=0.0, init=False)
 
 
@@ -37,7 +43,8 @@ class Runner:
 
     When a source has no text, its stages get an event with empty text, so they can tell
     a line disappeared; empty text is never delivered to sinks. Every event carries the
-    game and speech languages current when it was read. Switched-off stages are skipped.
+    game and speech languages current when it was read. Switched-off sources are not read
+    and switched-off stages are skipped.
 
     A failing source, stage or sink is reported once through on_error and does not stop
     the others; the runner keeps trying it and logs when it works again.
@@ -71,7 +78,8 @@ class Runner:
         for route in self._routes:
             if now >= route.next_poll:
                 route.next_poll = now + route.source.poll_interval
-                self._poll_route(route, now)
+                if route.is_source_enabled():
+                    self._poll_route(route, now)
 
     def _poll_route(self, route: Route, now: float) -> None:
         source = route.source

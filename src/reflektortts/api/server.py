@@ -26,6 +26,10 @@ class ApiError(Exception):
     """The API server cannot start."""
 
 
+class SourceError(Exception):
+    """A source cannot be switched on or off; the message says why."""
+
+
 class StageError(Exception):
     """A stage cannot be switched on or off; the message says why."""
 
@@ -52,6 +56,9 @@ class CoreControl(Protocol):
     def set_paused(self, paused: bool) -> Status: ...
 
     def stop_line(self) -> Status: ...
+
+    def set_source_enabled(self, name: str, enabled: bool) -> Status:
+        """Raises SourceError if no game is read or it has no such source."""
 
     def set_stage_enabled(self, key: str, enabled: bool) -> Status:
         """Raises StageError if no game is read or it has no such stage."""
@@ -81,7 +88,12 @@ def status_json(status: Status) -> dict[str, Any]:
         "ducking": status.ducking,
         "duck_volume": status.duck_volume,
         "sources": [
-            {"name": source.source, "stages": [stage_json(stage) for stage in source.stages]}
+            {
+                "name": source.source,
+                "type": source.type,
+                "enabled": source.enabled,
+                "stages": [stage_json(stage) for stage in source.stages],
+            }
             for source in status.sources
         ],
     }
@@ -121,6 +133,7 @@ SETTINGS_HELP = (
     'Send any of "game_language", "speech_language" and "voice" (text), "ducking" (true or false) '
     'and "duck_volume" (a number from 0 to 1), e.g. {"speech_language": "pl"}.'
 )
+SOURCES_HELP = 'Send {"name": "<source name from the status>", "enabled": true or false}.'
 STAGES_HELP = 'Send {"key": "<stage key from the status>", "enabled": true or false}.'
 
 
@@ -166,6 +179,17 @@ async def patch_settings(request: web.Request) -> web.Response:
         if "voice" in values:
             status = await asyncio.to_thread(core.set_voice, values["voice"])
     except (VoiceError, LanguageError) as error:
+        return error_response(str(error))
+    return web.json_response(status_json(status))
+
+
+async def patch_sources(request: web.Request) -> web.Response:
+    body = await read_object(request)
+    if body is None or not isinstance(body.get("name"), str) or not isinstance(body.get("enabled"), bool):
+        return error_response(SOURCES_HELP)
+    try:
+        status = request.app[CORE].set_source_enabled(body["name"], body["enabled"])
+    except SourceError as error:
         return error_response(str(error))
     return web.json_response(status_json(status))
 
@@ -241,6 +265,7 @@ def create_app(core: CoreControl) -> web.Application:
             web.get("/v1/voices", get_voices),
             web.get("/v1/languages", get_languages),
             web.patch("/v1/settings", patch_settings),
+            web.patch("/v1/sources", patch_sources),
             web.patch("/v1/stages", patch_stages),
             web.post("/v1/pause", post_pause),
             web.post("/v1/resume", post_resume),
