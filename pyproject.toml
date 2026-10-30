@@ -12,6 +12,7 @@ requires-python = ">=3.13"
 dependencies = [
     "aiohttp>=3.14",
     "jsonschema>=4.26",
+    "num2words>=0.5.14",
     "piper-tts>=1.8",
     "platformdirs>=4.14",
     "psutil>=7.2",
@@ -31,6 +32,7 @@ piper = "reflektortts.tts.engines.piper:PLUGIN"
 windows = "reflektortts.tts.engines.windows:PLUGIN"
 
 [project.entry-points."reflektortts.stages"]
+normalize = "reflektortts.stages.normalize.stage:PLUGIN"
 replace = "reflektortts.stages.replace:PLUGIN"
 tracker = "reflektortts.stages.tracker:PLUGIN"
 
@@ -51,5 +53,5 @@ strict = true
 files = ["src"]
 
 [[tool.mypy.overrides]]
-module = ["sounddevice"]
+module = ["sounddevice", "num2words"]
 ignore_missing_imports = true

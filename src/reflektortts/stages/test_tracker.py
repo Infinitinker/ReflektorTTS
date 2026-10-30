@@ -43,6 +43,17 @@ def test_lines_with_too_few_letters_are_ignored() -> None:
     assert feed(Tracker(stable_seconds=0.5, min_letters=4), readings) == ["Okay!"]
 
 
+def test_lines_that_are_mostly_symbols_are_ignored() -> None:
+    readings = [
+        (0.0, "Ab#$%^&*()!@"),
+        (1.0, "Ab#$%^&*()!@"),
+        (2.0, "Get to the car, now!"),
+        (3.0, "Get to the car, now!"),
+    ]
+
+    assert feed(Tracker(stable_seconds=0.5, min_letters=2), readings) == ["Get to the car, now!"]
+
+
 def test_plugin_defaults_and_registration() -> None:
     assert stage_plugins()["tracker"] is PLUGIN
     tracker = PLUGIN.create({})

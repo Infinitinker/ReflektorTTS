@@ -104,6 +104,7 @@ void apply_status(const json& status) {
     const json& game = status.at("game");
     g_state.game = game.is_null() ? "" : game.at("title").get<std::string>();
     g_state.voice = status.at("voice").get<std::string>();
+    g_state.language = status.at("language").get<std::string>();
     g_state.paused = status.at("paused").get<bool>();
 }
 
@@ -129,28 +130,47 @@ void handle_event(const std::string& text) {
     }
 }
 
-// Returns false if the core cannot be reached, e.g. because it is not running.
-bool load_voices() {
-    std::optional<Response> response = send({L"GET", L"/v1/voices", ""});
+// Fetches a JSON document. Returns nullopt if the core cannot be reached, and null JSON
+// (after logging why) if it answered with an error.
+std::optional<json> fetch(const wchar_t* path) {
+    std::optional<Response> response = send({L"GET", path, ""});
     if (!response) {
+        return std::nullopt;
+    }
+    json document = json::parse(response->body, nullptr, false);
+    if (response->status != 200 || document.is_discarded()) {
+        log_message("Unexpected answer from the core (HTTP " + std::to_string(response->status) + "): " + response->body);
+        return json();
+    }
+    return document;
+}
+
+// Loads the voices and languages the panel offers. Returns false if the core cannot be reached.
+bool load_options() {
+    std::optional<json> voices = fetch(L"/v1/voices");
+    std::optional<json> languages = fetch(L"/v1/languages");
+    if (!voices || !languages) {
         return false;
     }
-    if (response->status != 200) {
-        log_message("Cannot fetch the voice list (HTTP " + std::to_string(response->status) + "): " + response->body);
-        return true;
-    }
     try {
-        // Kept in a variable: looping over json::parse(...).at(...) would read a destroyed temporary.
-        json document = json::parse(response->body);
-        std::vector<VoiceOption> voices;
-        for (const json& voice : document.at("voices")) {
-            voices.push_back({voice.at("id").get<std::string>(), voice.at("name").get<std::string>(),
-                              voice.at("language").get<std::string>()});
+        std::vector<VoiceOption> voice_options;
+        if (!voices->is_null()) {
+            for (const json& voice : voices->at("voices")) {
+                voice_options.push_back({voice.at("id").get<std::string>(), voice.at("name").get<std::string>(),
+                                         voice.at("language").get<std::string>()});
+            }
+        }
+        std::vector<LanguageOption> language_options;
+        if (!languages->is_null()) {
+            for (const json& language : languages->at("languages")) {
+                language_options.push_back({language.at("code").get<std::string>(), language.at("name").get<std::string>()});
+            }
         }
         std::lock_guard lock(g_state_mutex);
-        g_state.voices = std::move(voices);
+        g_state.voices = std::move(voice_options);
+        g_state.languages = std::move(language_options);
     } catch (const json::exception& error) {
-        log_message(std::string("Cannot read the voice list: ") + error.what());
+        log_message(std::string("Cannot read the voice or language list: ") + error.what());
     }
     return true;
 }
@@ -167,9 +187,9 @@ HINTERNET open_event_socket(HINTERNET connection) {
     return WinHttpWebSocketCompleteUpgrade(request.get(), 0);
 }
 
-// Runs one session: fetches the voice list, then follows /v1/events until it ends.
+// Runs one session: fetches the voice and language lists, then follows /v1/events until it ends.
 void listen_for_events() {
-    if (!load_voices()) {
+    if (!load_options()) {
         return;
     }
     Handle connection(WinHttpConnect(g_session, kHost, kPort, 0));
@@ -269,6 +289,10 @@ void request_paused(bool paused) {
 
 void request_voice(const std::string& voice_id) {
     enqueue({L"PATCH", L"/v1/settings", json{{"voice", voice_id}}.dump()});
+}
+
+void request_language(const std::string& language_code) {
+    enqueue({L"PATCH", L"/v1/settings", json{{"language", language_code}}.dump()});
 }
 
 }  // namespace reflektortts

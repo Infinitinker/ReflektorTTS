@@ -13,6 +13,7 @@ from reflektortts.api.server import ApiServer
 from reflektortts.bus import EventBus, Listener
 from reflektortts.events import ErrorEvent, GameInfo, Status
 from reflektortts.games.detector import RunningGame, find_running_games
+from reflektortts.languages import DEFAULT_LANGUAGE, LANGUAGES, LanguageError
 from reflektortts.overlay import inject_overlay
 from reflektortts.pipeline.plugins import SourcePlugin, StagePlugin, source_plugins, stage_plugins
 from reflektortts.pipeline.protocols import Sink
@@ -60,10 +61,12 @@ def read_game(
     on_error: Callable[[ErrorEvent], None] = log_error,
     is_running: Callable[[int], bool] = psutil.pid_exists,
     check_seconds: float = GAME_CHECK_SECONDS,
+    language: Callable[[], str] = lambda: DEFAULT_LANGUAGE,
 ) -> None:
     """Runs the pipeline until the game exits or stop is set, then closes the sources."""
     runner_stop = threading.Event()
-    worker = threading.Thread(target=Runner(routes, sinks, on_error).run, args=(runner_stop,), name="runner")
+    runner = Runner(routes, sinks, on_error, language=language)
+    worker = threading.Thread(target=runner.run, args=(runner_stop,), name="runner")
     worker.start()
     try:
         while is_running(game.process.pid) and not stop.wait(check_seconds):
@@ -98,7 +101,22 @@ class Core:
         self._game: GameInfo | None = None
 
     def status(self) -> Status:
-        return Status(game=self._game, voice=self._narrator.voice, paused=self._narrator.paused)
+        return Status(
+            game=self._game,
+            voice=self._narrator.voice,
+            language=self._settings.language,
+            paused=self._narrator.paused,
+        )
+
+    def language(self) -> str:
+        return self._settings.language
+
+    def set_language(self, language: str) -> Status:
+        if language not in LANGUAGES:
+            raise LanguageError(f'There is no language "{language}". Available: {", ".join(LANGUAGES)}.')
+        self._settings = replace(self._settings, language=language)
+        save_settings(self._settings, self._settings_file)
+        return self._publish_status()
 
     def voices(self) -> list[VoiceInfo]:
         return self._list_voices()
@@ -142,7 +160,7 @@ class Core:
                 logger.info("Reading %s aloud", game.profile.game.title)
             else:
                 logger.error("%s is running, but none of its sources could start.", game.profile.game.title)
-            read_game(game, routes, sinks, stop, self._report, self._is_running)
+            read_game(game, routes, sinks, stop, self._report, self._is_running, language=self.language)
             logger.info("%s closed", game.profile.game.title)
             self._game = None
             self._publish_status()

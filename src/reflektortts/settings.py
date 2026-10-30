@@ -8,6 +8,7 @@ from pathlib import Path
 
 import platformdirs
 
+from reflektortts.languages import DEFAULT_LANGUAGE
 from reflektortts.tts.engine import DEFAULT_VOICE
 
 logger = logging.getLogger(__name__)
@@ -17,6 +18,8 @@ logger = logging.getLogger(__name__)
 class Settings:
     voice: str = DEFAULT_VOICE
     """Voice as "engine:name", e.g. "windows:Microsoft Adam"."""
+    language: str = DEFAULT_LANGUAGE
+    """Output language (ISO 639-1): what stages like normalization prepare lines for."""
 
 
 def settings_path() -> Path:

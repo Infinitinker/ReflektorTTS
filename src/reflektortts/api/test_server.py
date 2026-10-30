@@ -2,14 +2,16 @@ import asyncio
 import json
 import urllib.request
 from collections.abc import Awaitable, Callable
+from dataclasses import replace
 from typing import Any
 
 import pytest
 from aiohttp.test_utils import TestClient, TestServer
 
-from reflektortts.api.server import ApiError, ApiServer, create_app
+from reflektortts.api.server import SETTINGS_HELP, ApiError, ApiServer, create_app
 from reflektortts.bus import EventBus, Listener
 from reflektortts.events import ErrorEvent, GameInfo, Status, TextEvent
+from reflektortts.languages import LanguageError
 from reflektortts.tts.engine import VoiceError, VoiceInfo
 
 ADAM = VoiceInfo(id="windows:Microsoft Adam", engine="windows", name="Microsoft Adam", language="pl-PL")
@@ -18,7 +20,7 @@ ADAM = VoiceInfo(id="windows:Microsoft Adam", engine="windows", name="Microsoft 
 class FakeCore:
     def __init__(self) -> None:
         self.bus = EventBus()
-        self.current = Status(game=GameInfo("Grand Theft Auto 2", 42), voice="piper:a", paused=False)
+        self.current = Status(game=GameInfo("Grand Theft Auto 2", 42), voice="piper:a", language="en", paused=False)
 
     def status(self) -> Status:
         return self.current
@@ -29,11 +31,17 @@ class FakeCore:
     def set_voice(self, voice: str) -> Status:
         if voice != ADAM.id:
             raise VoiceError(f'There is no voice "{voice}".')
-        self.current = Status(self.current.game, voice, self.current.paused)
+        self.current = replace(self.current, voice=voice)
+        return self.current
+
+    def set_language(self, language: str) -> Status:
+        if language not in ("en", "pl"):
+            raise LanguageError(f'There is no language "{language}".')
+        self.current = replace(self.current, language=language)
         return self.current
 
     def set_paused(self, paused: bool) -> Status:
-        self.current = Status(self.current.game, self.current.voice, paused)
+        self.current = replace(self.current, paused=paused)
         return self.current
 
     def subscribe(self, listener: Listener) -> Callable[[], None]:
@@ -55,8 +63,26 @@ def test_status() -> None:
             "type": "status",
             "game": {"title": "Grand Theft Auto 2", "pid": 42},
             "voice": "piper:a",
+            "language": "en",
             "paused": False,
         }
+
+    with_client(FakeCore(), test)
+
+
+def test_languages() -> None:
+    async def test(client: TestClient[Any, Any]) -> None:
+        languages = (await (await client.get("/v1/languages")).json())["languages"]
+        assert {"code": "pl", "name": "Polski"} in languages
+
+    with_client(FakeCore(), test)
+
+
+def test_changing_the_language_and_voice_together() -> None:
+    async def test(client: TestClient[Any, Any]) -> None:
+        response = await client.patch("/v1/settings", json={"language": "pl", "voice": "windows:Microsoft Adam"})
+        body = await response.json()
+        assert (body["language"], body["voice"]) == ("pl", "windows:Microsoft Adam")
 
     with_client(FakeCore(), test)
 
@@ -86,7 +112,9 @@ def test_changing_the_voice() -> None:
     ("body", "message"),
     [
         ({"voice": "piper:missing"}, 'There is no voice "piper:missing".'),
-        ({"voice": 5}, 'Send {"voice": "engine:name"}.'),
+        ({"language": "xx"}, 'There is no language "xx".'),
+        ({"voice": 5}, SETTINGS_HELP),
+        ({"volume": 5}, SETTINGS_HELP),
         ("not json", "The request body must be JSON."),
     ],
 )

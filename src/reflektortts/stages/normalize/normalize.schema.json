@@ -1,0 +1,8 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Normalize stage settings",
+  "description": "Spells out numbers, money and percentages in the output language chosen by the user. Place it after stages that clean up the text. It has no settings.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+}

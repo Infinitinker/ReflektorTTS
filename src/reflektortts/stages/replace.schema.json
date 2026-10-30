@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Replace stage settings",
-  "description": "Plain text replacements, applied in order.",
+  "description": "Text replacements, applied in order.",
   "type": "object",
   "required": ["rules"],
   "additionalProperties": false,
@@ -10,13 +10,34 @@
       "type": "array",
       "minItems": 1,
       "items": {
-        "type": "object",
-        "required": ["find", "replace"],
-        "additionalProperties": false,
-        "properties": {
-          "find": { "description": "Text to look for.", "type": "string", "minLength": 1 },
-          "replace": { "description": "Text to put in its place; empty to remove it.", "type": "string" }
-        }
+        "oneOf": [
+          {
+            "type": "object",
+            "required": ["find", "replace"],
+            "additionalProperties": false,
+            "properties": {
+              "find": { "description": "Text to look for, matched literally.", "type": "string", "minLength": 1 },
+              "replace": { "description": "Text to put in its place; empty to remove it.", "type": "string" }
+            }
+          },
+          {
+            "type": "object",
+            "required": ["pattern", "replace"],
+            "additionalProperties": false,
+            "properties": {
+              "pattern": {
+                "description": "Regular expression to look for (Python syntax), e.g. \"#([^#]*)#\".",
+                "type": "string",
+                "minLength": 1,
+                "format": "regex"
+              },
+              "replace": {
+                "description": "Replacement; \\1, \\2... insert the pattern's groups, e.g. \"\\1\".",
+                "type": "string"
+              }
+            }
+          }
+        ]
       }
     }
   }

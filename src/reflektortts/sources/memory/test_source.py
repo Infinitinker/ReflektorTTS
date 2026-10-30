@@ -8,7 +8,9 @@ from reflektortts.sources.memory.source import (
     MemorySource,
     PointerChain,
     UnsupportedGameVersion,
-    decode_text,
+    clean,
+    decode_terminated,
+    looks_like_text,
 )
 
 GAME_HASH = "a" * 64
@@ -24,15 +26,34 @@ def memory_with_text(text: bytes) -> FakeMemory:
 def test_decode_utf16_stops_at_the_terminator() -> None:
     raw = "Hello".encode("utf-16le") + b"\0\0" + "junk".encode("utf-16le")
 
-    assert decode_text(raw, "utf-16le") == "Hello"
+    assert decode_terminated(raw, "utf-16le") == "Hello"
 
 
-def test_decode_turns_control_characters_into_spaces() -> None:
-    assert decode_text(b"\x01Get\nin\tthe car\x00rest", "cp1252") == "Get in the car"
+def test_clean_turns_control_characters_into_spaces() -> None:
+    assert clean(decode_terminated(b"\x01Get\nin\tthe car\x00rest", "cp1252")) == "Get in the car"
 
 
 def test_decode_odd_utf16_tail_is_ignored() -> None:
-    assert decode_text("Hi".encode("utf-16le") + b"\x41", "utf-16le") == "Hi"
+    assert decode_terminated("Hi".encode("utf-16le") + b"\x41", "utf-16le") == "Hi"
+
+
+def test_dialogue_in_any_supported_script_looks_like_text() -> None:
+    assert looks_like_text("Welcome to the Downtown District... $50,000!")
+    assert looks_like_text("Zażółć gęślą jaźń — „cytat”")
+    assert looks_like_text("Привет, товарищ!")
+
+
+def test_memory_garbage_does_not_look_like_text() -> None:
+    assert not looks_like_text("一龥\x02\x03￿")
+    assert not looks_like_text("ab\x01\x02\x03\x04\x05\x06\x07\x08")
+    assert not looks_like_text("")
+
+
+def test_stale_pointer_to_garbage_reads_as_no_text() -> None:
+    garbage = "".join(chr(code) for code in (0x4E00, 0x3042, 0xE000, 0x0002, 0x7F00, 0x0041)).encode("utf-16le")
+    source = MemorySource("messages", 0.25, SETTINGS, memory_with_text(garbage + b"\0\0"), GAME_HASH)
+
+    assert source.read() is None
 
 
 def test_read_returns_the_text_at_the_end_of_the_chain() -> None:

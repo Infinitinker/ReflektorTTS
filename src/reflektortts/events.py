@@ -2,6 +2,8 @@
 
 from dataclasses import dataclass
 
+from reflektortts.languages import DEFAULT_LANGUAGE
+
 
 @dataclass(frozen=True)
 class TextEvent:
@@ -10,6 +12,8 @@ class TextEvent:
     source: str
     text: str
     time: float
+    language: str = DEFAULT_LANGUAGE
+    """The output language the line should end up in (ISO 639-1), from the user's settings."""
 
 
 @dataclass(frozen=True)
@@ -34,4 +38,6 @@ class Status:
     game: GameInfo | None
     """The game being read, or None while waiting for one."""
     voice: str
+    language: str
+    """Output language (ISO 639-1)."""
     paused: bool

@@ -9,6 +9,7 @@ from reflektortts.app import Core, build_routes, read_game
 from reflektortts.bus import Event
 from reflektortts.events import ErrorEvent, GameInfo, Status, TextEvent
 from reflektortts.games.detector import ProcessInfo, RunningGame
+from reflektortts.languages import LanguageError
 from reflektortts.pipeline.plugins import SourcePlugin, StagePlugin
 from reflektortts.pipeline.runner import Route
 from reflektortts.profiles.model import Game, Match, Profile, SourceSettings, StageSettings
@@ -143,7 +144,7 @@ def test_core_starts_with_the_saved_voice_and_saves_a_new_one(tmp_path: Path) ->
 
     status = core.set_voice("windows:Microsoft Adam")
 
-    assert status == Status(game=None, voice="windows:Microsoft Adam", paused=False)
+    assert status == Status(game=None, voice="windows:Microsoft Adam", language="en", paused=False)
     assert events == [status]
     assert load_settings(tmp_path / "settings.json").voice == "windows:Microsoft Adam"
     assert make_core(tmp_path, Clients()).status().voice == "windows:Microsoft Adam"
@@ -183,3 +184,13 @@ def test_source_errors_after_the_game_exits_are_not_reported(tmp_path: Path) -> 
     core._report(ErrorEvent("source.error", "messages", "read failed"))
 
     assert events == [ErrorEvent("source.error", "messages", "read failed")]
+
+
+def test_core_saves_the_output_language_and_rejects_unknown_ones(tmp_path: Path) -> None:
+    core = make_core(tmp_path, Clients())
+
+    assert core.set_language("pl").language == "pl"
+    assert core.language() == "pl"
+    assert load_settings(tmp_path / "settings.json").language == "pl"
+    with pytest.raises(LanguageError, match='no language "xx"'):
+        core.set_language("xx")

@@ -13,6 +13,7 @@ The status object, returned by several requests and sent as an event:
   "type": "status",
   "game": { "title": "Grand Theft Auto 2", "pid": 4824 },
   "voice": "piper:en_US-ljspeech-medium",
+  "language": "en",
   "paused": false
 }
 ```
@@ -21,6 +22,7 @@ The status object, returned by several requests and sent as an event:
 |---|---|
 | `game` | The game being read, or `null` while waiting for one |
 | `voice` | The current voice, as `engine:name` |
+| `language` | The output language (ISO 639-1 code): what stages such as normalization prepare lines for |
 | `paused` | Whether reading is paused |
 
 ## Requests
@@ -44,15 +46,26 @@ Returns the voices available now, from every speech engine that works on this sy
 
 `id` is what `PATCH /v1/settings` takes. Piper lists downloaded voices and the default voice, which is downloaded on first use.
 
-### `PATCH /v1/settings`
+### `GET /v1/languages`
 
-Changes settings and saves them. Body:
+Returns the output languages the pipeline supports, with their names in their own language:
 
 ```json
-{ "voice": "windows:Microsoft Adam" }
+{ "languages": [{ "code": "en", "name": "English" }, { "code": "pl", "name": "Polski" }] }
 ```
 
-Switching the voice starts a new speech process; the next line is spoken with the new voice. Returns the status.
+### `PATCH /v1/settings`
+
+Changes settings and saves them. Send either field or both:
+
+```json
+{ "language": "pl", "voice": "windows:Microsoft Adam" }
+```
+
+- `language`: the output language, as a `code` from `/v1/languages`. Lines read from then on are prepared for it.
+- `voice`: an `id` from `/v1/voices`. Switching the voice starts a new speech process; the next line is spoken with the new voice.
+
+The language is applied first. Returns the status.
 
 ### `POST /v1/pause`
 

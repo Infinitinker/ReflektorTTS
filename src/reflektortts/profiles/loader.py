@@ -80,7 +80,9 @@ def _plugin_settings(
         installed = ", ".join(sorted(schemas)) or "none"
         raise ProfileError(f'{path}: unknown {kind} type "{entry["type"]}" (installed: {installed}).')
     settings = {key: value for key, value in entry.items() if key not in core_fields}
-    problem = jsonschema.exceptions.best_match(jsonschema.Draft202012Validator(schema).iter_errors(settings))
+    # Format checks catch e.g. invalid regular expressions while the profile loads.
+    validator = jsonschema.Draft202012Validator(schema, format_checker=jsonschema.Draft202012Validator.FORMAT_CHECKER)
+    problem = jsonschema.exceptions.best_match(validator.iter_errors(settings))
     if problem is not None:
         raise ProfileError(f"{path}{problem.json_path[1:]}: {problem.message}")
     return settings

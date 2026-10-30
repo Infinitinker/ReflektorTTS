@@ -5,7 +5,7 @@ ReflektorTTS reads text through **sources**, processes it with **stages**, and s
 | Kind | Entry-point group | Contract | Built-in examples |
 |---|---|---|---|
 | Source | `reflektortts.sources` | `Source` in `pipeline/protocols.py` | `memory` (`sources/memory/`) |
-| Stage | `reflektortts.stages` | `Stage` in `pipeline/protocols.py` | `tracker`, `replace` (`stages/`) |
+| Stage | `reflektortts.stages` | `Stage` in `pipeline/protocols.py` | `tracker`, `replace`, `normalize` (`stages/`) |
 | TTS engine | `reflektortts.tts_engines` | `TtsEngine` in `tts/engine.py` | `piper`, `windows` (`tts/engines/`) |
 
 Sinks (where finished lines go) follow the `Sink` contract but have no plugin group yet: the core uses its built-in `tts` and `events` sinks. A group will be added with the first sink a profile needs to choose, such as on-screen subtitles.
@@ -57,6 +57,7 @@ class Source(Protocol):
 ```python
 SourcePlugin(type="memory", settings_schema=..., create=create)
 
+
 def create(source: SourceSettings, game: RunningGame) -> Source: ...
 ```
 
@@ -76,11 +77,13 @@ class Stage(Protocol):
 ```python
 StagePlugin(type="tracker", settings_schema=..., create=create)
 
+
 def create(settings: Mapping[str, Any]) -> Stage: ...
 ```
 
 - Return the event to pass on (use `dataclasses.replace` to change its text), or `None` to drop it.
 - An event with **empty text** means the source has no text right now. Stages that keep state, like the tracker, use it to notice a line disappearing; empty text is never delivered to sinks.
+- `event.language` is the **output language** the player chose (ISO 639-1, e.g. `pl`), current when the line was read. Stages that depend on language, like `normalize` (and a future translation stage), use it instead of a setting of their own, so the player's choice applies to every game. A stage without rules for a language should pass the line unchanged.
 - Each source gets its own stage objects, so a stage may keep state per source.
 - Exceptions are reported once as `stage.error`; the event is dropped.
 
@@ -93,6 +96,7 @@ class TtsEngine(Protocol):
 
 ```python
 EnginePlugin(name="piper", create=create, list_voices=list_voices)
+
 
 def create(voice_name: str) -> TtsEngine: ...
 def list_voices() -> list[VoiceInfo]: ...

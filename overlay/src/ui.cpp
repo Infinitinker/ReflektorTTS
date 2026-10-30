@@ -49,6 +49,28 @@ void draw_voice_picker(const CoreState& state) {
     ImGui::EndCombo();
 }
 
+void draw_language_picker(const CoreState& state) {
+    std::string current = state.language;
+    for (const LanguageOption& language : state.languages) {
+        if (language.code == state.language) {
+            current = language.name;
+        }
+    }
+    if (!ImGui::BeginCombo("Language", current.c_str())) {
+        return;
+    }
+    for (const LanguageOption& language : state.languages) {
+        bool selected = language.code == state.language;
+        if (ImGui::Selectable((language.name + "##" + language.code).c_str(), selected) && !selected) {
+            request_language(language.code);
+        }
+        if (selected) {
+            ImGui::SetItemDefaultFocus();
+        }
+    }
+    ImGui::EndCombo();
+}
+
 void draw_panel(const CoreState& state) {
     ImGui::SetNextWindowPos(ImVec2(20.0f, 20.0f), ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowSize(ImVec2(380.0f, 0.0f), ImGuiCond_FirstUseEver);
@@ -64,6 +86,7 @@ void draw_panel(const CoreState& state) {
         if (ImGui::Button(state.paused ? "Resume reading" : "Pause reading")) {
             request_paused(!state.paused);
         }
+        draw_language_picker(state);
         draw_voice_picker(state);
     }
     if (!state.last_error.empty()) {

@@ -10,6 +10,11 @@ MAX_CHARS = 400
 
 _CONTROL = re.compile("[\x00-\x1f�]+")
 
+# A pointer can outlive its text, e.g. in the game's menu, and then points at unrelated
+# memory. Below this share of characters that can appear in dialogue, what was read is
+# not text (the threshold the PoC used successfully on GTA2).
+MIN_TEXT_RATIO = 0.9
+
 
 class UnsupportedGameVersion(Exception):
     """The profile has no pointer for this build of the game."""
@@ -29,13 +34,28 @@ class MemorySettings:
     pointers: tuple[PointerChain, ...]
 
 
-def decode_text(raw: bytes, encoding: str) -> str:
-    """Decodes a zero-terminated string; control characters become spaces."""
+def decode_terminated(raw: bytes, encoding: str) -> str:
+    """Decodes a zero-terminated string as it is, control characters included."""
     if encoding.startswith("utf-16"):
         end = next((i for i in range(0, len(raw) - 1, 2) if raw[i : i + 2] == b"\0\0"), len(raw) - len(raw) % 2)
     else:
         end = raw.find(b"\0") if b"\0" in raw else len(raw)
-    return _CONTROL.sub(" ", raw[:end].decode(encoding, errors="replace")).strip()
+    return raw[:end].decode(encoding, errors="replace")
+
+
+def clean(text: str) -> str:
+    """Turns control characters into spaces and trims the ends."""
+    return _CONTROL.sub(" ", text).strip()
+
+
+def can_appear_in_dialogue(character: str) -> bool:
+    """Latin letters (with Polish and other accents), Cyrillic, spaces and common punctuation."""
+    code = ord(character)
+    return 0x20 <= code < 0x250 or 0x400 <= code < 0x500 or 0x2010 <= code < 0x2070
+
+
+def looks_like_text(text: str) -> bool:
+    return bool(text) and sum(map(can_appear_in_dialogue, text)) / len(text) >= MIN_TEXT_RATIO
 
 
 class MemorySource:
@@ -68,7 +88,11 @@ class MemorySource:
         raw = self._memory.read(address, MAX_CHARS * width)
         if not raw:
             raise MemoryReadError(f"Cannot read the game's text at {address:X}.")
-        return decode_text(raw, self._encoding) or None
+        # Checked before cleaning, which would turn control-character garbage into spaces.
+        text = decode_terminated(raw, self._encoding)
+        if not looks_like_text(text):
+            return None
+        return clean(text) or None
 
     def close(self) -> None:
         self._memory.close()

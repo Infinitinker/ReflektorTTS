@@ -7,6 +7,7 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 
 from reflektortts.events import ErrorEvent, TextEvent
+from reflektortts.languages import DEFAULT_LANGUAGE
 from reflektortts.pipeline.protocols import Sink, Source, Stage
 
 logger = logging.getLogger(__name__)
@@ -29,7 +30,8 @@ class Runner:
     """Polls each route's source on its interval and delivers the results to every sink.
 
     When a source has no text, its stages get an event with empty text, so they can tell
-    a line disappeared; empty text is never delivered to sinks.
+    a line disappeared; empty text is never delivered to sinks. Every event carries the
+    output language current when it was read.
 
     A failing source, stage or sink is reported once through on_error and does not stop
     the others; the runner keeps trying it and logs when it works again.
@@ -41,11 +43,13 @@ class Runner:
         sinks: Sequence[Sink],
         on_error: Callable[[ErrorEvent], None] = log_error,
         clock: Callable[[], float] = time.monotonic,
+        language: Callable[[], str] = lambda: DEFAULT_LANGUAGE,
     ) -> None:
         self._routes = routes
         self._sinks = sinks
         self._on_error = on_error
         self._clock = clock
+        self._language = language
         self._failing: set[tuple[str, str]] = set()
 
     def run(self, stop: threading.Event) -> None:
@@ -73,7 +77,7 @@ class Runner:
         self._worked("source.error", source.name)
 
         # No text still goes through the stages, as empty text, so they see a line disappear.
-        event = TextEvent(source=source.name, text=text or "", time=now)
+        event = TextEvent(source=source.name, text=text or "", time=now, language=self._language())
         for stage in route.stages:
             stage_name = f"{source.name}/{type(stage).__name__}"
             try:

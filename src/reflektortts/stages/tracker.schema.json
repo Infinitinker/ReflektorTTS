@@ -12,7 +12,7 @@
       "maximum": 10000
     },
     "min_letters": {
-      "description": "Lines with fewer letters are ignored. Default: 4.",
+      "description": "Lines with fewer letters are ignored. Default: 4. Lines where letters are under half of the visible characters are ignored too.",
       "type": "integer",
       "minimum": 0
     }

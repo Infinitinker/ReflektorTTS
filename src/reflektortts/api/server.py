@@ -12,6 +12,7 @@ from aiohttp import WSMsgType, web
 
 from reflektortts.bus import Event, Listener
 from reflektortts.events import ErrorEvent, Status, TextEvent
+from reflektortts.languages import LANGUAGES, LanguageError
 from reflektortts.tts.engine import VoiceError, VoiceInfo
 
 logger = logging.getLogger(__name__)
@@ -35,6 +36,9 @@ class CoreControl(Protocol):
     def set_voice(self, voice: str) -> Status:
         """Raises VoiceError if the voice is not available."""
 
+    def set_language(self, language: str) -> Status:
+        """Raises LanguageError if the language is not supported."""
+
     def set_paused(self, paused: bool) -> Status: ...
 
     def subscribe(self, listener: Listener) -> Callable[[], None]: ...
@@ -42,7 +46,13 @@ class CoreControl(Protocol):
 
 def status_json(status: Status) -> dict[str, Any]:
     game = None if status.game is None else {"title": status.game.title, "pid": status.game.pid}
-    return {"type": "status", "game": game, "voice": status.voice, "paused": status.paused}
+    return {
+        "type": "status",
+        "game": game,
+        "voice": status.voice,
+        "language": status.language,
+        "paused": status.paused,
+    }
 
 
 def event_json(event: Event) -> dict[str, Any]:
@@ -70,17 +80,32 @@ async def get_voices(request: web.Request) -> web.Response:
     return web.json_response({"voices": [asdict(voice) for voice in voices]})
 
 
+async def get_languages(request: web.Request) -> web.Response:
+    return web.json_response({"languages": [{"code": code, "name": name} for code, name in LANGUAGES.items()]})
+
+
+SETTINGS_HELP = 'Send {"voice": "engine:name"} and/or {"language": "pl"}.'
+
+
 async def patch_settings(request: web.Request) -> web.Response:
+    """Applies "language", then "voice"; either may be left out."""
     try:
         body = await request.json()
     except ValueError:
         return error_response("The request body must be JSON.")
-    voice = body.get("voice") if isinstance(body, dict) else None
-    if not isinstance(voice, str):
-        return error_response('Send {"voice": "engine:name"}.')
+    if not isinstance(body, dict) or not body.keys() & {"voice", "language"}:
+        return error_response(SETTINGS_HELP)
+    voice, language = body.get("voice"), body.get("language")
+    if any(value is not None and not isinstance(value, str) for value in (voice, language)):
+        return error_response(SETTINGS_HELP)
+    core = request.app[CORE]
     try:
-        status = await asyncio.to_thread(request.app[CORE].set_voice, voice)
-    except VoiceError as error:
+        status = core.status()
+        if language is not None:
+            status = core.set_language(language)
+        if voice is not None:
+            status = await asyncio.to_thread(core.set_voice, voice)
+    except (VoiceError, LanguageError) as error:
         return error_response(str(error))
     return web.json_response(status_json(status))
 
@@ -139,6 +164,7 @@ def create_app(core: CoreControl) -> web.Application:
         [
             web.get("/v1/status", get_status),
             web.get("/v1/voices", get_voices),
+            web.get("/v1/languages", get_languages),
             web.patch("/v1/settings", patch_settings),
             web.post("/v1/pause", post_pause),
             web.post("/v1/resume", post_resume),

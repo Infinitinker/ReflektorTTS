@@ -22,7 +22,8 @@
       ],
       "stages": [
         { "type": "tracker", "stable_ms": 500, "min_letters": 4 },
-        { "type": "replace", "rules": [{ "find": "#", "replace": "" }] }
+        { "type": "replace", "rules": [{ "pattern": "#([^#]*)#", "replace": "\\1" }] },
+        { "type": "normalize" }
       ]
     }
   ]

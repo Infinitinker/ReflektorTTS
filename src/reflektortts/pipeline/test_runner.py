@@ -73,6 +73,18 @@ def test_text_passes_through_stages_in_order_to_every_sink() -> None:
     assert first.events[0] == TextEvent("memory", "HELLO", 1.0)
 
 
+def test_events_carry_the_output_language_current_when_read() -> None:
+    sink = RecordingSink()
+    language = ["en"]
+    runner = Runner([Route(ScriptedSource("memory", ["one", "two"]))], [sink], language=lambda: language[0])
+
+    runner.poll(0.0)
+    language[0] = "pl"
+    runner.poll(1.0)
+
+    assert [event.language for event in sink.events] == ["en", "pl"]
+
+
 def test_sources_are_read_only_when_due() -> None:
     fast = ScriptedSource("fast", [], poll_interval=0.25)
     slow = ScriptedSource("slow", [], poll_interval=1.0)

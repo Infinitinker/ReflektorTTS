@@ -6,6 +6,9 @@ from typing import Any
 from reflektortts.events import TextEvent
 from reflektortts.pipeline.plugins import StagePlugin, load_schema
 
+# Lines that are mostly symbols or digits are garbage or HUD readouts, not dialogue.
+MIN_LETTER_SHARE = 0.5
+
 
 class Tracker:
     """Passes a line on once it has stayed unchanged for stable_seconds.
@@ -31,10 +34,15 @@ class Tracker:
             return None
         if event.text == self._passed or event.time - self._since < self._stable_seconds:
             return None
-        if sum(character.isalpha() for character in event.text) < self._min_letters:
+        if not self._looks_like_a_line(event.text):
             return None
         self._passed = event.text
         return event
+
+    def _looks_like_a_line(self, text: str) -> bool:
+        letters = sum(character.isalpha() for character in text)
+        visible = sum(not character.isspace() for character in text)
+        return letters >= self._min_letters and letters >= MIN_LETTER_SHARE * visible
 
 
 def create(settings: Mapping[str, Any]) -> Tracker:
