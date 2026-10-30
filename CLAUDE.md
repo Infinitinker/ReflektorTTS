@@ -55,4 +55,5 @@ The goal is clean code, modularity, portability, and an app other people can ins
 
 ## Tooling
 
-- Python environments are managed with `uv` (installed on this machine).
+- Python development uses a plain `venv` in `.venv/` at the repo root (Python 3.13) with `pip`. Keep `pyproject.toml` standard (PEP 621, no package-manager-specific sections), so contributors can use any tool.
+- The C++ overlay builds with CMake; see `overlay/README.md`.
