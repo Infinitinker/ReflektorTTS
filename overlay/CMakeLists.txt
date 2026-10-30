@@ -18,7 +18,25 @@ FetchContent_Declare(nlohmann_json
     GIT_REPOSITORY https://github.com/nlohmann/json.git
     GIT_TAG v3.12.0
     GIT_SHALLOW TRUE)
-FetchContent_MakeAvailable(imgui nlohmann_json)
+# MinHook's own CMake project builds a DLL with resources; only its sources are used here.
+FetchContent_Declare(minhook
+    GIT_REPOSITORY https://github.com/TsudaKageyu/minhook.git
+    GIT_TAG v1.3.4
+    GIT_SHALLOW TRUE
+    SOURCE_SUBDIR not-built-with-its-cmake)
+FetchContent_MakeAvailable(imgui nlohmann_json minhook)
+
+if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+    set(MINHOOK_DISASSEMBLER ${minhook_SOURCE_DIR}/src/hde/hde64.c)
+else()
+    set(MINHOOK_DISASSEMBLER ${minhook_SOURCE_DIR}/src/hde/hde32.c)
+endif()
+add_library(minhook STATIC
+    ${minhook_SOURCE_DIR}/src/buffer.c
+    ${minhook_SOURCE_DIR}/src/hook.c
+    ${minhook_SOURCE_DIR}/src/trampoline.c
+    ${MINHOOK_DISASSEMBLER})
+target_include_directories(minhook PUBLIC ${minhook_SOURCE_DIR}/include)
 
 add_library(imgui STATIC
     ${imgui_SOURCE_DIR}/imgui.cpp
@@ -32,8 +50,8 @@ add_library(imgui STATIC
 target_include_directories(imgui PUBLIC ${imgui_SOURCE_DIR} ${imgui_SOURCE_DIR}/backends)
 target_link_libraries(imgui PUBLIC d3dcompiler dxgi dwmapi imm32 gdi32)
 
-# Direct3D DLLs are looked up at runtime, not linked, so the overlay only touches
-# the APIs the game has loaded.
+# Direct3D and DirectInput DLLs are looked up at runtime, not linked, so the overlay
+# only touches the APIs the game has loaded.
 add_library(reflektortts-overlay SHARED
     src/dllmain.cpp
     src/probe_window.cpp
@@ -45,10 +63,14 @@ add_library(reflektortts-overlay SHARED
     src/d3d9_renderer.cpp
     src/overlay_frame.cpp
     src/input.cpp
+    src/code_hook.cpp
+    src/input_blocking.cpp
+    src/win32_input_hook.cpp
+    src/dinput_hook.cpp
     src/api_client.cpp
     src/ui.cpp)
 set_target_properties(reflektortts-overlay PROPERTIES PREFIX "")
-target_link_libraries(reflektortts-overlay PRIVATE imgui nlohmann_json::nlohmann_json winhttp)
+target_link_libraries(reflektortts-overlay PRIVATE imgui nlohmann_json::nlohmann_json minhook winhttp dxguid)
 
 add_executable(reflektortts-inject injector/inject.cpp)
 

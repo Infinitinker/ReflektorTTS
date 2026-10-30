@@ -6,6 +6,8 @@
 #include <mutex>
 #include <unordered_map>
 
+#include "input_blocking.h"
+
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND window, UINT message, WPARAM wparam, LPARAM lparam);
 
 namespace reflektortts {
@@ -27,12 +29,11 @@ LRESULT CALLBACK overlay_window_proc(HWND window, UINT message, WPARAM wparam, L
         std::lock_guard lock(g_windows_mutex);
         original = g_original_procs[window];
     }
-    if (g_panel_open && ImGui::GetCurrentContext() != nullptr) {
-        ImGui_ImplWin32_WndProcHandler(window, message, wparam, lparam);
-        const ImGuiIO& io = ImGui::GetIO();
-        bool mouse = message >= WM_MOUSEFIRST && message <= WM_MOUSELAST;
-        bool keyboard = message >= WM_KEYFIRST && message <= WM_KEYLAST;
-        if ((mouse && io.WantCaptureMouse) || (keyboard && io.WantCaptureKeyboard)) {
+    // Input messages queued for the game are already taken off the queue by the message hooks;
+    // this catches the ones sent straight to the window.
+    if (g_panel_open) {
+        send_to_panel(window, message, wparam, lparam);
+        if (game_input_blocked() && is_blocked_message(message)) {
             return 0;
         }
     }
@@ -66,6 +67,7 @@ bool update_panel_toggle(HWND window) {
     bool down = foreground && is_down(VK_CONTROL) && is_down(VK_SHIFT) && is_down('R');
     if (down && !g_hotkey_down) {
         g_panel_open = !g_panel_open;
+        block_game_input(g_panel_open);
         ImGuiIO& io = ImGui::GetIO();
         // Games often hide the system cursor, so ImGui draws its own while the panel is open.
         io.MouseDrawCursor = g_panel_open;
@@ -79,6 +81,17 @@ bool update_panel_toggle(HWND window) {
 
 bool panel_open() {
     return g_panel_open;
+}
+
+bool is_game_window(HWND window) {
+    std::lock_guard lock(g_windows_mutex);
+    return g_original_procs.contains(window);
+}
+
+void send_to_panel(HWND window, UINT message, WPARAM wparam, LPARAM lparam) {
+    if (g_panel_open && ImGui::GetCurrentContext() != nullptr) {
+        ImGui_ImplWin32_WndProcHandler(window, message, wparam, lparam);
+    }
 }
 
 }  // namespace reflektortts

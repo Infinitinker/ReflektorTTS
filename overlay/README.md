@@ -16,8 +16,7 @@ The core loads the overlay into a game when it detects it (see the main README, 
 - Source and stage ticks are saved per game.
 - Changes take effect for the next line and are saved.
 - The overlay draws its own mouse cursor while the panel is open, since games often hide the system one.
-
-Known limitation: while the panel is open, games that read the keyboard through DirectInput (like GTA2) still receive key presses.
+- While the panel is open, the game gets no keyboard or mouse input, and the cursor is free to leave the game window. Key and mouse-button releases still reach it, as window messages and as buffered DirectInput events, so keys held when the panel opened (such as Ctrl+Shift+R itself) are not stuck down for the game. Gamepads keep working.
 
 ## How it works
 
@@ -27,7 +26,9 @@ The overlay follows whichever swap chain or device the game presented with last,
 
 Hooks replace entries in the vtables of the graphics API's objects (found through a throwaway object of the same class) instead of patching function code. Other overlays such as RivaTuner Statistics Server, Steam or Discord patch function code and may rewrite their patches over ours; vtable entries stay out of their way, and our hooks call theirs, so both overlays show.
 
-Mouse buttons are read directly while the panel is open, because games using DirectInput or replacing their window procedure keep click messages from arriving. The panel is laid out in window coordinates and scaled to the game's back buffer, so it lines up with the mouse when the image is scaled (the Direct3D 9 backend ignores that scale).
+Mouse buttons are read directly while the panel is open, because games using DirectInput or replacing their window procedure keep click messages from arriving.
+
+Blocking the game's input works like ReShade's default "block all input while the overlay is visible". The first time the panel opens, the overlay hooks every keyboard and mouse API the game has loaded (and on later openings, any loaded since): DirectInput 8 and 1–7 devices through their vtables, and through code hooks (MinHook) the message queue (`GetMessage`, `PeekMessage`: input messages for the game's window go to the panel and the game gets `WM_NULL`; other windows are left alone, since DirectInput reads the keyboard through raw input sent to a hidden window of its own), key state (`GetAsyncKeyState`, `GetKeyState`, `GetKeyboardState`), buffered raw input (`GetRawInputBuffer`) and the cursor (`GetCursorPos`, `SetCursorPos`, `ClipCursor`). The overlay's own calls are let through, recognised by their return address, so the panel keeps seeing real input. XInput gamepads are not blocked. Input functions are hooked in code because they are not COM methods; RTSS and similar overlays rewrite code hooks on `Present`, not on these. The panel is laid out in window coordinates and scaled to the game's back buffer, so it lines up with the mouse when the image is scaled (the Direct3D 9 backend ignores that scale).
 
 | Path | Job |
 |---|---|
@@ -39,12 +40,16 @@ Mouse buttons are read directly while the panel is open, because games using Dir
 | `src/d3d11_renderer.cpp`, `src/d3d12_renderer.cpp`, `src/d3d9_renderer.cpp` | Set up ImGui on the game's device and draw each frame, one file per API |
 | `src/overlay_frame.cpp` | Gives the overlay to one API, loads the font and builds each ImGui frame |
 | `src/input.cpp` | The panel hotkey, and mouse/keyboard input for ImGui |
+| `src/input_blocking.cpp` | Turns blocking the game's input on and off with the panel |
+| `src/win32_input_hook.cpp` | Hooks the message queue, key state, raw input and cursor functions |
+| `src/dinput_hook.cpp` | Hooks keyboard and mouse reads of DirectInput 8 and 1–7 devices |
+| `src/code_hook.cpp` | Code hooks for exported functions (MinHook), and telling the overlay's own calls apart |
 | `src/api_client.cpp` | Talks to the core over WinHTTP: events over a WebSocket, commands over HTTP |
 | `src/ui.cpp` | The hint and the control panel |
 | `src/probe_window.cpp` | Hidden window for the throwaway devices used to locate API methods |
 | `injector/inject.cpp` | Loads the DLL into a running game |
 
-Dependencies, fetched by CMake at configure time: [Dear ImGui](https://github.com/ocornut/imgui) (MIT) and [nlohmann/json](https://github.com/nlohmann/json) (MIT). WinHTTP is part of Windows.
+Dependencies, fetched by CMake at configure time: [Dear ImGui](https://github.com/ocornut/imgui) (MIT), [nlohmann/json](https://github.com/nlohmann/json) (MIT) and [MinHook](https://github.com/TsudaKageyu/minhook) (BSD-2-Clause). WinHTTP is part of Windows.
 
 ## Building on Windows with MSYS2
 

@@ -111,7 +111,6 @@ Finding a line's label when subtitles can be turned off: turn subtitles on and f
 - A profile editor with forms built from the plugins' schemas.
 - Selecting an OCR region and text colours directly on the game's frame, and OCR on frames grabbed from the back buffer (works in fullscreen too).
 - Searching the game's memory for text and pointers from inside the game.
-- Blocking the game's input while the panel is open, through a DirectInput hook (the overlay already handles input through the window procedure and reads mouse buttons directly).
 - More graphics APIs: OpenGL and Vulkan (Direct3D 9, 11 and 12 are done). DirectDraw and Direct3D 1–8 games work through a wrapper such as dgVoodoo2.
 - A 64-bit build for modern games.
 
@@ -124,6 +123,7 @@ Known pitfalls of older games and how the overlay handles them:
 | Other overlays rewriting code hooks (RTSS, Steam, Discord) | Hooks replace vtable entries instead of patching code |
 | Broken render state | State is saved and restored around ImGui |
 | DirectInput swallowing clicks | Mouse buttons are read directly |
+| The game reacting to keys and clicks meant for the panel | While the panel is open, the game's keyboard and mouse input is blocked (DirectInput, the message queue, key state, raw input, the cursor), as ReShade does; gamepads still work |
 | The game hides the cursor | ImGui draws its own |
 | Anti-cheat in online games | The overlay and memory reading are meant for offline and story modes only |
 
