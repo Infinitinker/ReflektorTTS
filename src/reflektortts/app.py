@@ -29,9 +29,9 @@ from reflektortts.profiles.loader import load_profiles
 from reflektortts.profiles.model import Profile
 from reflektortts.settings import Settings, load_settings, save_settings
 from reflektortts.sinks.bus import BusSink
-from reflektortts.sinks.tts import TtsSink
+from reflektortts.sinks.tts.narrator import Narrator
+from reflektortts.sinks.tts.sink import TtsSink
 from reflektortts.tts.engine import VoiceError, VoiceInfo, available_voices
-from reflektortts.tts.narrator import Narrator
 
 logger = logging.getLogger(__name__)
 

@@ -1,5 +1,5 @@
 from reflektortts.events import TextEvent
-from reflektortts.sinks.tts import TtsSink
+from reflektortts.sinks.tts.sink import TtsSink
 
 
 class RecordingService:

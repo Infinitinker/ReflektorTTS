@@ -6,7 +6,7 @@ from reflektortts.events import TextEvent
 
 
 class SpeechService(Protocol):
-    """The part of reflektortts.tts.client.TtsClient the sink uses."""
+    """The part of the Narrator the sink uses."""
 
     def say(self, text: str) -> None: ...
 

@@ -4,7 +4,7 @@ import threading
 from collections.abc import Callable
 from typing import Protocol
 
-from reflektortts.tts.client import TtsClient
+from reflektortts.sinks.tts.client import TtsClient
 
 
 class SpeechClient(Protocol):

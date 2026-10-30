@@ -61,12 +61,21 @@ A failing source, stage or sink is reported once as a `source.error`, `stage.err
 | `profiles/` | Profile schema, loader and migrations |
 | `games/detector.py` | Finds running games |
 | `sources/`, `stages/`, `sinks/` | Built-in plugins |
-| `tts/` | The TTS service process, its client, the narrator and the speech engines |
+| `sinks/tts/` | The tts sink: the core's side of speech (the narrator, which pauses and switches voices, and the client that starts the TTS process) |
+| `tts/` | The TTS service process: speech engines, playback and voices |
+| `languages.py` | Supported languages and their checks |
 | `api/server.py` | The local API |
 | `settings.py` | Per-user settings |
 | `overlay.py` | Loads the overlay into a game |
-| `overlay/` | The in-game overlay (C++); see [overlay/README.md](../overlay/README.md) |
+| `overlay/` (repository root) | The in-game overlay (C++); see [overlay/README.md](../overlay/README.md) |
 | `profiles/` (repository root) | Game profiles; see [profiles/README.md](../profiles/README.md) |
+| `tests/` (repository root) | Tests, mirroring `src/reflektortts/` |
+
+How the folders are organized:
+
+- **Plugin folders** (`sources/`, `stages/`, `sinks/`) hold one plugin each. A plugin is a single module while it is small (`stages/tracker.py`) and becomes a package when it needs several files (`stages/normalize/`, `sources/memory/`, `sinks/tts/`).
+- **Subsystems** that are not plugins sit at the top level: `pipeline/`, `profiles/`, `games/`, `api/`, `tts/`.
+- **A folder's code runs in one process.** Code for a separate process gets its own folder, so the layout shows what runs where: `tts/` is the TTS process, and its client in the core lives with the sink in `sinks/tts/`.
 
 Writing plugins: [plugins.md](plugins.md). The local API: [api.md](api.md).
 

@@ -1,4 +1,4 @@
-from reflektortts.tts.narrator import Narrator
+from reflektortts.sinks.tts.narrator import Narrator
 
 
 class FakeClient:

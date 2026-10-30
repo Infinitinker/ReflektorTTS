@@ -15,9 +15,9 @@ from reflektortts.pipeline.plugins import SourcePlugin, StagePlugin
 from reflektortts.pipeline.runner import Route
 from reflektortts.profiles.model import Game, Match, Profile, SourceSettings, StageSettings
 from reflektortts.settings import load_settings
+from reflektortts.sinks.tts.narrator import Narrator
 from reflektortts.tts.engine import VoiceError, VoiceInfo
-from reflektortts.tts.narrator import Narrator
-from tests.tts.test_narrator import Clients
+from tests.sinks.tts.test_narrator import Clients
 
 
 class FixedSource:

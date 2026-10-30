@@ -26,6 +26,7 @@ The goal is clean code, modularity, portability, and an app other people can ins
 
 ### Clean code
 - Small modules with one job each. If a file needs a section comment to separate unrelated parts, split it.
+- A plugin is a single module until it needs several files, then a package in its plugin folder. Code that runs in a separate process gets its own folder. See "How the folders are organized" in `docs/architecture.md`.
 - Type hints on all public functions and classes. Use dataclasses or protocols for data and contracts, not loose dicts passed around.
 - No dead code, commented-out code or speculative abstractions. Build interfaces from the existing cases (OCR, memory, clipboard) and validate them on the next one (STT); don't design for imagined ones.
 - Errors are explicit: raise specific exceptions, and never swallow them silently. A failing source or plugin must not take down the core; report it as a `source.error` event.
