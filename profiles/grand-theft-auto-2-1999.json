@@ -1,10 +1,25 @@
 {
-  "version": 1,
+  "version": 2,
   "game": {
     "title": "Grand Theft Auto 2",
     "year": 1999
   },
   "match": {
     "process": ["gta2.exe"]
-  }
+  },
+  "sources": [
+    {
+      "type": "memory",
+      "name": "messages",
+      "poll_interval_ms": 250,
+      "encoding": "utf-16le",
+      "pointers": [
+        {
+          "exe_sha256": "420af867036b1a66ef94c54b8db2e7e654da359031987c6602bcfa74972e089f",
+          "address": "gta2.exe+272F40",
+          "offsets": ["E4"]
+        }
+      ]
+    }
+  ]
 }

@@ -5,7 +5,7 @@ from typing import Any
 import pytest
 
 from reflektortts.profiles.loader import ProfileError, load_profile, load_profiles
-from reflektortts.profiles.model import Game, Match, Profile
+from reflektortts.profiles.model import Game, Match, Profile, SourceSettings
 
 REPO_PROFILES = Path(__file__).resolve().parents[3] / "profiles"
 
@@ -70,6 +70,52 @@ def test_version_must_be_a_number(tmp_path: Path, version: object) -> None:
 def test_profile_from_a_newer_app_asks_to_update(tmp_path: Path) -> None:
     with pytest.raises(ProfileError, match="Update the app"):
         load_profile(write(tmp_path, "future.json", VALID | {"version": 99}))
+
+
+TEXT_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "required": ["text"],
+    "additionalProperties": False,
+    "properties": {"text": {"type": "string"}},
+}
+
+
+def with_sources(*sources: dict[str, Any]) -> dict[str, Any]:
+    return VALID | {"version": 2, "sources": list(sources)}
+
+
+def test_version_1_profile_is_migrated(tmp_path: Path) -> None:
+    profile = load_profile(write(tmp_path, "old.json", VALID), source_schemas={})
+
+    assert profile.sources == ()
+
+
+def test_sources_are_split_into_core_fields_and_plugin_settings(tmp_path: Path) -> None:
+    data = with_sources(
+        {"type": "fixed", "name": "first", "text": "hi"},
+        {"type": "fixed", "name": "second", "poll_interval_ms": 1000, "text": "yo"},
+    )
+
+    profile = load_profile(write(tmp_path, "game.json", data), source_schemas={"fixed": TEXT_SCHEMA})
+
+    assert profile.sources == (
+        SourceSettings(type="fixed", name="first", poll_interval=0.25, settings={"text": "hi"}),
+        SourceSettings(type="fixed", name="second", poll_interval=1.0, settings={"text": "yo"}),
+    )
+
+
+def test_unknown_source_type_lists_the_installed_ones(tmp_path: Path) -> None:
+    data = with_sources({"type": "ocr", "name": "subtitles"})
+
+    with pytest.raises(ProfileError, match=r'\$\.sources\[0\]: unknown source type "ocr" \(installed: fixed\)'):
+        load_profile(write(tmp_path, "game.json", data), source_schemas={"fixed": TEXT_SCHEMA})
+
+
+def test_plugin_settings_are_validated_against_the_plugin_schema(tmp_path: Path) -> None:
+    data = with_sources({"type": "fixed", "name": "first", "text": 5})
+
+    with pytest.raises(ProfileError, match=r"game\.json: \$\.sources\[0\]\.text: 5 is not of type 'string'"):
+        load_profile(write(tmp_path, "game.json", data), source_schemas={"fixed": TEXT_SCHEMA})
 
 
 def test_broken_profile_does_not_stop_the_others(tmp_path: Path) -> None:

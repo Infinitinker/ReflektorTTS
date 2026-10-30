@@ -1,6 +1,8 @@
 """A loaded, validated game profile."""
 
-from dataclasses import dataclass
+from collections.abc import Mapping
+from dataclasses import dataclass, field
+from typing import Any
 
 
 @dataclass(frozen=True)
@@ -17,8 +19,21 @@ class Match:
 
 
 @dataclass(frozen=True)
+class SourceSettings:
+    """One source in a profile. settings holds the plugin's own fields, already validated
+    against its schema; the plugin turns them into its own types."""
+
+    type: str
+    name: str
+    poll_interval: float
+    """Seconds between reads."""
+    settings: Mapping[str, Any]
+
+
+@dataclass(frozen=True)
 class Profile:
     id: str
     """The file name without .json, e.g. "grand-theft-auto-2-1999"."""
     game: Game
     match: Match
+    sources: tuple[SourceSettings, ...] = field(default=())

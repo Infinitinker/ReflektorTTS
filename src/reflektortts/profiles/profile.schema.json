@@ -8,7 +8,7 @@
   "properties": {
     "version": {
       "description": "Profile format version.",
-      "const": 1
+      "const": 2
     },
     "game": {
       "type": "object",
@@ -43,6 +43,32 @@
             "type": "string",
             "minLength": 1,
             "pattern": "^[^\\\\/]+$"
+          }
+        }
+      }
+    },
+    "sources": {
+      "description": "Where to read the game's text. Each source's other fields are defined by its plugin's own schema.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["type", "name"],
+        "properties": {
+          "type": {
+            "description": "Source plugin, e.g. \"memory\".",
+            "type": "string",
+            "minLength": 1
+          },
+          "name": {
+            "description": "Name of this source within the profile, shown in messages.",
+            "type": "string",
+            "minLength": 1
+          },
+          "poll_interval_ms": {
+            "description": "Milliseconds between reads. Default: 250.",
+            "type": "integer",
+            "minimum": 10,
+            "maximum": 60000
           }
         }
       }
