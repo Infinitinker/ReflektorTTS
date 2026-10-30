@@ -11,8 +11,9 @@ from typing import Any, Protocol
 from aiohttp import WSMsgType, web
 
 from reflektortts.bus import Event, Listener
-from reflektortts.events import ErrorEvent, StageState, Status, TextEvent
+from reflektortts.events import ErrorEvent, StageState, Status, SubtitleEvent, TextEvent
 from reflektortts.languages import LANGUAGES, LanguageError
+from reflektortts.sinks.subtitles import POSITIONS, SIZES
 from reflektortts.tts.engine import VoiceError, VoiceInfo
 
 logger = logging.getLogger(__name__)
@@ -47,11 +48,14 @@ class CoreControl(Protocol):
     def set_game_language(self, language: str) -> Status:
         """Raises LanguageError if the language is not supported."""
 
-    def set_speech_language(self, language: str) -> Status:
+    def set_output_language(self, language: str) -> Status:
         """Raises LanguageError if the language is not supported."""
 
     def set_ducking(self, enabled: bool, volume: float) -> Status:
         """volume is the game's volume while speaking, from 0.0 to 1.0 of its own."""
+
+    def set_subtitles(self, enabled: bool, size: str, position: str) -> Status:
+        """size is one of SIZES, position one of POSITIONS."""
 
     def set_paused(self, paused: bool) -> Status: ...
 
@@ -83,10 +87,13 @@ def status_json(status: Status) -> dict[str, Any]:
         "game": game,
         "voice": status.voice,
         "game_language": status.game_language,
-        "speech_language": status.speech_language,
+        "output_language": status.output_language,
         "paused": status.paused,
         "ducking": status.ducking,
         "duck_volume": status.duck_volume,
+        "subtitles": status.subtitles,
+        "subtitle_size": status.subtitle_size,
+        "subtitle_position": status.subtitle_position,
         "sources": [
             {
                 "name": source.source,
@@ -102,6 +109,8 @@ def status_json(status: Status) -> dict[str, Any]:
 def event_json(event: Event) -> dict[str, Any]:
     if isinstance(event, TextEvent):
         return {"type": "line", "source": event.source, "text": event.text}
+    if isinstance(event, SubtitleEvent):
+        return {"type": "subtitle", "text": event.text}
     if isinstance(event, ErrorEvent):
         return {"type": "error", "kind": event.kind, "origin": event.origin, "message": event.message}
     return status_json(event)
@@ -128,10 +137,10 @@ async def get_languages(request: web.Request) -> web.Response:
     return web.json_response({"languages": [{"code": code, "name": name} for code, name in LANGUAGES.items()]})
 
 
-TEXT_SETTINGS = ("game_language", "speech_language", "voice")
 SETTINGS_HELP = (
-    'Send any of "game_language", "speech_language" and "voice" (text), "ducking" (true or false) '
-    'and "duck_volume" (a number from 0 to 1), e.g. {"speech_language": "pl"}.'
+    'Send any of "game_language", "output_language" and "voice" (text), "ducking" and "subtitles" '
+    '(true or false), "duck_volume" (a number from 0 to 1), "subtitle_size" ("small", "medium" or "large") '
+    'and "subtitle_position" ("top" or "bottom"), e.g. {"output_language": "pl"}.'
 )
 SOURCES_HELP = 'Send {"name": "<source name from the status>", "enabled": true or false}.'
 STAGES_HELP = 'Send {"key": "<stage key from the status>", "enabled": true or false}.'
@@ -149,33 +158,53 @@ def is_fraction(value: object) -> bool:
     return isinstance(value, int | float) and not isinstance(value, bool) and 0 <= value <= 1
 
 
-async def patch_settings(request: web.Request) -> web.Response:
-    """Applies ducking, the game language, then the speech language, then the voice; each is optional.
+def is_text(value: object) -> bool:
+    return isinstance(value, str)
 
-    Changing the speech language may also switch the voice, so an explicit voice comes last.
+
+def is_flag(value: object) -> bool:
+    return isinstance(value, bool)
+
+
+SETTING_CHECKS: dict[str, Callable[[object], bool]] = {
+    "game_language": is_text,
+    "output_language": is_text,
+    "voice": is_text,
+    "ducking": is_flag,
+    "duck_volume": is_fraction,
+    "subtitles": is_flag,
+    "subtitle_size": lambda value: value in SIZES,
+    "subtitle_position": lambda value: value in POSITIONS,
+}
+
+
+async def patch_settings(request: web.Request) -> web.Response:
+    """Applies ducking and subtitles, the game language, then the output language, then the voice.
+
+    Each is optional. Changing the output language may also switch the voice, so an explicit voice comes last.
     """
     body = await read_object(request)
     if body is None:
         return error_response("The request body must be a JSON object.")
-    values = {field: body[field] for field in TEXT_SETTINGS if field in body}
-    if any(not isinstance(value, str) for value in values.values()):
-        return error_response(SETTINGS_HELP)
-    if "ducking" in body and not isinstance(body["ducking"], bool):
-        return error_response(SETTINGS_HELP)
-    if "duck_volume" in body and not is_fraction(body["duck_volume"]):
-        return error_response(SETTINGS_HELP)
-    if not values and "ducking" not in body and "duck_volume" not in body:
+    values = {field: body[field] for field in SETTING_CHECKS if field in body}
+    if not values or any(not SETTING_CHECKS[field](value) for field, value in values.items()):
         return error_response(SETTINGS_HELP)
     core = request.app[CORE]
     try:
         status = core.status()
-        if "ducking" in body or "duck_volume" in body:
-            enabled = body.get("ducking", status.ducking)
-            status = core.set_ducking(enabled, float(body.get("duck_volume", status.duck_volume)))
+        if values.keys() & {"ducking", "duck_volume"}:
+            enabled = values.get("ducking", status.ducking)
+            status = core.set_ducking(enabled, float(values.get("duck_volume", status.duck_volume)))
+        if values.keys() & {"subtitles", "subtitle_size", "subtitle_position"}:
+            status = core.set_subtitles(
+                values.get("subtitles", status.subtitles),
+                values.get("subtitle_size", status.subtitle_size),
+                values.get("subtitle_position", status.subtitle_position),
+            )
         if "game_language" in values:
             status = core.set_game_language(values["game_language"])
-        if "speech_language" in values:
-            status = await asyncio.to_thread(core.set_speech_language, values["speech_language"])
+        if "output_language" in values:
+            status = await asyncio.to_thread(core.set_output_language, values["output_language"])
         if "voice" in values:
             status = await asyncio.to_thread(core.set_voice, values["voice"])
     except (VoiceError, LanguageError) as error:

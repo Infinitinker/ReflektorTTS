@@ -39,11 +39,15 @@ struct CoreState {
     std::string game;  // Empty while no game is being read.
     std::string voice;
     std::string game_language;    // A code, or "auto".
-    std::string speech_language;  // A code, e.g. "pl".
+    std::string output_language;  // A code, e.g. "pl".
     bool paused = false;
     bool ducking = true;       // Whether the game's sound is lowered while speaking.
     float duck_volume = 0.3f;  // The game's volume while speaking, as a fraction of its own.
+    bool subtitles = false;    // Whether lines are shown as subtitles over the game.
+    std::string subtitle_size = "medium";   // "small", "medium" or "large".
+    std::string subtitle_position = "top";  // "top" or "bottom".
     std::vector<SourceStages> sources;
+    std::string subtitle;  // The subtitle to show now; empty when none.
     std::string last_line;
     std::string last_error;
     std::vector<VoiceOption> voices;
@@ -60,11 +64,14 @@ void request_paused(bool paused);
 void request_stop_line();
 void request_voice(const std::string& voice_id);
 void request_game_language(const std::string& code);
-void request_speech_language(const std::string& code);
+void request_output_language(const std::string& code);
 void request_source_enabled(const std::string& name, bool enabled);
 void request_stage_enabled(const std::string& key, bool enabled);
 void request_ducking(bool enabled);
 void request_duck_volume(float volume);
+void request_subtitles(bool enabled);
+void request_subtitle_size(const std::string& size);
+void request_subtitle_position(const std::string& position);
 
 // Hides the last error until a new one arrives.
 void dismiss_error();

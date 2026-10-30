@@ -18,10 +18,10 @@ from reflektortts.events import ErrorEvent, GameInfo, SourceStages, StageState, 
 from reflektortts.games.detector import RunningGame, find_running_games
 from reflektortts.languages import (
     AUTO,
-    DEFAULT_SPEECH_LANGUAGE,
+    DEFAULT_OUTPUT_LANGUAGE,
     Languages,
     check_game_language,
-    check_speech_language,
+    check_output_language,
     primary_language,
 )
 from reflektortts.overlay import inject_overlay
@@ -32,6 +32,7 @@ from reflektortts.profiles.loader import load_profiles
 from reflektortts.profiles.model import Profile
 from reflektortts.settings import Settings, load_settings, save_settings
 from reflektortts.sinks.bus import BusSink
+from reflektortts.sinks.subtitles import Subtitles
 from reflektortts.sinks.tts.narrator import Narrator
 from reflektortts.sinks.tts.sink import TtsSink
 from reflektortts.tts.engine import VoiceError, VoiceInfo, available_voices
@@ -119,7 +120,7 @@ def read_game(
     on_error: Callable[[ErrorEvent], None] = log_error,
     is_running: Callable[[int], bool] = psutil.pid_exists,
     check_seconds: float = GAME_CHECK_SECONDS,
-    languages: Callable[[], Languages] = lambda: Languages(game=AUTO, speech=DEFAULT_SPEECH_LANGUAGE),
+    languages: Callable[[], Languages] = lambda: Languages(game=AUTO, output=DEFAULT_OUTPUT_LANGUAGE),
 ) -> None:
     """Runs the pipeline until the game exits or stop is set, then closes the sources."""
     runner_stop = threading.Event()
@@ -164,8 +165,9 @@ class Core:
             self._settings.ducking,
             self._settings.duck_volume,
         )
-        self._narrator = narrator_factory(self._settings.voice, self._ducker.speaking)
         self._bus = EventBus()
+        self._subtitles = Subtitles(self._bus.publish, self._settings.subtitles)
+        self._narrator = narrator_factory(self._settings.voice, self._speaking)
         self._game: GameInfo | None = None
         self._profile: Profile | None = None
 
@@ -174,28 +176,31 @@ class Core:
             game=self._game,
             voice=self._narrator.voice,
             game_language=self._settings.game_language,
-            speech_language=self._settings.speech_language,
+            output_language=self._settings.output_language,
             paused=self._narrator.paused,
             ducking=self._settings.ducking,
             duck_volume=self._settings.duck_volume,
+            subtitles=self._settings.subtitles,
+            subtitle_size=self._settings.subtitle_size,
+            subtitle_position=self._settings.subtitle_position,
             sources=self._source_stages(),
         )
 
     def languages(self) -> Languages:
-        return Languages(game=self._settings.game_language, speech=self._settings.speech_language)
+        return Languages(game=self._settings.game_language, output=self._settings.output_language)
 
     def set_game_language(self, language: str) -> Status:
         check_game_language(language)
         self._save(replace(self._settings, game_language=language))
         return self._publish_status()
 
-    def set_speech_language(self, language: str) -> Status:
+    def set_output_language(self, language: str) -> Status:
         """Also switches to a voice for the language, unless the current one speaks it."""
-        check_speech_language(language)
+        check_output_language(language)
         voice = self._voice_for(language)
         if voice is not None:
             self._narrator.use_voice(voice)
-        self._save(replace(self._settings, speech_language=language, voice=self._narrator.voice))
+        self._save(replace(self._settings, output_language=language, voice=self._narrator.voice))
         return self._publish_status()
 
     def voices(self) -> list[VoiceInfo]:
@@ -215,6 +220,12 @@ class Core:
         """Whether, and how far, the game's sound is lowered while lines are spoken."""
         self._ducker.configure(enabled, volume)
         self._save(replace(self._settings, ducking=enabled, duck_volume=volume))
+        return self._publish_status()
+
+    def set_subtitles(self, enabled: bool, size: str, position: str) -> Status:
+        """Whether lines are shown as subtitles over the game, how large and where."""
+        self._subtitles.configure(enabled)
+        self._save(replace(self._settings, subtitles=enabled, subtitle_size=size, subtitle_position=position))
         return self._publish_status()
 
     def set_paused(self, paused: bool) -> Status:
@@ -266,7 +277,7 @@ class Core:
     def run(self, stop: threading.Event) -> None:
         """Reads every profiled game that starts, one at a time, until stop is set."""
         sources = source_plugins()
-        sinks: list[Sink] = [TtsSink(self._narrator), BusSink(self._bus)]
+        sinks: list[Sink] = [TtsSink(self._narrator), self._subtitles, BusSink(self._bus)]
         logger.info("Watching for %s", ", ".join(profile.game.title for profile in self._profiles))
         while not stop.is_set():
             games = find_running_games(self._profiles)
@@ -297,6 +308,7 @@ class Core:
     def close(self) -> None:
         self._narrator.close()
         self._ducker.close()
+        self._subtitles.close()
 
     def _source_stages(self) -> tuple[SourceStages, ...]:
         profile = self._profile
@@ -326,7 +338,7 @@ class Core:
         )
 
     def _voice_for(self, language: str) -> str | None:
-        """The voice to switch to for a speech language, or None to keep the current one.
+        """The voice to switch to for a output language, or None to keep the current one.
 
         The current voice stays if it speaks the language; otherwise the one last used for
         the language, else the first that speaks it. With no voice for it, nothing changes.
@@ -340,6 +352,11 @@ class Core:
         if remembered in matching:
             return remembered
         return matching[0] if matching else None
+
+    def _speaking(self, active: bool) -> None:
+        """The narrator started speaking or fell silent: the game's sound and the subtitle follow."""
+        self._ducker.speaking(active)
+        self._subtitles.speaking(active)
 
     def _save(self, settings: Settings) -> None:
         self._settings = settings

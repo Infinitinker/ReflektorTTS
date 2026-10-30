@@ -122,20 +122,26 @@ void apply_status(const json& status) {
     std::string title = game.is_null() ? "" : game.at("title").get<std::string>();
     std::string voice = status.at("voice").get<std::string>();
     std::string game_language = status.at("game_language").get<std::string>();
-    std::string speech_language = status.at("speech_language").get<std::string>();
+    std::string output_language = status.at("output_language").get<std::string>();
     bool paused = status.at("paused").get<bool>();
     bool ducking = status.at("ducking").get<bool>();
     float duck_volume = status.at("duck_volume").get<float>();
+    bool subtitles = status.at("subtitles").get<bool>();
+    std::string subtitle_size = status.at("subtitle_size").get<std::string>();
+    std::string subtitle_position = status.at("subtitle_position").get<std::string>();
     std::vector<SourceStages> sources = read_sources(status.at("sources"));
 
     std::lock_guard lock(g_state_mutex);
     g_state.game = std::move(title);
     g_state.voice = std::move(voice);
     g_state.game_language = std::move(game_language);
-    g_state.speech_language = std::move(speech_language);
+    g_state.output_language = std::move(output_language);
     g_state.paused = paused;
     g_state.ducking = ducking;
     g_state.duck_volume = duck_volume;
+    g_state.subtitles = subtitles;
+    g_state.subtitle_size = std::move(subtitle_size);
+    g_state.subtitle_position = std::move(subtitle_position);
     g_state.sources = std::move(sources);
 }
 
@@ -152,6 +158,9 @@ void handle_event(const std::string& text) {
         } else if (type == "line") {
             std::lock_guard lock(g_state_mutex);
             g_state.last_line = event.at("text").get<std::string>();
+        } else if (type == "subtitle") {
+            std::lock_guard lock(g_state_mutex);
+            g_state.subtitle = event.at("text").get<std::string>();
         } else if (type == "error") {
             std::lock_guard lock(g_state_mutex);
             g_state.last_error = event.at("message").get<std::string>();
@@ -252,6 +261,8 @@ void listen_for_events() {
     }
     std::lock_guard lock(g_state_mutex);
     g_state.connected = false;
+    // Without the core, nothing would ever hide the subtitle.
+    g_state.subtitle.clear();
 }
 
 void event_loop() {
@@ -330,8 +341,8 @@ void request_game_language(const std::string& code) {
     enqueue({L"PATCH", L"/v1/settings", json{{"game_language", code}}.dump()});
 }
 
-void request_speech_language(const std::string& code) {
-    enqueue({L"PATCH", L"/v1/settings", json{{"speech_language", code}}.dump()});
+void request_output_language(const std::string& code) {
+    enqueue({L"PATCH", L"/v1/settings", json{{"output_language", code}}.dump()});
 }
 
 void request_source_enabled(const std::string& name, bool enabled) {
@@ -348,6 +359,18 @@ void request_ducking(bool enabled) {
 
 void request_duck_volume(float volume) {
     enqueue({L"PATCH", L"/v1/settings", json{{"duck_volume", volume}}.dump()});
+}
+
+void request_subtitles(bool enabled) {
+    enqueue({L"PATCH", L"/v1/settings", json{{"subtitles", enabled}}.dump()});
+}
+
+void request_subtitle_size(const std::string& size) {
+    enqueue({L"PATCH", L"/v1/settings", json{{"subtitle_size", size}}.dump()});
+}
+
+void request_subtitle_position(const std::string& position) {
+    enqueue({L"PATCH", L"/v1/settings", json{{"subtitle_position", position}}.dump()});
 }
 
 void dismiss_error() {

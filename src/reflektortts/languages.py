@@ -1,8 +1,8 @@
-"""Languages: what the game's text is in, and what lines are spoken in."""
+"""Languages: what the game's text is in, and what lines are spoken and shown in."""
 
 from dataclasses import dataclass
 
-DEFAULT_SPEECH_LANGUAGE = "en"
+DEFAULT_OUTPUT_LANGUAGE = "en"
 AUTO = "auto"
 """Game language meaning "detect it", e.g. left to the translation engine."""
 
@@ -21,8 +21,8 @@ class LanguageError(Exception):
 class Languages:
     game: str
     """The language of the game's text (ISO 639-1), or AUTO."""
-    speech: str
-    """The language lines are prepared and spoken in (ISO 639-1)."""
+    output: str
+    """The language lines are prepared, spoken and shown in (ISO 639-1)."""
 
 
 def primary_language(tag: str) -> str:
@@ -30,7 +30,7 @@ def primary_language(tag: str) -> str:
     return tag.split("-")[0].split("_")[0].lower()
 
 
-def check_speech_language(code: str) -> None:
+def check_output_language(code: str) -> None:
     if code not in LANGUAGES:
         raise LanguageError(f'There is no language "{code}". Available: {", ".join(LANGUAGES)}.')
 

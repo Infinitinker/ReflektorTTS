@@ -10,7 +10,8 @@ from typing import Any
 import platformdirs
 
 from reflektortts.ducking.ducker import DEFAULT_LEVEL
-from reflektortts.languages import AUTO, DEFAULT_SPEECH_LANGUAGE
+from reflektortts.languages import AUTO, DEFAULT_OUTPUT_LANGUAGE
+from reflektortts.sinks.subtitles import DEFAULT_POSITION, DEFAULT_SIZE, POSITIONS, SIZES
 from reflektortts.tts.engine import DEFAULT_VOICE
 
 logger = logging.getLogger(__name__)
@@ -22,10 +23,10 @@ class Settings:
     """Voice as "engine:name", e.g. "windows:Microsoft Adam"."""
     game_language: str = AUTO
     """The language of the game's text (ISO 639-1), or "auto"."""
-    speech_language: str = DEFAULT_SPEECH_LANGUAGE
-    """The language lines are prepared and spoken in (ISO 639-1)."""
+    output_language: str = DEFAULT_OUTPUT_LANGUAGE
+    """The language lines are prepared, spoken and shown in (ISO 639-1)."""
     voices_by_language: dict[str, str] = field(default_factory=dict)
-    """The voice last chosen for each speech language, e.g. {"pl": "windows:Microsoft Adam"}."""
+    """The voice last chosen for each output language, e.g. {"pl": "windows:Microsoft Adam"}."""
     disabled_sources: dict[str, list[str]] = field(default_factory=dict)
     """Sources switched off by the player, by profile ID: {"grand-theft-auto-2-1999": ["messages"]}."""
     disabled_stages: dict[str, list[str]] = field(default_factory=dict)
@@ -34,6 +35,12 @@ class Settings:
     """Whether the game's sound is lowered while lines are spoken."""
     duck_volume: float = DEFAULT_LEVEL
     """The game's volume while lines are spoken, as a fraction of its own volume (0.0 to 1.0)."""
+    subtitles: bool = False
+    """Whether lines are shown as subtitles over the game."""
+    subtitle_size: str = DEFAULT_SIZE
+    """One of SIZES."""
+    subtitle_position: str = DEFAULT_POSITION
+    """One of POSITIONS: where on the screen subtitles are shown."""
 
 
 def settings_path() -> Path:
@@ -55,6 +62,11 @@ def _fraction(data: dict[str, Any], key: str, default: float) -> float:
     if isinstance(value, int | float) and not isinstance(value, bool) and 0.0 <= value <= 1.0:
         return float(value)
     return default
+
+
+def _choice(data: dict[str, Any], key: str, choices: tuple[str, ...], default: str) -> str:
+    value = data.get(key)
+    return value if value in choices else default
 
 
 def _text_map(value: object) -> dict[str, str]:
@@ -86,17 +98,22 @@ def load_settings(path: Path) -> Settings:
         logger.error("Settings in %s are not a JSON object; using defaults.", path)
         return Settings()
     defaults = Settings()
-    # "language" was the speech language before game and speech languages were split.
-    speech_language = _text(data, "speech_language", _text(data, "language", defaults.speech_language))
+    # Older names of the output language: "speech_language", and "language" before game and
+    # output languages were split.
+    older = _text(data, "speech_language", _text(data, "language", defaults.output_language))
+    output_language = _text(data, "output_language", older)
     return Settings(
         voice=_text(data, "voice", defaults.voice),
         game_language=_text(data, "game_language", defaults.game_language),
-        speech_language=speech_language,
+        output_language=output_language,
         voices_by_language=_text_map(data.get("voices_by_language")),
         disabled_sources=_list_map(data.get("disabled_sources")),
         disabled_stages=_list_map(data.get("disabled_stages")),
         ducking=_flag(data, "ducking", defaults.ducking),
         duck_volume=_fraction(data, "duck_volume", defaults.duck_volume),
+        subtitles=_flag(data, "subtitles", defaults.subtitles),
+        subtitle_size=_choice(data, "subtitle_size", SIZES, defaults.subtitle_size),
+        subtitle_position=_choice(data, "subtitle_position", POSITIONS, defaults.subtitle_position),
     )
 
 

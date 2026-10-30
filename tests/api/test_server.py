@@ -19,8 +19,8 @@ from reflektortts.api.server import (
     create_app,
 )
 from reflektortts.bus import EventBus, Listener
-from reflektortts.events import ErrorEvent, GameInfo, SourceStages, StageState, Status, TextEvent
-from reflektortts.languages import LanguageError, check_game_language, check_speech_language
+from reflektortts.events import ErrorEvent, GameInfo, SourceStages, StageState, Status, SubtitleEvent, TextEvent
+from reflektortts.languages import LanguageError, check_game_language, check_output_language
 from reflektortts.tts.engine import VoiceError, VoiceInfo
 
 ADAM = VoiceInfo(id="windows:Microsoft Adam", engine="windows", name="Microsoft Adam", language="pl-PL")
@@ -41,10 +41,13 @@ class FakeCore:
             game=GameInfo("Grand Theft Auto 2", 42),
             voice="piper:a",
             game_language="auto",
-            speech_language="en",
+            output_language="en",
             paused=False,
             ducking=True,
             duck_volume=0.3,
+            subtitles=False,
+            subtitle_size="medium",
+            subtitle_position="top",
             sources=(SourceStages("messages", "memory", True, (TRACKER,)),),
         )
 
@@ -65,13 +68,17 @@ class FakeCore:
         self.current = replace(self.current, game_language=language)
         return self.current
 
-    def set_speech_language(self, language: str) -> Status:
-        check_speech_language(language)
-        self.current = replace(self.current, speech_language=language)
+    def set_output_language(self, language: str) -> Status:
+        check_output_language(language)
+        self.current = replace(self.current, output_language=language)
         return self.current
 
     def set_ducking(self, enabled: bool, volume: float) -> Status:
         self.current = replace(self.current, ducking=enabled, duck_volume=volume)
+        return self.current
+
+    def set_subtitles(self, enabled: bool, size: str, position: str) -> Status:
+        self.current = replace(self.current, subtitles=enabled, subtitle_size=size, subtitle_position=position)
         return self.current
 
     def set_paused(self, paused: bool) -> Status:
@@ -115,10 +122,13 @@ def test_status() -> None:
             "game": {"title": "Grand Theft Auto 2", "pid": 42},
             "voice": "piper:a",
             "game_language": "auto",
-            "speech_language": "en",
+            "output_language": "en",
             "paused": False,
             "ducking": True,
             "duck_volume": 0.3,
+            "subtitles": False,
+            "subtitle_size": "medium",
+            "subtitle_position": "top",
             "sources": [
                 {
                     "name": "messages",
@@ -163,10 +173,10 @@ def test_voices() -> None:
 def test_changing_all_settings_together() -> None:
     async def test(client: TestClient[Any, Any]) -> None:
         response = await client.patch(
-            "/v1/settings", json={"game_language": "en", "speech_language": "pl", "voice": "windows:Microsoft Adam"}
+            "/v1/settings", json={"game_language": "en", "output_language": "pl", "voice": "windows:Microsoft Adam"}
         )
         body = await response.json()
-        assert (body["game_language"], body["speech_language"], body["voice"]) == (
+        assert (body["game_language"], body["output_language"], body["voice"]) == (
             "en",
             "pl",
             "windows:Microsoft Adam",
@@ -185,14 +195,25 @@ def test_ducking_can_be_changed_alone_or_with_its_level() -> None:
     with_client(FakeCore(), test)
 
 
+def test_subtitles_can_be_switched_on_and_set_up() -> None:
+    async def test(client: TestClient[Any, Any]) -> None:
+        body = await (await client.patch("/v1/settings", json={"subtitles": True, "subtitle_size": "large"})).json()
+        assert (body["subtitles"], body["subtitle_size"], body["subtitle_position"]) == (True, "large", "top")
+
+    with_client(FakeCore(), test)
+
+
 @pytest.mark.parametrize(
     ("body", "message"),
     [
         ({"voice": "piper:missing"}, 'There is no voice "piper:missing".'),
+        ({"subtitle_size": "huge"}, SETTINGS_HELP),
+        ({"subtitle_position": "left"}, SETTINGS_HELP),
+        ({"subtitles": 1}, SETTINGS_HELP),
         ({"ducking": "yes"}, SETTINGS_HELP),
         ({"duck_volume": 1.5}, SETTINGS_HELP),
         ({"duck_volume": True}, SETTINGS_HELP),
-        ({"speech_language": "auto"}, 'There is no language "auto". Available: en, pl.'),
+        ({"output_language": "auto"}, 'There is no language "auto". Available: en, pl.'),
         ({"game_language": "xx"}, 'There is no language "xx". Available: auto, en, pl.'),
         ({"voice": 5}, SETTINGS_HELP),
         ({"volume": 5}, SETTINGS_HELP),
@@ -280,13 +301,16 @@ def test_events_start_with_the_status_then_follow_the_core() -> None:
         socket = await client.ws_connect("/v1/events")
         first = await socket.receive_json(timeout=2)
         core.bus.publish(TextEvent("messages", "Welcome to Downtown", 1.0))
+        core.bus.publish(SubtitleEvent("Witamy w Downtown"))
         core.bus.publish(ErrorEvent("source.error", "messages", "game closed"))
         line = await socket.receive_json(timeout=2)
+        subtitle = await socket.receive_json(timeout=2)
         error = await socket.receive_json(timeout=2)
         await socket.close()
 
         assert first["type"] == "status"
         assert line == {"type": "line", "source": "messages", "text": "Welcome to Downtown"}
+        assert subtitle == {"type": "subtitle", "text": "Witamy w Downtown"}
         assert error == {"type": "error", "kind": "source.error", "origin": "messages", "message": "game closed"}
 
     with_client(core, test)
@@ -308,4 +332,4 @@ def test_server_runs_on_its_own_thread_and_reports_a_busy_port() -> None:
 
 def test_language_errors_are_language_errors() -> None:
     with pytest.raises(LanguageError):
-        check_speech_language("auto")
+        check_output_language("auto")

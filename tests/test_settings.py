@@ -15,7 +15,7 @@ def test_saved_settings_load_back(tmp_path: Path) -> None:
     settings = Settings(
         voice="windows:Microsoft Adam",
         game_language="en",
-        speech_language="pl",
+        output_language="pl",
         voices_by_language={"pl": "windows:Microsoft Adam"},
         disabled_stages={"grand-theft-auto-2-1999": ["messages/2:normalize"]},
     )
@@ -26,11 +26,13 @@ def test_saved_settings_load_back(tmp_path: Path) -> None:
     assert not path.with_suffix(".tmp").exists()
 
 
-def test_the_old_language_setting_becomes_the_speech_language(tmp_path: Path) -> None:
+def test_older_language_settings_become_the_output_language(tmp_path: Path) -> None:
     path = tmp_path / "settings.json"
     path.write_text('{"voice": "piper:a", "language": "pl"}', "utf-8")
+    assert load_settings(path) == Settings(voice="piper:a", output_language="pl")
 
-    assert load_settings(path) == Settings(voice="piper:a", speech_language="pl")
+    path.write_text('{"speech_language": "pl", "language": "en"}', "utf-8")
+    assert load_settings(path).output_language == "pl"
 
 
 def test_broken_file_is_reported_and_defaults_are_used(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:

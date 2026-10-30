@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 
-from reflektortts.languages import AUTO, DEFAULT_SPEECH_LANGUAGE
+from reflektortts.languages import AUTO, DEFAULT_OUTPUT_LANGUAGE
 
 
 @dataclass(frozen=True)
@@ -12,10 +12,17 @@ class TextEvent:
     source: str
     text: str
     time: float
-    speech_language: str = DEFAULT_SPEECH_LANGUAGE
-    """The language the line should be spoken in (ISO 639-1), from the player's settings."""
+    output_language: str = DEFAULT_OUTPUT_LANGUAGE
+    """The language the line is prepared, spoken and shown in (ISO 639-1), from the player's settings."""
     game_language: str = AUTO
     """The language of the game's text (ISO 639-1), or "auto", from the player's settings."""
+
+
+@dataclass(frozen=True)
+class SubtitleEvent:
+    """The subtitle to show over the game from now on; empty text hides it."""
+
+    text: str
 
 
 @dataclass(frozen=True)
@@ -65,11 +72,15 @@ class Status:
     """The game being read, or None while waiting for one."""
     voice: str
     game_language: str
-    speech_language: str
+    output_language: str
     paused: bool
     ducking: bool
     """Whether the game's sound is lowered while lines are spoken."""
     duck_volume: float
     """The game's volume while lines are spoken, as a fraction of its own volume."""
+    subtitles: bool
+    """Whether lines are shown as subtitles over the game."""
+    subtitle_size: str
+    subtitle_position: str
     sources: tuple[SourceStages, ...] = ()
     """The stages of the game being read, per source; empty while waiting for a game."""

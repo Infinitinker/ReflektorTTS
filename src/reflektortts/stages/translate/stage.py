@@ -1,4 +1,4 @@
-"""The translate stage plugin: translates lines into the speech language (lektor mode)."""
+"""The translate stage plugin: translates lines into the output language (lektor mode)."""
 
 import logging
 import time
@@ -24,9 +24,9 @@ type Pair = tuple[str, str]
 
 
 class Translate:
-    """Translates each line from the game language into its speech language, sentence by sentence.
+    """Translates each line from the game language into its output language, sentence by sentence.
 
-    Lines already in the speech language, and pairs without a model, pass unchanged. A pair's
+    Lines already in the output language, and pairs without a model, pass unchanged. A pair's
     engine is opened the first time a line needs it. Recent translations are remembered, since
     games repeat lines.
     """
@@ -39,8 +39,8 @@ class Translate:
 
     def process(self, event: TextEvent) -> TextEvent | None:
         source = AUTO_MEANS if event.game_language == AUTO else event.game_language
-        pair = (source, event.speech_language)
-        if not event.text or source == event.speech_language:
+        pair = (source, event.output_language)
+        if not event.text or source == event.output_language:
             return event
         if pair not in self._pairs:
             logger.debug("No translation model from %s to %s", *pair)

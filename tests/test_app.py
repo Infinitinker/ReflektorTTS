@@ -165,10 +165,13 @@ def test_core_saves_a_new_voice_and_remembers_it_for_its_language(tmp_path: Path
         game=None,
         voice="windows:Microsoft Paulina",
         game_language="auto",
-        speech_language="en",
+        output_language="en",
         paused=False,
         ducking=True,
         duck_volume=0.3,
+        subtitles=False,
+        subtitle_size="medium",
+        subtitle_position="top",
     )
     assert events == [status]
     saved = load_settings(tmp_path / "settings.json")
@@ -184,48 +187,48 @@ def test_core_rejects_voices_that_are_not_available(tmp_path: Path) -> None:
         core.set_voice("piper:missing")
 
 
-def test_speech_language_switches_to_the_voice_last_used_for_it(tmp_path: Path) -> None:
+def test_output_language_switches_to_the_voice_last_used_for_it(tmp_path: Path) -> None:
     core = make_core(tmp_path, Clients())
     core.set_voice("windows:Microsoft Paulina")
     core.set_voice("piper:en_US-ljspeech-medium")
 
-    status = core.set_speech_language("pl")
+    status = core.set_output_language("pl")
 
-    assert (status.speech_language, status.voice) == ("pl", "windows:Microsoft Paulina")
+    assert (status.output_language, status.voice) == ("pl", "windows:Microsoft Paulina")
     assert load_settings(tmp_path / "settings.json").voice == "windows:Microsoft Paulina"
 
 
-def test_speech_language_without_a_remembered_voice_takes_the_first_that_speaks_it(tmp_path: Path) -> None:
+def test_output_language_without_a_remembered_voice_takes_the_first_that_speaks_it(tmp_path: Path) -> None:
     core = make_core(tmp_path, Clients())
 
-    assert core.set_speech_language("pl").voice == "windows:Microsoft Adam"
+    assert core.set_output_language("pl").voice == "windows:Microsoft Adam"
 
 
-def test_speech_language_keeps_a_voice_that_already_speaks_it(tmp_path: Path) -> None:
+def test_output_language_keeps_a_voice_that_already_speaks_it(tmp_path: Path) -> None:
     core = make_core(tmp_path, Clients())
     core.set_voice("windows:Microsoft Paulina")
 
-    assert core.set_speech_language("pl").voice == "windows:Microsoft Paulina"
+    assert core.set_output_language("pl").voice == "windows:Microsoft Paulina"
 
 
-def test_speech_language_without_any_voice_keeps_the_current_voice(tmp_path: Path) -> None:
+def test_output_language_without_any_voice_keeps_the_current_voice(tmp_path: Path) -> None:
     core = make_core(tmp_path, Clients(), voices=[LJSPEECH])
 
-    status = core.set_speech_language("pl")
+    status = core.set_output_language("pl")
 
-    assert (status.speech_language, status.voice) == ("pl", "piper:en_US-ljspeech-medium")
+    assert (status.output_language, status.voice) == ("pl", "piper:en_US-ljspeech-medium")
 
 
 def test_languages_are_saved_and_checked(tmp_path: Path) -> None:
     core = make_core(tmp_path, Clients())
 
     core.set_game_language("en")
-    core.set_speech_language("pl")
+    core.set_output_language("pl")
 
-    assert core.languages() == Languages(game="en", speech="pl")
+    assert core.languages() == Languages(game="en", output="pl")
     assert load_settings(tmp_path / "settings.json").game_language == "en"
     with pytest.raises(LanguageError, match='no language "auto"'):
-        core.set_speech_language("auto")
+        core.set_output_language("auto")
     with pytest.raises(LanguageError, match='no language "xx"'):
         core.set_game_language("xx")
 
@@ -238,6 +241,17 @@ def test_ducking_settings_are_saved(tmp_path: Path) -> None:
     assert (status.ducking, status.duck_volume) == (False, 0.5)
     saved = load_settings(tmp_path / "settings.json")
     assert (saved.ducking, saved.duck_volume) == (False, 0.5)
+    core.close()
+
+
+def test_subtitle_settings_are_saved(tmp_path: Path) -> None:
+    core = make_core(tmp_path, Clients())
+
+    status = core.set_subtitles(True, "large", "bottom")
+
+    assert (status.subtitles, status.subtitle_size, status.subtitle_position) == (True, "large", "bottom")
+    saved = load_settings(tmp_path / "settings.json")
+    assert (saved.subtitles, saved.subtitle_size, saved.subtitle_position) == (True, "large", "bottom")
     core.close()
 
 

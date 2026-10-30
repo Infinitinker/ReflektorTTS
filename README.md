@@ -36,7 +36,7 @@ The first run downloads the default voice (about 60 MB).
 
 ## In the game
 
-Press **Ctrl+Shift+R** to open the ReflektorTTS panel. From top to bottom it follows a line through the app: the game and its sources, the text processing stages, and the output (language, voice, game sound, pause). It also shows the last line read. See [overlay/README.md](overlay/README.md).
+Press **Ctrl+Shift+R** to open the ReflektorTTS panel. From top to bottom it follows a line through the app: the game and its sources, the text processing stages, and the output (language, voice, game sound, pause, subtitles). It also shows the last line read. See [overlay/README.md](overlay/README.md).
 
 ## Voices
 
@@ -49,9 +49,13 @@ The chosen voice is saved in `%LOCALAPPDATA%\reflektortts\settings.json`.
 
 While a line is spoken, ReflektorTTS lowers the game's sound, like a *lektor* speaking over the original, and brings it back half a second after the voice stops. By default the game drops to 30% of its own volume; the panel's Output section switches this off or sets the level. Only the game's slider in the Windows volume mixer is changed, not other apps. If ReflektorTTS stops while the game is lowered, the game's own volume is kept in `%LOCALAPPDATA%\reflektortts\lowered-games.json` and put back the next time the game starts.
 
+## Subtitles
+
+ReflektorTTS can also show each line as a subtitle over the game, for example the Polish translation while the original plays. Switch them on under Subtitles in the panel's Output section, where you also set their size and whether they sit at the top or the bottom of the screen. They are at the top by default, so the game's own text, usually at the bottom, stays visible. A subtitle stays while its line is spoken and a moment after, and at least as long as it takes to read, so subtitles also work with speech paused.
+
 ## Translation
 
-ReflektorTTS can translate a game into the speech language, in the style of a Polish *lektor*. Set the game language (in the panel's Game section) and the output language (in Output); when they differ, profiles with a `translate` stage translate each line before it is spoken. To turn it off, untick `translate` in the panel's Text processing section.
+ReflektorTTS can translate a game into the output language, in the style of a Polish *lektor*. Set the game language (in the panel's Game section) and the output language (in Output); when they differ, profiles with a `translate` stage translate each line before it is spoken. To turn it off, untick `translate` in the panel's Text processing section.
 
 Only English to Polish is available so far. It runs offline on the CPU, at about 0.1 s per line. The model (about 80 MB) is downloaded the first time a line needs it, into `%LOCALAPPDATA%\reflektortts\translation`. It is the English–Polish model of [Argos Translate](https://github.com/argosopentech/argos-translate), derived from an [OPUS-MT](https://github.com/Helsinki-NLP/Opus-MT) model by Jörg Tiedemann and Santhosh Thottingal and licensed CC-BY 4.0.
 

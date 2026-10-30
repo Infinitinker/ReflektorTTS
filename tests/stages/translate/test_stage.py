@@ -25,8 +25,8 @@ class Engines:
         return self.engine
 
 
-def translate(stage: Translate, text: str, game: str = "en", speech: str = "pl") -> str:
-    event = stage.process(TextEvent("messages", text, 0.0, speech_language=speech, game_language=game))
+def translate(stage: Translate, text: str, game: str = "en", output: str = "pl") -> str:
+    event = stage.process(TextEvent("messages", text, 0.0, output_language=output, game_language=game))
     assert event is not None
     return event.text
 
@@ -50,12 +50,12 @@ def test_auto_game_language_is_taken_as_english() -> None:
     assert translate(stage, "Kill Frenzy!", game="auto") == "<Kill Frenzy!>"
 
 
-def test_lines_already_in_the_speech_language_pairs_without_a_model_and_empty_text_pass_unchanged() -> None:
+def test_lines_already_in_the_output_language_pairs_without_a_model_and_empty_text_pass_unchanged() -> None:
     engines = Engines()
     stage = make_stage(engines)
 
-    assert translate(stage, "Kill Frenzy!", speech="en") == "Kill Frenzy!"
-    assert translate(stage, "Zabij!", game="pl", speech="en") == "Zabij!"
+    assert translate(stage, "Kill Frenzy!", output="en") == "Kill Frenzy!"
+    assert translate(stage, "Zabij!", game="pl", output="en") == "Zabij!"
     assert translate(stage, "") == ""
     assert engines.opened == []
 
