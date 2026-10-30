@@ -40,7 +40,7 @@ tracker = "reflektortts.stages.tracker:PLUGIN"
 dev = ["mypy>=2.4", "pytest>=9.2", "ruff>=0.17", "types-jsonschema", "types-psutil"]
 
 [tool.pytest.ini_options]
-testpaths = ["src"]
+testpaths = ["tests"]
 
 [tool.ruff]
 line-length = 120
@@ -50,7 +50,7 @@ select = ["E", "F", "I", "UP", "B"]
 
 [tool.mypy]
 strict = true
-files = ["src"]
+files = ["src", "tests"]
 
 [[tool.mypy.overrides]]
 module = ["sounddevice", "num2words"]

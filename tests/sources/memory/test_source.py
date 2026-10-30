@@ -1,6 +1,5 @@
 import pytest
 
-from reflektortts.sources.memory.fake_memory import FakeMemory
 from reflektortts.sources.memory.pointer import Address
 from reflektortts.sources.memory.process_memory import MemoryReadError
 from reflektortts.sources.memory.source import (
@@ -12,6 +11,7 @@ from reflektortts.sources.memory.source import (
     decode_terminated,
     looks_like_text,
 )
+from tests.sources.memory.fake_memory import FakeMemory
 
 GAME_HASH = "a" * 64
 CHAIN = PointerChain(exe_sha256=GAME_HASH, base=Address("gta2.exe", 0x10), offsets=(0x4,))

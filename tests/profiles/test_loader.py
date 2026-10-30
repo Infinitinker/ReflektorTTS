@@ -7,7 +7,7 @@ import pytest
 from reflektortts.profiles.loader import PluginSchemas, ProfileError, load_profile, load_profiles
 from reflektortts.profiles.model import Game, Match, Profile, SourceSettings, StageSettings
 
-REPO_PROFILES = Path(__file__).resolve().parents[3] / "profiles"
+REPO_PROFILES = Path(__file__).resolve().parents[2] / "profiles"
 
 VALID: dict[str, Any] = {
     "version": 1,

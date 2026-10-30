@@ -116,4 +116,4 @@ def list_voices() -> list[VoiceInfo]: ...
 
 ## Testing
 
-Tests sit next to the code as `test_<module>.py` and run without a game, GPU, audio device or network. Put hardware- and game-dependent parts behind an interface and test against a fake, as `sources/memory/fake_memory.py` and the fake streams in `tts/test_playback.py` do.
+Tests live in `tests/`, mirroring the package: the tests for `src/reflektortts/stages/tracker.py` are in `tests/stages/test_tracker.py`. They run without a game, GPU, audio device or network. Put hardware- and game-dependent parts behind an interface and test against a fake kept in `tests/`, as `tests/sources/memory/fake_memory.py` and the fake streams in `tests/tts/test_playback.py` do.

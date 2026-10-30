@@ -1,8 +1,8 @@
 import pytest
 
-from reflektortts.sources.memory.fake_memory import FakeMemory
 from reflektortts.sources.memory.pointer import Address, parse_address, resolve
 from reflektortts.sources.memory.process_memory import MemoryReadError, ProcessMemoryError
+from tests.sources.memory.fake_memory import FakeMemory
 
 
 def pointer(value: int) -> bytes:

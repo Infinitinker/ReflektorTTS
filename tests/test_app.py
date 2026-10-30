@@ -17,7 +17,7 @@ from reflektortts.profiles.model import Game, Match, Profile, SourceSettings, St
 from reflektortts.settings import load_settings
 from reflektortts.tts.engine import VoiceError, VoiceInfo
 from reflektortts.tts.narrator import Narrator
-from reflektortts.tts.test_narrator import Clients
+from tests.tts.test_narrator import Clients
 
 
 class FixedSource:
