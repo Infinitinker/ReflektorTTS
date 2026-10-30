@@ -1,8 +1,17 @@
 """Runs a downloaded model with CTranslate2, tokenized the way it was trained: Moses tokens split into BPE subwords."""
 
+import re
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Protocol
+
+# Polish declines foreign names with an apostrophe ("Frenzy'ego", "Joe'go"); the Moses
+# detokenizer leaves a space before it. Only these endings are joined, so quotes stay apart.
+_NAME_ENDING = re.compile(r"(?<=\w) '(?=(?:ego|go|emu|mu|em|m|a|u|ie|owi|y|ów|om|ami|ach)\b)")
+
+
+def join_name_endings(text: str) -> str:
+    return _NAME_ENDING.sub("'", text)
 
 
 class Engine(Protocol):
@@ -39,7 +48,7 @@ class MosesBpeEngine:
         results = self._translator.translate_batch(batch, beam_size=4, length_penalty=0.2, replace_unknowns=True)
         tokens = [token for result in results for token in result.hypotheses[0]]
         words = " ".join(tokens).replace("@@ ", "").split(" ")
-        return str(self._detokenizer.detokenize(words))
+        return join_name_endings(str(self._detokenizer.detokenize(words)))
 
     def _encode(self, sentence: str) -> list[str]:
         words = self._tokenizer.tokenize(self._normalizer.normalize(sentence))

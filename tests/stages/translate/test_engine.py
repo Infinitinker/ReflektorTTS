@@ -3,7 +3,20 @@ from pathlib import Path
 
 import pytest
 
-from reflektortts.stages.translate.engine import MosesBpeEngine, TranslationUnavailableError
+from reflektortts.stages.translate.engine import MosesBpeEngine, TranslationUnavailableError, join_name_endings
+
+
+@pytest.mark.parametrize(
+    ("detokenized", "joined"),
+    [
+        ("Zabij Frenzy 'ego!", "Zabij Frenzy'ego!"),
+        ("Daj to Joe 'mu.", "Daj to Joe'mu."),
+        ("Powiedział 'tak' i wyszedł.", "Powiedział 'tak' i wyszedł."),
+        ("Misja zakończona!", "Misja zakończona!"),
+    ],
+)
+def test_polish_name_endings_are_joined_to_the_name(detokenized: str, joined: str) -> None:
+    assert join_name_endings(detokenized) == joined
 
 
 def test_missing_translation_packages_are_explained(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

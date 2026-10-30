@@ -51,6 +51,10 @@ class Words(Protocol):
 
     def percent(self, number: Number) -> str: ...
 
+    def agree(self, text: str) -> str:
+        """Fixes the spelled-out line where a number depends on the words after it, e.g. Polish
+        "dwa minuty" becomes "dwie minuty"."""
+
 
 def _number(match: re.Match[str]) -> Number:
     written = match["whole"]
@@ -64,4 +68,4 @@ def normalize(text: str, words: Words) -> str:
     text = _PERCENT.sub(lambda m: f" {words.percent(_number(m))} ", text)
     text = _PLAIN.sub(lambda m: f" {words.number(_number(m))} ", text)
     text = _SPACE_BEFORE_PUNCTUATION.sub(r"\1", text)
-    return " ".join(text.split())
+    return words.agree(" ".join(text.split()))

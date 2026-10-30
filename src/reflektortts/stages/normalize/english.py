@@ -45,3 +45,7 @@ class EnglishWords:
 
     def percent(self, number: Number) -> str:
         return f"{self.number(number)} percent"
+
+    def agree(self, text: str) -> str:
+        """English numbers do not change with the words after them."""
+        return text

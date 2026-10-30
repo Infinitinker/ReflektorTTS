@@ -45,6 +45,22 @@ def test_a_gta2_line_reads_naturally() -> None:
     assert say(line, "en") == "Take the car to the docks for fifty thousand dollars, then come back."
 
 
+@pytest.mark.parametrize(
+    ("text", "polish"),
+    [
+        ("Wyciągnij 20 świrów w 2 minuty.", "Wyciągnij dwadzieścia świrów w dwie minuty."),
+        ("Masz 1 minutę? Zostały 2 auta i 1 auto.", "Masz jedną minutę? Zostały dwa auta i jedno auto."),
+        ("Zostały 22 sekundy.", "Zostały dwadzieścia dwie sekundy."),
+        ("2 misje, 1 noc.", "dwie misje, jedna noc."),
+        ("Jeden błąd i Dwa auta.", "Jeden błąd i Dwa auta."),
+        ("Masz tylko 1 szansę.", "Masz tylko jedną szansę."),
+        ("2 samochody i 21 minut.", "dwa samochody i dwadzieścia jeden minut."),
+    ],
+)
+def test_polish_one_and_two_take_the_gender_of_the_noun_after_them(text: str, polish: str) -> None:
+    assert say(text, "pl") == polish
+
+
 def test_text_without_numbers_and_empty_text_pass_unchanged() -> None:
     assert say("Kill Frenzy!", "en") == "Kill Frenzy!"
     assert say("", "pl") == ""

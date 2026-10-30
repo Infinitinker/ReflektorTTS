@@ -103,7 +103,8 @@ Finding a line's label when subtitles can be turned off: turn subtitles on and f
 - **Why this engine:** an EN→PL benchmark on game lines compared it with Opus-MT `en-zlw` and `tc-bible-big`, Firefox Translations' model (through `fxtranslate`), and Meta's NLLB-200 600M and M2M-100 418M. It gave the most natural translations and was the fastest. Firefox's model needs a Marian-based engine (its SSRU decoder does not run on CTranslate2), and NLLB-200 is licensed for non-commercial use only.
 - Planned: more language pairs; a glossary per profile for names and game terms (offline models take no context, so names would be swapped for placeholders and back); online engines (e.g. DeepL, LLMs) as optional plugins that can use a game's context.
 - For sources with labels: translate the whole text table ahead of time into a label → Polish text dictionary, with no delay and room for manual corrections.
-- Normalization covers numbers, money and percentages in English and Polish so far; dates, times and abbreviations (the PoC had Polish rules for them) are still to come.
+- Normalization covers numbers, money and percentages in English and Polish so far. In Polish, 1 and 2 take the gender of a following noun common in games ("dwie minuty", "jedną szansę"); other cases (e.g. "po dwóch minutach") and dates, times and abbreviations (the PoC had Polish rules for them) are still to come.
+- The translate stage joins the endings Polish gives foreign names ("Frenzy'ego"), which the detokenizer leaves apart.
 
 ### Overlay
 
