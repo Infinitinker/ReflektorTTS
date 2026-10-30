@@ -1,5 +1,6 @@
 """The contract between the TTS service and speech engines, and how engines are found."""
 
+import logging
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from importlib.metadata import entry_points
@@ -7,6 +8,8 @@ from typing import Protocol
 
 import numpy as np
 import numpy.typing as npt
+
+logger = logging.getLogger(__name__)
 
 ENGINE_GROUP = "reflektortts.tts_engines"
 DEFAULT_ENGINE = "piper"
@@ -33,12 +36,28 @@ class VoiceError(Exception):
 
 
 @dataclass(frozen=True)
+class VoiceInfo:
+    id: str
+    """What settings and --voice use: "engine:name"."""
+    engine: str
+    name: str
+    language: str
+    """BCP 47 tag, e.g. "pl-PL"."""
+
+
+@dataclass(frozen=True)
 class EnginePlugin:
-    """What an engine registers under the reflektortts.tts_engines entry-point group."""
+    """What an engine registers under the reflektortts.tts_engines entry-point group.
+
+    Importing the plugin's module must stay cheap: the core imports it to list voices,
+    so heavy libraries are imported only when an engine is created.
+    """
 
     name: str
     create: Callable[[str], TtsEngine]
     """Creates the engine speaking with the named voice; raises VoiceError if it cannot."""
+    list_voices: Callable[[], list[VoiceInfo]]
+    """Voices usable right now, or after a download the engine does itself."""
 
 
 @dataclass(frozen=True)
@@ -64,3 +83,14 @@ def load_engine_plugin(name: str) -> EnginePlugin:
         return plugin
     installed = ", ".join(sorted(entry_point.name for entry_point in entry_points(group=ENGINE_GROUP)))
     raise VoiceError(f'There is no speech engine called "{name}" (installed: {installed}).')
+
+
+def available_voices() -> list[VoiceInfo]:
+    """Voices of every engine that works on this system; an engine that fails is logged and skipped."""
+    voices: list[VoiceInfo] = []
+    for entry_point in entry_points(group=ENGINE_GROUP):
+        try:
+            voices.extend(load_engine_plugin(entry_point.name).list_voices())
+        except Exception as error:
+            logger.warning("Speech engine %s is not available: %s", entry_point.name, error)
+    return voices

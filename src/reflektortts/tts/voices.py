@@ -15,6 +15,16 @@ def voices_dir() -> Path:
     return platformdirs.user_data_path("reflektortts", appauthor=False) / "voices"
 
 
+def downloaded_voices(directory: Path | None = None) -> list[str]:
+    """Names of voices whose model and config are both in the folder."""
+    directory = directory or voices_dir()
+    return sorted(
+        model.name.removesuffix(".onnx")
+        for model in directory.glob("*.onnx")
+        if model.with_name(f"{model.name}.json").is_file()
+    )
+
+
 def ensure_voice(
     name: str,
     directory: Path | None = None,

@@ -9,7 +9,7 @@ import numpy as np
 from winrt.windows.media.speechsynthesis import SpeechSynthesizer, VoiceInformation
 from winrt.windows.storage.streams import DataReader
 
-from reflektortts.tts.engine import AudioChunk, EnginePlugin, VoiceError
+from reflektortts.tts.engine import AudioChunk, EnginePlugin, VoiceError, VoiceInfo
 
 
 def find_voice(name: str, voices: Iterable[VoiceInformation]) -> VoiceInformation:
@@ -60,4 +60,13 @@ class WindowsEngine:
         yield wav_to_chunk(asyncio.run(_synthesize_wav(self._voice, text)))
 
 
-PLUGIN = EnginePlugin(name="windows", create=WindowsEngine)
+def list_voices() -> list[VoiceInfo]:
+    return [
+        VoiceInfo(
+            id=f"windows:{voice.display_name}", engine="windows", name=voice.display_name, language=voice.language
+        )
+        for voice in SpeechSynthesizer.all_voices
+    ]
+
+
+PLUGIN = EnginePlugin(name="windows", create=WindowsEngine, list_voices=list_voices)

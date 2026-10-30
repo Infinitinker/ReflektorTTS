@@ -19,8 +19,9 @@ void set_overlay_window(HWND window);
 void forget_renderer_backend();
 
 // Runs the platform and UI half of an ImGui frame. Call it after the renderer backend's
-// NewFrame and before its RenderDrawData. The frame is laid out in back buffer pixels,
-// which can differ from the window's size when the game or a wrapper scales its image.
+// NewFrame and before its RenderDrawData. The frame is laid out in window coordinates and
+// scaled to the back buffer; the Direct3D 9 backend ignores that scale, so with D3D9 the
+// overlay is right only when the back buffer matches the window, as it usually does.
 void build_overlay_frame(UINT back_buffer_width, UINT back_buffer_height);
 
 }  // namespace reflektortts

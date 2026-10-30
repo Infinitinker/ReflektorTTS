@@ -1,4 +1,4 @@
-"""Events that flow from sources through stages to sinks, and errors reported about them."""
+"""Events the core produces: text on its way to sinks, plugin errors, and status changes."""
 
 from dataclasses import dataclass
 
@@ -19,3 +19,19 @@ class ErrorEvent:
     kind: str
     origin: str
     message: str
+
+
+@dataclass(frozen=True)
+class GameInfo:
+    title: str
+    pid: int
+
+
+@dataclass(frozen=True)
+class Status:
+    """What the core is doing; published whenever any of it changes."""
+
+    game: GameInfo | None
+    """The game being read, or None while waiting for one."""
+    voice: str
+    paused: bool

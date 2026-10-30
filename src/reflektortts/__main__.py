@@ -6,8 +6,9 @@ import sys
 import threading
 from pathlib import Path
 
+from reflektortts.api.server import ApiError
 from reflektortts.app import default_profiles_dir, run
-from reflektortts.tts.engine import DEFAULT_VOICE
+from reflektortts.settings import settings_path
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -19,17 +20,26 @@ def main(argv: list[str] | None = None) -> int:
         help="folder with game profiles (default: %(default)s)",
     )
     parser.add_argument(
-        "--voice",
-        default=DEFAULT_VOICE,
-        help='voice as engine:name, e.g. "windows:Microsoft Adam" (default: %(default)s)',
+        "--overlay",
+        type=Path,
+        action="append",
+        default=[],
+        help="folder with an overlay build to load into games (DLL and injector); repeat for 32- and 64-bit builds",
     )
     args = parser.parse_args(argv)
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    # One line per API request would drown the log the user reads.
+    logging.getLogger("aiohttp.access").setLevel(logging.WARNING)
+    log = logging.getLogger(__name__)
+    log.info("Settings: %s (the voice is chosen in the in-game overlay or the API)", settings_path())
     try:
-        run(args.profiles, args.voice, threading.Event())
+        run(args.profiles, settings_path(), args.overlay, threading.Event())
+    except ApiError as error:
+        log.error("%s", error)
+        return 1
     except KeyboardInterrupt:
-        logging.getLogger(__name__).info("Stopped")
+        log.info("Stopped")
     return 0
 
 

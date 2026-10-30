@@ -14,7 +14,11 @@ FetchContent_Declare(imgui
     GIT_REPOSITORY https://github.com/ocornut/imgui.git
     GIT_TAG v1.92.9
     GIT_SHALLOW TRUE)
-FetchContent_MakeAvailable(imgui)
+FetchContent_Declare(nlohmann_json
+    GIT_REPOSITORY https://github.com/nlohmann/json.git
+    GIT_TAG v3.12.0
+    GIT_SHALLOW TRUE)
+FetchContent_MakeAvailable(imgui nlohmann_json)
 
 add_library(imgui STATIC
     ${imgui_SOURCE_DIR}/imgui.cpp
@@ -40,9 +44,11 @@ add_library(reflektortts-overlay SHARED
     src/d3d9_hook.cpp
     src/d3d9_renderer.cpp
     src/overlay_frame.cpp
+    src/input.cpp
+    src/api_client.cpp
     src/ui.cpp)
 set_target_properties(reflektortts-overlay PROPERTIES PREFIX "")
-target_link_libraries(reflektortts-overlay PRIVATE imgui)
+target_link_libraries(reflektortts-overlay PRIVATE imgui nlohmann_json::nlohmann_json winhttp)
 
 add_executable(reflektortts-inject injector/inject.cpp)
 

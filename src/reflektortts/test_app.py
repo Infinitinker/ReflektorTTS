@@ -1,13 +1,21 @@
 import threading
 from collections.abc import Mapping
+from pathlib import Path
 from typing import Any
 
-from reflektortts.app import build_routes, read_game
-from reflektortts.events import ErrorEvent, TextEvent
+import pytest
+
+from reflektortts.app import Core, build_routes, read_game
+from reflektortts.bus import Event
+from reflektortts.events import ErrorEvent, GameInfo, Status, TextEvent
 from reflektortts.games.detector import ProcessInfo, RunningGame
 from reflektortts.pipeline.plugins import SourcePlugin, StagePlugin
 from reflektortts.pipeline.runner import Route
 from reflektortts.profiles.model import Game, Match, Profile, SourceSettings, StageSettings
+from reflektortts.settings import load_settings
+from reflektortts.tts.engine import VoiceError, VoiceInfo
+from reflektortts.tts.narrator import Narrator
+from reflektortts.tts.test_narrator import Clients
 
 
 class FixedSource:
@@ -113,3 +121,65 @@ def test_read_game_returns_when_stopped() -> None:
     read_game(game_with(), [Route(source)], [], stop, is_running=lambda pid: True, check_seconds=0.01)
 
     assert source.closed
+
+
+ADAM = VoiceInfo(id="windows:Microsoft Adam", engine="windows", name="Microsoft Adam", language="pl-PL")
+
+
+def make_core(tmp_path: Path, clients: Clients) -> Core:
+    return Core(
+        profiles=[],
+        settings_file=tmp_path / "settings.json",
+        narrator_factory=lambda voice: Narrator(voice, clients.start),
+        list_voices=lambda: [ADAM],
+    )
+
+
+def test_core_starts_with_the_saved_voice_and_saves_a_new_one(tmp_path: Path) -> None:
+    clients = Clients()
+    core = make_core(tmp_path, clients)
+    events: list[Event] = []
+    core.subscribe(events.append)
+
+    status = core.set_voice("windows:Microsoft Adam")
+
+    assert status == Status(game=None, voice="windows:Microsoft Adam", paused=False)
+    assert events == [status]
+    assert load_settings(tmp_path / "settings.json").voice == "windows:Microsoft Adam"
+    assert make_core(tmp_path, Clients()).status().voice == "windows:Microsoft Adam"
+
+
+def test_core_rejects_voices_that_are_not_available(tmp_path: Path) -> None:
+    core = make_core(tmp_path, Clients())
+
+    with pytest.raises(VoiceError, match=r'no voice "piper:missing"\. Available: windows:Microsoft Adam'):
+        core.set_voice("piper:missing")
+
+
+def test_core_pauses_and_resumes_reading(tmp_path: Path) -> None:
+    clients = Clients()
+    core = make_core(tmp_path, clients)
+
+    assert core.set_paused(True).paused is True
+    assert clients.started[0].stopped == 1
+    assert core.set_paused(False).paused is False
+
+
+def test_source_errors_after_the_game_exits_are_not_reported(tmp_path: Path) -> None:
+    running = {42}
+    core = Core(
+        profiles=[],
+        settings_file=tmp_path / "settings.json",
+        narrator_factory=lambda voice: Narrator(voice, Clients().start),
+        list_voices=lambda: [ADAM],
+        is_running=lambda pid: pid in running,
+    )
+    core._game = GameInfo("Game", 42)
+    events: list[Event] = []
+    core.subscribe(events.append)
+
+    core._report(ErrorEvent("source.error", "messages", "read failed"))
+    running.clear()
+    core._report(ErrorEvent("source.error", "messages", "read failed"))
+
+    assert events == [ErrorEvent("source.error", "messages", "read failed")]

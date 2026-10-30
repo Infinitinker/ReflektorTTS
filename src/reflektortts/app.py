@@ -1,21 +1,29 @@
-"""The core's main loop: waits for a profiled game and reads it aloud until it exits."""
+"""The core: watches for profiled games, reads them aloud, and answers the local API."""
 
 import logging
 import threading
 from collections.abc import Callable, Mapping, Sequence
+from dataclasses import replace
 from pathlib import Path
 
 import platformdirs
 import psutil
 
-from reflektortts.events import ErrorEvent
+from reflektortts.api.server import ApiServer
+from reflektortts.bus import EventBus, Listener
+from reflektortts.events import ErrorEvent, GameInfo, Status
 from reflektortts.games.detector import RunningGame, find_running_games
+from reflektortts.overlay import inject_overlay
 from reflektortts.pipeline.plugins import SourcePlugin, StagePlugin, source_plugins, stage_plugins
 from reflektortts.pipeline.protocols import Sink
 from reflektortts.pipeline.runner import Route, Runner, log_error
 from reflektortts.profiles.loader import load_profiles
+from reflektortts.profiles.model import Profile
+from reflektortts.settings import load_settings, save_settings
+from reflektortts.sinks.bus import BusSink
 from reflektortts.sinks.tts import TtsSink
-from reflektortts.tts.client import TtsClient
+from reflektortts.tts.engine import VoiceError, VoiceInfo, available_voices
+from reflektortts.tts.narrator import Narrator
 
 logger = logging.getLogger(__name__)
 
@@ -67,29 +75,110 @@ def read_game(
             route.source.close()
 
 
-def run(profiles_dir: Path, voice: str, stop: threading.Event) -> None:
-    """Reads every profiled game that starts, one at a time, until stop is set."""
+class Core:
+    """Owns the narrator, the settings and the event bus; the API controls it through these methods."""
+
+    def __init__(
+        self,
+        profiles: Sequence[Profile],
+        settings_file: Path,
+        overlay_dirs: Sequence[Path] = (),
+        narrator_factory: Callable[[str], Narrator] = Narrator,
+        list_voices: Callable[[], list[VoiceInfo]] = available_voices,
+        is_running: Callable[[int], bool] = psutil.pid_exists,
+    ) -> None:
+        self._profiles = profiles
+        self._is_running = is_running
+        self._settings_file = settings_file
+        self._settings = load_settings(settings_file)
+        self._overlay_dirs = overlay_dirs
+        self._list_voices = list_voices
+        self._narrator = narrator_factory(self._settings.voice)
+        self._bus = EventBus()
+        self._game: GameInfo | None = None
+
+    def status(self) -> Status:
+        return Status(game=self._game, voice=self._narrator.voice, paused=self._narrator.paused)
+
+    def voices(self) -> list[VoiceInfo]:
+        return self._list_voices()
+
+    def set_voice(self, voice: str) -> Status:
+        available = [info.id for info in self.voices()]
+        if voice not in available:
+            raise VoiceError(f'There is no voice "{voice}". Available: {", ".join(available) or "none"}.')
+        self._narrator.use_voice(voice)
+        self._settings = replace(self._settings, voice=voice)
+        save_settings(self._settings, self._settings_file)
+        return self._publish_status()
+
+    def set_paused(self, paused: bool) -> Status:
+        if paused:
+            self._narrator.pause()
+        else:
+            self._narrator.resume()
+        return self._publish_status()
+
+    def subscribe(self, listener: Listener) -> Callable[[], None]:
+        return self._bus.subscribe(listener)
+
+    def run(self, stop: threading.Event) -> None:
+        """Reads every profiled game that starts, one at a time, until stop is set."""
+        sources, stages = source_plugins(), stage_plugins()
+        sinks: list[Sink] = [TtsSink(self._narrator), BusSink(self._bus)]
+        logger.info("Watching for %s", ", ".join(profile.game.title for profile in self._profiles))
+        while not stop.is_set():
+            games = find_running_games(self._profiles)
+            if not games:
+                stop.wait(GAME_CHECK_SECONDS)
+                continue
+            game = games[0]
+            self._game = GameInfo(title=game.profile.game.title, pid=game.process.pid)
+            self._publish_status()
+            if self._overlay_dirs:
+                inject_overlay(game.process.pid, self._overlay_dirs)
+            routes = build_routes(game, sources, stages, self._report)
+            if routes:
+                logger.info("Reading %s aloud", game.profile.game.title)
+            else:
+                logger.error("%s is running, but none of its sources could start.", game.profile.game.title)
+            read_game(game, routes, sinks, stop, self._report, self._is_running)
+            logger.info("%s closed", game.profile.game.title)
+            self._game = None
+            self._publish_status()
+
+    def close(self) -> None:
+        self._narrator.close()
+
+    def _report(self, error: ErrorEvent) -> None:
+        # A source usually fails a moment before the game's exit is noticed; that is not an error.
+        game = self._game
+        if error.kind == "source.error" and game is not None and not self._is_running(game.pid):
+            logger.debug("Ignoring %s from %s: the game has exited", error.kind, error.origin)
+            return
+        log_error(error)
+        self._bus.publish(error)
+
+    def _publish_status(self) -> Status:
+        status = self.status()
+        self._bus.publish(status)
+        return status
+
+
+def run(profiles_dir: Path, settings_file: Path, overlay_dirs: Sequence[Path], stop: threading.Event) -> None:
+    """Starts the core and its API, and runs until stop is set or the process is interrupted."""
     profiles, errors = load_profiles(profiles_dir) if profiles_dir.is_dir() else ([], [])
     for error in errors:
         logger.error("Skipping a profile: %s", error)
     if not profiles:
         logger.error("No game profiles in %s. Copy a profile there or pass --profiles.", profiles_dir)
         return
-    logger.info("Watching for %s", ", ".join(profile.game.title for profile in profiles))
 
-    sources, stages = source_plugins(), stage_plugins()
-    with TtsClient(voice) as tts:
-        sinks = [TtsSink(tts)]
-        while not stop.is_set():
-            games = find_running_games(profiles)
-            if not games:
-                stop.wait(GAME_CHECK_SECONDS)
-                continue
-            game = games[0]
-            routes = build_routes(game, sources, stages, log_error)
-            if not routes:
-                logger.error("%s is running, but none of its sources could start.", game.profile.game.title)
-            else:
-                logger.info("Reading %s aloud", game.profile.game.title)
-            read_game(game, routes, sinks, stop)
-            logger.info("%s closed", game.profile.game.title)
+    core = Core(profiles, settings_file, overlay_dirs)
+    server = ApiServer(core)
+    try:
+        server.start()
+        core.run(stop)
+    finally:
+        server.stop()
+        core.close()
