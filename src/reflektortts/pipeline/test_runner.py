@@ -85,10 +85,20 @@ def test_sources_are_read_only_when_due() -> None:
     assert slow.reads == 1
 
 
-def test_no_text_delivers_nothing() -> None:
-    sink = RecordingSink()
-    Runner([Route(ScriptedSource("memory", [None]))], [sink]).poll(0.0)
+class Recording:
+    def __init__(self) -> None:
+        self.texts: list[str] = []
 
+    def process(self, event: TextEvent) -> TextEvent | None:
+        self.texts.append(event.text)
+        return event
+
+
+def test_no_text_reaches_stages_as_empty_text_but_never_sinks() -> None:
+    sink, stage = RecordingSink(), Recording()
+    Runner([Route(ScriptedSource("memory", [None]), [stage])], [sink]).poll(0.0)
+
+    assert stage.texts == [""]
     assert sink.events == []
 
 

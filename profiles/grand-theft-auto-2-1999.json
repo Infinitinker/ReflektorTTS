@@ -19,6 +19,10 @@
           "address": "gta2.exe+272F40",
           "offsets": ["E4"]
         }
+      ],
+      "stages": [
+        { "type": "tracker", "stable_ms": 500, "min_letters": 4 },
+        { "type": "replace", "rules": [{ "find": "#", "replace": "" }] }
       ]
     }
   ]

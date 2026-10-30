@@ -1,15 +1,13 @@
 """Registers the memory source: its settings schema and how to create it for a running game."""
 
 import hashlib
-import json
 from collections.abc import Mapping
-from importlib import resources
 from typing import Any
 
 import psutil
 
 from reflektortts.games.detector import RunningGame
-from reflektortts.pipeline.plugins import SourcePlugin
+from reflektortts.pipeline.plugins import SourcePlugin, load_schema
 from reflektortts.profiles.model import SourceSettings
 from reflektortts.sources.memory.pointer import parse_address
 from reflektortts.sources.memory.process_memory import ProcessMemoryError, open_process_memory
@@ -49,8 +47,6 @@ def create(source: SourceSettings, game: RunningGame) -> MemorySource:
 
 PLUGIN = SourcePlugin(
     type="memory",
-    settings_schema=json.loads(
-        resources.files("reflektortts.sources.memory").joinpath("settings.schema.json").read_text("utf-8")
-    ),
+    settings_schema=load_schema("reflektortts.sources.memory", "settings.schema.json"),
     create=create,
 )

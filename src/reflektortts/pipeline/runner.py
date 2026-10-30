@@ -28,6 +28,9 @@ class Route:
 class Runner:
     """Polls each route's source on its interval and delivers the results to every sink.
 
+    When a source has no text, its stages get an event with empty text, so they can tell
+    a line disappeared; empty text is never delivered to sinks.
+
     A failing source, stage or sink is reported once through on_error and does not stop
     the others; the runner keeps trying it and logs when it works again.
     """
@@ -68,10 +71,9 @@ class Runner:
             self._failed("source.error", source.name, error)
             return
         self._worked("source.error", source.name)
-        if text is None:
-            return
 
-        event = TextEvent(source=source.name, text=text, time=now)
+        # No text still goes through the stages, as empty text, so they see a line disappear.
+        event = TextEvent(source=source.name, text=text or "", time=now)
         for stage in route.stages:
             stage_name = f"{source.name}/{type(stage).__name__}"
             try:
@@ -83,7 +85,8 @@ class Runner:
             if result is None:
                 return
             event = result
-        self._deliver(event)
+        if event.text:
+            self._deliver(event)
 
     def _deliver(self, event: TextEvent) -> None:
         for sink in self._sinks:

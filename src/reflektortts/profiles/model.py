@@ -19,6 +19,14 @@ class Match:
 
 
 @dataclass(frozen=True)
+class StageSettings:
+    """One stage of a source; settings holds the plugin's own, schema-validated fields."""
+
+    type: str
+    settings: Mapping[str, Any]
+
+
+@dataclass(frozen=True)
 class SourceSettings:
     """One source in a profile. settings holds the plugin's own fields, already validated
     against its schema; the plugin turns them into its own types."""
@@ -28,6 +36,8 @@ class SourceSettings:
     poll_interval: float
     """Seconds between reads."""
     settings: Mapping[str, Any]
+    stages: tuple[StageSettings, ...] = field(default=())
+    """Applied in order to this source's text."""
 
 
 @dataclass(frozen=True)

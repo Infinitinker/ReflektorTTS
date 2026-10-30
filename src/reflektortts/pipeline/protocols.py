@@ -22,7 +22,10 @@ class Stage(Protocol):
     """Transforms or filters text on its way to the sinks."""
 
     def process(self, event: TextEvent) -> TextEvent | None:
-        """Returns the event to pass on, possibly changed, or None to drop it."""
+        """Returns the event to pass on, possibly changed, or None to drop it.
+
+        Empty text means the source currently has none.
+        """
 
 
 class Sink(Protocol):

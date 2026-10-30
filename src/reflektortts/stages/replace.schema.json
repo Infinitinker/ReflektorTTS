@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Replace stage settings",
+  "description": "Plain text replacements, applied in order.",
+  "type": "object",
+  "required": ["rules"],
+  "additionalProperties": false,
+  "properties": {
+    "rules": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["find", "replace"],
+        "additionalProperties": false,
+        "properties": {
+          "find": { "description": "Text to look for.", "type": "string", "minLength": 1 },
+          "replace": { "description": "Text to put in its place; empty to remove it.", "type": "string" }
+        }
+      }
+    }
+  }
+}

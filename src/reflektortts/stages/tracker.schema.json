@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Tracker stage settings",
+  "description": "Passes a line on once it has stopped changing, and only once until it disappears or changes.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "stable_ms": {
+      "description": "How long the text must stay unchanged before it is passed on, in milliseconds. Default: 500.",
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 10000
+    },
+    "min_letters": {
+      "description": "Lines with fewer letters are ignored. Default: 4.",
+      "type": "integer",
+      "minimum": 0
+    }
+  }
+}

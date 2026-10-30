@@ -2,6 +2,7 @@
 
 import json
 from collections.abc import Callable, Mapping
+from dataclasses import dataclass
 from functools import cache
 from importlib import resources
 from pathlib import Path
@@ -10,8 +11,8 @@ from typing import Any
 import jsonschema
 from jsonschema.protocols import Validator
 
-from reflektortts.pipeline.plugins import source_plugins
-from reflektortts.profiles.model import Game, Match, Profile, SourceSettings
+from reflektortts.pipeline.plugins import source_plugins, stage_plugins
+from reflektortts.profiles.model import Game, Match, Profile, SourceSettings, StageSettings
 
 CURRENT_VERSION = 2
 
@@ -21,12 +22,18 @@ MIGRATIONS: dict[int, Callable[[dict[str, Any]], dict[str, Any]]] = {
     1: lambda data: data | {"version": 2},
 }
 
-# Fields of a source entry the core reads; the rest belong to the source's plugin.
-SOURCE_FIELDS = {"type", "name", "poll_interval_ms"}
+# Fields of source and stage entries the core reads; the rest belong to the plugin.
+SOURCE_FIELDS = {"type", "name", "poll_interval_ms", "stages"}
+STAGE_FIELDS = {"type"}
 DEFAULT_POLL_INTERVAL_MS = 250
 
-# A source plugin's type mapped to the JSON Schema of its own fields.
-SourceSchemas = Mapping[str, Mapping[str, Any]]
+
+@dataclass(frozen=True)
+class PluginSchemas:
+    """Plugin types mapped to the JSON Schema of their own fields."""
+
+    sources: Mapping[str, Mapping[str, Any]]
+    stages: Mapping[str, Mapping[str, Any]]
 
 
 class ProfileError(Exception):
@@ -39,8 +46,11 @@ def _validator() -> jsonschema.Draft202012Validator:
     return jsonschema.Draft202012Validator(json.loads(schema_text))
 
 
-def installed_source_schemas() -> dict[str, Mapping[str, Any]]:
-    return {type_: plugin.settings_schema for type_, plugin in source_plugins().items()}
+def installed_plugin_schemas() -> PluginSchemas:
+    return PluginSchemas(
+        sources={type_: plugin.settings_schema for type_, plugin in source_plugins().items()},
+        stages={type_: plugin.settings_schema for type_, plugin in stage_plugins().items()},
+    )
 
 
 def _migrate(data: dict[str, Any], name: str) -> dict[str, Any]:
@@ -61,25 +71,40 @@ def _check(validator: Validator, data: Any, name: str, path: str = "$") -> None:
         raise ProfileError(f"{name}: {path}{problem.json_path[1:]}: {problem.message}")
 
 
-def _source(entry: dict[str, Any], index: int, schemas: SourceSchemas, name: str) -> SourceSettings:
+def _plugin_settings(
+    entry: Mapping[str, Any], core_fields: set[str], schemas: Mapping[str, Mapping[str, Any]], kind: str, path: str
+) -> dict[str, Any]:
+    """Validates an entry's plugin fields against its plugin's schema and returns them."""
     schema = schemas.get(entry["type"])
     if schema is None:
         installed = ", ".join(sorted(schemas)) or "none"
-        raise ProfileError(
-            f'{name}: $.sources[{index}]: unknown source type "{entry["type"]}" (installed: {installed}).'
-        )
-    settings = {key: value for key, value in entry.items() if key not in SOURCE_FIELDS}
-    _check(jsonschema.Draft202012Validator(schema), settings, name, f"$.sources[{index}]")
+        raise ProfileError(f'{path}: unknown {kind} type "{entry["type"]}" (installed: {installed}).')
+    settings = {key: value for key, value in entry.items() if key not in core_fields}
+    problem = jsonschema.exceptions.best_match(jsonschema.Draft202012Validator(schema).iter_errors(settings))
+    if problem is not None:
+        raise ProfileError(f"{path}{problem.json_path[1:]}: {problem.message}")
+    return settings
+
+
+def _source(entry: Mapping[str, Any], index: int, schemas: PluginSchemas, name: str) -> SourceSettings:
+    path = f"{name}: $.sources[{index}]"
     return SourceSettings(
         type=entry["type"],
         name=entry["name"],
         poll_interval=entry.get("poll_interval_ms", DEFAULT_POLL_INTERVAL_MS) / 1000,
-        settings=settings,
+        settings=_plugin_settings(entry, SOURCE_FIELDS, schemas.sources, "source", path),
+        stages=tuple(
+            StageSettings(
+                type=stage["type"],
+                settings=_plugin_settings(stage, STAGE_FIELDS, schemas.stages, "stage", f"{path}.stages[{position}]"),
+            )
+            for position, stage in enumerate(entry.get("stages", []))
+        ),
     )
 
 
-def load_profile(path: Path, source_schemas: SourceSchemas | None = None) -> Profile:
-    """source_schemas defaults to the installed source plugins' schemas."""
+def load_profile(path: Path, schemas: PluginSchemas | None = None) -> Profile:
+    """schemas defaults to the installed plugins' schemas."""
     name = path.name
     try:
         data = json.loads(path.read_text("utf-8"))
@@ -92,7 +117,7 @@ def load_profile(path: Path, source_schemas: SourceSchemas | None = None) -> Pro
 
     data = _migrate(data, name)
     _check(_validator(), data, name)
-    schemas = installed_source_schemas() if source_schemas is None else source_schemas
+    schemas = installed_plugin_schemas() if schemas is None else schemas
     return Profile(
         id=path.stem,
         game=Game(title=data["game"]["title"], year=data["game"]["year"]),
@@ -101,11 +126,9 @@ def load_profile(path: Path, source_schemas: SourceSchemas | None = None) -> Pro
     )
 
 
-def load_profiles(
-    directory: Path, source_schemas: SourceSchemas | None = None
-) -> tuple[list[Profile], list[ProfileError]]:
+def load_profiles(directory: Path, schemas: PluginSchemas | None = None) -> tuple[list[Profile], list[ProfileError]]:
     """Loads every *.json profile in directory; a broken one is reported, not fatal."""
-    schemas = installed_source_schemas() if source_schemas is None else source_schemas
+    schemas = installed_plugin_schemas() if schemas is None else schemas
     profiles: list[Profile] = []
     errors: list[ProfileError] = []
     for path in sorted(directory.glob("*.json")):

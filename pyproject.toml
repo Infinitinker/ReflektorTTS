@@ -20,6 +20,10 @@ dependencies = [
 [project.entry-points."reflektortts.sources"]
 memory = "reflektortts.sources.memory.plugin:PLUGIN"
 
+[project.entry-points."reflektortts.stages"]
+replace = "reflektortts.stages.replace:PLUGIN"
+tracker = "reflektortts.stages.tracker:PLUGIN"
+
 [project.optional-dependencies]
 dev = ["mypy>=2.4", "pytest>=9.2", "ruff>=0.17", "types-jsonschema", "types-psutil"]
 

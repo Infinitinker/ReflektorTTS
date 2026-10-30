@@ -69,6 +69,21 @@
             "type": "integer",
             "minimum": 10,
             "maximum": 60000
+          },
+          "stages": {
+            "description": "Processing applied in order to this source's text. Each stage's other fields are defined by its plugin's own schema.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["type"],
+              "properties": {
+                "type": {
+                  "description": "Stage plugin, e.g. \"tracker\".",
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            }
           }
         }
       }

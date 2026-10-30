@@ -9,7 +9,10 @@ The profile format is not finalized yet. Its JSON Schema is `src/reflektortts/pr
 - `version`: the profile format version. Older profiles are migrated automatically.
 - `game`: the game's `title` and original release `year`, for display.
 - `match`: how the game is recognized. `process` is a list of executable names, because one game can ship several.
-- `sources` (optional): where to read the game's text. Each entry has a `type` (the source plugin), a `name`, and optionally `poll_interval_ms` (default 250). Its other fields are defined by the plugin's own schema.
+- `sources` (optional): where to read the game's text. Each entry has a `type` (the source plugin), a `name`, optionally `poll_interval_ms` (default 250) and `stages`. Its other fields are defined by the plugin's own schema.
+- `stages` (optional, per source): processing applied in order to that source's text, each with a `type` and the plugin's own fields:
+  - `tracker`: passes a line on once it has stayed unchanged for `stable_ms` (default 500) and has at least `min_letters` letters (default 4); the same line is passed on again only after it disappears or changes. Nearly every source needs it, because sources report the current text on every read.
+  - `replace`: `rules`, a list of `{"find": ..., "replace": ...}` plain text replacements applied in order, e.g. to remove a game's formatting marks.
 
 ### Memory source (`"type": "memory"`)
 
