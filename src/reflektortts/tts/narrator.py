@@ -40,6 +40,11 @@ class Narrator:
             if not self._paused:
                 self._client.say(text)
 
+    def stop_line(self) -> None:
+        """Cuts off the line being spoken; the next line is spoken as usual."""
+        with self._lock:
+            self._client.stop()
+
     def pause(self) -> None:
         """Stops the current line and ignores new ones until resume()."""
         with self._lock:

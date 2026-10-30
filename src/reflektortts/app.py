@@ -9,18 +9,25 @@ from pathlib import Path
 import platformdirs
 import psutil
 
-from reflektortts.api.server import ApiServer
+from reflektortts.api.server import ApiServer, StageError
 from reflektortts.bus import EventBus, Listener
-from reflektortts.events import ErrorEvent, GameInfo, Status
+from reflektortts.events import ErrorEvent, GameInfo, SourceStages, StageState, Status
 from reflektortts.games.detector import RunningGame, find_running_games
-from reflektortts.languages import DEFAULT_LANGUAGE, LANGUAGES, LanguageError
+from reflektortts.languages import (
+    AUTO,
+    DEFAULT_SPEECH_LANGUAGE,
+    Languages,
+    check_game_language,
+    check_speech_language,
+    primary_language,
+)
 from reflektortts.overlay import inject_overlay
 from reflektortts.pipeline.plugins import SourcePlugin, StagePlugin, source_plugins, stage_plugins
 from reflektortts.pipeline.protocols import Sink
 from reflektortts.pipeline.runner import Route, Runner, log_error
 from reflektortts.profiles.loader import load_profiles
 from reflektortts.profiles.model import Profile
-from reflektortts.settings import load_settings, save_settings
+from reflektortts.settings import Settings, load_settings, save_settings
 from reflektortts.sinks.bus import BusSink
 from reflektortts.sinks.tts import TtsSink
 from reflektortts.tts.engine import VoiceError, VoiceInfo, available_voices
@@ -35,13 +42,26 @@ def default_profiles_dir() -> Path:
     return platformdirs.user_data_path("reflektortts", appauthor=False) / "profiles"
 
 
+def stage_key(source: str, position: int, stage_type: str) -> str:
+    """Identifies a stage within its profile, e.g. "messages/2:normalize"."""
+    return f"{source}/{position}:{stage_type}"
+
+
+def _enabled_check(source: str, types: Sequence[str], is_enabled: Callable[[str], bool]) -> Callable[[int], bool]:
+    return lambda position: is_enabled(stage_key(source, position, types[position]))
+
+
 def build_routes(
     game: RunningGame,
     sources: Mapping[str, SourcePlugin],
     stages: Mapping[str, StagePlugin],
     on_error: Callable[[ErrorEvent], None],
+    is_enabled: Callable[[str], bool] = lambda key: True,
 ) -> list[Route]:
-    """Creates the game's sources and their stages; a source that cannot start is reported and skipped."""
+    """Creates the game's sources and their stages; a source that cannot start is reported and skipped.
+
+    is_enabled tells, by stage key, whether the player has the stage switched on.
+    """
     routes = []
     for settings in game.profile.sources:
         try:
@@ -49,7 +69,14 @@ def build_routes(
         except Exception as error:
             on_error(ErrorEvent("source.error", settings.name, str(error)))
             continue
-        routes.append(Route(source, [stages[stage.type].create(stage.settings) for stage in settings.stages]))
+        types = [stage.type for stage in settings.stages]
+        routes.append(
+            Route(
+                source,
+                [stages[stage.type].create(stage.settings) for stage in settings.stages],
+                _enabled_check(settings.name, types, is_enabled),
+            )
+        )
     return routes
 
 
@@ -61,11 +88,11 @@ def read_game(
     on_error: Callable[[ErrorEvent], None] = log_error,
     is_running: Callable[[int], bool] = psutil.pid_exists,
     check_seconds: float = GAME_CHECK_SECONDS,
-    language: Callable[[], str] = lambda: DEFAULT_LANGUAGE,
+    languages: Callable[[], Languages] = lambda: Languages(game=AUTO, speech=DEFAULT_SPEECH_LANGUAGE),
 ) -> None:
     """Runs the pipeline until the game exits or stop is set, then closes the sources."""
     runner_stop = threading.Event()
-    runner = Runner(routes, sinks, on_error, language=language)
+    runner = Runner(routes, sinks, on_error, languages=languages)
     worker = threading.Thread(target=runner.run, args=(runner_stop,), name="runner")
     worker.start()
     try:
@@ -89,6 +116,7 @@ class Core:
         narrator_factory: Callable[[str], Narrator] = Narrator,
         list_voices: Callable[[], list[VoiceInfo]] = available_voices,
         is_running: Callable[[int], bool] = psutil.pid_exists,
+        stages: Mapping[str, StagePlugin] | None = None,
     ) -> None:
         self._profiles = profiles
         self._is_running = is_running
@@ -96,38 +124,50 @@ class Core:
         self._settings = load_settings(settings_file)
         self._overlay_dirs = overlay_dirs
         self._list_voices = list_voices
+        self._stages = stage_plugins() if stages is None else stages
         self._narrator = narrator_factory(self._settings.voice)
         self._bus = EventBus()
         self._game: GameInfo | None = None
+        self._profile: Profile | None = None
 
     def status(self) -> Status:
         return Status(
             game=self._game,
             voice=self._narrator.voice,
-            language=self._settings.language,
+            game_language=self._settings.game_language,
+            speech_language=self._settings.speech_language,
             paused=self._narrator.paused,
+            sources=self._source_stages(),
         )
 
-    def language(self) -> str:
-        return self._settings.language
+    def languages(self) -> Languages:
+        return Languages(game=self._settings.game_language, speech=self._settings.speech_language)
 
-    def set_language(self, language: str) -> Status:
-        if language not in LANGUAGES:
-            raise LanguageError(f'There is no language "{language}". Available: {", ".join(LANGUAGES)}.')
-        self._settings = replace(self._settings, language=language)
-        save_settings(self._settings, self._settings_file)
+    def set_game_language(self, language: str) -> Status:
+        check_game_language(language)
+        self._save(replace(self._settings, game_language=language))
+        return self._publish_status()
+
+    def set_speech_language(self, language: str) -> Status:
+        """Also switches to a voice for the language, unless the current one speaks it."""
+        check_speech_language(language)
+        voice = self._voice_for(language)
+        if voice is not None:
+            self._narrator.use_voice(voice)
+        self._save(replace(self._settings, speech_language=language, voice=self._narrator.voice))
         return self._publish_status()
 
     def voices(self) -> list[VoiceInfo]:
         return self._list_voices()
 
     def set_voice(self, voice: str) -> Status:
-        available = [info.id for info in self.voices()]
-        if voice not in available:
-            raise VoiceError(f'There is no voice "{voice}". Available: {", ".join(available) or "none"}.')
+        """Switches the voice and remembers it as the last one used for its language."""
+        voices = {info.id: info for info in self.voices()}
+        if voice not in voices:
+            raise VoiceError(f'There is no voice "{voice}". Available: {", ".join(voices) or "none"}.')
         self._narrator.use_voice(voice)
-        self._settings = replace(self._settings, voice=voice)
-        save_settings(self._settings, self._settings_file)
+        remembered = self._settings.voices_by_language | {primary_language(voices[voice].language): voice}
+        self._save(replace(self._settings, voice=voice, voices_by_language=remembered))
         return self._publish_status()
 
     def set_paused(self, paused: bool) -> Status:
@@ -137,12 +177,34 @@ class Core:
             self._narrator.resume()
         return self._publish_status()
 
+    def stop_line(self) -> Status:
+        self._narrator.stop_line()
+        return self.status()
+
+    def is_stage_enabled(self, key: str) -> bool:
+        profile = self._profile
+        return profile is None or key not in self._settings.disabled_stages.get(profile.id, [])
+
+    def set_stage_enabled(self, key: str, enabled: bool) -> Status:
+        """Switches a stage of the game being read on or off; the choice is saved for that game."""
+        profile = self._profile
+        if profile is None:
+            raise StageError("No game is being read.")
+        keys = [stage.key for source in self._source_stages() for stage in source.stages]
+        if key not in keys:
+            raise StageError(f'{profile.game.title} has no stage "{key}". Its stages: {", ".join(keys)}.')
+        disabled = set(self._settings.disabled_stages.get(profile.id, []))
+        disabled = disabled - {key} if enabled else disabled | {key}
+        stored = self._settings.disabled_stages | {profile.id: sorted(disabled)}
+        self._save(replace(self._settings, disabled_stages={game: keys for game, keys in stored.items() if keys}))
+        return self._publish_status()
+
     def subscribe(self, listener: Listener) -> Callable[[], None]:
         return self._bus.subscribe(listener)
 
     def run(self, stop: threading.Event) -> None:
         """Reads every profiled game that starts, one at a time, until stop is set."""
-        sources, stages = source_plugins(), stage_plugins()
+        sources = source_plugins()
         sinks: list[Sink] = [TtsSink(self._narrator), BusSink(self._bus)]
         logger.info("Watching for %s", ", ".join(profile.game.title for profile in self._profiles))
         while not stop.is_set():
@@ -152,21 +214,68 @@ class Core:
                 continue
             game = games[0]
             self._game = GameInfo(title=game.profile.game.title, pid=game.process.pid)
+            self._profile = game.profile
             self._publish_status()
             if self._overlay_dirs:
                 inject_overlay(game.process.pid, self._overlay_dirs)
-            routes = build_routes(game, sources, stages, self._report)
+            routes = build_routes(game, sources, self._stages, self._report, self.is_stage_enabled)
             if routes:
                 logger.info("Reading %s aloud", game.profile.game.title)
             else:
                 logger.error("%s is running, but none of its sources could start.", game.profile.game.title)
-            read_game(game, routes, sinks, stop, self._report, self._is_running, language=self.language)
+            read_game(game, routes, sinks, stop, self._report, self._is_running, languages=self.languages)
             logger.info("%s closed", game.profile.game.title)
             self._game = None
+            self._profile = None
             self._publish_status()
 
     def close(self) -> None:
         self._narrator.close()
+
+    def _source_stages(self) -> tuple[SourceStages, ...]:
+        profile = self._profile
+        if profile is None:
+            return ()
+        return tuple(
+            SourceStages(
+                source=source.name,
+                stages=tuple(
+                    self._stage_state(stage_key(source.name, position, stage.type), stage.type)
+                    for position, stage in enumerate(source.stages)
+                ),
+            )
+            for source in profile.sources
+        )
+
+    def _stage_state(self, key: str, stage_type: str) -> StageState:
+        plugin = self._stages.get(stage_type)
+        return StageState(
+            key=key,
+            type=stage_type,
+            summary=plugin.summary if plugin is not None else "",
+            warning=plugin.warning_when_disabled if plugin is not None else None,
+            enabled=self.is_stage_enabled(key),
+        )
+
+    def _voice_for(self, language: str) -> str | None:
+        """The voice to switch to for a speech language, or None to keep the current one.
+
+        The current voice stays if it speaks the language; otherwise the one last used for
+        the language, else the first that speaks it. With no voice for it, nothing changes.
+        """
+        voices = self.voices()
+        current = next((voice for voice in voices if voice.id == self._narrator.voice), None)
+        if current is not None and primary_language(current.language) == language:
+            return None
+        matching = [voice.id for voice in voices if primary_language(voice.language) == language]
+        remembered = self._settings.voices_by_language.get(language)
+        if remembered in matching:
+            return remembered
+        return matching[0] if matching else None
+
+    def _save(self, settings: Settings) -> None:
+        self._settings = settings
+        save_settings(settings, self._settings_file)
 
     def _report(self, error: ErrorEvent) -> None:
         # A source usually fails a moment before the game's exit is noticed; that is not an error.

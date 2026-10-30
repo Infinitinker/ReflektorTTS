@@ -8,19 +8,34 @@ from typing import Any
 import pytest
 from aiohttp.test_utils import TestClient, TestServer
 
-from reflektortts.api.server import SETTINGS_HELP, ApiError, ApiServer, create_app
+from reflektortts.api.server import SETTINGS_HELP, STAGES_HELP, ApiError, ApiServer, StageError, create_app
 from reflektortts.bus import EventBus, Listener
-from reflektortts.events import ErrorEvent, GameInfo, Status, TextEvent
-from reflektortts.languages import LanguageError
+from reflektortts.events import ErrorEvent, GameInfo, SourceStages, StageState, Status, TextEvent
+from reflektortts.languages import LanguageError, check_game_language, check_speech_language
 from reflektortts.tts.engine import VoiceError, VoiceInfo
 
 ADAM = VoiceInfo(id="windows:Microsoft Adam", engine="windows", name="Microsoft Adam", language="pl-PL")
+TRACKER = StageState(
+    key="messages/0:tracker",
+    type="tracker",
+    summary="waits until a line settles",
+    warning="Needed.",
+    enabled=True,
+)
 
 
 class FakeCore:
     def __init__(self) -> None:
         self.bus = EventBus()
-        self.current = Status(game=GameInfo("Grand Theft Auto 2", 42), voice="piper:a", language="en", paused=False)
+        self.stopped_lines = 0
+        self.current = Status(
+            game=GameInfo("Grand Theft Auto 2", 42),
+            voice="piper:a",
+            game_language="auto",
+            speech_language="en",
+            paused=False,
+            sources=(SourceStages("messages", (TRACKER,)),),
+        )
 
     def status(self) -> Status:
         return self.current
@@ -34,14 +49,29 @@ class FakeCore:
         self.current = replace(self.current, voice=voice)
         return self.current
 
-    def set_language(self, language: str) -> Status:
-        if language not in ("en", "pl"):
-            raise LanguageError(f'There is no language "{language}".')
-        self.current = replace(self.current, language=language)
+    def set_game_language(self, language: str) -> Status:
+        check_game_language(language)
+        self.current = replace(self.current, game_language=language)
+        return self.current
+
+    def set_speech_language(self, language: str) -> Status:
+        check_speech_language(language)
+        self.current = replace(self.current, speech_language=language)
         return self.current
 
     def set_paused(self, paused: bool) -> Status:
         self.current = replace(self.current, paused=paused)
+        return self.current
+
+    def stop_line(self) -> Status:
+        self.stopped_lines += 1
+        return self.current
+
+    def set_stage_enabled(self, key: str, enabled: bool) -> Status:
+        if key != TRACKER.key:
+            raise StageError(f'Grand Theft Auto 2 has no stage "{key}".')
+        stage = replace(TRACKER, enabled=enabled)
+        self.current = replace(self.current, sources=(SourceStages("messages", (stage,)),))
         return self.current
 
     def subscribe(self, listener: Listener) -> Callable[[], None]:
@@ -63,8 +93,23 @@ def test_status() -> None:
             "type": "status",
             "game": {"title": "Grand Theft Auto 2", "pid": 42},
             "voice": "piper:a",
-            "language": "en",
+            "game_language": "auto",
+            "speech_language": "en",
             "paused": False,
+            "sources": [
+                {
+                    "name": "messages",
+                    "stages": [
+                        {
+                            "key": "messages/0:tracker",
+                            "type": "tracker",
+                            "summary": "waits until a line settles",
+                            "warning": "Needed.",
+                            "enabled": True,
+                        }
+                    ],
+                }
+            ],
         }
 
     with_client(FakeCore(), test)
@@ -74,15 +119,6 @@ def test_languages() -> None:
     async def test(client: TestClient[Any, Any]) -> None:
         languages = (await (await client.get("/v1/languages")).json())["languages"]
         assert {"code": "pl", "name": "Polski"} in languages
-
-    with_client(FakeCore(), test)
-
-
-def test_changing_the_language_and_voice_together() -> None:
-    async def test(client: TestClient[Any, Any]) -> None:
-        response = await client.patch("/v1/settings", json={"language": "pl", "voice": "windows:Microsoft Adam"})
-        body = await response.json()
-        assert (body["language"], body["voice"]) == ("pl", "windows:Microsoft Adam")
 
     with_client(FakeCore(), test)
 
@@ -99,11 +135,17 @@ def test_voices() -> None:
     with_client(FakeCore(), test)
 
 
-def test_changing_the_voice() -> None:
+def test_changing_all_settings_together() -> None:
     async def test(client: TestClient[Any, Any]) -> None:
-        response = await client.patch("/v1/settings", json={"voice": "windows:Microsoft Adam"})
-        assert response.status == 200
-        assert (await response.json())["voice"] == "windows:Microsoft Adam"
+        response = await client.patch(
+            "/v1/settings", json={"game_language": "en", "speech_language": "pl", "voice": "windows:Microsoft Adam"}
+        )
+        body = await response.json()
+        assert (body["game_language"], body["speech_language"], body["voice"]) == (
+            "en",
+            "pl",
+            "windows:Microsoft Adam",
+        )
 
     with_client(FakeCore(), test)
 
@@ -112,10 +154,11 @@ def test_changing_the_voice() -> None:
     ("body", "message"),
     [
         ({"voice": "piper:missing"}, 'There is no voice "piper:missing".'),
-        ({"language": "xx"}, 'There is no language "xx".'),
+        ({"speech_language": "auto"}, 'There is no language "auto". Available: en, pl.'),
+        ({"game_language": "xx"}, 'There is no language "xx". Available: auto, en, pl.'),
         ({"voice": 5}, SETTINGS_HELP),
         ({"volume": 5}, SETTINGS_HELP),
-        ("not json", "The request body must be JSON."),
+        ("not json", "The request body must be a JSON object."),
     ],
 )
 def test_bad_settings_are_rejected_with_a_message(body: Any, message: str) -> None:
@@ -130,12 +173,41 @@ def test_bad_settings_are_rejected_with_a_message(body: Any, message: str) -> No
     with_client(FakeCore(), test)
 
 
-def test_pause_and_resume() -> None:
+def test_switching_a_stage_off() -> None:
+    async def test(client: TestClient[Any, Any]) -> None:
+        response = await client.patch("/v1/stages", json={"key": "messages/0:tracker", "enabled": False})
+        assert (await response.json())["sources"][0]["stages"][0]["enabled"] is False
+
+    with_client(FakeCore(), test)
+
+
+@pytest.mark.parametrize(
+    ("body", "message"),
+    [
+        ({"key": "messages/9:x", "enabled": False}, 'Grand Theft Auto 2 has no stage "messages/9:x".'),
+        ({"key": "messages/0:tracker", "enabled": "no"}, STAGES_HELP),
+        ({"enabled": True}, STAGES_HELP),
+    ],
+)
+def test_bad_stage_requests_are_rejected_with_a_message(body: dict[str, Any], message: str) -> None:
+    async def test(client: TestClient[Any, Any]) -> None:
+        response = await client.patch("/v1/stages", json=body)
+        assert response.status == 400
+        assert await response.json() == {"error": message}
+
+    with_client(FakeCore(), test)
+
+
+def test_pause_resume_and_stop_line() -> None:
+    core = FakeCore()
+
     async def test(client: TestClient[Any, Any]) -> None:
         assert (await (await client.post("/v1/pause")).json())["paused"] is True
         assert (await (await client.post("/v1/resume")).json())["paused"] is False
+        assert (await client.post("/v1/stop")).status == 200
 
-    with_client(FakeCore(), test)
+    with_client(core, test)
+    assert core.stopped_lines == 1
 
 
 def test_events_start_with_the_status_then_follow_the_core() -> None:
@@ -169,3 +241,8 @@ def test_server_runs_on_its_own_thread_and_reports_a_busy_port() -> None:
             second.start()
     finally:
         server.stop()
+
+
+def test_language_errors_are_language_errors() -> None:
+    with pytest.raises(LanguageError):
+        check_speech_language("auto")

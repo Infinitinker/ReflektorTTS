@@ -7,7 +7,7 @@ from reflektortts.stages.normalize.stage import PLUGIN, WORDS
 
 
 def say(text: str, language: str) -> str:
-    event = PLUGIN.create({}).process(TextEvent("messages", text, 0.0, language))
+    event = PLUGIN.create({}).process(TextEvent("messages", text, 0.0, speech_language=language))
     assert event is not None
     return event.text
 

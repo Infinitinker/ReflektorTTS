@@ -46,5 +46,8 @@ def create(settings: Mapping[str, Any]) -> Replace:
 
 
 PLUGIN = StagePlugin(
-    type="replace", settings_schema=load_schema("reflektortts.stages", "replace.schema.json"), create=create
+    type="replace",
+    settings_schema=load_schema("reflektortts.stages", "replace.schema.json"),
+    create=create,
+    summary="Removes formatting marks",
 )

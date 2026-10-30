@@ -15,7 +15,7 @@ The profile format is not finalized yet. Its JSON Schema is `src/reflektortts/pr
   - `replace`: `rules`, a list of replacements applied in order, e.g. to remove a game's formatting marks. Each rule is either:
     - `{"find": "#", "replace": ""}`: plain text, matched literally;
     - `{"pattern": "#([^#]*)#", "replace": "\\1"}`: a regular expression (Python syntax), where `\1`, `\2`... in `replace` insert the pattern's groups. In JSON a backslash is written twice. GTA2 marks coloured words like `#TEST#`; this rule keeps the word and drops the marks. Invalid patterns are reported when the profile loads.
-  - `normalize`: spells out numbers, money and percentages in the output language the player chose in the overlay, e.g. `$50,000` becomes "fifty thousand dollars" in English and "pięćdziesiąt tysięcy dolarów" in Polish. Place it after the stages that clean up the text. It has no settings.
+  - `normalize`: spells out numbers, money and percentages in the speech language the player chose in the overlay, e.g. `$50,000` becomes "fifty thousand dollars" in English and "pięćdziesiąt tysięcy dolarów" in Polish. Place it after the stages that clean up the text. It has no settings.
 
 ### Memory source (`"type": "memory"`)
 

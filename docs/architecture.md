@@ -45,7 +45,7 @@ Its main ideas:
 
 1. The core watches running processes. When one matches a profile's `match.process`, it loads the overlay into the game (if an overlay build was given) and creates the profile's sources through their plugins.
 2. The runner polls each source on its interval. A source returns the text currently shown, or nothing.
-3. Each reading carries the **output language** from the player's settings. The text passes through that source's stages, e.g. the **tracker**, which passes a line on once it has settled and only once; **replace**, which removes formatting marks; and **normalize**, which spells out numbers, money and percentages in the output language.
+3. Each reading carries the player's **game language** and **speech language**. The text passes through that source's stages, e.g. the **tracker**, which passes a line on once it has settled and only once; **replace**, which removes formatting marks; and **normalize**, which spells out numbers, money and percentages in the speech language. Stages the player switched off in the overlay are skipped.
 4. Finished lines go to every sink: the **TTS sink** sends the line to the TTS service, which cuts off the line still being spoken and speaks the new one; the **events sink** publishes it to the event bus, from which the API sends it to the overlay.
 5. When the game exits, the core closes its sources and waits for the next game.
 
@@ -90,7 +90,7 @@ Finding a line's label when subtitles can be turned off: turn subtitles on and f
 - A `translate` stage with replaceable engines: a local model by default, online services as optional plugins.
 - For sources with labels: translate the whole text table ahead of time into a label → Polish text dictionary, with no delay and room for manual corrections.
 - For OCR and speech recognition: translate as lines arrive, with a cache of translated sentences.
-- The `translate` stage targets the output language every line carries, and runs before `normalize`.
+- The `translate` stage translates from the game language (or detects it, for `auto`) to the speech language every line carries, only when they differ, and runs before `normalize`.
 - Normalization covers numbers, money and percentages in English and Polish so far; dates, times and abbreviations (the PoC had Polish rules for them) are still to come.
 
 ### Overlay

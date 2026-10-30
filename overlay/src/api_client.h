@@ -1,5 +1,6 @@
 #pragma once
 
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -7,8 +8,9 @@ namespace reflektortts {
 
 struct VoiceOption {
     std::string id;
+    std::string engine;
     std::string name;
-    std::string language;
+    std::string language;  // BCP 47 tag, e.g. "pl-PL".
 };
 
 struct LanguageOption {
@@ -16,13 +18,28 @@ struct LanguageOption {
     std::string name;
 };
 
+struct StageOption {
+    std::string key;
+    std::string type;  // The stage's name in the profile, e.g. "tracker".
+    std::string summary;
+    std::optional<std::string> warning;  // Shown while the stage is switched off.
+    bool enabled = true;
+};
+
+struct SourceStages {
+    std::string source;
+    std::vector<StageOption> stages;
+};
+
 // What the overlay knows about the core, from its /v1 API.
 struct CoreState {
     bool connected = false;
     std::string game;  // Empty while no game is being read.
     std::string voice;
-    std::string language;  // Output language code, e.g. "pl".
+    std::string game_language;    // A code, or "auto".
+    std::string speech_language;  // A code, e.g. "pl".
     bool paused = false;
+    std::vector<SourceStages> sources;
     std::string last_line;
     std::string last_error;
     std::vector<VoiceOption> voices;
@@ -36,7 +53,13 @@ CoreState core_state();
 
 // Commands are sent on a background thread; the result arrives as a status event.
 void request_paused(bool paused);
+void request_stop_line();
 void request_voice(const std::string& voice_id);
-void request_language(const std::string& language_code);
+void request_game_language(const std::string& code);
+void request_speech_language(const std::string& code);
+void request_stage_enabled(const std::string& key, bool enabled);
+
+// Hides the last error until a new one arrives.
+void dismiss_error();
 
 }  // namespace reflektortts

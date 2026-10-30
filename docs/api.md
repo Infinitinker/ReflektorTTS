@@ -12,9 +12,24 @@ The status object, returned by several requests and sent as an event:
 {
   "type": "status",
   "game": { "title": "Grand Theft Auto 2", "pid": 4824 },
-  "voice": "piper:en_US-ljspeech-medium",
-  "language": "en",
-  "paused": false
+  "voice": "windows:Microsoft Adam",
+  "game_language": "auto",
+  "speech_language": "pl",
+  "paused": false,
+  "sources": [
+    {
+      "name": "messages",
+      "stages": [
+        {
+          "key": "messages/0:tracker",
+          "type": "tracker",
+          "summary": "Waits until a line settles",
+          "warning": "Needed: without it, the voice restarts on every reading.",
+          "enabled": true
+        }
+      ]
+    }
+  ]
 }
 ```
 
@@ -22,8 +37,12 @@ The status object, returned by several requests and sent as an event:
 |---|---|
 | `game` | The game being read, or `null` while waiting for one |
 | `voice` | The current voice, as `engine:name` |
-| `language` | The output language (ISO 639-1 code): what stages such as normalization prepare lines for |
+| `game_language` | The language of the game's text (ISO 639-1 code), or `auto` to let e.g. translation detect it |
+| `speech_language` | The language lines are prepared and spoken in (ISO 639-1 code) |
 | `paused` | Whether reading is paused |
+| `sources` | The stages of the game being read, per source in the game's profile, with whether the player has each switched on; empty while waiting for a game |
+
+A stage's `type` is its name in the profile and `summary` says in a few words what it does; `warning` (or `null`) is shown while the stage is switched off, if reading breaks without it. `key` identifies the stage for `PATCH /v1/stages`.
 
 ## Requests
 
@@ -44,28 +63,41 @@ Returns the voices available now, from every speech engine that works on this sy
 }
 ```
 
-`id` is what `PATCH /v1/settings` takes. Piper lists downloaded voices and the default voice, which is downloaded on first use.
+`id` is what `PATCH /v1/settings` takes; `language` is a BCP 47 tag, so a UI can offer only the voices that speak the speech language. Piper lists downloaded voices and the default voice, which is downloaded on first use.
 
 ### `GET /v1/languages`
 
-Returns the output languages the pipeline supports, with their names in their own language:
+Returns the languages the pipeline supports, with their names in their own language:
 
 ```json
 { "languages": [{ "code": "en", "name": "English" }, { "code": "pl", "name": "Polski" }] }
 ```
 
+`game_language` also accepts `auto`.
+
 ### `PATCH /v1/settings`
 
-Changes settings and saves them. Send either field or both:
+Changes settings and saves them. Send any of the fields:
 
 ```json
-{ "language": "pl", "voice": "windows:Microsoft Adam" }
+{ "game_language": "en", "speech_language": "pl", "voice": "windows:Microsoft Adam" }
 ```
 
-- `language`: the output language, as a `code` from `/v1/languages`. Lines read from then on are prepared for it.
-- `voice`: an `id` from `/v1/voices`. Switching the voice starts a new speech process; the next line is spoken with the new voice.
+- `game_language`: a `code` from `/v1/languages`, or `auto`.
+- `speech_language`: a `code` from `/v1/languages`. Lines read from then on are prepared for it. If the current voice does not speak it, the core switches to the voice last chosen for that language, or else the first voice that speaks it; with no such voice, the voice stays.
+- `voice`: an `id` from `/v1/voices`. Switching starts a new speech process; the next line is spoken with the new voice. The voice is also remembered for its language.
 
-The language is applied first. Returns the status.
+Fields are applied in that order, so an explicit `voice` wins over the one a new speech language picks. Returns the status.
+
+### `PATCH /v1/stages`
+
+Switches a stage of the game being read on or off. The choice is saved per game and applies to the next line read:
+
+```json
+{ "key": "messages/2:normalize", "enabled": false }
+```
+
+Returns the status.
 
 ### `POST /v1/pause`
 
@@ -74,6 +106,10 @@ Stops the line being spoken and ignores new lines until resumed. Returns the sta
 ### `POST /v1/resume`
 
 Resumes reading. Returns the status.
+
+### `POST /v1/stop`
+
+Stops the line being spoken; the next line is spoken as usual. Returns the status.
 
 ## Errors
 
@@ -89,7 +125,7 @@ On connecting, the client receives the current status. After that, every event t
 
 | `type` | Sent when | Other fields |
 |---|---|---|
-| `status` | The game, voice or pause state changes | As in the status object |
+| `status` | The game, voice, languages, pause state or a stage switch changes | As in the status object |
 | `line` | A line has passed all stages and goes to the speech service | `source`: the source's name in the profile; `text`: the line |
 | `error` | A source, stage or sink fails (reported once until it works again) | `kind`: `source.error`, `stage.error` or `sink.error`; `origin`: which one; `message`: for the user |
 
@@ -103,4 +139,4 @@ Clients should ignore event types and fields they do not know, so the API can gr
 
 ## Versioning
 
-Breaking changes get a new version prefix (`/v2`); `/v1` keeps working alongside it for a while. New fields, requests and event types can be added to `/v1`.
+Breaking changes get a new version prefix (`/v2`); `/v1` keeps working alongside it for a while. New fields, requests and event types can be added to `/v1`. Until the first release, `/v1` itself may still change.

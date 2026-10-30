@@ -50,5 +50,9 @@ def create(settings: Mapping[str, Any]) -> Tracker:
 
 
 PLUGIN = StagePlugin(
-    type="tracker", settings_schema=load_schema("reflektortts.stages", "tracker.schema.json"), create=create
+    type="tracker",
+    settings_schema=load_schema("reflektortts.stages", "tracker.schema.json"),
+    create=create,
+    summary="Waits until a line settles",
+    warning_when_disabled="Needed: without it, the voice restarts on every reading.",
 )

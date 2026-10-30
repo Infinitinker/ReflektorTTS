@@ -17,16 +17,16 @@ WORDS: dict[str, Words] = {"en": EnglishWords(), "pl": PolishWords()}
 
 
 class Normalize:
-    """Spells out numbers, money and percentages in the line's output language; lines in a
+    """Spells out numbers, money and percentages in the line's speech language; lines in a
     language without rules pass unchanged."""
 
     def __init__(self, languages: Mapping[str, Words]) -> None:
         self._languages = languages
 
     def process(self, event: TextEvent) -> TextEvent | None:
-        words = self._languages.get(event.language)
+        words = self._languages.get(event.speech_language)
         if words is None:
-            logger.debug("No normalization rules for %s", event.language)
+            logger.debug("No normalization rules for %s", event.speech_language)
             return event
         return replace(event, text=normalize(event.text, words))
 
@@ -39,4 +39,5 @@ PLUGIN = StagePlugin(
     type="normalize",
     settings_schema=load_schema("reflektortts.stages.normalize", "normalize.schema.json"),
     create=create,
+    summary="Spells out numbers and money",
 )

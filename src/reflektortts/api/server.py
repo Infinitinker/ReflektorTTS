@@ -11,7 +11,7 @@ from typing import Any, Protocol
 from aiohttp import WSMsgType, web
 
 from reflektortts.bus import Event, Listener
-from reflektortts.events import ErrorEvent, Status, TextEvent
+from reflektortts.events import ErrorEvent, StageState, Status, TextEvent
 from reflektortts.languages import LANGUAGES, LanguageError
 from reflektortts.tts.engine import VoiceError, VoiceInfo
 
@@ -26,6 +26,10 @@ class ApiError(Exception):
     """The API server cannot start."""
 
 
+class StageError(Exception):
+    """A stage cannot be switched on or off; the message says why."""
+
+
 class CoreControl(Protocol):
     """What the API needs from the core."""
 
@@ -36,12 +40,30 @@ class CoreControl(Protocol):
     def set_voice(self, voice: str) -> Status:
         """Raises VoiceError if the voice is not available."""
 
-    def set_language(self, language: str) -> Status:
+    def set_game_language(self, language: str) -> Status:
+        """Raises LanguageError if the language is not supported."""
+
+    def set_speech_language(self, language: str) -> Status:
         """Raises LanguageError if the language is not supported."""
 
     def set_paused(self, paused: bool) -> Status: ...
 
+    def stop_line(self) -> Status: ...
+
+    def set_stage_enabled(self, key: str, enabled: bool) -> Status:
+        """Raises StageError if no game is read or it has no such stage."""
+
     def subscribe(self, listener: Listener) -> Callable[[], None]: ...
+
+
+def stage_json(stage: StageState) -> dict[str, Any]:
+    return {
+        "key": stage.key,
+        "type": stage.type,
+        "summary": stage.summary,
+        "warning": stage.warning,
+        "enabled": stage.enabled,
+    }
 
 
 def status_json(status: Status) -> dict[str, Any]:
@@ -50,8 +72,13 @@ def status_json(status: Status) -> dict[str, Any]:
         "type": "status",
         "game": game,
         "voice": status.voice,
-        "language": status.language,
+        "game_language": status.game_language,
+        "speech_language": status.speech_language,
         "paused": status.paused,
+        "sources": [
+            {"name": source.source, "stages": [stage_json(stage) for stage in source.stages]}
+            for source in status.sources
+        ],
     }
 
 
@@ -84,28 +111,51 @@ async def get_languages(request: web.Request) -> web.Response:
     return web.json_response({"languages": [{"code": code, "name": name} for code, name in LANGUAGES.items()]})
 
 
-SETTINGS_HELP = 'Send {"voice": "engine:name"} and/or {"language": "pl"}.'
+SETTINGS_FIELDS = ("game_language", "speech_language", "voice")
+SETTINGS_HELP = 'Send any of "game_language", "speech_language" and "voice", e.g. {"speech_language": "pl"}.'
+STAGES_HELP = 'Send {"key": "<stage key from the status>", "enabled": true or false}.'
 
 
-async def patch_settings(request: web.Request) -> web.Response:
-    """Applies "language", then "voice"; either may be left out."""
+async def read_object(request: web.Request) -> dict[str, Any] | None:
     try:
         body = await request.json()
     except ValueError:
-        return error_response("The request body must be JSON.")
-    if not isinstance(body, dict) or not body.keys() & {"voice", "language"}:
-        return error_response(SETTINGS_HELP)
-    voice, language = body.get("voice"), body.get("language")
-    if any(value is not None and not isinstance(value, str) for value in (voice, language)):
+        return None
+    return body if isinstance(body, dict) else None
+
+
+async def patch_settings(request: web.Request) -> web.Response:
+    """Applies the game language, then the speech language, then the voice; each is optional.
+
+    Changing the speech language may also switch the voice, so an explicit voice comes last.
+    """
+    body = await read_object(request)
+    if body is None:
+        return error_response("The request body must be a JSON object.")
+    values = {field: body[field] for field in SETTINGS_FIELDS if field in body}
+    if not values or any(not isinstance(value, str) for value in values.values()):
         return error_response(SETTINGS_HELP)
     core = request.app[CORE]
     try:
         status = core.status()
-        if language is not None:
-            status = core.set_language(language)
-        if voice is not None:
-            status = await asyncio.to_thread(core.set_voice, voice)
+        if "game_language" in values:
+            status = core.set_game_language(values["game_language"])
+        if "speech_language" in values:
+            status = await asyncio.to_thread(core.set_speech_language, values["speech_language"])
+        if "voice" in values:
+            status = await asyncio.to_thread(core.set_voice, values["voice"])
     except (VoiceError, LanguageError) as error:
+        return error_response(str(error))
+    return web.json_response(status_json(status))
+
+
+async def patch_stages(request: web.Request) -> web.Response:
+    body = await read_object(request)
+    if body is None or not isinstance(body.get("key"), str) or not isinstance(body.get("enabled"), bool):
+        return error_response(STAGES_HELP)
+    try:
+        status = request.app[CORE].set_stage_enabled(body["key"], body["enabled"])
+    except StageError as error:
         return error_response(str(error))
     return web.json_response(status_json(status))
 
@@ -116,6 +166,10 @@ async def post_pause(request: web.Request) -> web.Response:
 
 async def post_resume(request: web.Request) -> web.Response:
     return web.json_response(status_json(request.app[CORE].set_paused(False)))
+
+
+async def post_stop(request: web.Request) -> web.Response:
+    return web.json_response(status_json(request.app[CORE].stop_line()))
 
 
 async def events(request: web.Request) -> web.WebSocketResponse:
@@ -166,8 +220,10 @@ def create_app(core: CoreControl) -> web.Application:
             web.get("/v1/voices", get_voices),
             web.get("/v1/languages", get_languages),
             web.patch("/v1/settings", patch_settings),
+            web.patch("/v1/stages", patch_stages),
             web.post("/v1/pause", post_pause),
             web.post("/v1/resume", post_resume),
+            web.post("/v1/stop", post_stop),
             web.get("/v1/events", events),
         ]
     )

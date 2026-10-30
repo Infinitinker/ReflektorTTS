@@ -7,7 +7,12 @@ A DLL loaded into the game process. It hooks the point where the game shows each
 The core loads the overlay into a game when it detects it (see the main README, `--overlay`). For the first 10 seconds a hint shows in the top-left corner. Then:
 
 - **Ctrl+Shift+R** opens and closes the panel (only while the game window is in front).
-- The panel shows the game being read and the last line, with **Pause/Resume reading**, a **Language** list (the output language lines are prepared for) and a **Voice** list. Changes take effect for the next line and are saved.
+- The panel has a header with the connection state, then:
+  - **Reading**: the game being read and whether reading is active, with **Pause/Resume reading** and **Stop this line**.
+  - **Voice & language**: **Game language** (or Auto), **Speech language**, and **Voice**, listing only the voices that speak the speech language, grouped by engine. Changing the speech language switches to the voice last used for it. If no voice speaks it, the panel says where to get one.
+  - **Text processing**: a tick for each stage of the game's profile (grouped by source when there are several), to switch it off and on; saved per game.
+  - **Last spoken**: the last line sent to the voice, up to 9 lines, at the bottom so the controls above never move.
+- Changes take effect for the next line and are saved.
 - The overlay draws its own mouse cursor while the panel is open, since games often hide the system one.
 
 Known limitation: while the panel is open, games that read the keyboard through DirectInput (like GTA2) still receive key presses.

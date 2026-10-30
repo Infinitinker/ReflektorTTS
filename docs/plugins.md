@@ -75,7 +75,13 @@ class Stage(Protocol):
 ```
 
 ```python
-StagePlugin(type="tracker", settings_schema=..., create=create)
+StagePlugin(
+    type="tracker",
+    settings_schema=...,
+    create=create,
+    summary="Waits until a line settles",
+    warning_when_disabled="Needed: without it, the voice restarts on every reading.",
+)
 
 
 def create(settings: Mapping[str, Any]) -> Stage: ...
@@ -83,7 +89,8 @@ def create(settings: Mapping[str, Any]) -> Stage: ...
 
 - Return the event to pass on (use `dataclasses.replace` to change its text), or `None` to drop it.
 - An event with **empty text** means the source has no text right now. Stages that keep state, like the tracker, use it to notice a line disappearing; empty text is never delivered to sinks.
-- `event.language` is the **output language** the player chose (ISO 639-1, e.g. `pl`), current when the line was read. Stages that depend on language, like `normalize` (and a future translation stage), use it instead of a setting of their own, so the player's choice applies to every game. A stage without rules for a language should pass the line unchanged.
+- `event.game_language` and `event.speech_language` are the languages the player chose (ISO 639-1, e.g. `pl`; the game language may be `auto`), current when the line was read. Stages that depend on language, like `normalize` (speech language) and a future translation stage (from the game to the speech language), use them instead of settings of their own, so the player's choice applies to every game. A stage without rules for a language should pass the line unchanged.
+- Players can switch each stage on and off in the overlay; a switched-off stage is skipped. Next to its tick they see its `type` and its `summary`, a few words on what it does. Set `warning_when_disabled` if reading breaks without the stage.
 - Each source gets its own stage objects, so a stage may keep state per source.
 - Exceptions are reported once as `stage.error`; the event is dropped.
 

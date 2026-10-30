@@ -35,6 +35,11 @@ class StagePlugin:
     """JSON Schema for the plugin's own fields in a profile's stage entry."""
     create: Callable[[Mapping[str, Any]], Stage]
     """Creates a stage from its schema-validated settings."""
+    summary: str = ""
+    """A few words on what the stage does, capitalized like a sentence without a full stop,
+    e.g. "Waits until a line settles"; shown next to its name in the overlay."""
+    warning_when_disabled: str | None = None
+    """Shown while the stage is switched off, if reading breaks without it."""
 
 
 def load_schema(package: str, file_name: str) -> Mapping[str, Any]:

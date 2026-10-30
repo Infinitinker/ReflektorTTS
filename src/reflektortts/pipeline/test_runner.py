@@ -3,6 +3,7 @@ import threading
 import pytest
 
 from reflektortts.events import ErrorEvent, TextEvent
+from reflektortts.languages import Languages
 from reflektortts.pipeline.runner import Route, Runner
 
 
@@ -73,16 +74,29 @@ def test_text_passes_through_stages_in_order_to_every_sink() -> None:
     assert first.events[0] == TextEvent("memory", "HELLO", 1.0)
 
 
-def test_events_carry_the_output_language_current_when_read() -> None:
+def test_events_carry_the_languages_current_when_read() -> None:
     sink = RecordingSink()
-    language = ["en"]
-    runner = Runner([Route(ScriptedSource("memory", ["one", "two"]))], [sink], language=lambda: language[0])
+    current = [Languages(game="auto", speech="en")]
+    runner = Runner([Route(ScriptedSource("memory", ["one", "two"]))], [sink], languages=lambda: current[0])
 
     runner.poll(0.0)
-    language[0] = "pl"
+    current[0] = Languages(game="en", speech="pl")
     runner.poll(1.0)
 
-    assert [event.language for event in sink.events] == ["en", "pl"]
+    assert [(event.game_language, event.speech_language) for event in sink.events] == [("auto", "en"), ("en", "pl")]
+
+
+def test_switched_off_stages_are_skipped() -> None:
+    sink = RecordingSink()
+    enabled = {0: True, 1: False}
+    route = Route(ScriptedSource("memory", ["hello", "hello"]), [Upper(), DropShort()], lambda i: enabled[i])
+    runner = Runner([route], [sink])
+
+    runner.poll(0.0)
+    enabled[0] = False
+    runner.poll(1.0)
+
+    assert texts(sink) == ["HELLO", "hello"]
 
 
 def test_sources_are_read_only_when_due() -> None:

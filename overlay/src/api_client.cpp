@@ -99,13 +99,39 @@ std::optional<Response> send(const Request& request) {
     return Response{status, read_body(handle.get())};
 }
 
+std::vector<SourceStages> read_sources(const json& sources) {
+    std::vector<SourceStages> result;
+    for (const json& source : sources) {
+        SourceStages entry{source.at("name").get<std::string>(), {}};
+        for (const json& stage : source.at("stages")) {
+            const json& warning = stage.at("warning");
+            entry.stages.push_back({stage.at("key").get<std::string>(), stage.at("type").get<std::string>(),
+                                    stage.at("summary").get<std::string>(),
+                                    warning.is_null() ? std::nullopt : std::optional(warning.get<std::string>()),
+                                    stage.at("enabled").get<bool>()});
+        }
+        result.push_back(std::move(entry));
+    }
+    return result;
+}
+
+// Parses everything first, so a malformed status leaves the state untouched.
 void apply_status(const json& status) {
-    std::lock_guard lock(g_state_mutex);
     const json& game = status.at("game");
-    g_state.game = game.is_null() ? "" : game.at("title").get<std::string>();
-    g_state.voice = status.at("voice").get<std::string>();
-    g_state.language = status.at("language").get<std::string>();
-    g_state.paused = status.at("paused").get<bool>();
+    std::string title = game.is_null() ? "" : game.at("title").get<std::string>();
+    std::string voice = status.at("voice").get<std::string>();
+    std::string game_language = status.at("game_language").get<std::string>();
+    std::string speech_language = status.at("speech_language").get<std::string>();
+    bool paused = status.at("paused").get<bool>();
+    std::vector<SourceStages> sources = read_sources(status.at("sources"));
+
+    std::lock_guard lock(g_state_mutex);
+    g_state.game = std::move(title);
+    g_state.voice = std::move(voice);
+    g_state.game_language = std::move(game_language);
+    g_state.speech_language = std::move(speech_language);
+    g_state.paused = paused;
+    g_state.sources = std::move(sources);
 }
 
 void handle_event(const std::string& text) {
@@ -156,8 +182,8 @@ bool load_options() {
         std::vector<VoiceOption> voice_options;
         if (!voices->is_null()) {
             for (const json& voice : voices->at("voices")) {
-                voice_options.push_back({voice.at("id").get<std::string>(), voice.at("name").get<std::string>(),
-                                         voice.at("language").get<std::string>()});
+                voice_options.push_back({voice.at("id").get<std::string>(), voice.at("engine").get<std::string>(),
+                                         voice.at("name").get<std::string>(), voice.at("language").get<std::string>()});
             }
         }
         std::vector<LanguageOption> language_options;
@@ -287,12 +313,29 @@ void request_paused(bool paused) {
     enqueue({L"POST", paused ? L"/v1/pause" : L"/v1/resume", ""});
 }
 
+void request_stop_line() {
+    enqueue({L"POST", L"/v1/stop", ""});
+}
+
 void request_voice(const std::string& voice_id) {
     enqueue({L"PATCH", L"/v1/settings", json{{"voice", voice_id}}.dump()});
 }
 
-void request_language(const std::string& language_code) {
-    enqueue({L"PATCH", L"/v1/settings", json{{"language", language_code}}.dump()});
+void request_game_language(const std::string& code) {
+    enqueue({L"PATCH", L"/v1/settings", json{{"game_language", code}}.dump()});
+}
+
+void request_speech_language(const std::string& code) {
+    enqueue({L"PATCH", L"/v1/settings", json{{"speech_language", code}}.dump()});
+}
+
+void request_stage_enabled(const std::string& key, bool enabled) {
+    enqueue({L"PATCH", L"/v1/stages", json{{"key", key}, {"enabled", enabled}}.dump()});
+}
+
+void dismiss_error() {
+    std::lock_guard lock(g_state_mutex);
+    g_state.last_error.clear();
 }
 
 }  // namespace reflektortts

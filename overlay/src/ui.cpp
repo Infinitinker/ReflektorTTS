@@ -2,6 +2,8 @@
 
 #include <imgui.h>
 
+#include <cctype>
+#include <cfloat>
 #include <string>
 
 #include "api_client.h"
@@ -11,7 +13,15 @@ namespace reflektortts {
 namespace {
 
 constexpr double kHintSeconds = 10.0;
+constexpr float kPanelWidth = 420.0f;
+constexpr float kHeaderFontSize = 20.0f;
+constexpr int kMaxLastSpokenLines = 9;
+constexpr char kAuto[] = "auto";
 constexpr ImVec4 kErrorColor(1.0f, 0.45f, 0.4f, 1.0f);
+constexpr ImVec4 kWarningColor(1.0f, 0.75f, 0.3f, 1.0f);
+const ImU32 kGreen = IM_COL32(90, 200, 110, 255);
+const ImU32 kAmber = IM_COL32(240, 180, 60, 255);
+const ImU32 kGrey = IM_COL32(140, 140, 140, 255);
 
 void draw_hint() {
     ImGui::SetNextWindowPos(ImVec2(10.0f, 10.0f));
@@ -23,78 +33,263 @@ void draw_hint() {
     ImGui::End();
 }
 
-std::string voice_label(const CoreState& state) {
-    for (const VoiceOption& voice : state.voices) {
-        if (voice.id == state.voice) {
-            return voice.name + " (" + voice.language + ")";
-        }
-    }
-    return state.voice;
+// A coloured dot followed by a label, on the current line.
+void dot_label(ImU32 color, const char* label) {
+    ImVec2 position = ImGui::GetCursorScreenPos();
+    float radius = ImGui::GetFontSize() * 0.3f;
+    float line = ImGui::GetTextLineHeight();
+    ImGui::GetWindowDrawList()->AddCircleFilled(ImVec2(position.x + radius, position.y + line * 0.5f), radius, color);
+    ImGui::Dummy(ImVec2(radius * 2.0f, line));
+    ImGui::SameLine();
+    ImGui::TextUnformatted(label);
 }
 
-void draw_voice_picker(const CoreState& state) {
-    if (!ImGui::BeginCombo("Voice", voice_label(state).c_str())) {
+float dot_label_width(const char* label) {
+    return ImGui::GetFontSize() * 0.6f + ImGui::GetStyle().ItemSpacing.x + ImGui::CalcTextSize(label).x;
+}
+
+void align_right(float width) {
+    ImGui::SameLine(ImGui::GetContentRegionMax().x - width);
+}
+
+// A bordered box whose height follows its contents.
+void begin_box(const char* title) {
+    ImGui::BeginChild(title, ImVec2(0.0f, 0.0f), ImGuiChildFlags_Borders | ImGuiChildFlags_AutoResizeY);
+    ImGui::TextDisabled("%s", title);
+}
+
+void end_box() {
+    ImGui::EndChild();
+}
+
+// Text wrapped to the box, cut after max_lines lines with "..." so the panel never grows past it.
+void clamped_wrapped_text(const std::string& text, int max_lines) {
+    ImFont* font = ImGui::GetFont();
+    float size = ImGui::GetFontSize();
+    float width = ImGui::GetContentRegionAvail().x;
+    const char* start = text.c_str();
+    const char* end = start + text.size();
+    for (int line = 0; line < max_lines && start < end; ++line) {
+        const char* line_end = font->CalcWordWrapPosition(size, start, end, width);
+        if (line_end == start) {
+            ++line_end;
+        }
+        std::string piece(start, line_end);
+        if (line == max_lines - 1 && line_end < end) {
+            while (!piece.empty() && ImGui::CalcTextSize((piece + "...").c_str()).x > width) {
+                // Drop one UTF-8 character: its continuation bytes, then its first byte.
+                while (!piece.empty() && (static_cast<unsigned char>(piece.back()) & 0xC0) == 0x80) {
+                    piece.pop_back();
+                }
+                if (!piece.empty()) {
+                    piece.pop_back();
+                }
+            }
+            piece += "...";
+        }
+        ImGui::TextUnformatted(piece.c_str());
+        start = line_end;
+        while (start < end && (*start == ' ' || *start == '\n')) {
+            ++start;
+        }
+    }
+}
+
+std::string language_name(const CoreState& state, const std::string& code) {
+    if (code == kAuto) {
+        return "Auto";
+    }
+    for (const LanguageOption& language : state.languages) {
+        if (language.code == code) {
+            return language.name;
+        }
+    }
+    return code;
+}
+
+// The language part of a tag: "pl-PL" is "pl".
+std::string primary_language(const std::string& tag) {
+    return tag.substr(0, tag.find_first_of("-_"));
+}
+
+std::string engine_title(std::string engine) {
+    if (!engine.empty()) {
+        engine[0] = static_cast<char>(std::toupper(static_cast<unsigned char>(engine[0])));
+    }
+    return engine;
+}
+
+void draw_header(const CoreState& state) {
+    ImGui::PushFont(nullptr, kHeaderFontSize);
+    ImGui::TextUnformatted("ReflektorTTS");
+    ImGui::PopFont();
+    const char* connection = state.connected ? "Connected" : "Not connected";
+    align_right(dot_label_width(connection));
+    dot_label(state.connected ? kGreen : kGrey, connection);
+    ImGui::Separator();
+}
+
+void draw_reading(const CoreState& state) {
+    begin_box("Reading");
+    ImGui::TextUnformatted(state.game.empty() ? "Waiting for a game" : state.game.c_str());
+    const char* reading = state.paused ? "Paused" : "Active";
+    align_right(dot_label_width(reading));
+    dot_label(state.paused ? kAmber : kGreen, reading);
+    if (ImGui::Button(state.paused ? "Resume reading" : "Pause reading")) {
+        request_paused(!state.paused);
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Stop this line")) {
+        request_stop_line();
+    }
+    end_box();
+}
+
+void draw_language_combo(const char* label, const CoreState& state, const std::string& current, bool with_auto,
+                         void (*request)(const std::string&)) {
+    if (!ImGui::BeginCombo(label, language_name(state, current).c_str())) {
         return;
     }
+    if (with_auto && ImGui::Selectable("Auto##auto", current == kAuto) && current != kAuto) {
+        request(kAuto);
+    }
+    for (const LanguageOption& language : state.languages) {
+        bool selected = language.code == current;
+        if (ImGui::Selectable((language.name + "##" + language.code).c_str(), selected) && !selected) {
+            request(language.code);
+        }
+    }
+    ImGui::EndCombo();
+}
+
+// Voices that speak the speech language, grouped by engine.
+void draw_voice_combo(const CoreState& state) {
+    std::string language = state.speech_language;
+    bool any = false;
     for (const VoiceOption& voice : state.voices) {
-        std::string label = voice.name + " (" + voice.language + ")##" + voice.id;
+        any = any || primary_language(voice.language) == language;
+    }
+    if (!any) {
+        ImGui::BeginDisabled();
+        if (ImGui::BeginCombo("Voice", "No voice for this language")) {
+            ImGui::EndCombo();
+        }
+        ImGui::EndDisabled();
+        ImGui::PushStyleColor(ImGuiCol_Text, kWarningColor);
+        ImGui::TextWrapped("Add a %s voice in Windows Settings > Time & language > Speech, or download a Piper voice.",
+                           language_name(state, language).c_str());
+        ImGui::PopStyleColor();
+        return;
+    }
+    if (!ImGui::BeginCombo("Voice", state.voice.c_str())) {
+        return;
+    }
+    std::string engine;
+    for (const VoiceOption& voice : state.voices) {
+        if (primary_language(voice.language) != language) {
+            continue;
+        }
+        if (voice.engine != engine) {
+            engine = voice.engine;
+            ImGui::TextDisabled("%s", engine_title(engine).c_str());
+        }
         bool selected = voice.id == state.voice;
-        if (ImGui::Selectable(label.c_str(), selected) && !selected) {
+        ImGui::Indent();
+        if (ImGui::Selectable((voice.id + "##" + voice.id).c_str(), selected) && !selected) {
             request_voice(voice.id);
         }
-        if (selected) {
-            ImGui::SetItemDefaultFocus();
-        }
+        ImGui::Unindent();
     }
     ImGui::EndCombo();
 }
 
-void draw_language_picker(const CoreState& state) {
-    std::string current = state.language;
-    for (const LanguageOption& language : state.languages) {
-        if (language.code == state.language) {
-            current = language.name;
+void draw_voice_and_language(const CoreState& state) {
+    begin_box("Voice & language");
+    draw_language_combo("Game language", state, state.game_language, true, request_game_language);
+    draw_language_combo("Speech language", state, state.speech_language, false, request_speech_language);
+    draw_voice_combo(state);
+    end_box();
+}
+
+void draw_stage(const StageOption& stage) {
+    bool enabled = stage.enabled;
+    if (ImGui::Checkbox((stage.type + "##" + stage.key).c_str(), &enabled)) {
+        request_stage_enabled(stage.key, enabled);
+    }
+    if (!stage.summary.empty()) {
+        ImGui::SameLine();
+        ImGui::TextDisabled("%s", stage.summary.c_str());
+    }
+    if (!stage.enabled && stage.warning) {
+        ImGui::PushStyleColor(ImGuiCol_Text, kWarningColor);
+        ImGui::TextWrapped("%s", stage.warning->c_str());
+        ImGui::PopStyleColor();
+    }
+}
+
+void draw_text_processing(const CoreState& state) {
+    begin_box("Text processing");
+    if (state.sources.empty()) {
+        ImGui::TextDisabled("Shown while a game is being read.");
+    }
+    // Source names matter only when a game has more than one source.
+    bool headings = state.sources.size() > 1;
+    for (const SourceStages& source : state.sources) {
+        if (headings) {
+            ImGui::TextUnformatted(source.source.c_str());
+            ImGui::Indent();
+        }
+        for (const StageOption& stage : source.stages) {
+            draw_stage(stage);
+        }
+        if (headings) {
+            ImGui::Unindent();
         }
     }
-    if (!ImGui::BeginCombo("Language", current.c_str())) {
-        return;
+    end_box();
+}
+
+void draw_last_spoken(const CoreState& state) {
+    begin_box("Last spoken");
+    if (state.last_line.empty()) {
+        ImGui::TextDisabled("-");
+    } else {
+        clamped_wrapped_text(state.last_line, kMaxLastSpokenLines);
     }
-    for (const LanguageOption& language : state.languages) {
-        bool selected = language.code == state.language;
-        if (ImGui::Selectable((language.name + "##" + language.code).c_str(), selected) && !selected) {
-            request_language(language.code);
-        }
-        if (selected) {
-            ImGui::SetItemDefaultFocus();
+    end_box();
+}
+
+void draw_footer(const CoreState& state) {
+    if (!state.last_error.empty()) {
+        ImGui::PushStyleColor(ImGuiCol_Text, kErrorColor);
+        ImGui::PushTextWrapPos(ImGui::GetContentRegionMax().x - ImGui::GetFrameHeight() * 1.5f);
+        ImGui::TextWrapped("%s", state.last_error.c_str());
+        ImGui::PopTextWrapPos();
+        ImGui::PopStyleColor();
+        align_right(ImGui::GetFrameHeight());
+        if (ImGui::SmallButton("x")) {
+            dismiss_error();
         }
     }
-    ImGui::EndCombo();
+    ImGui::TextDisabled("Ctrl+Shift+R closes this panel");
 }
 
 void draw_panel(const CoreState& state) {
     ImGui::SetNextWindowPos(ImVec2(20.0f, 20.0f), ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowSize(ImVec2(380.0f, 0.0f), ImGuiCond_FirstUseEver);
-    ImGui::Begin("ReflektorTTS", nullptr, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings);
+    ImGui::SetNextWindowSizeConstraints(ImVec2(kPanelWidth, 0.0f), ImVec2(kPanelWidth, FLT_MAX));
+    ImGui::Begin("ReflektorTTS", nullptr,
+                 ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings |
+                     ImGuiWindowFlags_AlwaysAutoResize);
+    draw_header(state);
     if (!state.connected) {
         ImGui::TextWrapped("Not connected to ReflektorTTS. Is it running?");
     } else {
-        ImGui::Text("Game: %s", state.game.empty() ? "none" : state.game.c_str());
-        ImGui::Separator();
-        ImGui::TextDisabled("Last line");
-        ImGui::TextWrapped("%s", state.last_line.empty() ? "-" : state.last_line.c_str());
-        ImGui::Separator();
-        if (ImGui::Button(state.paused ? "Resume reading" : "Pause reading")) {
-            request_paused(!state.paused);
-        }
-        draw_language_picker(state);
-        draw_voice_picker(state);
+        draw_reading(state);
+        draw_voice_and_language(state);
+        draw_text_processing(state);
+        draw_last_spoken(state);
     }
-    if (!state.last_error.empty()) {
-        ImGui::PushStyleColor(ImGuiCol_Text, kErrorColor);
-        ImGui::TextWrapped("%s", state.last_error.c_str());
-        ImGui::PopStyleColor();
-    }
-    ImGui::TextDisabled("Ctrl+Shift+R closes this panel");
+    draw_footer(state);
     ImGui::End();
 }
 
