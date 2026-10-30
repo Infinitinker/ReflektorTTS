@@ -39,6 +39,86 @@ def test_numbers_money_and_percentages_are_spelled_out(text: str, english: str, 
     assert say(text, "pl") == polish
 
 
+@pytest.mark.parametrize(
+    ("text", "english", "polish"),
+    [
+        ("14:30", "fourteen thirty", "czternasta trzydzieści"),
+        ("9:05", "nine oh five", "dziewiąta zero pięć"),
+        ("10:00", "ten o'clock", "dziesiąta"),
+        ("18:00", "eighteen hundred", "osiemnasta"),
+        ("25:61", "twenty-five: sixty-one", "dwadzieścia pięć: sześćdziesiąt jeden"),
+    ],
+)
+def test_times_of_day_are_said_as_clock_times(text: str, english: str, polish: str) -> None:
+    assert say(text, "en") == english
+    assert say(text, "pl") == polish
+
+
+@pytest.mark.parametrize(
+    ("text", "english", "polish"),
+    [
+        ("5 km", "five kilometers", "pięć kilometrów"),
+        ("1 km", "one kilometer", "jeden kilometr"),
+        ("1.5 km", "one point five kilometers", "jeden przecinek pięć kilometra"),
+        ("100 m", "one hundred meters", "sto metrów"),
+        ("2 min", "two minutes", "dwie minuty"),
+        ("1 h", "one hour", "jedna godzina"),
+        ("30 s", "thirty seconds", "trzydzieści sekund"),
+        ("20°C", "twenty degrees Celsius", "dwadzieścia stopni Celsjusza"),
+        ("3 kg", "three kilograms", "trzy kilogramy"),
+    ],
+)
+def test_units_after_numbers_are_spelled_out(text: str, english: str, polish: str) -> None:
+    assert say(text, "en") == english
+    assert say(text, "pl") == polish
+
+
+def test_one_letter_units_need_a_space_so_decades_stay() -> None:
+    assert say("Back in the 80s.", "en") == "Back in the eighty s."
+    assert say("Run 400m now.", "en") == "Run four hundred m now."
+
+
+@pytest.mark.parametrize(
+    ("text", "english", "polish"),
+    [
+        ("12.05.2024", "the twelfth of May twenty twenty-four", "dwunastego maja dwa tysiące dwudziestego czwartego"),
+        ("2024-05-12", "the twelfth of May twenty twenty-four", "dwunastego maja dwa tysiące dwudziestego czwartego"),
+        (
+            "1.01.1999",
+            "the first of January nineteen ninety-nine",
+            "pierwszego stycznia tysiąc dziewięćset dziewięćdziesiątego dziewiątego",
+        ),
+        ("Up by 1.5.", "Up by one point five.", "Up by jeden przecinek pięć."),
+    ],
+)
+def test_dates_need_a_year_so_decimals_stay_numbers(text: str, english: str, polish: str) -> None:
+    assert say(text, "en") == english
+    assert say(text, "pl") == polish
+
+
+@pytest.mark.parametrize(
+    ("text", "polish"),
+    [
+        ("Jedź na ul. Długą, np. teraz.", "Jedź na ulica Długą, na przykład teraz."),
+        ("Np. tak.", "Na przykład tak."),
+        ("Pokój nr 5, dr Nowak.", "Pokój numer pięć, doktor Nowak."),
+        ("OK. Jedziemy, m.in. ty & ja.", "OK. Jedziemy, między innymi ty i ja."),
+        ("Bądź o godz. 14:30.", "Bądź o godzinie czternastej trzydzieści."),
+        ("Czekaj do 21:05, nie przed 9:00.", "Czekaj do dwudziestej pierwszej zero pięć, nie przed dziewiątą."),
+        ("O 1:15 i po 12:00.", "O pierwszej piętnaście i po dwunastej."),
+        ("Drzwi, drużyna", "Drzwi, drużyna"),
+    ],
+)
+def test_polish_abbreviations_and_symbols_are_spelled_out(text: str, polish: str) -> None:
+    assert say(text, "pl") == polish
+
+
+def test_english_abbreviations_and_symbols_are_spelled_out() -> None:
+    assert say("Ask Dr. Smith, e.g. now. Salt & pepper +1.", "en") == (
+        "Ask Doctor Smith, for example now. Salt and pepper plus one."
+    )
+
+
 def test_a_gta2_line_reads_naturally() -> None:
     line = "Take the car to the docks for $50,000, then come back."
 
