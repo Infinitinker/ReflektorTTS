@@ -1,0 +1,8 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Translate stage settings",
+  "description": "Translates lines from the game language into the speech language chosen by the user (lektor mode). Place it after stages that clean up the text and before normalize. Needs the translate extra; the model is downloaded the first time a line needs it. It has no settings.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+}

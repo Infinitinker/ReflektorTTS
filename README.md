@@ -14,8 +14,10 @@ From the repository root:
 py -3.13 -m venv .venv
 ```
 ```bash
-.venv\Scripts\pip install -e .[dev]
+.venv\Scripts\pip install -e .[dev,translate]
 ```
+
+The `translate` extra is only needed to translate games (see [Translation](#translation)).
 
 Build the overlay as described in [overlay/README.md](overlay/README.md).
 
@@ -42,6 +44,12 @@ Press **Ctrl+Shift+R** to open the ReflektorTTS panel: it shows the last line re
 - **Windows** voices installed in Windows Settings > Time & language > Speech, e.g. Microsoft Adam (Polish).
 
 The chosen voice is saved in `%LOCALAPPDATA%\reflektortts\settings.json`.
+
+## Translation
+
+ReflektorTTS can translate a game into the speech language, in the style of a Polish *lektor*. Set the game language and the speech language in the panel; when they differ, profiles with a `translate` stage translate each line before it is spoken. To turn it off, untick `translate` in the panel's Text processing section.
+
+Only English to Polish is available so far. It runs offline on the CPU, at about 0.1 s per line. The model (about 80 MB) is downloaded the first time a line needs it, into `%LOCALAPPDATA%\reflektortts\translation`. It is the English–Polish model of [Argos Translate](https://github.com/argosopentech/argos-translate), derived from an [OPUS-MT](https://github.com/Helsinki-NLP/Opus-MT) model by Jörg Tiedemann and Santhosh Thottingal and licensed CC-BY 4.0.
 
 ## Local API
 

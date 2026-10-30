@@ -35,9 +35,11 @@ windows = "reflektortts.tts.engines.windows:PLUGIN"
 normalize = "reflektortts.stages.normalize.stage:PLUGIN"
 replace = "reflektortts.stages.replace:PLUGIN"
 tracker = "reflektortts.stages.tracker:PLUGIN"
+translate = "reflektortts.stages.translate.stage:PLUGIN"
 
 [project.optional-dependencies]
 dev = ["mypy>=2.4", "pytest>=9.2", "ruff>=0.17", "types-jsonschema", "types-psutil"]
+translate = ["ctranslate2>=4.8", "sacremoses>=0.2", "subword-nmt>=0.3.8"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -53,5 +55,5 @@ strict = true
 files = ["src", "tests"]
 
 [[tool.mypy.overrides]]
-module = ["sounddevice", "num2words"]
+module = ["sounddevice", "num2words", "ctranslate2", "sacremoses", "subword_nmt.*"]
 ignore_missing_imports = true

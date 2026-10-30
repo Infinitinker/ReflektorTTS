@@ -45,7 +45,7 @@ Its main ideas:
 
 1. The core watches running processes. When one matches a profile's `match.process`, it loads the overlay into the game (if an overlay build was given) and creates the profile's sources through their plugins.
 2. The runner polls each source on its interval. A source returns the text currently shown, or nothing.
-3. Each reading carries the player's **game language** and **speech language**. The text passes through that source's stages, e.g. the **tracker**, which passes a line on once it has settled and only once; **replace**, which removes formatting marks; and **normalize**, which spells out numbers, money and percentages in the speech language. Stages the player switched off in the overlay are skipped.
+3. Each reading carries the player's **game language** and **speech language**. The text passes through that source's stages, e.g. the **tracker**, which passes a line on once it has settled and only once; **replace**, which removes formatting marks; **translate**, which translates the line into the speech language when it differs from the game language; and **normalize**, which spells out numbers, money and percentages in the speech language. Stages the player switched off in the overlay are skipped.
 4. Finished lines go to every sink: the **TTS sink** sends the line to the TTS service, which cuts off the line still being spoken and speaks the new one; the **events sink** publishes it to the event bus, from which the API sends it to the overlay.
 5. When the game exits, the core closes its sources and waits for the next game.
 
@@ -96,10 +96,11 @@ Finding a line's label when subtitles can be turned off: turn subtitles on and f
 
 ### Lektor mode (translation)
 
-- A `translate` stage with replaceable engines: a local model by default, online services as optional plugins.
+- **Done:** the `translate` stage translates each line from the game language to the speech language it carries, only when they differ, and runs before `normalize`. It splits lines into sentences, because the models are trained on single sentences and drop the rest of longer input, and it remembers recent lines, because games repeat them. `auto` is taken as English while English is the only source language.
+- **Engine:** Argos Translate's English–Polish model (OPUS-MT based, CC-BY 4.0), run directly with CTranslate2 on the CPU (int8) and tokenized as it was trained (Moses tokens, BPE subwords), without the `argostranslate` package and its heavy dependencies. It runs in the core process, at about 0.1 s per line and at most 0.4 s, once per settled line. The packages are the optional `translate` extra; the model is downloaded on first use.
+- **Why this engine:** an EN→PL benchmark on game lines compared it with Opus-MT `en-zlw` and `tc-bible-big`, Firefox Translations' model (through `fxtranslate`), and Meta's NLLB-200 600M and M2M-100 418M. It gave the most natural translations and was the fastest. Firefox's model needs a Marian-based engine (its SSRU decoder does not run on CTranslate2), and NLLB-200 is licensed for non-commercial use only.
+- Planned: more language pairs; a glossary per profile for names and game terms (offline models take no context, so names would be swapped for placeholders and back); online engines (e.g. DeepL, LLMs) as optional plugins that can use a game's context.
 - For sources with labels: translate the whole text table ahead of time into a label → Polish text dictionary, with no delay and room for manual corrections.
-- For OCR and speech recognition: translate as lines arrive, with a cache of translated sentences.
-- The `translate` stage translates from the game language (or detects it, for `auto`) to the speech language every line carries, only when they differ, and runs before `normalize`.
 - Normalization covers numbers, money and percentages in English and Polish so far; dates, times and abbreviations (the PoC had Polish rules for them) are still to come.
 
 ### Overlay
@@ -132,7 +133,6 @@ Known pitfalls of older games and how the overlay handles them:
 
 ## Open questions
 
-- Which local translation engine to use by default.
 - A desktop UI next to the overlay: Qt (PySide6), a web UI served by the core, or none.
 - How community profiles are distributed beyond this repository (e.g. a profile browser in the app).
 - Whether the API needs authentication beyond listening only on 127.0.0.1.
