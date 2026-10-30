@@ -2,7 +2,7 @@
 
 Reads game text aloud (dialogues, cutscene subtitles, messages) and can optionally translate it in the Polish "lektor" style: one voice over the original soundtrack. Configured per game through profiles, and from inside the game through an overlay.
 
-The design is in `_old_poc/ARCHITEKTURA.md` (in Polish, still to be translated into `ARCHITECTURE.md`).
+The design is in `docs/architecture.md`; plugin contracts in `docs/plugins.md`, the local API in `docs/api.md`. Keep them current when the code changes.
 
 ## Language and naming
 

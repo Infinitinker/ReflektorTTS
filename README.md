@@ -45,19 +45,19 @@ The chosen voice is saved in `%LOCALAPPDATA%\reflektortts\settings.json`.
 
 ## Local API
 
-Every UI talks to the core through the same local API on `http://127.0.0.1:47821/v1`:
-
-| Request | Does |
-|---|---|
-| `GET /v1/status` | The game being read, the voice, and whether reading is paused |
-| `GET /v1/voices` | Voices available now |
-| `PATCH /v1/settings` with `{"voice": "windows:Microsoft Adam"}` | Switches and saves the voice |
-| `POST /v1/pause`, `POST /v1/resume` | Pauses or resumes reading |
-| `GET /v1/events` (WebSocket) | The status, then `line`, `error` and `status` events as they happen |
+Every UI talks to the core through the same local API on `http://127.0.0.1:47821/v1`: status, voices, settings, pause/resume, and a WebSocket of events. See [docs/api.md](docs/api.md).
 
 ## Game profiles
 
 Each game is described by one JSON file in [profiles/](profiles/README.md), which explains the format.
+
+## Documentation
+
+- [docs/architecture.md](docs/architecture.md): how ReflektorTTS is built, and what is planned
+- [docs/plugins.md](docs/plugins.md): writing sources, stages and speech engines
+- [docs/api.md](docs/api.md): the local API
+- [profiles/README.md](profiles/README.md): writing game profiles
+- [overlay/README.md](overlay/README.md): the in-game overlay
 
 ## Development
 

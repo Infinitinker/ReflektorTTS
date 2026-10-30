@@ -1,6 +1,6 @@
 # In-game overlay
 
-A DLL loaded into the game process. It hooks the point where the game shows each frame and draws a Dear ImGui control panel on top. All logic stays in the Python core: the overlay is a client of the core's local API (`http://127.0.0.1:47821/v1`), so it only draws, captures input and grabs frames.
+A DLL loaded into the game process. It hooks the point where the game shows each frame and draws a Dear ImGui control panel on top. All logic stays in the Python core: the overlay is a client of the core's [local API](../docs/api.md) (`http://127.0.0.1:47821/v1`), so it only draws, captures input and grabs frames. See also [docs/architecture.md](../docs/architecture.md).
 
 ## Using it
 
