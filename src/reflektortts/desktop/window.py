@@ -4,10 +4,13 @@ import tkinter as tk
 from collections.abc import Callable
 from tkinter import ttk
 
+from reflektortts.desktop.icon import icon_photo
 from reflektortts.desktop.status import CoreStatus, describe
 
 PADDING = 16
 WIDTH = 360
+ICON_SIZES = (16, 32, 48, 256)
+"""For the title bar, the taskbar and Alt+Tab; the system picks the size it needs."""
 
 
 class Window:
@@ -21,6 +24,9 @@ class Window:
     ) -> None:
         self._root = root
         root.title("ReflektorTTS")
+        # Kept here: Tkinter drops an image nothing in Python refers to.
+        self._icons = [icon_photo(size) for size in ICON_SIZES]
+        root.iconphoto(True, *self._icons)
         root.resizable(False, False)
         root.protocol("WM_DELETE_WINDOW", on_close)
         frame = ttk.Frame(root, padding=PADDING, width=WIDTH)

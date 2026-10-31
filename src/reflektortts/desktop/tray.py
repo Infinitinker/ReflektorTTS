@@ -5,20 +5,11 @@ import threading
 from collections.abc import Callable
 
 import pystray
-from PIL import Image, ImageDraw, ImageFont
 
-ICON_SIZE = 64
-ICON_COLOR = (214, 120, 32)
+from reflektortts.desktop.icon import icon_image
 
-
-def icon_image() -> Image.Image:
-    """A round badge with an R."""
-    image = Image.new("RGBA", (ICON_SIZE, ICON_SIZE), (0, 0, 0, 0))
-    draw = ImageDraw.Draw(image)
-    draw.ellipse((2, 2, ICON_SIZE - 2, ICON_SIZE - 2), fill=ICON_COLOR)
-    font = ImageFont.load_default(size=40)
-    draw.text((ICON_SIZE / 2, ICON_SIZE / 2), "R", font=font, fill="white", anchor="mm")
-    return image
+TRAY_ICON_SIZE = 32
+"""The largest size a tray shows; the icon's simple drawing, which stays clear when scaled down."""
 
 
 class Tray:
@@ -37,7 +28,7 @@ class Tray:
             pystray.Menu.SEPARATOR,
             pystray.MenuItem("Quit", lambda: on_quit()),
         )
-        self._icon = pystray.Icon("ReflektorTTS", icon_image(), "ReflektorTTS", menu)
+        self._icon = pystray.Icon("ReflektorTTS", icon_image(TRAY_ICON_SIZE), "ReflektorTTS", menu)
         self._thread = threading.Thread(target=self._icon.run, name="tray", daemon=True)
 
     def start(self) -> None:

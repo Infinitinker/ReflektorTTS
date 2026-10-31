@@ -58,7 +58,7 @@ select = ["E", "F", "I", "UP", "B"]
 
 [tool.mypy]
 strict = true
-files = ["src", "tests"]
+files = ["src", "tests", "tools"]
 
 [[tool.mypy.overrides]]
 module = ["sounddevice", "num2words", "ctranslate2", "sacremoses", "subword_nmt.*", "pycaw.*", "comtypes", "pystray"]

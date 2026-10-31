@@ -76,6 +76,7 @@ A failing source, stage or sink is reported once as a `source.error`, `stage.err
 | `overlay/` (repository root) | The in-game overlay (C++); see [overlay/README.md](../overlay/README.md) |
 | `profiles/` (repository root) | Game profiles; see [profiles/README.md](../profiles/README.md) |
 | `tests/` (repository root) | Tests, mirroring `src/reflektortts/` |
+| `tools/` (repository root) | Developer tools, not part of the app: `draw_icon.py` draws the app's icon |
 
 How the folders are organized:
 

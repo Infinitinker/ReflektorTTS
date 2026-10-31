@@ -23,7 +23,7 @@ Build the overlay as described in [overlay/README.md](overlay/README.md).
 
 ## Running
 
-As a desktop app, without a console:
+As a desktop app, without a console: double-click `start-app.bat` in the repository root, or run
 
 ```bash
 .venv\Scripts\reflektortts-app --profiles profiles --overlay overlay\build\bin --overlay overlay\build64\bin
@@ -95,6 +95,12 @@ Each game is described by one JSON file in [profiles/](profiles/README.md), whic
 ```
 ```bash
 .venv\Scripts\python -m mypy
+```
+
+The app's icon, `src/reflektortts/desktop/icon.ico`, is drawn in code by `tools/draw_icon.py`; after changing the drawing, run it from the repository root to write the icon again:
+
+```bash
+.venv\Scripts\python tools\draw_icon.py
 ```
 
 ## License
