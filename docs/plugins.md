@@ -28,7 +28,7 @@ Profiles choose plugins by `type`. A source entry in a profile looks like this:
 ```json
 {
   "type": "memory",
-  "name": "messages",
+  "name": "subtitles",
   "poll_interval_ms": 250,
   "encoding": "utf-16le",
   "pointers": [ ... ],

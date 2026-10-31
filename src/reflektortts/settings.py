@@ -28,9 +28,9 @@ class Settings:
     voices_by_language: dict[str, str] = field(default_factory=dict)
     """The voice last chosen for each output language, e.g. {"pl": "windows:Microsoft Adam"}."""
     disabled_sources: dict[str, list[str]] = field(default_factory=dict)
-    """Sources switched off by the player, by profile ID: {"grand-theft-auto-2-1999": ["messages"]}."""
+    """Sources switched off by the player, by profile ID: {"grand-theft-auto-2-1999": ["subtitles"]}."""
     disabled_stages: dict[str, list[str]] = field(default_factory=dict)
-    """Stages switched off by the player, by profile ID: {"grand-theft-auto-2-1999": ["messages/2:normalize"]}."""
+    """Stages switched off by the player, by profile ID: {"grand-theft-auto-2-1999": ["subtitles/3:normalize"]}."""
     ducking: bool = True
     """Whether the game's sound is lowered while lines are spoken."""
     duck_volume: float = DEFAULT_LEVEL

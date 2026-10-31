@@ -60,7 +60,7 @@ def app_volume() -> OpenAppVolume:
 
 
 def stage_key(source: str, position: int, stage_type: str) -> str:
-    """Identifies a stage within its profile, e.g. "messages/2:normalize"."""
+    """Identifies a stage within its profile, e.g. "subtitles/3:normalize"."""
     return f"{source}/{position}:{stage_type}"
 
 

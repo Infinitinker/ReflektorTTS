@@ -10,7 +10,7 @@
   "sources": [
     {
       "type": "memory",
-      "name": "messages",
+      "name": "subtitles",
       "poll_interval_ms": 250,
       "encoding": "utf-16le",
       "pointers": [

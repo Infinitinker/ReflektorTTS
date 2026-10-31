@@ -23,12 +23,12 @@ The status object, returned by several requests and sent as an event:
   "subtitle_position": "top",
   "sources": [
     {
-      "name": "messages",
+      "name": "subtitles",
       "type": "memory",
       "enabled": true,
       "stages": [
         {
-          "key": "messages/0:tracker",
+          "key": "subtitles/0:tracker",
           "type": "tracker",
           "summary": "Waits until a line settles",
           "warning": "Needed: without it, the voice restarts on every reading.",
@@ -111,7 +111,7 @@ The ducking and subtitle fields are applied first, then the others in the order 
 Switches a source of the game being read on or off. A switched-off source is not read until switched on again; its stages keep their own settings. The choice is saved per game:
 
 ```json
-{ "name": "messages", "enabled": false }
+{ "name": "subtitles", "enabled": false }
 ```
 
 Returns the status.
@@ -121,7 +121,7 @@ Returns the status.
 Switches a stage of the game being read on or off. The choice is saved per game and applies to the next line read:
 
 ```json
-{ "key": "messages/2:normalize", "enabled": false }
+{ "key": "subtitles/3:normalize", "enabled": false }
 ```
 
 Returns the status.
@@ -160,7 +160,7 @@ On connecting, the client receives the current status. After that, every event t
 Example:
 
 ```json
-{ "type": "line", "source": "messages", "text": "Welcome to the Downtown District." }
+{ "type": "line", "source": "subtitles", "text": "Welcome to the Downtown District." }
 ```
 
 Clients should ignore event types and fields they do not know, so the API can grow without breaking them.

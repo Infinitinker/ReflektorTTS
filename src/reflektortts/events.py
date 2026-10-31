@@ -45,7 +45,7 @@ class StageState:
     """One stage of the game being read, as the player sees it."""
 
     key: str
-    """Identifies the stage within its profile, e.g. "messages/2:normalize"."""
+    """Identifies the stage within its profile, e.g. "subtitles/3:normalize"."""
     type: str
     summary: str
     warning: str | None
