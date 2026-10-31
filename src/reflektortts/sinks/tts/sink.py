@@ -14,7 +14,7 @@ class SpeechService(Protocol):
 
 
 class TtsSink:
-    """Speaks each line; a new line cuts off the one still being spoken."""
+    """Speaks each line through the narrator, which decides whether it cuts off the one being spoken."""
 
     name = "tts"
 

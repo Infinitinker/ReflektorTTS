@@ -168,6 +168,7 @@ class Core:
         self._bus = EventBus()
         self._subtitles = Subtitles(self._bus.publish, self._settings.subtitles)
         self._narrator = narrator_factory(self._settings.voice, self._speaking)
+        self._narrator.configure(self._settings.speech_rate, self._settings.cut_off_lines)
         self._game: GameInfo | None = None
         self._profile: Profile | None = None
 
@@ -180,6 +181,8 @@ class Core:
             paused=self._narrator.paused,
             ducking=self._settings.ducking,
             duck_volume=self._settings.duck_volume,
+            speech_rate=self._settings.speech_rate,
+            cut_off_lines=self._settings.cut_off_lines,
             subtitles=self._settings.subtitles,
             subtitle_size=self._settings.subtitle_size,
             subtitle_position=self._settings.subtitle_position,
@@ -220,6 +223,12 @@ class Core:
         """Whether, and how far, the game's sound is lowered while lines are spoken."""
         self._ducker.configure(enabled, volume)
         self._save(replace(self._settings, ducking=enabled, duck_volume=volume))
+        return self._publish_status()
+
+    def set_speech(self, rate: float, cut_off: bool) -> Status:
+        """How fast lines are spoken, and whether a new line cuts off the one being spoken."""
+        self._narrator.configure(rate, cut_off)
+        self._save(replace(self._settings, speech_rate=rate, cut_off_lines=cut_off))
         return self._publish_status()
 
     def set_subtitles(self, enabled: bool, size: str, position: str) -> Status:

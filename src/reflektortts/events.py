@@ -78,6 +78,10 @@ class Status:
     """Whether the game's sound is lowered while lines are spoken."""
     duck_volume: float
     """The game's volume while lines are spoken, as a fraction of its own volume."""
+    speech_rate: float
+    """How fast lines are spoken, as a multiple of the voice's own pace."""
+    cut_off_lines: bool
+    """Whether a new line cuts off the one being spoken; otherwise lines wait their turn."""
     subtitles: bool
     """Whether lines are shown as subtitles over the game."""
     subtitle_size: str

@@ -11,15 +11,16 @@ from reflektortts.sinks.tts.client import TtsClient
 class SpeechClient(Protocol):
     """The part of TtsClient the narrator uses."""
 
-    def say(self, text: str) -> None: ...
+    def say(self, text: str, rate: float, cut_off: bool) -> None: ...
 
-    def stop(self) -> None: ...
+    def stop(self, drop_waiting: bool) -> None: ...
 
     def close(self) -> None: ...
 
 
 class Narrator:
-    """Speaks lines unless paused; switching voices starts a new TTS process.
+    """Speaks lines unless paused, at the chosen rate, each one either cutting off the line being
+    spoken or waiting its turn; switching voices starts a new TTS process.
 
     on_speaking is called with True when speech starts after silence and with False when it falls
     silent, across voice switches: an old voice still finishing counts as speaking.
@@ -40,6 +41,8 @@ class Narrator:
         """IDs of the clients speaking right now."""
         self._voice = voice
         self._paused = False
+        self._rate = 1.0
+        self._cut_off = False
         self._client = self._start(voice)
 
     @property
@@ -50,21 +53,27 @@ class Narrator:
     def paused(self) -> bool:
         return self._paused
 
+    def configure(self, rate: float, cut_off: bool) -> None:
+        """Applies from the next line on."""
+        with self._lock:
+            self._rate = rate
+            self._cut_off = cut_off
+
     def say(self, text: str) -> None:
         with self._lock:
             if not self._paused:
-                self._client.say(text)
+                self._client.say(text, self._rate, self._cut_off)
 
     def stop_line(self) -> None:
-        """Cuts off the line being spoken; the next line is spoken as usual."""
+        """Cuts off the line being spoken; the next waiting line, or the next line read, follows."""
         with self._lock:
-            self._client.stop()
+            self._client.stop(drop_waiting=False)
 
     def pause(self) -> None:
-        """Stops the current line and ignores new ones until resume()."""
+        """Stops the current line, drops those waiting, and ignores new ones until resume()."""
         with self._lock:
             self._paused = True
-            self._client.stop()
+            self._client.stop(drop_waiting=True)
 
     def resume(self) -> None:
         with self._lock:

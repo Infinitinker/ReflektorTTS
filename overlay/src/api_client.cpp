@@ -126,6 +126,8 @@ void apply_status(const json& status) {
     bool paused = status.at("paused").get<bool>();
     bool ducking = status.at("ducking").get<bool>();
     float duck_volume = status.at("duck_volume").get<float>();
+    float speech_rate = status.at("speech_rate").get<float>();
+    bool cut_off_lines = status.at("cut_off_lines").get<bool>();
     bool subtitles = status.at("subtitles").get<bool>();
     std::string subtitle_size = status.at("subtitle_size").get<std::string>();
     std::string subtitle_position = status.at("subtitle_position").get<std::string>();
@@ -139,6 +141,8 @@ void apply_status(const json& status) {
     g_state.paused = paused;
     g_state.ducking = ducking;
     g_state.duck_volume = duck_volume;
+    g_state.speech_rate = speech_rate;
+    g_state.cut_off_lines = cut_off_lines;
     g_state.subtitles = subtitles;
     g_state.subtitle_size = std::move(subtitle_size);
     g_state.subtitle_position = std::move(subtitle_position);
@@ -359,6 +363,14 @@ void request_ducking(bool enabled) {
 
 void request_duck_volume(float volume) {
     enqueue({L"PATCH", L"/v1/settings", json{{"duck_volume", volume}}.dump()});
+}
+
+void request_speech_rate(float rate) {
+    enqueue({L"PATCH", L"/v1/settings", json{{"speech_rate", rate}}.dump()});
+}
+
+void request_cut_off_lines(bool cut_off) {
+    enqueue({L"PATCH", L"/v1/settings", json{{"cut_off_lines", cut_off}}.dump()});
 }
 
 void request_subtitles(bool enabled) {

@@ -15,9 +15,11 @@ TIMEOUT = 2.0
 class RecordingEngine:
     def __init__(self) -> None:
         self.texts: list[str] = []
+        self.rates: list[float] = []
 
-    def synthesize(self, text: str) -> Iterator[AudioChunk]:
+    def synthesize(self, text: str, rate: float) -> Iterator[AudioChunk]:
         self.texts.append(text)
+        self.rates.append(rate)
         yield AudioChunk(samples=np.zeros(1, dtype=np.int16), sample_rate=22050)
 
 
@@ -86,6 +88,83 @@ def test_stop_cuts_off_the_current_line() -> None:
     assert player.outcomes == [False]
 
 
+def finish_lines(player: BlockingPlayer, count: int) -> None:
+    """Lets count lines finish one after another, the first of them already playing."""
+    for i in range(count):
+        player.finish()
+        assert player.done.acquire(timeout=TIMEOUT)
+        if i < count - 1:
+            assert player.started.acquire(timeout=TIMEOUT)
+
+
+def test_waiting_lines_are_spoken_in_order_at_their_rate() -> None:
+    engine, player = RecordingEngine(), BlockingPlayer()
+    speaker = Speaker(engine, player)
+    try:
+        speaker.say("first", 1.0, cut_off=False)
+        assert player.started.acquire(timeout=TIMEOUT)
+        speaker.say("second", 1.5, cut_off=False)
+        speaker.say("third", 2.0, cut_off=False)
+        finish_lines(player, 3)
+    finally:
+        speaker.close()
+
+    assert engine.texts == ["first", "second", "third"]
+    assert engine.rates == [1.0, 1.5, 2.0]
+    assert player.outcomes == [True, True, True]
+
+
+def test_past_the_limit_the_oldest_waiting_line_is_dropped() -> None:
+    engine, player = RecordingEngine(), BlockingPlayer()
+    speaker = Speaker(engine, player)
+    try:
+        speaker.say("speaking", cut_off=False)
+        assert player.started.acquire(timeout=TIMEOUT)
+        for text in ("a", "b", "c", "d"):
+            speaker.say(text, cut_off=False)
+        finish_lines(player, 4)
+    finally:
+        speaker.close()
+
+    assert engine.texts == ["speaking", "b", "c", "d"]
+
+
+def test_stopping_a_line_moves_on_to_the_next_waiting_one() -> None:
+    engine, player = RecordingEngine(), BlockingPlayer()
+    speaker = Speaker(engine, player)
+    try:
+        speaker.say("long", cut_off=False)
+        assert player.started.acquire(timeout=TIMEOUT)
+        speaker.say("next", cut_off=False)
+        speaker.stop(drop_waiting=False)
+        assert player.done.acquire(timeout=TIMEOUT)
+        assert player.started.acquire(timeout=TIMEOUT)
+        speaker.stop()
+        assert player.done.acquire(timeout=TIMEOUT)
+    finally:
+        speaker.close()
+
+    assert engine.texts == ["long", "next"]
+    assert player.outcomes == [False, False]
+
+
+def test_a_cutting_line_drops_the_waiting_ones() -> None:
+    engine, player = RecordingEngine(), BlockingPlayer()
+    speaker = Speaker(engine, player)
+    try:
+        speaker.say("first", cut_off=False)
+        assert player.started.acquire(timeout=TIMEOUT)
+        speaker.say("waiting", cut_off=False)
+        speaker.say("urgent", cut_off=True)
+        assert player.started.acquire(timeout=TIMEOUT)
+        player.finish()
+        assert player.done.acquire(timeout=TIMEOUT) and player.done.acquire(timeout=TIMEOUT)
+    finally:
+        speaker.close()
+
+    assert engine.texts == ["first", "urgent"]
+
+
 class SpeakingRecorder:
     def __init__(self) -> None:
         self.states: list[bool] = []
@@ -143,13 +222,13 @@ class FakeConnection:
 
 class RecordingSpeaker:
     def __init__(self) -> None:
-        self.calls: list[tuple[str, ...]] = []
+        self.calls: list[tuple[object, ...]] = []
 
-    def say(self, text: str) -> None:
-        self.calls.append(("say", text))
+    def say(self, text: str, rate: float = 1.0, cut_off: bool = True) -> None:
+        self.calls.append(("say", text, rate, cut_off))
 
-    def stop(self) -> None:
-        self.calls.append(("stop",))
+    def stop(self, drop_waiting: bool = True) -> None:
+        self.calls.append(("stop", drop_waiting))
 
     def close(self) -> None:
         self.calls.append(("close",))
@@ -157,8 +236,8 @@ class RecordingSpeaker:
 
 def test_serve_passes_messages_on_and_closes_when_the_core_hangs_up() -> None:
     speaker = RecordingSpeaker()
-    connection = FakeConnection([Say("hello"), Stop(), "garbage"])
+    connection = FakeConnection([Say("hello", 1.5, False), Stop(drop_waiting=False), "garbage"])
 
     serve(cast(Connection, connection), speaker)
 
-    assert speaker.calls == [("say", "hello"), ("stop",), ("close",)]
+    assert speaker.calls == [("say", "hello", 1.5, False), ("stop", False), ("close",)]

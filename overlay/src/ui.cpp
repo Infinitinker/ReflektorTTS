@@ -306,6 +306,25 @@ void draw_voice_combo(const CoreState& state) {
     ImGui::EndCombo();
 }
 
+void draw_speech_pace(const CoreState& state) {
+    // While dragging, the slider shows its own value; the core gets it, in steps of 0.1, on release.
+    static float dragged_rate = 0.0f;
+    float rate = dragged_rate > 0.0f ? dragged_rate : state.speech_rate;
+    if (ImGui::SliderFloat("Reading speed", &rate, 0.5f, 2.0f, "%.1fx", ImGuiSliderFlags_AlwaysClamp)) {
+        dragged_rate = rate;
+    }
+    if (ImGui::IsItemDeactivatedAfterEdit()) {
+        request_speech_rate(std::round(rate * 10.0f) / 10.0f);
+    }
+    if (!ImGui::IsItemActive()) {
+        dragged_rate = 0.0f;
+    }
+    bool cut_off = state.cut_off_lines;
+    if (ImGui::Checkbox("Cut off the current line for a new one", &cut_off)) {
+        request_cut_off_lines(cut_off);
+    }
+}
+
 void draw_ducking(const CoreState& state) {
     bool ducking = state.ducking;
     if (ImGui::Checkbox("Lower game sound while speaking", &ducking)) {
@@ -365,6 +384,7 @@ void draw_output(const CoreState& state) {
     draw_language_combo("Language", state, state.output_language, false, request_output_language);
     begin_section("Speech");
     draw_voice_combo(state);
+    draw_speech_pace(state);
     draw_ducking(state);
     if (ImGui::Button(state.paused ? "Resume reading" : "Pause reading")) {
         request_paused(!state.paused);

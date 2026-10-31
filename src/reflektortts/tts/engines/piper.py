@@ -16,8 +16,12 @@ class PiperEngine:
 
         self._voice = PiperVoice.load(model_path)
 
-    def synthesize(self, text: str) -> Iterator[AudioChunk]:
-        for chunk in self._voice.synthesize(text):
+    def synthesize(self, text: str, rate: float) -> Iterator[AudioChunk]:
+        from piper import SynthesisConfig
+
+        # Piper sets pace as the length of sounds, relative to the voice's own.
+        config = SynthesisConfig(length_scale=self._voice.config.length_scale / rate)
+        for chunk in self._voice.synthesize(text, syn_config=config):
             yield AudioChunk(samples=chunk.audio_int16_array, sample_rate=chunk.sample_rate)
 
 

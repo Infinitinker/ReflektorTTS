@@ -45,6 +45,8 @@ class FakeCore:
             paused=False,
             ducking=True,
             duck_volume=0.3,
+            speech_rate=1.0,
+            cut_off_lines=False,
             subtitles=False,
             subtitle_size="medium",
             subtitle_position="top",
@@ -75,6 +77,10 @@ class FakeCore:
 
     def set_ducking(self, enabled: bool, volume: float) -> Status:
         self.current = replace(self.current, ducking=enabled, duck_volume=volume)
+        return self.current
+
+    def set_speech(self, rate: float, cut_off: bool) -> Status:
+        self.current = replace(self.current, speech_rate=rate, cut_off_lines=cut_off)
         return self.current
 
     def set_subtitles(self, enabled: bool, size: str, position: str) -> Status:
@@ -126,6 +132,8 @@ def test_status() -> None:
             "paused": False,
             "ducking": True,
             "duck_volume": 0.3,
+            "speech_rate": 1.0,
+            "cut_off_lines": False,
             "subtitles": False,
             "subtitle_size": "medium",
             "subtitle_position": "top",
@@ -195,6 +203,16 @@ def test_ducking_can_be_changed_alone_or_with_its_level() -> None:
     with_client(FakeCore(), test)
 
 
+def test_speech_rate_and_cutting_off_can_be_changed() -> None:
+    async def test(client: TestClient[Any, Any]) -> None:
+        body = await (await client.patch("/v1/settings", json={"speech_rate": 1.5})).json()
+        assert (body["speech_rate"], body["cut_off_lines"]) == (1.5, False)
+        body = await (await client.patch("/v1/settings", json={"cut_off_lines": True})).json()
+        assert (body["speech_rate"], body["cut_off_lines"]) == (1.5, True)
+
+    with_client(FakeCore(), test)
+
+
 def test_subtitles_can_be_switched_on_and_set_up() -> None:
     async def test(client: TestClient[Any, Any]) -> None:
         body = await (await client.patch("/v1/settings", json={"subtitles": True, "subtitle_size": "large"})).json()
@@ -208,6 +226,8 @@ def test_subtitles_can_be_switched_on_and_set_up() -> None:
     [
         ({"voice": "piper:missing"}, 'There is no voice "piper:missing".'),
         ({"subtitle_size": "huge"}, SETTINGS_HELP),
+        ({"speech_rate": 3}, SETTINGS_HELP),
+        ({"cut_off_lines": "yes"}, SETTINGS_HELP),
         ({"subtitle_position": "left"}, SETTINGS_HELP),
         ({"subtitles": 1}, SETTINGS_HELP),
         ({"ducking": "yes"}, SETTINGS_HELP),

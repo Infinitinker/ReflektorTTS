@@ -18,6 +18,8 @@ The status object, returned by several requests and sent as an event:
   "paused": false,
   "ducking": true,
   "duck_volume": 0.3,
+  "speech_rate": 1.0,
+  "cut_off_lines": false,
   "subtitles": true,
   "subtitle_size": "medium",
   "subtitle_position": "top",
@@ -49,6 +51,8 @@ The status object, returned by several requests and sent as an event:
 | `paused` | Whether reading is paused |
 | `ducking` | Whether the game's sound is lowered while lines are spoken |
 | `duck_volume` | The game's volume while lines are spoken, as a fraction of its own volume (0 to 1) |
+| `speech_rate` | How fast lines are spoken, as a multiple of the voice's own pace (0.5 to 2) |
+| `cut_off_lines` | Whether a new line cuts off the one being spoken; if not, lines wait their turn |
 | `subtitles` | Whether lines are shown as subtitles over the game |
 | `subtitle_size` | `small`, `medium` or `large` |
 | `subtitle_position` | `top` or `bottom` of the screen |
@@ -100,6 +104,8 @@ Changes settings and saves them. Send any of the fields:
 - `voice`: an `id` from `/v1/voices`. Switching starts a new speech process; the next line is spoken with the new voice. The voice is also remembered for its language.
 - `ducking`: `true` or `false`, whether the game's sound is lowered while lines are spoken.
 - `duck_volume`: a number from 0 to 1, the game's volume while lines are spoken as a fraction of its own; applies at once, also while lowered.
+- `speech_rate`: a number from 0.5 to 2, how fast lines are spoken relative to the voice's own pace; applies from the next line.
+- `cut_off_lines`: `true` makes a new line cut off the one being spoken (and drop any waiting); `false`, the default, queues it, with at most 3 lines waiting and the oldest dropped first. `POST /v1/stop` then moves on to the next waiting line, and pausing drops the waiting ones.
 - `subtitles`: `true` or `false`, whether lines are shown as subtitles over the game. Switching them off hides the one shown.
 - `subtitle_size`: `small`, `medium` or `large`.
 - `subtitle_position`: `top` or `bottom`. Games usually show their own text at the bottom, so the default is `top`.
@@ -128,7 +134,7 @@ Returns the status.
 
 ### `POST /v1/pause`
 
-Stops the line being spoken and ignores new lines until resumed. Returns the status.
+Stops the line being spoken, drops the lines waiting their turn, and ignores new lines until resumed. Returns the status.
 
 ### `POST /v1/resume`
 
@@ -136,7 +142,7 @@ Resumes reading. Returns the status.
 
 ### `POST /v1/stop`
 
-Stops the line being spoken; the next line is spoken as usual. Returns the status.
+Stops the line being spoken; the next waiting line, or the next line read, is spoken as usual. Returns the status.
 
 ## Errors
 

@@ -8,14 +8,19 @@ class FakeClient:
         self.voice = voice
         self.on_speaking = on_speaking
         self.said: list[str] = []
+        self.how: list[tuple[float, bool]] = []
+        """Rate and cut-off of each line said."""
         self.stopped = 0
+        self.dropped_waiting: list[bool] = []
         self.closed = False
 
-    def say(self, text: str) -> None:
+    def say(self, text: str, rate: float, cut_off: bool) -> None:
         self.said.append(text)
+        self.how.append((rate, cut_off))
 
-    def stop(self) -> None:
+    def stop(self, drop_waiting: bool) -> None:
         self.stopped += 1
+        self.dropped_waiting.append(drop_waiting)
 
     def close(self) -> None:
         self.closed = True
@@ -80,6 +85,27 @@ def test_speaking_is_reported_across_a_voice_switch() -> None:
     clients.started[1].on_speaking(False)
 
     assert reported == [True, False]
+
+
+def test_lines_wait_their_turn_at_normal_speed_until_configured() -> None:
+    clients = Clients()
+    narrator = Narrator("piper:a", clients.start)
+
+    narrator.say("one")
+    narrator.configure(1.5, True)
+    narrator.say("two")
+
+    assert clients.started[0].how == [(1.0, False), (1.5, True)]
+
+
+def test_stopping_a_line_keeps_the_waiting_ones_and_pausing_drops_them() -> None:
+    clients = Clients()
+    narrator = Narrator("piper:a", clients.start)
+
+    narrator.stop_line()
+    narrator.pause()
+
+    assert clients.started[0].dropped_waiting == [False, True]
 
 
 def test_close_closes_the_service() -> None:

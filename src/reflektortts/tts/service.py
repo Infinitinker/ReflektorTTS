@@ -1,7 +1,8 @@
-"""The TTS process: speaks lines sent by the core, one at a time, newest first."""
+"""The TTS process: speaks lines sent by the core, one at a time."""
 
 import logging
 import threading
+from collections import deque
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from multiprocessing.connection import Connection
@@ -11,17 +12,26 @@ from reflektortts.tts.engine import AudioChunk, TtsEngine, load_engine_plugin, p
 
 logger = logging.getLogger(__name__)
 
+MAX_WAITING = 3
+"""Lines that may wait their turn; past that the oldest waiting is dropped, so the voice never
+falls far behind the game."""
+
 
 @dataclass(frozen=True)
 class Say:
-    """Speak this line, cutting off the one being spoken."""
+    """Speak this line at rate (see TtsEngine), either cutting off the line being spoken and any
+    waiting, or after them."""
 
     text: str
+    rate: float = 1.0
+    cut_off: bool = True
 
 
 @dataclass(frozen=True)
 class Stop:
-    """Stop speaking and drop any line waiting to be spoken."""
+    """Stop the line being spoken; drop_waiting also drops the lines waiting their turn."""
+
+    drop_waiting: bool = True
 
 
 @dataclass(frozen=True)
@@ -35,13 +45,19 @@ class AudioPlayer(Protocol):
     def play(self, chunks: Iterable[AudioChunk], cancel: threading.Event) -> bool: ...
 
 
-class Speaker:
-    """Speaks on a background thread; a new line cuts off the current one.
+@dataclass(frozen=True)
+class _Line:
+    text: str
+    rate: float
 
-    Only the newest line matters: in a game, a line that has been replaced on screen
-    is not worth finishing. on_speaking is called with True when a line starts after
-    silence and with False once nothing is playing or waiting; a line cutting off
-    another one does not count as silence.
+
+class Speaker:
+    """Speaks on a background thread, one line at a time.
+
+    A new line either cuts off the one being spoken, when a line replaced on screen is not worth
+    finishing, or waits its turn (at most MAX_WAITING lines wait). on_speaking is called with True
+    when a line starts after silence and with False once nothing is playing or waiting; a line
+    cutting off or following another does not count as silence.
     """
 
     def __init__(
@@ -54,21 +70,26 @@ class Speaker:
         self._player = player
         self._on_speaking = on_speaking
         self._changed = threading.Condition()
-        self._pending: str | None = None
+        self._waiting: deque[_Line] = deque()
         self._cancel = threading.Event()
         self._closed = False
         self._thread = threading.Thread(target=self._run, name="speaker", daemon=True)
         self._thread.start()
 
-    def say(self, text: str) -> None:
+    def say(self, text: str, rate: float = 1.0, cut_off: bool = True) -> None:
         with self._changed:
-            self._pending = text
-            self._cancel.set()
+            if cut_off:
+                self._waiting.clear()
+                self._cancel.set()
+            elif len(self._waiting) == MAX_WAITING:
+                self._waiting.popleft()
+            self._waiting.append(_Line(text, rate))
             self._changed.notify()
 
-    def stop(self) -> None:
+    def stop(self, drop_waiting: bool = True) -> None:
         with self._changed:
-            self._pending = None
+            if drop_waiting:
+                self._waiting.clear()
             self._cancel.set()
 
     def close(self) -> None:
@@ -82,33 +103,33 @@ class Speaker:
         speaking = False
         while True:
             with self._changed:
-                idle = self._pending is None
+                idle = not self._waiting
             if idle and speaking:
                 speaking = False
                 self._on_speaking(False)
             with self._changed:
-                while self._pending is None:
+                while not self._waiting:
                     if self._closed:
                         return
                     self._changed.wait()
                 if self._closed:
                     return
-                text, self._pending = self._pending, None
+                line = self._waiting.popleft()
                 cancel = self._cancel = threading.Event()
             if not speaking:
                 speaking = True
                 self._on_speaking(True)
             try:
-                self._player.play(self._engine.synthesize(text), cancel)
+                self._player.play(self._engine.synthesize(line.text, line.rate), cancel)
             except Exception:
                 # A broken line or audio device must not end the service; the next line may work.
-                logger.exception("Could not speak %r", text)
+                logger.exception("Could not speak %r", line.text)
 
 
 class SpeakerControl(Protocol):
-    def say(self, text: str) -> None: ...
+    def say(self, text: str, rate: float = 1.0, cut_off: bool = True) -> None: ...
 
-    def stop(self) -> None: ...
+    def stop(self, drop_waiting: bool = True) -> None: ...
 
     def close(self) -> None: ...
 
@@ -122,9 +143,9 @@ def serve(connection: Connection, speaker: SpeakerControl) -> None:
             except EOFError:
                 return
             if isinstance(message, Say):
-                speaker.say(message.text)
+                speaker.say(message.text, message.rate, message.cut_off)
             elif isinstance(message, Stop):
-                speaker.stop()
+                speaker.stop(message.drop_waiting)
             else:
                 logger.error("Ignoring unknown TTS message %r", message)
     finally:

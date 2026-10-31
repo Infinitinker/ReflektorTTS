@@ -12,7 +12,7 @@ import platformdirs
 from reflektortts.ducking.ducker import DEFAULT_LEVEL
 from reflektortts.languages import AUTO, DEFAULT_OUTPUT_LANGUAGE
 from reflektortts.sinks.subtitles import DEFAULT_POSITION, DEFAULT_SIZE, POSITIONS, SIZES
-from reflektortts.tts.engine import DEFAULT_VOICE
+from reflektortts.tts.engine import DEFAULT_VOICE, MAX_RATE, MIN_RATE
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +35,10 @@ class Settings:
     """Whether the game's sound is lowered while lines are spoken."""
     duck_volume: float = DEFAULT_LEVEL
     """The game's volume while lines are spoken, as a fraction of its own volume (0.0 to 1.0)."""
+    speech_rate: float = 1.0
+    """How fast lines are spoken, as a multiple of the voice's own pace (MIN_RATE to MAX_RATE)."""
+    cut_off_lines: bool = False
+    """Whether a new line cuts off the one being spoken; otherwise lines wait their turn."""
     subtitles: bool = False
     """Whether lines are shown as subtitles over the game."""
     subtitle_size: str = DEFAULT_SIZE
@@ -57,9 +61,9 @@ def _flag(data: dict[str, Any], key: str, default: bool) -> bool:
     return value if isinstance(value, bool) else default
 
 
-def _fraction(data: dict[str, Any], key: str, default: float) -> float:
+def _number(data: dict[str, Any], key: str, default: float, low: float, high: float) -> float:
     value = data.get(key)
-    if isinstance(value, int | float) and not isinstance(value, bool) and 0.0 <= value <= 1.0:
+    if isinstance(value, int | float) and not isinstance(value, bool) and low <= value <= high:
         return float(value)
     return default
 
@@ -110,7 +114,9 @@ def load_settings(path: Path) -> Settings:
         disabled_sources=_list_map(data.get("disabled_sources")),
         disabled_stages=_list_map(data.get("disabled_stages")),
         ducking=_flag(data, "ducking", defaults.ducking),
-        duck_volume=_fraction(data, "duck_volume", defaults.duck_volume),
+        duck_volume=_number(data, "duck_volume", defaults.duck_volume, 0.0, 1.0),
+        speech_rate=_number(data, "speech_rate", defaults.speech_rate, MIN_RATE, MAX_RATE),
+        cut_off_lines=_flag(data, "cut_off_lines", defaults.cut_off_lines),
         subtitles=_flag(data, "subtitles", defaults.subtitles),
         subtitle_size=_choice(data, "subtitle_size", SIZES, defaults.subtitle_size),
         subtitle_position=_choice(data, "subtitle_position", POSITIONS, defaults.subtitle_position),

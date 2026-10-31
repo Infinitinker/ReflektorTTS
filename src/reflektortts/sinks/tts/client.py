@@ -60,12 +60,13 @@ class TtsClient:
         )
         self._events.start()
 
-    def say(self, text: str) -> None:
-        """Speaks text, cutting off the line being spoken."""
-        self._send(Say(text))
+    def say(self, text: str, rate: float, cut_off: bool) -> None:
+        """Speaks text at rate, cutting off the line being spoken or after the lines waiting."""
+        self._send(Say(text, rate, cut_off))
 
-    def stop(self) -> None:
-        self._send(Stop())
+    def stop(self, drop_waiting: bool) -> None:
+        """Stops the line being spoken, and with drop_waiting the lines waiting their turn."""
+        self._send(Stop(drop_waiting))
 
     def close(self, timeout: float = 5.0) -> None:
         self._connection.close()

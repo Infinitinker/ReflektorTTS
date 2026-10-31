@@ -39,9 +39,10 @@ def wav_to_chunk(wav_bytes: bytes) -> AudioChunk:
     return AudioChunk(samples=samples.astype(np.int16), sample_rate=rate)
 
 
-async def _synthesize_wav(voice: VoiceInformation, text: str) -> bytes:
+async def _synthesize_wav(voice: VoiceInformation, text: str, rate: float) -> bytes:
     synthesizer = SpeechSynthesizer()
     synthesizer.voice = voice
+    synthesizer.options.speaking_rate = rate
     stream = await synthesizer.synthesize_text_to_stream_async(text)
     reader = DataReader(stream.get_input_stream_at(0))
     await reader.load_async(stream.size)
@@ -56,8 +57,8 @@ class WindowsEngine:
     def __init__(self, voice_name: str) -> None:
         self._voice = find_voice(voice_name, SpeechSynthesizer.all_voices)
 
-    def synthesize(self, text: str) -> Iterator[AudioChunk]:
-        yield wav_to_chunk(asyncio.run(_synthesize_wav(self._voice, text)))
+    def synthesize(self, text: str, rate: float) -> Iterator[AudioChunk]:
+        yield wav_to_chunk(asyncio.run(_synthesize_wav(self._voice, text, rate)))
 
 
 def list_voices() -> list[VoiceInfo]:

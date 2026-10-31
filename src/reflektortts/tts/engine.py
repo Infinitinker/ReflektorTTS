@@ -25,10 +25,16 @@ class AudioChunk:
     sample_rate: int
 
 
+MIN_RATE = 0.5
+MAX_RATE = 2.0
+"""Speaking rates players can choose: 1.0 is the voice's own pace, 2.0 twice as fast."""
+
+
 class TtsEngine(Protocol):
     """Turns text into audio, yielding chunks as soon as they are ready."""
 
-    def synthesize(self, text: str) -> Iterator[AudioChunk]: ...
+    def synthesize(self, text: str, rate: float) -> Iterator[AudioChunk]:
+        """rate is a multiple of the voice's own pace, from MIN_RATE to MAX_RATE."""
 
 
 class VoiceError(Exception):

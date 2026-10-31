@@ -169,6 +169,8 @@ def test_core_saves_a_new_voice_and_remembers_it_for_its_language(tmp_path: Path
         paused=False,
         ducking=True,
         duck_volume=0.3,
+        speech_rate=1.0,
+        cut_off_lines=False,
         subtitles=False,
         subtitle_size="medium",
         subtitle_position="top",
@@ -241,6 +243,21 @@ def test_ducking_settings_are_saved(tmp_path: Path) -> None:
     assert (status.ducking, status.duck_volume) == (False, 0.5)
     saved = load_settings(tmp_path / "settings.json")
     assert (saved.ducking, saved.duck_volume) == (False, 0.5)
+    core.close()
+
+
+def test_speech_settings_are_saved_and_used_for_the_next_line(tmp_path: Path) -> None:
+    clients = Clients()
+    core = make_core(tmp_path, clients)
+
+    status = core.set_speech(1.5, True)
+    core._narrator.say("hi")
+
+    assert (status.speech_rate, status.cut_off_lines) == (1.5, True)
+    saved = load_settings(tmp_path / "settings.json")
+    assert (saved.speech_rate, saved.cut_off_lines) == (1.5, True)
+    assert clients.started[0].how == [(1.5, True)]
+    assert make_core(tmp_path, Clients()).status().speech_rate == 1.5
     core.close()
 
 

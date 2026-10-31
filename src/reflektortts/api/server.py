@@ -14,7 +14,7 @@ from reflektortts.bus import Event, Listener
 from reflektortts.events import ErrorEvent, StageState, Status, SubtitleEvent, TextEvent
 from reflektortts.languages import LANGUAGES, LanguageError
 from reflektortts.sinks.subtitles import POSITIONS, SIZES
-from reflektortts.tts.engine import VoiceError, VoiceInfo
+from reflektortts.tts.engine import MAX_RATE, MIN_RATE, VoiceError, VoiceInfo
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +54,9 @@ class CoreControl(Protocol):
     def set_ducking(self, enabled: bool, volume: float) -> Status:
         """volume is the game's volume while speaking, from 0.0 to 1.0 of its own."""
 
+    def set_speech(self, rate: float, cut_off: bool) -> Status:
+        """rate is from MIN_RATE to MAX_RATE."""
+
     def set_subtitles(self, enabled: bool, size: str, position: str) -> Status:
         """size is one of SIZES, position one of POSITIONS."""
 
@@ -91,6 +94,8 @@ def status_json(status: Status) -> dict[str, Any]:
         "paused": status.paused,
         "ducking": status.ducking,
         "duck_volume": status.duck_volume,
+        "speech_rate": status.speech_rate,
+        "cut_off_lines": status.cut_off_lines,
         "subtitles": status.subtitles,
         "subtitle_size": status.subtitle_size,
         "subtitle_position": status.subtitle_position,
@@ -138,9 +143,10 @@ async def get_languages(request: web.Request) -> web.Response:
 
 
 SETTINGS_HELP = (
-    'Send any of "game_language", "output_language" and "voice" (text), "ducking" and "subtitles" '
-    '(true or false), "duck_volume" (a number from 0 to 1), "subtitle_size" ("small", "medium" or "large") '
-    'and "subtitle_position" ("top" or "bottom"), e.g. {"output_language": "pl"}.'
+    'Send any of "game_language", "output_language" and "voice" (text), "ducking", "cut_off_lines" and '
+    '"subtitles" (true or false), "duck_volume" (a number from 0 to 1), "speech_rate" (a number from 0.5 to 2), '
+    '"subtitle_size" ("small", "medium" or "large") and "subtitle_position" ("top" or "bottom"), '
+    'e.g. {"output_language": "pl"}.'
 )
 SOURCES_HELP = 'Send {"name": "<source name from the status>", "enabled": true or false}.'
 STAGES_HELP = 'Send {"key": "<stage key from the status>", "enabled": true or false}.'
@@ -158,6 +164,10 @@ def is_fraction(value: object) -> bool:
     return isinstance(value, int | float) and not isinstance(value, bool) and 0 <= value <= 1
 
 
+def is_rate(value: object) -> bool:
+    return isinstance(value, int | float) and not isinstance(value, bool) and MIN_RATE <= value <= MAX_RATE
+
+
 def is_text(value: object) -> bool:
     return isinstance(value, str)
 
@@ -172,6 +182,8 @@ SETTING_CHECKS: dict[str, Callable[[object], bool]] = {
     "voice": is_text,
     "ducking": is_flag,
     "duck_volume": is_fraction,
+    "speech_rate": is_rate,
+    "cut_off_lines": is_flag,
     "subtitles": is_flag,
     "subtitle_size": lambda value: value in SIZES,
     "subtitle_position": lambda value: value in POSITIONS,
@@ -179,7 +191,7 @@ SETTING_CHECKS: dict[str, Callable[[object], bool]] = {
 
 
 async def patch_settings(request: web.Request) -> web.Response:
-    """Applies ducking and subtitles, the game language, then the output language, then the voice.
+    """Applies ducking, speech and subtitles, the game language, then the output language, then the voice.
 
     Each is optional. Changing the output language may also switch the voice, so an explicit voice comes last.
     """
@@ -195,6 +207,10 @@ async def patch_settings(request: web.Request) -> web.Response:
         if values.keys() & {"ducking", "duck_volume"}:
             enabled = values.get("ducking", status.ducking)
             status = core.set_ducking(enabled, float(values.get("duck_volume", status.duck_volume)))
+        if values.keys() & {"speech_rate", "cut_off_lines"}:
+            status = core.set_speech(
+                float(values.get("speech_rate", status.speech_rate)), values.get("cut_off_lines", status.cut_off_lines)
+            )
         if values.keys() & {"subtitles", "subtitle_size", "subtitle_position"}:
             status = core.set_subtitles(
                 values.get("subtitles", status.subtitles),
