@@ -83,15 +83,15 @@ class Runner:
 
     def _poll_route(self, route: Route, now: float) -> None:
         source = route.source
+        languages = self._languages()
         try:
-            text = source.read()
+            text = source.read(languages)
         except Exception as error:
             self._failed("source.error", source.name, error)
             return
         self._worked("source.error", source.name)
 
         # No text still goes through the stages, as empty text, so they see a line disappear.
-        languages = self._languages()
         event = TextEvent(
             source=source.name,
             text=text or "",

@@ -29,7 +29,7 @@ class FixedSource:
         self.text = text
         self.closed = False
 
-    def read(self) -> str | None:
+    def read(self, languages: Languages) -> str | None:
         return self.text
 
     def close(self) -> None:

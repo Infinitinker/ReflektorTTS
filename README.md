@@ -2,7 +2,7 @@
 
 Your game, read aloud. ReflektorTTS reads game text (dialogue, subtitles, on-screen messages) and speaks it, configured per game through profiles and from inside the game through an overlay.
 
-This is an early version for developers: there is no installer yet. It has profiles for Grand Theft Auto 2 (the 9.6 freeware release) and Grand Theft Auto: San Andreas (the Steam release: subtitles and the help box), both read from the game's memory.
+This is an early version for developers: there is no installer yet. It has profiles for Grand Theft Auto 2 (the 9.6 freeware release) and Grand Theft Auto: San Andreas (the Steam release: subtitles and the help box), both read from the game's memory, and Mad Max (2015, Steam: subtitles, with their text read from the game's files in the game language set in the overlay).
 
 ## Setting up (Windows)
 
@@ -90,3 +90,5 @@ Each game is described by one JSON file in [profiles/](profiles/README.md), whic
 ## License
 
 GPL-3.0-or-later; see [LICENSE](LICENSE).
+
+Reading Avalanche games' files follows the formats as documented by [Gibbed.MadMax](https://github.com/gigaHours/Gibbed.MadMax) (Rick Gibbed, zlib licence); file names are hashed with Bob Jenkins' public-domain lookup3. A game's text is read from the player's own copy while it runs and is not stored.

@@ -90,7 +90,7 @@ Writing plugins: [plugins.md](plugins.md). The local API: [api.md](api.md).
 | Source | Works without subtitles | Coverage | Notes |
 |---|---|---|---|
 | Memory: subtitle buffer | no | per game | **Done.** Needs a static pointer; proven on GTA2 |
-| Memory: label of the current line + the game's text table | usually | per game | Text comes from the game's files (e.g. GXT), with exact timing. In progress for Avalanche's engine (Mad Max, `avalanche` source): reads the line's ID so far |
+| Memory: label of the current line + the game's text table | usually | per game | Text comes from the game's files (e.g. GXT), with exact timing. **Done** for Avalanche's engine (Mad Max, `avalanche` source): the line's ID from memory, its text in the game language from the game's archives, read in a few seconds in the background as soon as the game is detected |
 | OCR | no | any game | Struggles with coloured text and textures; works better on frames grabbed by the overlay |
 | Clipboard | depends on the tool | any game with a tool like Textractor | |
 | Speech recognition (Whisper) | yes | any game | Audio of one process (Windows process loopback); about 1–2 s delay. Will check the `Source` contract on a source that pushes text |

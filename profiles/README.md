@@ -29,9 +29,11 @@ A pointer can outlive its text, e.g. in the game's menu, and then points at unre
 
 ### Avalanche source (`"type": "avalanche"`)
 
-Reads subtitles in games on Avalanche Studios' engine (Mad Max). A subtitle there holds the ID of the line it shows, the same in every language, and the text is looked up by that ID. So far the source only logs each line's ID and reads no text. Fields are described in `src/reflektortts/sources/avalanche/settings.schema.json`:
+Reads subtitles in games on Avalanche Studios' engine (Mad Max). A subtitle there holds the ID of the line it shows, the same in every language. The source reads that ID from the game's memory and the line's text, in the game language set in the overlay, from the game's own files: the `stringlookup` text files in its bundles, one per language (`_eng`, `_pol`, ...), or their patched versions. Reading them takes a few seconds, in the background, as soon as the game is detected (and again when the game language is changed to one not read yet); lines shown meanwhile are skipped. Fields are described in `src/reflektortts/sources/avalanche/settings.schema.json`:
 
 - `pointers`: as in the memory source, one chain per build of the game, ending at the shown line's 32-bit ID (0 when no subtitle is shown).
+
+To find the chain, find the shown line's ID first: the subtitle's UI element holds it, and it changes with every line and is 0 between lines.
 
 ## Naming
 

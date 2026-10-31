@@ -3,6 +3,7 @@
 import re
 from dataclasses import dataclass
 
+from reflektortts.languages import Languages
 from reflektortts.process_memory.memory import MemoryReadError, ProcessMemory
 from reflektortts.process_memory.pointer import PointerChain, resolve
 
@@ -56,7 +57,7 @@ class MemorySource:
         self._chain = chain
         self._memory = memory
 
-    def read(self) -> str | None:
+    def read(self, languages: Languages) -> str | None:
         address = resolve(self._memory, self._chain.base, self._chain.offsets)
         if address is None:
             return None

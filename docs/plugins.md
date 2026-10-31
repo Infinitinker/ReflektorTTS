@@ -52,7 +52,7 @@ class Source(Protocol):
     name: str
     poll_interval: float  # seconds between reads
 
-    def read(self) -> str | None: ...  # the text shown right now, or None
+    def read(self, languages: Languages) -> str | None: ...  # the text shown right now, or None
     def close(self) -> None: ...
 ```
 
@@ -65,10 +65,11 @@ def create(source: SourceSettings, game: RunningGame) -> Source: ...
 
 - `create` gets the profile's entry (`source.settings` holds the plugin's own, already validated fields; `source.name` and `source.poll_interval` come from the core) and the running game (its profile and process ID). Turn the settings into your own dataclasses here rather than passing dicts around.
 - `read` returns the **current** text on every call, even if it has not changed; the tracker stage turns that into one line per change. Return `None` (or an empty string) when there is no text.
+- `languages` are the player's game and output languages. Most sources read whatever the game shows and ignore them; a source that can read a line in several languages, like `avalanche`, reads it in the game language.
+- `read` runs on the thread that polls every source, so keep it quick: do slow work (reading a game's files, say) in a thread of your own and return `None` until it is done, as `avalanche` does.
 - Raise an exception with a message the player understands when reading fails ("Cannot read the game's memory at 672F40."). The runner reports it once as a `source.error` event and keeps polling; it logs when the source works again. A source that cannot start at all should raise from `create`, e.g. "This version of the game is not supported by its profile yet".
 - `close` releases what the source holds (handles, files). It is called when the game exits.
-- Platform-specific code stays inside the plugin, behind a small interface with one implementation per OS. Code that several sources need goes into a shared module instead: sources that read the game's memory use `process_memory/` for the process, pointer chains (`parse_pointer_chains`, `chain_for`, `resolve`) and the game build (`executable_sha256`).
-
+- Platform-specific code stays inside the plugin, behind a small interface with one implementation per OS. Code that several sources need goes into a shared module instead: sources that read the game's memory use `process_memory/` for the process, pointer chains (`parse_pointer_chains`, `chain_for`, `resolve`), and the game's executable (`executable_path`, `executable_sha256`).
 ## Stages
 
 ```python

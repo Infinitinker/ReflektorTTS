@@ -15,9 +15,11 @@ class ScriptedSource:
         self.poll_interval = poll_interval
         self._script = script
         self.reads = 0
+        self.languages: list[Languages] = []
 
-    def read(self) -> str | None:
+    def read(self, languages: Languages) -> str | None:
         self.reads += 1
+        self.languages.append(languages)
         value = self._script.pop(0) if self._script else None
         if isinstance(value, Exception):
             raise value
@@ -84,6 +86,13 @@ def test_events_carry_the_languages_current_when_read() -> None:
     runner.poll(1.0)
 
     assert [(event.game_language, event.output_language) for event in sink.events] == [("pl", "en"), ("en", "pl")]
+
+
+def test_sources_read_with_the_players_languages() -> None:
+    source = ScriptedSource("subtitles", ["one"])
+    Runner([Route(source)], [], languages=lambda: Languages(game="pl", output="en")).poll(0.0)
+
+    assert source.languages == [Languages(game="pl", output="en")]
 
 
 def test_switched_off_stages_are_skipped() -> None:
@@ -189,10 +198,10 @@ class StoppingSource(ScriptedSource):
         super().__init__("memory", [], poll_interval=0.01)
         self._stop = stop
 
-    def read(self) -> str | None:
+    def read(self, languages: Languages) -> str | None:
         if self.reads == 2:
             self._stop.set()
-        return super().read()
+        return super().read(languages)
 
 
 def test_run_polls_until_stopped() -> None:
