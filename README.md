@@ -42,7 +42,7 @@ Either way, ReflektorTTS then waits for a game it has a profile for. When you st
 - `--profiles DIR`: folder with game profiles. Default: `profiles` in your user data folder (`%LOCALAPPDATA%\ReflektorTTS\profiles`).
 - `--overlay DIR`: folder with an overlay build. Repeat it to give both a 32-bit and a 64-bit build; the one matching the game is used. Without it, games run without the overlay.
 
-The first run downloads the default voice (about 60 MB).
+A game's voice is loaded when the game starts and unloaded when it closes, so nothing is loaded while ReflektorTTS waits. The first game that uses the default voice downloads it (about 60 MB).
 
 ## In the game
 

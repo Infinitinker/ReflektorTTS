@@ -388,16 +388,18 @@ class Core:
         self._subtitles.speaking(active)
 
     def _enter(self, game: RunningGame) -> None:
-        """A game is being read from now on, with its settings."""
+        """A game is being read from now on, with its settings; its voice is loaded only now."""
         self._game = GameInfo(title=game.profile.game.title, pid=game.process.pid)
         self._profile = game.profile
         self._use(load_game(self._settings_dir, game.profile.id))
+        self._narrator.start()
         self._publish_status()
 
     def _leave(self) -> None:
-        """The game is no longer read; the defaults apply again."""
+        """The game is no longer read; its voice is unloaded and the defaults apply again."""
         self._game = None
         self._profile = None
+        self._narrator.close()
         self._use(GameSettings())
         self._publish_status()
 

@@ -35,9 +35,16 @@ class Clients:
         return self.started[-1]
 
 
+def started(clients: Clients, on_speaking: Callable[[bool], None] = lambda active: None) -> Narrator:
+    """A narrator with its voice loaded, as while a game is read."""
+    narrator = Narrator("piper:a", clients.start, on_speaking)
+    narrator.start()
+    return narrator
+
+
 def test_lines_are_spoken_with_the_current_voice() -> None:
     clients = Clients()
-    narrator = Narrator("piper:a", clients.start)
+    narrator = started(clients)
 
     narrator.say("hello")
 
@@ -45,9 +52,27 @@ def test_lines_are_spoken_with_the_current_voice() -> None:
     assert clients.started[0].said == ["hello"]
 
 
+def test_the_voice_is_loaded_only_once_started_and_unloaded_when_closed() -> None:
+    clients = Clients()
+    narrator = Narrator("piper:a", start_client=clients.start)
+    narrator.use_voice("windows:Microsoft Adam")
+    narrator.say("nobody hears this")
+    narrator.pause()
+    narrator.resume()
+    assert clients.started == []
+
+    narrator.start()
+    narrator.start()
+    narrator.close()
+    narrator.start()
+
+    assert [client.voice for client in clients.started] == ["windows:Microsoft Adam"] * 2
+    assert clients.started[0].closed and not clients.started[1].closed
+
+
 def test_pause_stops_the_current_line_and_drops_new_ones_until_resumed() -> None:
     clients = Clients()
-    narrator = Narrator("piper:a", clients.start)
+    narrator = started(clients)
 
     narrator.pause()
     narrator.say("dropped")
@@ -61,7 +86,7 @@ def test_pause_stops_the_current_line_and_drops_new_ones_until_resumed() -> None
 
 def test_switching_voice_starts_a_new_service_and_closes_the_old_one() -> None:
     clients = Clients()
-    narrator = Narrator("piper:a", clients.start)
+    narrator = started(clients)
 
     narrator.use_voice("windows:Microsoft Adam")
     narrator.use_voice("windows:Microsoft Adam")
@@ -76,7 +101,7 @@ def test_switching_voice_starts_a_new_service_and_closes_the_old_one() -> None:
 def test_speaking_is_reported_across_a_voice_switch() -> None:
     clients = Clients()
     reported: list[bool] = []
-    narrator = Narrator("piper:a", clients.start, reported.append)
+    narrator = started(clients, on_speaking=reported.append)
 
     clients.started[0].on_speaking(True)
     narrator.use_voice("windows:Microsoft Adam")
@@ -89,7 +114,7 @@ def test_speaking_is_reported_across_a_voice_switch() -> None:
 
 def test_lines_wait_their_turn_at_normal_speed_until_configured() -> None:
     clients = Clients()
-    narrator = Narrator("piper:a", clients.start)
+    narrator = started(clients)
 
     narrator.say("one")
     narrator.configure(1.5, True)
@@ -100,7 +125,7 @@ def test_lines_wait_their_turn_at_normal_speed_until_configured() -> None:
 
 def test_stopping_a_line_keeps_the_waiting_ones_and_pausing_drops_them() -> None:
     clients = Clients()
-    narrator = Narrator("piper:a", clients.start)
+    narrator = started(clients)
 
     narrator.stop_line()
     narrator.pause()
@@ -110,7 +135,7 @@ def test_stopping_a_line_keeps_the_waiting_ones_and_pausing_drops_them() -> None
 
 def test_close_closes_the_service() -> None:
     clients = Clients()
-    narrator = Narrator("piper:a", clients.start)
+    narrator = started(clients)
 
     narrator.close()
 

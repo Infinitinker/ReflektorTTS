@@ -22,6 +22,9 @@ class Narrator:
     """Speaks lines unless paused, at the chosen rate, each one either cutting off the line being
     spoken or waiting its turn; switching voices starts a new TTS process.
 
+    The TTS process, which loads the voice, runs only between start() and close(), e.g. while a
+    game is read; meanwhile the narrator only remembers the voice, and has nothing to say or stop.
+
     on_speaking is called with True when speech starts after silence and with False when it falls
     silent, across voice switches: an old voice still finishing counts as speaking.
     """
@@ -43,7 +46,7 @@ class Narrator:
         self._paused = False
         self._rate = 1.0
         self._cut_off = False
-        self._client = self._start(voice)
+        self._client: SpeechClient | None = None
 
     @property
     def voice(self) -> str:
@@ -59,38 +62,52 @@ class Narrator:
             self._rate = rate
             self._cut_off = cut_off
 
+    def start(self) -> None:
+        """Starts the TTS process with the voice, unless it runs already."""
+        with self._lock:
+            if self._client is None:
+                self._client = self._start(self._voice)
+
     def say(self, text: str) -> None:
         with self._lock:
-            if not self._paused:
+            if self._client is not None and not self._paused:
                 self._client.say(text, self._rate, self._cut_off)
 
     def stop_line(self) -> None:
         """Cuts off the line being spoken; the next waiting line, or the next line read, follows."""
         with self._lock:
-            self._client.stop(drop_waiting=False)
+            if self._client is not None:
+                self._client.stop(drop_waiting=False)
 
     def pause(self) -> None:
         """Stops the current line, drops those waiting, and ignores new ones until resume()."""
         with self._lock:
             self._paused = True
-            self._client.stop(drop_waiting=True)
+            if self._client is not None:
+                self._client.stop(drop_waiting=True)
 
     def resume(self) -> None:
         with self._lock:
             self._paused = False
 
     def use_voice(self, voice: str) -> None:
+        """Switches voices; a running TTS process is replaced by one with the new voice."""
         with self._lock:
             if voice == self._voice:
                 return
             old_client = self._client
-            self._client = self._start(voice)
             self._voice = voice
-        old_client.close()
+            if old_client is not None:
+                self._client = self._start(voice)
+        if old_client is not None:
+            old_client.close()
 
     def close(self) -> None:
+        """Stops the TTS process; start() starts it again."""
         with self._lock:
-            self._client.close()
+            client, self._client = self._client, None
+        if client is not None:
+            client.close()
 
     def _start(self, voice: str) -> SpeechClient:
         client_id = next(self._client_ids)

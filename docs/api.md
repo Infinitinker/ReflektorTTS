@@ -102,7 +102,7 @@ Changes settings and saves them for the game being read (see Status). Send any o
 
 - `game_language`: a `code` from `/v1/languages`.
 - `output_language`: a `code` from `/v1/languages`. Lines read from then on are prepared for it. If the current voice does not speak it, the core switches to the voice last chosen for that language, or else the first voice that speaks it; with no such voice, the voice stays.
-- `voice`: an `id` from `/v1/voices`. Switching starts a new speech process; the next line is spoken with the new voice. The voice is also remembered for its language.
+- `voice`: an `id` from `/v1/voices`. While a game is read, switching starts a new speech process and the next line is spoken with the new voice; otherwise the voice is only remembered, and loaded when a game starts. The voice is also remembered for its language.
 - `ducking`: `true` or `false`, whether the game's sound is lowered while lines are spoken.
 - `duck_volume`: a number from 0 to 1, the game's volume while lines are spoken as a fraction of its own; applies at once, also while lowered.
 - `speech_rate`: a number from 0.5 to 2, how fast lines are spoken relative to the voice's own pace; applies from the next line.

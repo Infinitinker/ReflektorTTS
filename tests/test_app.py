@@ -307,6 +307,7 @@ def test_subtitle_settings_are_saved(tmp_path: Path) -> None:
 def test_pause_resume_and_stop_line(tmp_path: Path) -> None:
     clients = Clients()
     core = make_core(tmp_path, clients)
+    core._enter(playing(GTA2))
 
     core.stop_line()
     assert core.set_paused(True).paused is True
@@ -384,6 +385,28 @@ def test_a_game_played_for_the_first_time_starts_with_the_defaults(tmp_path: Pat
     assert (status.game_language, status.voice) == ("en", DEFAULT_VOICE)
     assert core.is_source_enabled("messages")
     assert not (tmp_path / "games" / f"{MAD_MAX.id}.json").exists()
+
+
+def test_a_voice_is_loaded_only_while_a_game_is_read(tmp_path: Path) -> None:
+    clients = Clients()
+    core = make_core(tmp_path, clients)
+    core._enter(playing(MAD_MAX))
+    core.set_output_language("pl")
+    core._leave()
+    assert [client.voice for client in clients.started] == [DEFAULT_VOICE, "windows:Microsoft Adam"]
+
+    core._enter(playing(MAD_MAX))
+
+    assert [client.voice for client in clients.started][-1] == "windows:Microsoft Adam"
+    assert len(clients.started) == 3
+    assert all(client.closed for client in clients.started[:2])
+
+
+def test_no_voice_is_loaded_while_waiting_for_a_game(tmp_path: Path) -> None:
+    clients = Clients()
+    make_core(tmp_path, clients)
+
+    assert clients.started == []
 
 
 def test_the_defaults_apply_again_once_the_game_closes(tmp_path: Path) -> None:
