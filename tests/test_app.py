@@ -70,7 +70,15 @@ def create_stage(settings: Mapping[str, Any]) -> Suffix:
 
 
 SOURCES = {"fixed": SourcePlugin("fixed", {}, create_source)}
-STAGES = {"suffix": StagePlugin("suffix", {}, create_stage, summary="adds a suffix")}
+STAGES = {
+    "suffix": StagePlugin("suffix", {}, create_stage, summary="adds a suffix"),
+    "polish": StagePlugin(
+        "polish",
+        {},
+        create_stage,
+        inactive_reason=lambda languages: None if languages.output == "pl" else "Only Polish",
+    ),
+}
 
 
 def game_with(*sources: SourceSettings) -> RunningGame:
@@ -403,6 +411,30 @@ def test_build_routes_asks_whether_each_source_and_stage_is_enabled() -> None:
     assert routes[0].is_enabled(0) is False
     assert routes[0].is_source_enabled() is False
     assert asked == ["messages/0:suffix", "messages"]
+
+
+def test_a_stage_that_does_nothing_with_the_languages_is_skipped() -> None:
+    game = game_with(
+        SourceSettings("fixed", "messages", 0.25, {"text": "hi"}, (StageSettings("polish", {"suffix": "!"}),))
+    )
+    current = [Languages("en", "en")]
+
+    routes = build_routes(game, SOURCES, STAGES, lambda error: None, languages=lambda: current[0])
+
+    assert routes[0].is_enabled(0) is False
+    current[0] = Languages("en", "pl")
+    assert routes[0].is_enabled(0) is True
+
+
+def test_the_status_says_why_a_stage_does_nothing_and_keeps_its_tick(tmp_path: Path) -> None:
+    core = make_core(tmp_path, Clients())
+    core._enter(game_with(SourceSettings("fixed", "messages", 0.25, {}, (StageSettings("polish", {}),))))
+
+    stage = core.status().sources[0].stages[0]
+    assert (stage.enabled, stage.inactive) == (True, "Only Polish")
+
+    stage = core.set_output_language("pl").sources[0].stages[0]
+    assert (stage.enabled, stage.inactive) == (True, None)
 
 
 def core_playing(tmp_path: Path, is_running: Callable[[int], bool], exit_grace_seconds: float) -> Core:

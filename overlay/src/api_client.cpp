@@ -99,17 +99,19 @@ std::optional<Response> send(const Request& request) {
     return Response{status, read_body(handle.get())};
 }
 
+std::optional<std::string> optional_text(const json& value) {
+    return value.is_null() ? std::nullopt : std::optional(value.get<std::string>());
+}
+
 std::vector<SourceStages> read_sources(const json& sources) {
     std::vector<SourceStages> result;
     for (const json& source : sources) {
         SourceStages entry{source.at("name").get<std::string>(), source.at("type").get<std::string>(),
                            source.at("enabled").get<bool>(), {}};
         for (const json& stage : source.at("stages")) {
-            const json& warning = stage.at("warning");
             entry.stages.push_back({stage.at("key").get<std::string>(), stage.at("type").get<std::string>(),
-                                    stage.at("summary").get<std::string>(),
-                                    warning.is_null() ? std::nullopt : std::optional(warning.get<std::string>()),
-                                    stage.at("enabled").get<bool>()});
+                                    stage.at("summary").get<std::string>(), optional_text(stage.at("warning")),
+                                    stage.at("enabled").get<bool>(), optional_text(stage.at("inactive"))});
         }
         result.push_back(std::move(entry));
     }

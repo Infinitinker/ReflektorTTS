@@ -4,6 +4,7 @@ from pathlib import Path
 import pytest
 
 from reflektortts.events import TextEvent
+from reflektortts.languages import Languages
 from reflektortts.pipeline.plugins import stage_plugins
 from reflektortts.stages.translate import stage as translate_stage
 from reflektortts.stages.translate.engine import Engine
@@ -37,7 +38,7 @@ def translate(stage: Translate, text: str, game: str = "en", output: str = "pl")
 
 
 def make_stage(engines: Engines) -> Translate:
-    return Translate([("en", "pl")], engines.open)
+    return Translate(engines.open)
 
 
 def test_lines_are_translated_sentence_by_sentence() -> None:
@@ -49,14 +50,26 @@ def test_lines_are_translated_sentence_by_sentence() -> None:
     assert engines.opened == [("en", "pl")]
 
 
-def test_lines_already_in_the_output_language_pairs_without_a_model_and_empty_text_pass_unchanged() -> None:
+def test_empty_text_passes_without_opening_the_engine() -> None:
     engines = Engines()
-    stage = make_stage(engines)
 
-    assert translate(stage, "Kill Frenzy!", output="en") == "Kill Frenzy!"
-    assert translate(stage, "Zabij!", game="pl", output="en") == "Zabij!"
-    assert translate(stage, "") == ""
+    assert translate(make_stage(engines), "") == ""
     assert engines.opened == []
+
+
+@pytest.mark.parametrize(
+    ("game", "output", "reason"),
+    [
+        ("en", "pl", None),
+        ("pl", "pl", "Game and output language are the same"),
+        ("en", "en", "Game and output language are the same"),
+        ("pl", "en", "No translation between these languages yet"),
+    ],
+)
+def test_it_does_nothing_for_matching_languages_or_pairs_without_a_model(
+    game: str, output: str, reason: str | None
+) -> None:
+    assert PLUGIN.inactive_reason(Languages(game, output)) == reason
 
 
 def test_the_engine_is_opened_once_and_repeated_lines_are_remembered() -> None:

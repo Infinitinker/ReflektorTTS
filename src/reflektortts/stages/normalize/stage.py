@@ -1,34 +1,32 @@
 """The normalize stage plugin: prepares each line for its output language."""
 
-import logging
 from collections.abc import Mapping
 from dataclasses import replace
 from typing import Any
 
 from reflektortts.events import TextEvent
+from reflektortts.languages import Languages
 from reflektortts.pipeline.plugins import StagePlugin, load_schema
 from reflektortts.stages.normalize.english import EnglishWords
 from reflektortts.stages.normalize.polish import PolishWords
 from reflektortts.stages.normalize.text import Words, normalize
 
-logger = logging.getLogger(__name__)
-
 WORDS: dict[str, Words] = {"en": EnglishWords(), "pl": PolishWords()}
 
 
 class Normalize:
-    """Spells out numbers, money and percentages in the line's output language; lines in a
-    language without rules pass unchanged."""
+    """Spells out numbers, money and percentages in the line's output language. It runs only for
+    languages inactive_reason accepts."""
 
     def __init__(self, languages: Mapping[str, Words]) -> None:
         self._languages = languages
 
     def process(self, event: TextEvent) -> TextEvent | None:
-        words = self._languages.get(event.output_language)
-        if words is None:
-            logger.debug("No normalization rules for %s", event.output_language)
-            return event
-        return replace(event, text=normalize(event.text, words))
+        return replace(event, text=normalize(event.text, self._languages[event.output_language]))
+
+
+def inactive_reason(languages: Languages) -> str | None:
+    return None if languages.output in WORDS else "No rules for the output language yet"
 
 
 def create(settings: Mapping[str, Any]) -> Normalize:
@@ -40,4 +38,5 @@ PLUGIN = StagePlugin(
     settings_schema=load_schema("reflektortts.stages.normalize", "normalize.schema.json"),
     create=create,
     summary="Spells out numbers and money",
+    inactive_reason=inactive_reason,
 )

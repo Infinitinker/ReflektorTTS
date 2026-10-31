@@ -4,11 +4,12 @@ import functools
 import logging
 import time
 from collections import OrderedDict
-from collections.abc import Callable, Collection, Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import replace
 from typing import Any
 
 from reflektortts.events import TextEvent
+from reflektortts.languages import Languages
 from reflektortts.pipeline.plugins import StagePlugin, load_schema
 from reflektortts.stages.translate.engine import Engine, MosesBpeEngine
 from reflektortts.stages.translate.model import PACKAGES, ensure_model
@@ -24,25 +25,19 @@ type Pair = tuple[str, str]
 class Translate:
     """Translates each line from the game language into its output language, sentence by sentence.
 
-    Lines already in the output language, and pairs without a model, pass unchanged. A pair's
-    engine is opened the first time a line needs it. Recent translations are remembered, since
-    games repeat lines.
+    It runs only for pairs inactive_reason accepts. A pair's engine is opened the first time a line
+    needs it. Recent translations are remembered, since games repeat lines.
     """
 
-    def __init__(self, pairs: Collection[Pair], open_engine: Callable[[str, str], Engine]) -> None:
-        self._pairs = pairs
+    def __init__(self, open_engine: Callable[[str, str], Engine]) -> None:
         self._open_engine = open_engine
         self._engines: dict[Pair, Engine] = {}
         self._cache: OrderedDict[tuple[Pair, str], str] = OrderedDict()
 
     def process(self, event: TextEvent) -> TextEvent | None:
-        pair = (event.game_language, event.output_language)
-        if not event.text or event.game_language == event.output_language:
+        if not event.text:
             return event
-        if pair not in self._pairs:
-            logger.debug("No translation model from %s to %s", *pair)
-            return event
-        return replace(event, text=self._translate(pair, event.text))
+        return replace(event, text=self._translate((event.game_language, event.output_language), event.text))
 
     def _translate(self, pair: Pair, text: str) -> str:
         key = (pair, text)
@@ -70,8 +65,16 @@ def open_engine(source: str, target: str) -> Engine:
     return engine
 
 
+def inactive_reason(languages: Languages) -> str | None:
+    if languages.game == languages.output:
+        return "Game and output language are the same"
+    if (languages.game, languages.output) not in PACKAGES:
+        return "No translation between these languages yet"
+    return None
+
+
 def create(settings: Mapping[str, Any]) -> Translate:
-    return Translate(PACKAGES.keys(), open_engine)
+    return Translate(open_engine)
 
 
 PLUGIN = StagePlugin(
@@ -79,4 +82,5 @@ PLUGIN = StagePlugin(
     settings_schema=load_schema("reflektortts.stages.translate", "translate.schema.json"),
     create=create,
     summary="Translates into the output language",
+    inactive_reason=inactive_reason,
 )

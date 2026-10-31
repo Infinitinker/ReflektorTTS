@@ -69,8 +69,19 @@ def stage_key(source: str, position: int, stage_type: str) -> str:
     return f"{source}/{position}:{stage_type}"
 
 
-def _enabled_check(source: str, types: Sequence[str], is_enabled: Callable[[str], bool]) -> Callable[[int], bool]:
-    return lambda position: is_enabled(stage_key(source, position, types[position]))
+def _enabled_check(
+    source: str,
+    types: Sequence[str],
+    plugins: Mapping[str, StagePlugin],
+    is_enabled: Callable[[str], bool],
+    languages: Callable[[], Languages],
+) -> Callable[[int], bool]:
+    """Whether the stage at a position runs: the player has it switched on, and it works with the
+    player's languages."""
+    return lambda position: (
+        is_enabled(stage_key(source, position, types[position]))
+        and plugins[types[position]].inactive_reason(languages()) is None
+    )
 
 
 def _source_check(source: str, is_source_enabled: Callable[[str], bool]) -> Callable[[], bool]:
@@ -89,11 +100,13 @@ def build_routes(
     on_error: Callable[[ErrorEvent], None],
     is_enabled: Callable[[str], bool] = lambda key: True,
     is_source_enabled: Callable[[str], bool] = lambda name: True,
+    languages: Callable[[], Languages] = lambda: Languages(DEFAULT_GAME_LANGUAGE, DEFAULT_OUTPUT_LANGUAGE),
 ) -> list[Route]:
     """Creates the game's sources and their stages; a source that cannot start is reported and skipped.
 
     is_enabled tells, by stage key, whether the player has the stage switched on; is_source_enabled
-    tells the same for a source, by name.
+    tells the same for a source, by name. A stage that does nothing with the player's languages is
+    skipped too.
     """
     routes = []
     for settings in game.profile.sources:
@@ -107,7 +120,7 @@ def build_routes(
             Route(
                 source,
                 [stages[stage.type].create(stage.settings) for stage in settings.stages],
-                _enabled_check(settings.name, types, is_enabled),
+                _enabled_check(settings.name, types, stages, is_enabled, languages),
                 _source_check(settings.name, is_source_enabled),
             )
         )
@@ -307,7 +320,7 @@ class Core:
             if self._overlay_dirs:
                 inject_overlay(game.process.pid, self._overlay_dirs)
             routes = build_routes(
-                game, sources, self._stages, self._report, self.is_stage_enabled, self.is_source_enabled
+                game, sources, self._stages, self._report, self.is_stage_enabled, self.is_source_enabled, self.languages
             )
             if routes:
                 logger.info("Reading %s aloud", game.profile.game.title)
@@ -350,6 +363,7 @@ class Core:
             summary=plugin.summary if plugin is not None else "",
             warning=plugin.warning_when_disabled if plugin is not None else None,
             enabled=self.is_stage_enabled(key),
+            inactive=plugin.inactive_reason(self.languages()) if plugin is not None else None,
         )
 
     def _voice_for(self, language: str) -> str | None:

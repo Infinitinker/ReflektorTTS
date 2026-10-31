@@ -80,6 +80,7 @@ def stage_json(stage: StageState) -> dict[str, Any]:
         "summary": stage.summary,
         "warning": stage.warning,
         "enabled": stage.enabled,
+        "inactive": stage.inactive,
     }
 
 

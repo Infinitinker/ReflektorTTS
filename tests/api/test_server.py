@@ -149,6 +149,7 @@ def test_status() -> None:
                             "summary": "waits until a line settles",
                             "warning": "Needed.",
                             "enabled": True,
+                            "inactive": None,
                         }
                     ],
                 }

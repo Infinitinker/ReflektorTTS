@@ -54,5 +54,5 @@ PLUGIN = StagePlugin(
     settings_schema=load_schema("reflektortts.stages", "tracker.schema.json"),
     create=create,
     summary="Waits until a line settles",
-    warning_when_disabled="Needed: without it, the voice restarts on every reading.",
+    warning_when_disabled="Needed: or the voice restarts on every reading",
 )

@@ -51,6 +51,9 @@ class StageState:
     warning: str | None
     """Shown while the stage is switched off, if switching it off breaks reading."""
     enabled: bool
+    """Whether the player has the stage switched on."""
+    inactive: str | None = None
+    """Why the stage does nothing with the player's languages, or None if it works with them."""
 
 
 @dataclass(frozen=True)

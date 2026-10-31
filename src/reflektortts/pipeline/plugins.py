@@ -8,6 +8,7 @@ from importlib.metadata import entry_points
 from typing import Any
 
 from reflektortts.games.detector import RunningGame
+from reflektortts.languages import Languages
 from reflektortts.pipeline.protocols import Source, Stage
 from reflektortts.profiles.model import SourceSettings
 
@@ -39,7 +40,12 @@ class StagePlugin:
     """A few words on what the stage does, capitalized like a sentence without a full stop,
     e.g. "Waits until a line settles"; shown next to its name in the overlay."""
     warning_when_disabled: str | None = None
-    """Shown while the stage is switched off, if reading breaks without it."""
+    """Shown instead of the summary while the stage is switched off, if reading breaks without it;
+    written like the summary."""
+    inactive_reason: Callable[[Languages], str | None] = lambda languages: None
+    """Why the stage does nothing with the player's languages, written like the summary, e.g.
+    "Game and output language are the same"; None if it works with them. Meanwhile the stage is
+    skipped, and the overlay greys it out and shows the reason instead of the summary."""
 
 
 def load_schema(package: str, file_name: str) -> Mapping[str, Any]:

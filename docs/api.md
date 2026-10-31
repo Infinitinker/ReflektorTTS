@@ -35,8 +35,9 @@ The status object, returned by several requests and sent as an event:
           "key": "subtitles/0:tracker",
           "type": "tracker",
           "summary": "Waits until a line settles",
-          "warning": "Needed: without it, the voice restarts on every reading.",
-          "enabled": true
+          "warning": "Needed: or the voice restarts on every reading",
+          "enabled": true,
+          "inactive": null
         }
       ]
     }
@@ -60,7 +61,7 @@ The status object, returned by several requests and sent as an event:
 | `subtitle_position` | `top` or `bottom` of the screen |
 | `sources` | The stages of the game being read, per source in the game's profile, with whether the player has each switched on; empty while waiting for a game |
 
-A source's `name` is its name in the profile, `type` its plugin, and `enabled` whether the player has it switched on; `name` identifies it for `PATCH /v1/sources`. A stage's `type` is its name in the profile and `summary` says in a few words what it does; `warning` (or `null`) is shown while the stage is switched off, if reading breaks without it. `key` identifies the stage for `PATCH /v1/stages`.
+A source's `name` is its name in the profile, `type` its plugin, and `enabled` whether the player has it switched on; `name` identifies it for `PATCH /v1/sources`. A stage's `type` is its name in the profile and `summary` says in a few words what it does; `warning` (or `null`) is shown while the stage is switched off, if reading breaks without it. `inactive` says why the stage does nothing with the current languages (e.g. "Game and output language are the same" for `translate`), or is `null` if it works with them; such a stage is skipped whatever its `enabled`, which keeps the player's choice for when the languages change. `key` identifies the stage for `PATCH /v1/stages`.
 
 ## Requests
 

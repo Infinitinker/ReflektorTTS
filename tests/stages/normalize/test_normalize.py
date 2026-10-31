@@ -1,7 +1,7 @@
 import pytest
 
 from reflektortts.events import TextEvent
-from reflektortts.languages import LANGUAGES
+from reflektortts.languages import LANGUAGES, Languages
 from reflektortts.pipeline.plugins import stage_plugins
 from reflektortts.stages.normalize.stage import PLUGIN, WORDS
 
@@ -146,8 +146,9 @@ def test_text_without_numbers_and_empty_text_pass_unchanged() -> None:
     assert say("", "pl") == ""
 
 
-def test_a_language_without_rules_passes_lines_unchanged() -> None:
-    assert say("$5", "xx") == "$5"
+def test_it_does_nothing_for_an_output_language_without_rules() -> None:
+    assert PLUGIN.inactive_reason(Languages(game="en", output="xx")) == "No rules for the output language yet"
+    assert PLUGIN.inactive_reason(Languages(game="en", output="pl")) is None
 
 
 def test_every_output_language_has_rules() -> None:

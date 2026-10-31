@@ -24,6 +24,7 @@ struct StageOption {
     std::string summary;
     std::optional<std::string> warning;  // Shown while the stage is switched off.
     bool enabled = true;
+    std::optional<std::string> inactive;  // Why it does nothing with the player's languages.
 };
 
 struct SourceStages {

@@ -393,20 +393,54 @@ void draw_output(const CoreState& state) {
     end_box();
 }
 
+// The text cut to fit width, ending in "..." if it does not fit whole.
+std::string fit_width(const std::string& text, float width) {
+    if (ImGui::CalcTextSize(text.c_str()).x <= width) {
+        return text;
+    }
+    std::string cut = text;
+    while (!cut.empty() && ImGui::CalcTextSize((cut + "...").c_str()).x > width) {
+        cut.pop_back();
+        while (!cut.empty() && (static_cast<unsigned char>(cut.back()) & 0xC0) == 0x80) {
+            cut.pop_back();  // The rest of a UTF-8 character.
+        }
+    }
+    return cut + "...";
+}
+
+// The words after a stage's name: why it does nothing, else its warning while it is switched off,
+// else its summary. Always on the stage's own line, so the panel keeps its height; text too long
+// for the panel is cut and shown whole on hover.
+void draw_stage_note(const StageOption& stage) {
+    const std::string* note = &stage.summary;
+    ImVec4 color = ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled);
+    if (stage.inactive) {
+        note = &*stage.inactive;
+    } else if (!stage.enabled && stage.warning) {
+        note = &*stage.warning;
+        color = kWarningColor;
+    }
+    if (note->empty()) {
+        return;
+    }
+    ImGui::SameLine();
+    std::string shown = fit_width(*note, ImGui::GetContentRegionAvail().x);
+    ImGui::TextColored(color, "%s", shown.c_str());
+    if (shown != *note && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+        ImGui::SetTooltip("%s", note->c_str());
+    }
+}
+
 void draw_stage(const StageOption& stage) {
+    // A stage that does nothing with the player's languages is greyed out but keeps its tick, so
+    // it works again as soon as the languages allow. Its reason is not faded, to stay readable.
+    ImGui::BeginDisabled(stage.inactive.has_value());
     bool enabled = stage.enabled;
     if (ImGui::Checkbox((stage.type + "##" + stage.key).c_str(), &enabled)) {
         request_stage_enabled(stage.key, enabled);
     }
-    if (!stage.summary.empty()) {
-        ImGui::SameLine();
-        ImGui::TextDisabled("%s", stage.summary.c_str());
-    }
-    if (!stage.enabled && stage.warning) {
-        ImGui::PushStyleColor(ImGuiCol_Text, kWarningColor);
-        ImGui::TextWrapped("%s", stage.warning->c_str());
-        ImGui::PopStyleColor();
-    }
+    ImGui::EndDisabled();
+    draw_stage_note(stage);
 }
 
 void draw_text_processing(const CoreState& state) {
