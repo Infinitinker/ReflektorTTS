@@ -2,6 +2,7 @@
 
 #include <windows.h>
 
+#include <cstdint>
 #include <cstring>
 #include <mutex>
 
@@ -36,8 +37,7 @@ bool blocked_for_caller(const void* caller) {
 }
 
 // Input taken off the message queue for the game's window goes to the panel instead: the game
-// gets WM_NULL. Key presses are still translated, so the panel receives the typed characters.
-// Other windows are left alone: DirectInput reads the keyboard through raw input sent to a
+// gets WM_NULL. Other windows are left alone: DirectInput reads the keyboard through raw input sent to a
 // hidden window of its own, and cutting that off would keep it from seeing keys released.
 void filter_message(MSG* message, bool removed) {
     if (!removed || message == nullptr || !game_input_blocked() || !is_blocked_message(message->message) ||
@@ -45,7 +45,6 @@ void filter_message(MSG* message, bool removed) {
         return;
     }
     send_to_panel(message->hwnd, message->message, message->wParam, message->lParam);
-    TranslateMessage(message);
     message->message = WM_NULL;
 }
 
@@ -101,6 +100,14 @@ BOOL WINAPI get_keyboard_state(BYTE* keys) {
     return result;
 }
 
+// NEXTRAWINPUTBLOCK, which MinGW's 64-bit headers cannot expand (they lack its QWORD). Blocks
+// are aligned to a pointer's size: 8 bytes on 64-bit, 4 on 32-bit, as in the Windows SDK.
+RAWINPUT* next_raw_input_block(RAWINPUT* input) {
+    constexpr std::uintptr_t alignment = sizeof(void*);
+    std::uintptr_t next = reinterpret_cast<std::uintptr_t>(input) + input->header.dwSize;
+    return reinterpret_cast<RAWINPUT*>((next + alignment - 1) & ~(alignment - 1));
+}
+
 // Buffered raw input is read, so it does not pile up, then mouse and keyboard input is handed
 // over as meant for another window: movement zeroed, keys released. Gamepads pass unchanged.
 UINT WINAPI get_raw_input_buffer(RAWINPUT* data, UINT* size, UINT header_size) {
@@ -109,7 +116,7 @@ UINT WINAPI get_raw_input_buffer(RAWINPUT* data, UINT* size, UINT header_size) {
         return count;
     }
     RAWINPUT* input = data;
-    for (UINT i = 0; i < count; ++i, input = NEXTRAWINPUTBLOCK(input)) {
+    for (UINT i = 0; i < count; ++i, input = next_raw_input_block(input)) {
         if (input->header.dwType == RIM_TYPEMOUSE) {
             input->header.hDevice = nullptr;
             input->header.wParam = RIM_INPUTSINK;

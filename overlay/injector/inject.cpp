@@ -8,6 +8,7 @@
 #include <cwchar>
 #include <filesystem>
 #include <string>
+#include <system_error>
 
 namespace {
 
@@ -48,26 +49,53 @@ bool same_bitness(HANDLE process) {
     return own_wow64 == target_wow64;
 }
 
-bool load_library_in(HANDLE process, const std::wstring& dll_path) {
-    SIZE_T size = (dll_path.size() + 1) * sizeof(wchar_t);
+// The remote thread's exit code holds only 32 bits of LoadLibraryW's module handle, which on
+// 64-bit can be zero for a loaded module; the game's module list says for sure.
+bool module_loaded(DWORD process_id, const std::filesystem::path& dll_path) {
+    // While the game is still loading modules, the snapshot fails with ERROR_BAD_LENGTH and
+    // has to be taken again.
+    constexpr int kSnapshotTries = 20;
+    HANDLE snapshot = INVALID_HANDLE_VALUE;
+    for (int i = 0; i < kSnapshotTries && snapshot == INVALID_HANDLE_VALUE; ++i) {
+        snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPMODULE | TH32CS_SNAPMODULE32, process_id);
+        if (snapshot == INVALID_HANDLE_VALUE && GetLastError() != ERROR_BAD_LENGTH) {
+            break;
+        }
+    }
+    if (snapshot == INVALID_HANDLE_VALUE) {
+        return false;
+    }
+    MODULEENTRY32W entry{};
+    entry.dwSize = sizeof(entry);
+    bool found = false;
+    for (BOOL more = Module32FirstW(snapshot, &entry); more && !found; more = Module32NextW(snapshot, &entry)) {
+        std::error_code error;
+        found = std::filesystem::equivalent(entry.szExePath, dll_path, error);
+    }
+    CloseHandle(snapshot);
+    return found;
+}
+
+bool load_library_in(HANDLE process, DWORD process_id, const std::filesystem::path& dll_path) {
+    std::wstring path = dll_path.wstring();
+    SIZE_T size = (path.size() + 1) * sizeof(wchar_t);
     void* remote_path = VirtualAllocEx(process, nullptr, size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
     if (remote_path == nullptr) {
         return false;
     }
-    bool loaded = false;
-    if (WriteProcessMemory(process, remote_path, dll_path.c_str(), size, nullptr)) {
+    bool started = false;
+    if (WriteProcessMemory(process, remote_path, path.c_str(), size, nullptr)) {
         auto load_library = reinterpret_cast<LPTHREAD_START_ROUTINE>(
             GetProcAddress(GetModuleHandleW(L"kernel32.dll"), "LoadLibraryW"));
         HANDLE thread = CreateRemoteThread(process, nullptr, 0, load_library, remote_path, 0, nullptr);
         if (thread != nullptr) {
             WaitForSingleObject(thread, INFINITE);
-            DWORD module_handle = 0;
-            loaded = GetExitCodeThread(thread, &module_handle) && module_handle != 0;
             CloseHandle(thread);
+            started = true;
         }
     }
     VirtualFreeEx(process, remote_path, 0, MEM_RELEASE);
-    return loaded;
+    return started && module_loaded(process_id, dll_path);
 }
 
 }  // namespace
@@ -106,7 +134,7 @@ int wmain(int argc, wchar_t** argv) {
         CloseHandle(process);
         return kWrongBitness;
     }
-    bool loaded = load_library_in(process, dll_path.wstring());
+    bool loaded = load_library_in(process, process_id, dll_path);
     CloseHandle(process);
     if (!loaded) {
         std::fwprintf(stderr, L"Failed to load the overlay into %ls.\n", process_name.c_str());

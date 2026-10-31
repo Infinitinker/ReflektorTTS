@@ -55,6 +55,7 @@ target_link_libraries(imgui PUBLIC d3dcompiler dxgi dwmapi imm32 gdi32)
 add_library(reflektortts-overlay SHARED
     src/dllmain.cpp
     src/crash_log.cpp
+    src/dll_load_watch.cpp
     src/probe_window.cpp
     src/dxgi_hook.cpp
     src/d3d11_renderer.cpp

@@ -24,7 +24,7 @@ Build the overlay as described in [overlay/README.md](overlay/README.md).
 ## Running
 
 ```bash
-.venv\Scripts\python -m reflektortts --profiles profiles --overlay overlay\build\bin
+.venv\Scripts\python -m reflektortts --profiles profiles --overlay overlay\build\bin --overlay overlay\build64\bin
 ```
 
 ReflektorTTS then waits for a game it has a profile for. When you start the game, it loads the overlay into it and reads its text aloud; when the game exits, it waits for the next one. Stop it with Ctrl+C.

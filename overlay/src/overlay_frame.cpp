@@ -41,7 +41,6 @@ bool claim_overlay(const char* api_name, HWND window) {
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
     io.IniFilename = nullptr;
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
     load_system_font();
     if (!ImGui_ImplWin32_Init(window)) {
         log_message("ImGui Win32 backend failed to initialize");

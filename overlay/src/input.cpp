@@ -5,6 +5,7 @@
 #include <atomic>
 #include <mutex>
 #include <unordered_map>
+#include <vector>
 
 #include "input_blocking.h"
 
@@ -18,6 +19,29 @@ bool g_hotkey_down = false;
 
 std::mutex g_windows_mutex;
 std::unordered_map<HWND, WNDPROC> g_original_procs;
+
+// Messages arrive on the game's message thread, which in many engines is not the one that
+// draws; ImGui may only be used from the drawing thread, so they wait here until its next frame.
+struct PanelMessage {
+    HWND window;
+    UINT message;
+    WPARAM wparam;
+    LPARAM lparam;
+};
+constexpr std::size_t kMaxWaitingMessages = 1024;  // If frames stop, older input is not worth keeping.
+std::mutex g_messages_mutex;
+std::vector<PanelMessage> g_waiting_messages;
+
+void deliver_waiting_messages() {
+    std::vector<PanelMessage> messages;
+    {
+        std::lock_guard lock(g_messages_mutex);
+        messages.swap(g_waiting_messages);
+    }
+    for (const PanelMessage& m : messages) {
+        ImGui_ImplWin32_WndProcHandler(m.window, m.message, m.wparam, m.lparam);
+    }
+}
 
 bool is_down(int key) {
     return (GetAsyncKeyState(key) & 0x8000) != 0;
@@ -73,6 +97,7 @@ bool update_panel_toggle(HWND window) {
         io.MouseDrawCursor = g_panel_open;
     }
     g_hotkey_down = down;
+    deliver_waiting_messages();
     if (g_panel_open && foreground) {
         poll_mouse_buttons();
     }
@@ -88,9 +113,15 @@ bool is_game_window(HWND window) {
     return g_original_procs.contains(window);
 }
 
+// The panel is used with the mouse only: keys pressed for other overlays (or sent by them) while
+// it is open would otherwise press its controls.
 void send_to_panel(HWND window, UINT message, WPARAM wparam, LPARAM lparam) {
-    if (g_panel_open && ImGui::GetCurrentContext() != nullptr) {
-        ImGui_ImplWin32_WndProcHandler(window, message, wparam, lparam);
+    if (!g_panel_open || (message >= WM_KEYFIRST && message <= WM_KEYLAST)) {
+        return;
+    }
+    std::lock_guard lock(g_messages_mutex);
+    if (g_waiting_messages.size() < kMaxWaitingMessages) {
+        g_waiting_messages.push_back({window, message, wparam, lparam});
     }
 }
 

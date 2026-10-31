@@ -7,8 +7,8 @@
 #include "d3d12_renderer.h"
 #include "d3d9_hook.h"
 #include "d3d9_renderer.h"
+#include "dll_load_watch.h"
 #include "dxgi_hook.h"
-#include "log.h"
 
 namespace {
 
@@ -19,17 +19,11 @@ void on_dxgi_present(IDXGISwapChain* swap_chain) {
     render_d3d12_frame(swap_chain);
 }
 
-// The core loads the overlay as soon as it sees the game's process, often before the
-// game has set up its graphics; wait for that instead of giving up.
-constexpr DWORD kGraphicsPollMs = 500;
-constexpr int kGraphicsPolls = 240;
+// Where the system sends no DLL notifications, the overlay looks for new graphics DLLs this often.
+constexpr DWORD kPollMs = 500;
 
 bool is_loaded(const wchar_t* module_name) {
     return GetModuleHandleW(module_name) != nullptr;
-}
-
-bool graphics_loaded() {
-    return is_loaded(L"d3d9.dll") || is_loaded(L"d3d11.dll") || is_loaded(L"d3d12.dll");
 }
 
 // The core loads the overlay within seconds of the game starting; if the game has run longer,
@@ -44,30 +38,46 @@ bool game_just_started() {
     return ticks(now) - ticks(created) < kJustStartedSeconds * 10'000'000;
 }
 
-// Hooks only the APIs whose DLLs the game has loaded, so the overlay never pulls in a
-// graphics DLL (or a wrapper from the game folder) the game does not use.
+// Hooks only the APIs whose DLLs the game has loaded, so the overlay never pulls in a graphics
+// DLL (or a wrapper from the game folder) the game does not use. The core loads the overlay as
+// soon as it sees the game's process, often before the game has set up its graphics, and games
+// may load another API later (after a launcher, or for a video), so each API is hooked when its
+// DLL arrives, however late. Each is tried once.
 DWORD WINAPI start_overlay(LPVOID) {
     install_crash_log();
-    bool just_started = game_just_started();
-    for (int poll = 0; poll < kGraphicsPolls && !graphics_loaded(); ++poll) {
-        Sleep(kGraphicsPollMs);
+    // A Direct3D 9 device may already exist only if its DLL was loaded before the overlay arrived
+    // and the game was not just started.
+    bool d3d9_device_may_exist = is_loaded(L"d3d9.dll") && !game_just_started();
+    // Never closed: the loader keeps signalling it for as long as the game runs.
+    HANDLE dll_loaded = CreateEventW(nullptr, FALSE, FALSE, nullptr);
+    bool notified = dll_loaded != nullptr && signal_on_dll_load(dll_loaded);
+
+    bool tried_d3d12 = false, tried_dxgi = false, tried_d3d9 = false, client_started = false;
+    while (!(tried_d3d12 && tried_dxgi && tried_d3d9)) {
+        bool hooked = false;
+        if (!tried_d3d12 && is_loaded(L"d3d12.dll")) {
+            tried_d3d12 = true;
+            install_d3d12_queue_hook();
+        }
+        if (!tried_dxgi && (is_loaded(L"d3d11.dll") || is_loaded(L"d3d12.dll"))) {
+            tried_dxgi = true;
+            hooked |= install_dxgi_hooks(on_dxgi_present);
+        }
+        if (!tried_d3d9 && is_loaded(L"d3d9.dll")) {
+            tried_d3d9 = true;
+            hooked |= install_d3d9_hooks(render_d3d9_frame, release_d3d9_device_objects, recreate_d3d9_device_objects,
+                                         d3d9_device_may_exist);
+        }
+        if (hooked && !client_started) {
+            client_started = true;
+            start_api_client();
+        }
+        if (notified) {
+            WaitForSingleObject(dll_loaded, INFINITE);
+        } else {
+            Sleep(kPollMs);
+        }
     }
-    bool hooked = false;
-    if (is_loaded(L"d3d12.dll")) {
-        install_d3d12_queue_hook();
-    }
-    if (is_loaded(L"d3d11.dll") || is_loaded(L"d3d12.dll")) {
-        hooked |= install_dxgi_hooks(on_dxgi_present);
-    }
-    if (is_loaded(L"d3d9.dll")) {
-        hooked |= install_d3d9_hooks(render_d3d9_frame, release_d3d9_device_objects, recreate_d3d9_device_objects,
-                                     !just_started);
-    }
-    if (!hooked) {
-        log_message("Overlay not started: the game uses none of Direct3D 9, 11 or 12");
-        return 0;
-    }
-    start_api_client();
     return 0;
 }
 

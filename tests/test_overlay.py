@@ -41,6 +41,32 @@ def test_a_real_failure_stops_and_is_reported(
     assert "bad things" in caplog.text
 
 
+def test_an_injector_blocked_by_antivirus_is_reported(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    def blocked(command: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        error = OSError("The file contains a virus")
+        error.winerror = 225
+        raise error
+
+    monkeypatch.setattr(subprocess, "run", blocked)
+
+    assert inject_overlay(42, [build(tmp_path / "x86")]) is False
+    assert "antivirus" in caplog.text
+
+
+def test_an_injector_that_hangs_is_reported(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    def hangs(command: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        raise subprocess.TimeoutExpired(command, kwargs["timeout"])
+
+    monkeypatch.setattr(subprocess, "run", hangs)
+
+    assert inject_overlay(42, [build(tmp_path / "x86")]) is False
+    assert "did not finish" in caplog.text
+
+
 def test_missing_injector_is_reported(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
     assert inject_overlay(42, [tmp_path]) is False
     assert "No overlay injector" in caplog.text

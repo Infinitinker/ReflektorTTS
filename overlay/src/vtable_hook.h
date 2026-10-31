@@ -29,9 +29,6 @@ inline std::string describe_memory(const void* address) {
 }
 
 // Replaces one entry of a COM vtable with detour and stores the previous entry in original.
-// Patching the table instead of the function's code keeps working when other overlays
-// (RTSS, Steam, Discord) re-apply their own code hooks; our detour runs first and then
-// calls whatever the entry pointed to, including their hooks.
 template <typename Fn>
 bool hook_vtable_entry(void** vtable, int index, Fn detour, Fn* original) {
     DWORD protection = 0;
@@ -44,9 +41,14 @@ bool hook_vtable_entry(void** vtable, int index, Fn detour, Fn* original) {
     return true;
 }
 
-// Points a COM method at detour, for every object of the vtable's class: by patching the vtable
-// entry, or, where the process refuses to make the vtable writable, by hooking the method's code.
-// Either way *original reaches the method as it was.
+// Points a COM method at detour, for every object of the vtable's class, and stores in *original
+// a way to reach the method as it was. The method's code is hooked, as other overlays (Steam,
+// RTSS, Discord, OBS) hook it, so all of them chain: each code hook carries the jump of the one
+// before it, whichever came first, and the chain ends at the method. A vtable entry does not
+// chain with them: the Steam overlay calls the entry it finds there as the next hook after its
+// own, while ours calls the method, whose code begins with Steam's jump, and the two call each
+// other until the stack runs out. Games that keep the method's address instead of reading the
+// vtable each frame are caught as well. Patching the vtable remains the fallback.
 template <typename Fn>
 bool hook_method(void** vtable, int index, Fn detour, Fn* original) {
     void* method = vtable[index];
@@ -54,11 +56,15 @@ bool hook_method(void** vtable, int index, Fn detour, Fn* original) {
     if (method == reinterpret_cast<void*>(detour)) {
         return true;
     }
+    if (hook_function(method, reinterpret_cast<void*>(detour), reinterpret_cast<void**>(original))) {
+        return true;
+    }
+    log_message("Cannot hook a method's code; patching its vtable entry instead");
     if (hook_vtable_entry(vtable, index, detour, original)) {
         return true;
     }
-    log_message("Cannot patch a vtable (" + describe_memory(&vtable[index]) + "); hooking the method's code instead");
-    return hook_function(method, reinterpret_cast<void*>(detour), reinterpret_cast<void**>(original));
+    log_message("Cannot patch a vtable either (" + describe_memory(&vtable[index]) + ")");
+    return false;
 }
 
 }  // namespace reflektortts

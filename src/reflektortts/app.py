@@ -305,6 +305,8 @@ class Core:
             )
             if routes:
                 logger.info("Reading %s aloud", game.profile.game.title)
+            elif not game.profile.sources:
+                logger.warning("%s is running, but its profile has no sources to read yet.", game.profile.game.title)
             else:
                 logger.error("%s is running, but none of its sources could start.", game.profile.game.title)
             read_game(game, routes, sinks, stop, self._report, self._is_running, languages=self.languages)

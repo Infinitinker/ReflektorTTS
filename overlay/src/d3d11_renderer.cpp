@@ -55,6 +55,48 @@ void attach(IDXGISwapChain* swap_chain) {
     g_state = State::Running;
 }
 
+// ImGui's backend saves and restores the state it changes, except that it unbinds the hull,
+// domain and compute shaders and leaves them unbound. Games that keep those bound between
+// frames (tessellation, compute) would then draw without them and crash in the driver.
+template <typename Shader>
+struct ShaderBinding {
+    Shader* shader = nullptr;
+    ID3D11ClassInstance* instances[D3D11_SHADER_MAX_INTERFACES] = {};
+    UINT instance_count = D3D11_SHADER_MAX_INTERFACES;
+
+    void release() {
+        if (shader != nullptr) {
+            shader->Release();
+        }
+        for (UINT i = 0; i < instance_count; ++i) {
+            if (instances[i] != nullptr) {
+                instances[i]->Release();
+            }
+        }
+    }
+};
+
+struct ShaderStages {
+    ShaderBinding<ID3D11HullShader> hull;
+    ShaderBinding<ID3D11DomainShader> domain;
+    ShaderBinding<ID3D11ComputeShader> compute;
+
+    explicit ShaderStages(ID3D11DeviceContext* context) {
+        context->HSGetShader(&hull.shader, hull.instances, &hull.instance_count);
+        context->DSGetShader(&domain.shader, domain.instances, &domain.instance_count);
+        context->CSGetShader(&compute.shader, compute.instances, &compute.instance_count);
+    }
+
+    void restore(ID3D11DeviceContext* context) {
+        context->HSSetShader(hull.shader, hull.instances, hull.instance_count);
+        context->DSSetShader(domain.shader, domain.instances, domain.instance_count);
+        context->CSSetShader(compute.shader, compute.instances, compute.instance_count);
+        hull.release();
+        domain.release();
+        compute.release();
+    }
+};
+
 ID3D11RenderTargetView* create_render_target(IDXGISwapChain* swap_chain, D3D11_TEXTURE2D_DESC& desc) {
     ID3D11Texture2D* back_buffer = nullptr;
     if (FAILED(swap_chain->GetBuffer(0, __uuidof(ID3D11Texture2D), reinterpret_cast<void**>(&back_buffer)))) {
@@ -86,14 +128,19 @@ void render_d3d11_frame(IDXGISwapChain* swap_chain) {
     ImGui_ImplDX11_NewFrame();
     build_overlay_frame(desc.Width, desc.Height);
 
-    ID3D11RenderTargetView* game_target = nullptr;
+    // Setting one render target unbinds the others, so all of the game's are put back.
+    ID3D11RenderTargetView* game_targets[D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT] = {};
     ID3D11DepthStencilView* game_depth = nullptr;
-    g_context->OMGetRenderTargets(1, &game_target, &game_depth);
+    g_context->OMGetRenderTargets(D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT, game_targets, &game_depth);
+    ShaderStages game_stages(g_context);
     g_context->OMSetRenderTargets(1, &target, nullptr);
     ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
-    g_context->OMSetRenderTargets(1, &game_target, game_depth);
-    if (game_target != nullptr) {
-        game_target->Release();
+    game_stages.restore(g_context);
+    g_context->OMSetRenderTargets(D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT, game_targets, game_depth);
+    for (ID3D11RenderTargetView* game_target : game_targets) {
+        if (game_target != nullptr) {
+            game_target->Release();
+        }
     }
     if (game_depth != nullptr) {
         game_depth->Release();

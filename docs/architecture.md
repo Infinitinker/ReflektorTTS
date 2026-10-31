@@ -112,7 +112,6 @@ Finding a line's label when subtitles can be turned off: turn subtitles on and f
 - Selecting an OCR region and text colours directly on the game's frame, and OCR on frames grabbed from the back buffer (works in fullscreen too).
 - Searching the game's memory for text and pointers from inside the game.
 - More graphics APIs: OpenGL and Vulkan (Direct3D 9, 11 and 12 are done). DirectDraw and Direct3D 1–8 games work through a wrapper such as dgVoodoo2.
-- A 64-bit build for modern games.
 
 Known pitfalls of older games and how the overlay handles them:
 
@@ -120,7 +119,11 @@ Known pitfalls of older games and how the overlay handles them:
 |---|---|
 | Device loss, resolution changes, new swap chains | Follows the newest swap chain or device; handles `Reset` (D3D9); never holds back buffers between frames |
 | Games or wrappers destroying their device while others hold references | A replaced device is abandoned, never released |
-| Other overlays rewriting code hooks (RTSS, Steam, Discord) | Hooks replace vtable entries instead of patching code |
+| Other overlays hooking the same methods (Steam, RTSS, Discord) | Methods are hooked in their code, as those overlays do, so all the hooks chain; a replaced vtable entry looped with the Steam overlay's hook |
+| Other overlays removing their hook on each call, and ours with it (RTSS) | The overlay checks its hooks twice a second and, when one was cut out, hooks the other overlay's code instead |
+| Games keeping a method's address instead of reading the vtable | Code hooks catch those calls too |
+| The game drawing on a different thread than its window's | Window messages for the panel wait until the drawing thread's next frame |
+| ImGui leaving some Direct3D 11 state unbound (hull, domain and compute shaders, extra render targets) | The overlay saves and restores it around ImGui |
 | Broken render state | State is saved and restored around ImGui |
 | DirectInput swallowing clicks | Mouse buttons are read directly |
 | The game reacting to keys and clicks meant for the panel | While the panel is open, the game's keyboard and mouse input is blocked (DirectInput, the message queue, key state, raw input, the cursor), as ReShade does; gamepads still work |
