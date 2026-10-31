@@ -5,7 +5,7 @@
 #include <cstdint>
 #include <mutex>
 #include <string>
-#include <unordered_set>
+#include <unordered_map>
 
 #include "log.h"
 
@@ -14,7 +14,7 @@ namespace {
 
 std::mutex g_mutex;
 bool g_initialized = false;
-std::unordered_set<void*> g_hooked;
+std::unordered_map<void*, void*> g_trampolines;  // Hooked function -> its trampoline.
 
 struct ModuleRange {
     std::uintptr_t begin = 0;
@@ -35,7 +35,8 @@ ModuleRange overlay_range() {
 
 bool hook_function(void* target, void* detour, void** original) {
     std::lock_guard lock(g_mutex);
-    if (g_hooked.contains(target)) {
+    if (auto hooked = g_trampolines.find(target); hooked != g_trampolines.end()) {
+        *original = hooked->second;
         return true;
     }
     if (!g_initialized) {
@@ -54,7 +55,7 @@ bool hook_function(void* target, void* detour, void** original) {
         log_message(std::string("Cannot hook a function: ") + MH_StatusToString(status));
         return false;
     }
-    g_hooked.insert(target);
+    g_trampolines[target] = *original;
     return true;
 }
 

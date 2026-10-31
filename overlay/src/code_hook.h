@@ -6,7 +6,7 @@ namespace reflektortts {
 
 // Hooks an exported function by rewriting its first instructions (MinHook), for APIs that are
 // plain functions rather than COM methods. Calls through *original reach the real function.
-// Hooking a function that is already hooked does nothing and succeeds.
+// Hooking a function that is already hooked hooks nothing new and gives back its trampoline.
 bool hook_function(void* target, void* detour, void** original);
 
 // Hooks the function a module exports under name (or an ordinal from MAKEINTRESOURCEA).

@@ -98,9 +98,8 @@ bool install_dxgi_hooks(SwapChainCallback on_present) {
     }
 
     g_on_present = on_present;
-    if (!hook_vtable_entry(vtable.entries, kPresentIndex, &present_detour, &g_original_present) ||
-        (vtable.has_present1 &&
-         !hook_vtable_entry(vtable.entries, kPresent1Index, &present1_detour, &g_original_present1))) {
+    if (!hook_method(vtable.entries, kPresentIndex, &present_detour, &g_original_present) ||
+        (vtable.has_present1 && !hook_method(vtable.entries, kPresent1Index, &present1_detour, &g_original_present1))) {
         log_message("Could not hook IDXGISwapChain methods");
         return false;
     }

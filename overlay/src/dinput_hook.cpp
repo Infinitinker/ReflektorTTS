@@ -3,7 +3,7 @@
 #define DIRECTINPUT_VERSION 0x0800
 #include <dinput.h>
 
-#include <atomic>
+#include <array>
 #include <cstring>
 #include <initializer_list>
 #include <mutex>
@@ -42,7 +42,9 @@ constexpr BYTE kKeyboard = 0x13;
 constexpr BYTE kOldMouse = 2;
 constexpr BYTE kOldKeyboard = 3;
 
-// Each device vtable (A and W, DirectInput 8 and 7) keeps its own original methods.
+// Each device vtable (A and W, DirectInput 8 and 7) keeps its own original methods, reached by
+// its own copy of the detours: a code hook sends every device of any vtable through the detour
+// of the vtable that installed it, so the detours cannot look their original up by vtable.
 struct HookedVtable {
     void** vtable = nullptr;
     GetDeviceStateFn get_device_state = nullptr;
@@ -50,21 +52,11 @@ struct HookedVtable {
 };
 constexpr int kMaxVtables = 8;
 HookedVtable g_hooked[kMaxVtables];
-std::atomic<int> g_hooked_count = 0;
+int g_hooked_count = 0;
 std::mutex g_install_mutex;
 
 void** vtable_of(void* object) {
     return *static_cast<void***>(object);
-}
-
-const HookedVtable* hooked_vtable(void* device) {
-    void** vtable = vtable_of(device);
-    for (int i = 0, count = g_hooked_count; i < count; ++i) {
-        if (g_hooked[i].vtable == vtable) {
-            return &g_hooked[i];
-        }
-    }
-    return nullptr;
 }
 
 enum class DeviceKind { other, keyboard, mouse };
@@ -83,8 +75,8 @@ DeviceKind device_kind(void* device) {
     return type == kMouse || type == kOldMouse ? DeviceKind::mouse : DeviceKind::other;
 }
 
-HRESULT STDMETHODCALLTYPE get_device_state(void* device, DWORD size, void* data) {
-    HRESULT result = hooked_vtable(device)->get_device_state(device, size, data);
+HRESULT get_device_state(GetDeviceStateFn original, void* device, DWORD size, void* data) {
+    HRESULT result = original(device, size, data);
     if (SUCCEEDED(result) && data != nullptr && game_input_blocked() && device_kind(device) != DeviceKind::other) {
         std::memset(data, 0, size);
     }
@@ -100,9 +92,9 @@ bool is_release(DeviceKind kind, const DIDEVICEOBJECTDATA& event) {
 // Events are still read, so they do not pile up and reach the game after the panel closes.
 // Only releases are kept: a key held when the panel opened (such as the hotkey's) must not
 // stay down for the game. Events are object_size bytes apart, since their size differs by version.
-HRESULT STDMETHODCALLTYPE get_device_data(void* device, DWORD object_size, DIDEVICEOBJECTDATA* data, DWORD* count,
-                                          DWORD flags) {
-    HRESULT result = hooked_vtable(device)->get_device_data(device, object_size, data, count, flags);
+HRESULT get_device_data(GetDeviceDataFn original, void* device, DWORD object_size, DIDEVICEOBJECTDATA* data,
+                        DWORD* count, DWORD flags) {
+    HRESULT result = original(device, object_size, data, count, flags);
     // Without a buffer the call only counts waiting events (or flushes them); the count is left
     // as is, because games such as GTA2 skip what they read when told nothing was waiting.
     if (FAILED(result) || count == nullptr || data == nullptr || !game_input_blocked()) {
@@ -129,26 +121,44 @@ void release(void* object) {
     reinterpret_cast<ReleaseFn>(vtable_of(object)[kReleaseIndex])(object);
 }
 
+template <int N>
+HRESULT STDMETHODCALLTYPE get_device_state_detour(void* device, DWORD size, void* data) {
+    return get_device_state(g_hooked[N].get_device_state, device, size, data);
+}
+
+template <int N>
+HRESULT STDMETHODCALLTYPE get_device_data_detour(void* device, DWORD object_size, DIDEVICEOBJECTDATA* data,
+                                                 DWORD* count, DWORD flags) {
+    return get_device_data(g_hooked[N].get_device_data, device, object_size, data, count, flags);
+}
+
+template <std::size_t... N>
+constexpr auto make_detours(std::index_sequence<N...>) {
+    return std::pair{std::array<GetDeviceStateFn, kMaxVtables>{&get_device_state_detour<N>...},
+                     std::array<GetDeviceDataFn, kMaxVtables>{&get_device_data_detour<N>...}};
+}
+constexpr auto kDetours = make_detours(std::make_index_sequence<kMaxVtables>());
+
 void hook_device_vtable(void* device) {
     void** vtable = vtable_of(device);
     int count = g_hooked_count;
-    if (hooked_vtable(device) != nullptr) {
-        return;
+    for (int i = 0; i < count; ++i) {
+        if (g_hooked[i].vtable == vtable) {
+            return;
+        }
     }
     if (count == kMaxVtables) {
         log_message("Too many DirectInput device types to hook");
         return;
     }
+    // hook_method stores each original before anything can call the detour that uses it.
     HookedVtable& entry = g_hooked[count];
     entry.vtable = vtable;
-    entry.get_device_state = reinterpret_cast<GetDeviceStateFn>(vtable[kGetDeviceStateIndex]);
-    entry.get_device_data = reinterpret_cast<GetDeviceDataFn>(vtable[kGetDeviceDataIndex]);
-    // The entry is complete before the vtable points at the detours that look it up.
     g_hooked_count = count + 1;
-    GetDeviceStateFn unused_state = nullptr;
-    GetDeviceDataFn unused_data = nullptr;
-    hook_vtable_entry(vtable, kGetDeviceStateIndex, &get_device_state, &unused_state);
-    hook_vtable_entry(vtable, kGetDeviceDataIndex, &get_device_data, &unused_data);
+    if (!hook_method(vtable, kGetDeviceStateIndex, kDetours.first[count], &entry.get_device_state) ||
+        !hook_method(vtable, kGetDeviceDataIndex, kDetours.second[count], &entry.get_device_data)) {
+        log_message("Could not hook DirectInput device methods");
+    }
 }
 
 // Devices share their class's vtable, so throwaway keyboard and mouse devices give us the

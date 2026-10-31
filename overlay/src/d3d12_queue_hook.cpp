@@ -63,8 +63,8 @@ bool install_d3d12_queue_hook() {
     if (vtable == nullptr) {
         return false;
     }
-    if (!hook_vtable_entry(vtable, kExecuteCommandListsIndex, &execute_command_lists_detour,
-                           &g_original_execute_command_lists)) {
+    if (!hook_method(vtable, kExecuteCommandListsIndex, &execute_command_lists_detour,
+                     &g_original_execute_command_lists)) {
         log_message("Could not hook ID3D12CommandQueue::ExecuteCommandLists");
         return false;
     }
