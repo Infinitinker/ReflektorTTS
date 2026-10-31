@@ -1,9 +1,14 @@
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
+from pathlib import Path
+
+import pytest
 
 from reflektortts.events import TextEvent
 from reflektortts.pipeline.plugins import stage_plugins
+from reflektortts.stages.translate import stage as translate_stage
 from reflektortts.stages.translate.engine import Engine
-from reflektortts.stages.translate.stage import PLUGIN, Translate
+from reflektortts.stages.translate.model import ModelPackage
+from reflektortts.stages.translate.stage import PLUGIN, Translate, open_engine
 
 
 class FakeEngine:
@@ -70,6 +75,45 @@ def test_the_engine_is_opened_once_and_repeated_lines_are_remembered() -> None:
 
     assert engines.opened == [("en", "pl")]
     assert engines.engine.calls == [["Kill Frenzy!"], ["Mission complete!"]]
+
+
+@pytest.fixture
+def loads(monkeypatch: pytest.MonkeyPatch) -> Iterator[list[str]]:
+    """Replaces downloading and loading the real model; lists each model loaded."""
+    loaded: list[str] = []
+
+    def fake_engine(model_dir: Path, source: str, target: str) -> FakeEngine:
+        loaded.append(f"{source}-{target}")
+        return FakeEngine()
+
+    monkeypatch.setattr(translate_stage, "ensure_model", lambda package: Path("model"))
+    monkeypatch.setattr(translate_stage, "MosesBpeEngine", fake_engine)
+    open_engine.cache_clear()
+    yield loaded
+    open_engine.cache_clear()
+
+
+def test_every_translate_stage_shares_one_loaded_model(loads: list[str]) -> None:
+    subtitles, help_box = PLUGIN.create({}), PLUGIN.create({})
+
+    assert isinstance(subtitles, Translate) and isinstance(help_box, Translate)
+    assert translate(subtitles, "Kill Frenzy!") == "<Kill Frenzy!>"
+    assert translate(help_box, "Press RETURN.") == "<Press RETURN.>"
+    assert loads == ["en-pl"]
+
+
+def test_a_failed_model_download_is_tried_again(loads: list[str], monkeypatch: pytest.MonkeyPatch) -> None:
+    def no_network(package: ModelPackage) -> Path:
+        raise OSError("no network")
+
+    monkeypatch.setattr(translate_stage, "ensure_model", no_network)
+    with pytest.raises(OSError):
+        open_engine("en", "pl")
+    monkeypatch.setattr(translate_stage, "ensure_model", lambda package: Path("model"))
+
+    open_engine("en", "pl")
+
+    assert loads == ["en-pl"]
 
 
 def test_the_plugin_is_registered() -> None:

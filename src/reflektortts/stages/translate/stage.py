@@ -1,5 +1,6 @@
 """The translate stage plugin: translates lines into the output language (lektor mode)."""
 
+import functools
 import logging
 import time
 from collections import OrderedDict
@@ -61,8 +62,11 @@ class Translate:
         return translated
 
 
+@functools.cache
 def open_engine(source: str, target: str) -> Engine:
-    """Downloads the pair's model if needed and loads it."""
+    """Downloads the pair's model if needed and loads it, once: every translate stage, of every
+    source and game, shares the loaded model. A failed download or load is tried again next time.
+    """
     model_dir = ensure_model(PACKAGES[(source, target)])
     started = time.perf_counter()
     engine = MosesBpeEngine(model_dir, source, target)
