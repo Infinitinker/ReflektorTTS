@@ -2,6 +2,7 @@
 
 import logging
 import threading
+import time
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import replace
 from pathlib import Path
@@ -40,6 +41,10 @@ from reflektortts.tts.engine import VoiceError, VoiceInfo, available_voices
 logger = logging.getLogger(__name__)
 
 GAME_CHECK_SECONDS = 2.0
+EXIT_GRACE_SECONDS = 2.0
+"""How long a source error waits for the game to exit before it is reported: while a game exits,
+its memory is torn down before Windows counts the process as gone, so sources fail first."""
+EXIT_CHECK_SECONDS = 0.1
 
 
 def default_profiles_dir() -> Path:
@@ -151,9 +156,11 @@ class Core:
         stages: Mapping[str, StagePlugin] | None = None,
         open_app_volume: Callable[[], OpenAppVolume] = app_volume,
         duck_records: DuckRecords | None = None,
+        exit_grace_seconds: float = EXIT_GRACE_SECONDS,
     ) -> None:
         self._profiles = profiles
         self._is_running = is_running
+        self._exit_grace_seconds = exit_grace_seconds
         self._settings_file = settings_file
         self._settings = load_settings(settings_file)
         self._overlay_dirs = overlay_dirs
@@ -376,11 +383,21 @@ class Core:
     def _report(self, error: ErrorEvent) -> None:
         # A source usually fails a moment before the game's exit is noticed; that is not an error.
         game = self._game
-        if error.kind == "source.error" and game is not None and not self._is_running(game.pid):
+        if error.kind == "source.error" and game is not None and self._exits(game.pid):
             logger.debug("Ignoring %s from %s: the game has exited", error.kind, error.origin)
             return
         log_error(error)
         self._bus.publish(error)
+
+    def _exits(self, pid: int) -> bool:
+        """Whether the game exits within the grace time. Blocks the caller (the runner) meanwhile,
+        which happens only on a source's first failure."""
+        deadline = time.monotonic() + self._exit_grace_seconds
+        while self._is_running(pid):
+            if time.monotonic() >= deadline:
+                return False
+            time.sleep(EXIT_CHECK_SECONDS)
+        return True
 
     def _publish_status(self) -> Status:
         status = self.status()

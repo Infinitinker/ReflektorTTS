@@ -212,8 +212,9 @@ void install_dinput_hooks() {
                                {{&IID_IDirectInput7A, &IID_IDirectInputDevice7A},
                                 {&IID_IDirectInput7W, &IID_IDirectInputDevice7W}});
     if (g_hooked_count > before) {
-        log_message(std::string("Blocking keyboard and mouse input through") + (dinput8 ? " DirectInput 8" : "") +
-                    (dinput ? " DirectInput 7" : "") + " while the panel is open");
+        const char* versions = dinput8 && dinput ? "8 and 1-7" : dinput8 ? "8" : "1-7";
+        log_message(std::string("Blocking keyboard and mouse input through DirectInput ") + versions +
+                    " while the panel is open");
     }
 }
 

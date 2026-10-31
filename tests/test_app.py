@@ -1,5 +1,5 @@
 import threading
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import Any
 
@@ -338,19 +338,25 @@ def test_build_routes_asks_whether_each_source_and_stage_is_enabled() -> None:
     assert asked == ["messages/0:suffix", "messages"]
 
 
-def test_source_errors_after_the_game_exits_are_not_reported(tmp_path: Path) -> None:
-    running = {42}
+def core_playing(tmp_path: Path, is_running: Callable[[int], bool], exit_grace_seconds: float) -> Core:
     core = Core(
         profiles=[],
         settings_file=tmp_path / "settings.json",
         narrator_factory=lambda voice, on_speaking: Narrator(voice, Clients().start, on_speaking),
         list_voices=lambda: [ADAM],
-        is_running=lambda pid: pid in running,
+        is_running=is_running,
         stages=STAGES,
         open_app_volume=no_sound,
         duck_records=DuckRecords(tmp_path / "lowered-games.json"),
+        exit_grace_seconds=exit_grace_seconds,
     )
     core._game = GameInfo("Game", 42)
+    return core
+
+
+def test_source_errors_after_the_game_exits_are_not_reported(tmp_path: Path) -> None:
+    running = {42}
+    core = core_playing(tmp_path, lambda pid: pid in running, exit_grace_seconds=0)
     events: list[Event] = []
     core.subscribe(events.append)
 
@@ -359,3 +365,15 @@ def test_source_errors_after_the_game_exits_are_not_reported(tmp_path: Path) -> 
     core._report(ErrorEvent("source.error", "messages", "read failed"))
 
     assert events == [ErrorEvent("source.error", "messages", "read failed")]
+
+
+def test_source_errors_while_the_game_is_exiting_are_not_reported(tmp_path: Path) -> None:
+    # The process still counts as running for a moment after its memory is gone.
+    checks = iter([True, True])
+    core = core_playing(tmp_path, lambda pid: next(checks, False), exit_grace_seconds=5)
+    events: list[Event] = []
+    core.subscribe(events.append)
+
+    core._report(ErrorEvent("source.error", "messages", "read failed"))
+
+    assert events == []
