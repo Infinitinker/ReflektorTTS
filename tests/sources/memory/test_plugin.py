@@ -1,7 +1,7 @@
 from reflektortts.pipeline.plugins import source_plugins
+from reflektortts.process_memory.pointer import Address, PointerChain
 from reflektortts.sources.memory.plugin import PLUGIN, parse_settings
-from reflektortts.sources.memory.pointer import Address
-from reflektortts.sources.memory.source import MemorySettings, PointerChain
+from reflektortts.sources.memory.source import MemorySettings
 
 
 def test_memory_plugin_is_registered_through_entry_points() -> None:

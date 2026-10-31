@@ -1,0 +1,29 @@
+{
+  "version": 2,
+  "game": {
+    "title": "Mad Max",
+    "year": 2015
+  },
+  "match": {
+    "process": ["MadMax.exe"]
+  },
+  "sources": [
+    {
+      "type": "avalanche",
+      "name": "subtitles",
+      "poll_interval_ms": 250,
+      "pointers": [
+        {
+          "exe_sha256": "cd719a721db92575aa32ff01e07a590f47dd34b702b1bcd98ec698a07358bb0d",
+          "address": "MadMax.exe+17F7A10",
+          "offsets": ["10", "38"]
+        }
+      ],
+      "stages": [
+        { "type": "tracker", "stable_ms": 300, "min_letters": 4 },
+        { "type": "translate" },
+        { "type": "normalize" }
+      ]
+    }
+  ]
+}

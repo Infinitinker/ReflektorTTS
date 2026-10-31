@@ -4,7 +4,7 @@ ReflektorTTS reads text through **sources**, processes it with **stages**, and s
 
 | Kind | Entry-point group | Contract | Built-in examples |
 |---|---|---|---|
-| Source | `reflektortts.sources` | `Source` in `pipeline/protocols.py` | `memory` (`sources/memory/`) |
+| Source | `reflektortts.sources` | `Source` in `pipeline/protocols.py` | `memory`, `avalanche` (`sources/`) |
 | Stage | `reflektortts.stages` | `Stage` in `pipeline/protocols.py` | `tracker`, `replace`, `translate`, `normalize` (`stages/`) |
 | TTS engine | `reflektortts.tts_engines` | `TtsEngine` in `tts/engine.py` | `piper`, `windows` (`tts/engines/`) |
 
@@ -45,6 +45,8 @@ Write schemas with `"additionalProperties": false` so typos are caught, give eve
 
 ## Sources
 
+A source is named after how it reads (`memory`, reading text through a pointer chain) or, when it needs one engine's know-how, after that engine (`avalanche`, for Avalanche Studios' engine), with no category prefix. Every profile for a game on that engine uses the same source with its own addresses.
+
 ```python
 class Source(Protocol):
     name: str
@@ -65,7 +67,7 @@ def create(source: SourceSettings, game: RunningGame) -> Source: ...
 - `read` returns the **current** text on every call, even if it has not changed; the tracker stage turns that into one line per change. Return `None` (or an empty string) when there is no text.
 - Raise an exception with a message the player understands when reading fails ("Cannot read the game's memory at 672F40."). The runner reports it once as a `source.error` event and keeps polling; it logs when the source works again. A source that cannot start at all should raise from `create`, e.g. "This version of the game is not supported by its profile yet".
 - `close` releases what the source holds (handles, files). It is called when the game exits.
-- Platform-specific code stays inside the plugin, behind a small interface with one implementation per OS (see `sources/memory/process_memory.py`).
+- Platform-specific code stays inside the plugin, behind a small interface with one implementation per OS. Code that several sources need goes into a shared module instead: sources that read the game's memory use `process_memory/` for the process, pointer chains (`parse_pointer_chains`, `chain_for`, `resolve`) and the game build (`executable_sha256`).
 
 ## Stages
 
@@ -117,4 +119,4 @@ def list_voices() -> list[VoiceInfo]: ...
 
 ## Testing
 
-Tests live in `tests/`, mirroring the package: the tests for `src/reflektortts/stages/tracker.py` are in `tests/stages/test_tracker.py`. They run without a game, GPU, audio device or network. Put hardware- and game-dependent parts behind an interface and test against a fake kept in `tests/`, as `tests/sources/memory/fake_memory.py` and the fake streams in `tests/tts/test_playback.py` do.
+Tests live in `tests/`, mirroring the package: the tests for `src/reflektortts/stages/tracker.py` are in `tests/stages/test_tracker.py`. They run without a game, GPU, audio device or network. Put hardware- and game-dependent parts behind an interface and test against a fake kept in `tests/`, as `tests/process_memory/fake_memory.py` and the fake streams in `tests/tts/test_playback.py` do.

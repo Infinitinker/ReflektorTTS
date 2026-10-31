@@ -4,7 +4,7 @@ import ctypes
 import sys
 from ctypes import wintypes
 
-from reflektortts.sources.memory.process_memory import ProcessMemoryError
+from reflektortts.process_memory.memory import ProcessMemoryError
 
 assert sys.platform == "win32"
 

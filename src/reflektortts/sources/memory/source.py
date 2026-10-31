@@ -3,8 +3,8 @@
 import re
 from dataclasses import dataclass
 
-from reflektortts.sources.memory.pointer import Address, resolve
-from reflektortts.sources.memory.process_memory import MemoryReadError, ProcessMemory
+from reflektortts.process_memory.memory import MemoryReadError, ProcessMemory
+from reflektortts.process_memory.pointer import PointerChain, resolve
 
 MAX_CHARS = 400
 
@@ -14,18 +14,6 @@ _CONTROL = re.compile("[\x00-\x1f�]+")
 # memory. Below this share of characters that can appear in dialogue, what was read is
 # not text (the threshold the PoC used successfully on GTA2).
 MIN_TEXT_RATIO = 0.9
-
-
-class UnsupportedGameVersion(Exception):
-    """The profile has no pointer for this build of the game."""
-
-
-@dataclass(frozen=True)
-class PointerChain:
-    exe_sha256: str
-    """SHA-256 of the game executable the chain was found in."""
-    base: Address
-    offsets: tuple[int, ...]
 
 
 @dataclass(frozen=True)
@@ -60,23 +48,11 @@ def looks_like_text(text: str) -> bool:
 
 class MemorySource:
     def __init__(
-        self,
-        name: str,
-        poll_interval: float,
-        settings: MemorySettings,
-        memory: ProcessMemory,
-        exe_sha256: str,
+        self, name: str, poll_interval: float, encoding: str, chain: PointerChain, memory: ProcessMemory
     ) -> None:
-        chain = next((p for p in settings.pointers if p.exe_sha256.lower() == exe_sha256.lower()), None)
-        if chain is None:
-            memory.close()
-            raise UnsupportedGameVersion(
-                "This version of the game is not supported by its profile yet "
-                f"(game executable SHA-256 {exe_sha256}). Check for an updated profile."
-            )
         self.name = name
         self.poll_interval = poll_interval
-        self._encoding = settings.encoding
+        self._encoding = encoding
         self._chain = chain
         self._memory = memory
 

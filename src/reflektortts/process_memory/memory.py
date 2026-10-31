@@ -27,7 +27,7 @@ class ProcessMemory(Protocol):
 
 def open_process_memory(pid: int) -> ProcessMemory:
     if sys.platform == "win32":
-        from reflektortts.sources.memory.process_memory_windows import WindowsProcessMemory
+        from reflektortts.process_memory.windows import WindowsProcessMemory
 
         return WindowsProcessMemory(pid)
     raise ProcessMemoryError("Reading game memory is supported only on Windows so far.")

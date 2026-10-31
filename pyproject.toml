@@ -27,6 +27,7 @@ dependencies = [
 
 [project.entry-points."reflektortts.sources"]
 memory = "reflektortts.sources.memory.plugin:PLUGIN"
+avalanche = "reflektortts.sources.avalanche.plugin:PLUGIN"
 
 [project.entry-points."reflektortts.tts_engines"]
 piper = "reflektortts.tts.engines.piper:PLUGIN"

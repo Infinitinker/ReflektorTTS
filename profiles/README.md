@@ -27,6 +27,12 @@ Reads text from the game's memory through a pointer chain, written as in Cheat E
 
 A pointer can outlive its text, e.g. in the game's menu, and then points at unrelated memory. Readings where under 90% of the characters could appear in dialogue (Latin letters with accents, Cyrillic, spaces, common punctuation) count as no text, so garbage is never read aloud.
 
+### Avalanche source (`"type": "avalanche"`)
+
+Reads subtitles in games on Avalanche Studios' engine (Mad Max). A subtitle there holds the ID of the line it shows, the same in every language, and the text is looked up by that ID. So far the source only logs each line's ID and reads no text. Fields are described in `src/reflektortts/sources/avalanche/settings.schema.json`:
+
+- `pointers`: as in the memory source, one chain per build of the game, ending at the shown line's 32-bit ID (0 when no subtitle is shown).
+
 ## Naming
 
 - One game = one file, named `title-year.json`: the game's title and original release year, lowercase ASCII, words separated by hyphens. Example: `grand-theft-auto-2-1999.json`.

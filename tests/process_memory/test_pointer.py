@@ -1,8 +1,16 @@
 import pytest
 
-from reflektortts.sources.memory.pointer import Address, parse_address, resolve
-from reflektortts.sources.memory.process_memory import MemoryReadError, ProcessMemoryError
-from tests.sources.memory.fake_memory import FakeMemory
+from reflektortts.process_memory.memory import MemoryReadError, ProcessMemoryError
+from reflektortts.process_memory.pointer import (
+    Address,
+    PointerChain,
+    UnsupportedGameVersion,
+    chain_for,
+    parse_address,
+    parse_pointer_chains,
+    resolve,
+)
+from tests.process_memory.fake_memory import FakeMemory
 
 
 def pointer(value: int) -> bytes:
@@ -25,6 +33,24 @@ def test_parse_address(text: str, expected: Address) -> None:
 def test_parse_address_rejects_bad_text(text: str) -> None:
     with pytest.raises(ValueError, match="is not an address"):
         parse_address(text)
+
+
+def test_pointer_chains_are_parsed_from_profile_fields() -> None:
+    chains = parse_pointer_chains([{"exe_sha256": "a" * 64, "address": "gta2.exe+272F40", "offsets": ["E4", "10"]}])
+
+    assert chains == (PointerChain(exe_sha256="a" * 64, base=Address("gta2.exe", 0x272F40), offsets=(0xE4, 0x10)),)
+
+
+def test_chain_is_chosen_by_executable_hash_ignoring_case() -> None:
+    wanted = PointerChain(exe_sha256="a" * 64, base=Address("gta2.exe", 0x10), offsets=(0x4,))
+    other = PointerChain(exe_sha256="b" * 64, base=Address("gta2.exe", 0x99), offsets=())
+
+    assert chain_for((other, wanted), "A" * 64) is wanted
+
+
+def test_unknown_game_build_is_rejected() -> None:
+    with pytest.raises(UnsupportedGameVersion, match="not supported by its profile yet"):
+        chain_for((), "c" * 64)
 
 
 def test_resolve_follows_the_chain_from_a_module() -> None:

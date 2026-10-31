@@ -64,6 +64,7 @@ A failing source, stage or sink is reported once as a `source.error`, `stage.err
 | `sources/`, `stages/`, `sinks/` | Built-in plugins |
 | `sinks/tts/` | The tts sink: the core's side of speech (the narrator, which pauses and switches voices, and the client that starts the TTS process) |
 | `tts/` | The TTS service process: speech engines, playback and voices |
+| `process_memory/` | Reading a running game's memory for the sources that need it: the process (one implementation per OS, `windows.py`), pointer chains, and which build of the game it is |
 | `ducking/` | Lowers the game's sound while lines are spoken; the per-app volume has one implementation per OS (`windows.py`, WASAPI audio sessions) |
 | `languages.py` | Supported languages and their checks |
 | `api/server.py` | The local API |
@@ -76,7 +77,7 @@ A failing source, stage or sink is reported once as a `source.error`, `stage.err
 How the folders are organized:
 
 - **Plugin folders** (`sources/`, `stages/`, `sinks/`) hold one plugin each. A plugin is a single module while it is small (`stages/tracker.py`) and becomes a package when it needs several files (`stages/normalize/`, `sources/memory/`, `sinks/tts/`).
-- **Subsystems** that are not plugins sit at the top level: `pipeline/`, `profiles/`, `games/`, `api/`, `tts/`, `ducking/`.
+- **Subsystems** that are not plugins sit at the top level: `pipeline/`, `profiles/`, `games/`, `api/`, `tts/`, `ducking/`, and `process_memory/`, which several sources share.
 - **A folder's code runs in one process.** Code for a separate process gets its own folder, so the layout shows what runs where: `tts/` is the TTS process, and its client in the core lives with the sink in `sinks/tts/`.
 
 Writing plugins: [plugins.md](plugins.md). The local API: [api.md](api.md).
@@ -88,7 +89,7 @@ Writing plugins: [plugins.md](plugins.md). The local API: [api.md](api.md).
 | Source | Works without subtitles | Coverage | Notes |
 |---|---|---|---|
 | Memory: subtitle buffer | no | per game | **Done.** Needs a static pointer; proven on GTA2 |
-| Memory: label of the current line + the game's text table | usually | per game | Text comes from the game's files (e.g. GXT), with exact timing |
+| Memory: label of the current line + the game's text table | usually | per game | Text comes from the game's files (e.g. GXT), with exact timing. In progress for Avalanche's engine (Mad Max, `avalanche` source): reads the line's ID so far |
 | OCR | no | any game | Struggles with coloured text and textures; works better on frames grabbed by the overlay |
 | Clipboard | depends on the tool | any game with a tool like Textractor | |
 | Speech recognition (Whisper) | yes | any game | Audio of one process (Windows process loopback); about 1–2 s delay. Will check the `Source` contract on a source that pushes text |
