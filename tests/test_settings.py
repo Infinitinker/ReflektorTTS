@@ -1,52 +1,63 @@
+import json
 from pathlib import Path
 
 import pytest
 
-from reflektortts.settings import Settings, load_settings, save_settings
-from reflektortts.tts.engine import DEFAULT_VOICE
+from reflektortts.settings import GameSettings, SharedSettings, load_game, load_shared, save_game, save_shared
+
+GTA2 = "grand-theft-auto-2-1999"
 
 
-def test_missing_file_gives_defaults(tmp_path: Path) -> None:
-    assert load_settings(tmp_path / "settings.json") == Settings(voice=DEFAULT_VOICE)
+def test_on_the_first_run_there_are_no_files_and_everything_has_defaults(tmp_path: Path) -> None:
+    config = tmp_path / "ReflektorTTS"
+
+    assert load_shared(config) == SharedSettings()
+    assert load_game(config, GTA2) == GameSettings()
+    assert not config.exists()
 
 
-def test_saved_settings_load_back(tmp_path: Path) -> None:
-    path = tmp_path / "config" / "settings.json"
-    settings = Settings(
+def test_a_games_settings_load_back_from_its_own_file(tmp_path: Path) -> None:
+    settings = GameSettings(
         voice="windows:Microsoft Adam",
-        game_language="en",
+        game_language="pl",
         output_language="pl",
-        voices_by_language={"pl": "windows:Microsoft Adam"},
-        disabled_stages={"grand-theft-auto-2-1999": ["messages/2:normalize"]},
+        disabled_stages=("messages/2:normalize",),
     )
 
-    save_settings(settings, path)
+    save_game(settings, tmp_path / "config", GTA2)
 
-    assert load_settings(path) == settings
-    assert not path.with_suffix(".tmp").exists()
-
-
-def test_older_language_settings_become_the_output_language(tmp_path: Path) -> None:
-    path = tmp_path / "settings.json"
-    path.write_text('{"voice": "piper:a", "language": "pl"}', "utf-8")
-    assert load_settings(path) == Settings(voice="piper:a", output_language="pl")
-
-    path.write_text('{"speech_language": "pl", "language": "en"}', "utf-8")
-    assert load_settings(path).output_language == "pl"
+    assert load_game(tmp_path / "config", GTA2) == settings
+    assert (tmp_path / "config" / "games" / f"{GTA2}.json").is_file()
+    assert not (tmp_path / "config" / "games" / f"{GTA2}.tmp").exists()
 
 
-def test_broken_file_is_reported_and_defaults_are_used(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
-    path = tmp_path / "settings.json"
-    path.write_text("{oops", "utf-8")
+def test_shared_settings_load_back(tmp_path: Path) -> None:
+    settings = SharedSettings(voices_by_language={"pl": "windows:Microsoft Adam"})
 
-    assert load_settings(path) == Settings()
+    save_shared(settings, tmp_path)
+
+    assert load_shared(tmp_path) == settings
+
+
+@pytest.mark.parametrize("language", ["auto", "xx", 5])
+def test_an_unsupported_game_language_becomes_english(tmp_path: Path, language: object) -> None:
+    (tmp_path / "games").mkdir()
+    (tmp_path / "games" / f"{GTA2}.json").write_text(json.dumps({"game_language": language}), "utf-8")
+
+    assert load_game(tmp_path, GTA2).game_language == "en"
+
+
+def test_a_broken_file_is_reported_and_defaults_are_used(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+    (tmp_path / "settings.json").write_text("{oops", "utf-8")
+
+    assert load_shared(tmp_path) == SharedSettings()
     assert "Cannot read settings" in caplog.text
 
 
 def test_unknown_or_wrongly_typed_fields_are_ignored(tmp_path: Path) -> None:
-    path = tmp_path / "settings.json"
-    path.write_text(
-        '{"voice": 5, "future_option": true, "voices_by_language": {"pl": 1}, "disabled_stages": []}', "utf-8"
+    (tmp_path / "games").mkdir()
+    (tmp_path / "games" / f"{GTA2}.json").write_text(
+        '{"voice": 5, "future_option": true, "disabled_stages": {"a": 1}, "disabled_sources": ["ok", 2]}', "utf-8"
     )
 
-    assert load_settings(path) == Settings()
+    assert load_game(tmp_path, GTA2) == GameSettings(disabled_sources=("ok",))

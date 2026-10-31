@@ -4,7 +4,7 @@ import tempfile
 from collections.abc import Callable
 from pathlib import Path
 
-import platformdirs
+from reflektortts.user_dirs import data_dir
 
 
 class VoiceDownloadError(Exception):
@@ -12,7 +12,7 @@ class VoiceDownloadError(Exception):
 
 
 def voices_dir() -> Path:
-    return platformdirs.user_data_path("reflektortts", appauthor=False) / "voices"
+    return data_dir() / "voices"
 
 
 def downloaded_voices(directory: Path | None = None) -> list[str]:

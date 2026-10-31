@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 
-from reflektortts.languages import AUTO, DEFAULT_OUTPUT_LANGUAGE
+from reflektortts.languages import DEFAULT_GAME_LANGUAGE, DEFAULT_OUTPUT_LANGUAGE
 
 
 @dataclass(frozen=True)
@@ -14,8 +14,8 @@ class TextEvent:
     time: float
     output_language: str = DEFAULT_OUTPUT_LANGUAGE
     """The language the line is prepared, spoken and shown in (ISO 639-1), from the player's settings."""
-    game_language: str = AUTO
-    """The language of the game's text (ISO 639-1), or "auto", from the player's settings."""
+    game_language: str = DEFAULT_GAME_LANGUAGE
+    """The language of the game's text (ISO 639-1), from the player's settings."""
 
 
 @dataclass(frozen=True)

@@ -91,7 +91,7 @@ def create(settings: Mapping[str, Any]) -> Stage: ...
 
 - Return the event to pass on (use `dataclasses.replace` to change its text), or `None` to drop it.
 - An event with **empty text** means the source has no text right now. Stages that keep state, like the tracker, use it to notice a line disappearing; empty text is never delivered to sinks.
-- `event.game_language` and `event.output_language` are the languages the player chose (ISO 639-1, e.g. `pl`; the game language may be `auto`), current when the line was read. Stages that depend on language, like `normalize` (output language) and `translate` (from the game to the output language), use them instead of settings of their own, so the player's choice applies to every game. A stage without rules for a language should pass the line unchanged.
+- `event.game_language` and `event.output_language` are the languages the player chose (ISO 639-1, e.g. `pl`), current when the line was read. Stages that depend on language, like `normalize` (output language) and `translate` (from the game to the output language), use them instead of settings of their own, so the player's choice applies to every game. A stage without rules for a language should pass the line unchanged.
 - Players can switch each stage on and off in the overlay; a switched-off stage is skipped. Next to its tick they see its `type` and its `summary`, a few words on what it does. Set `warning_when_disabled` if reading breaks without the stage.
 - Each source gets its own stage objects, so a stage may keep state per source.
 - Heavy dependencies and models belong in an optional extra and the user data folder, imported and downloaded only when the stage first needs them, as `translate` does (`stages/translate/`).

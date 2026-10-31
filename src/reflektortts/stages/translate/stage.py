@@ -9,7 +9,6 @@ from dataclasses import replace
 from typing import Any
 
 from reflektortts.events import TextEvent
-from reflektortts.languages import AUTO
 from reflektortts.pipeline.plugins import StagePlugin, load_schema
 from reflektortts.stages.translate.engine import Engine, MosesBpeEngine
 from reflektortts.stages.translate.model import PACKAGES, ensure_model
@@ -17,8 +16,6 @@ from reflektortts.stages.translate.sentences import split_sentences
 
 logger = logging.getLogger(__name__)
 
-AUTO_MEANS = "en"
-"""The game language assumed for "auto"; English is the only source language with a model."""
 CACHE_SIZE = 256
 
 type Pair = tuple[str, str]
@@ -39,9 +36,8 @@ class Translate:
         self._cache: OrderedDict[tuple[Pair, str], str] = OrderedDict()
 
     def process(self, event: TextEvent) -> TextEvent | None:
-        source = AUTO_MEANS if event.game_language == AUTO else event.game_language
-        pair = (source, event.output_language)
-        if not event.text or source == event.output_language:
+        pair = (event.game_language, event.output_language)
+        if not event.text or event.game_language == event.output_language:
             return event
         if pair not in self._pairs:
             logger.debug("No translation model from %s to %s", *pair)

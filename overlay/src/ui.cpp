@@ -20,7 +20,6 @@ constexpr double kHintSeconds = 10.0;
 constexpr float kPanelWidth = 420.0f;
 constexpr float kHeaderFontSize = 20.0f;
 constexpr int kMaxLastLineRows = 9;
-constexpr char kAuto[] = "auto";
 constexpr float kSubtitleWidth = 0.7f;   // Of the screen's width.
 constexpr float kSubtitleMargin = 0.05f;  // Of the screen's height, from its top or bottom edge.
 constexpr float kMinSubtitleFontSize = 16.0f;
@@ -197,9 +196,6 @@ void draw_choice_combo(const char* label, const std::string& current, const Choi
 }
 
 std::string language_name(const CoreState& state, const std::string& code) {
-    if (code == kAuto) {
-        return "Auto";
-    }
     for (const LanguageOption& language : state.languages) {
         if (language.code == code) {
             return language.name;
@@ -248,13 +244,10 @@ void draw_flow_arrow() {
     ImGui::Dummy(ImVec2(0.0f, size));
 }
 
-void draw_language_combo(const char* label, const CoreState& state, const std::string& current, bool with_auto,
+void draw_language_combo(const char* label, const CoreState& state, const std::string& current,
                          void (*request)(const std::string&)) {
     if (!ImGui::BeginCombo(label, language_name(state, current).c_str())) {
         return;
-    }
-    if (with_auto && ImGui::Selectable("Auto##auto", current == kAuto) && current != kAuto) {
-        request(kAuto);
     }
     for (const LanguageOption& language : state.languages) {
         bool selected = language.code == current;
@@ -352,7 +345,7 @@ void draw_ducking(const CoreState& state) {
 // Where text comes from: the game's language and its sources, each of which can be switched off.
 void draw_game(const CoreState& state) {
     begin_box("Game");
-    draw_language_combo("Game language", state, state.game_language, true, request_game_language);
+    draw_language_combo("Game language", state, state.game_language, request_game_language);
     for (const SourceStages& source : state.sources) {
         bool enabled = source.enabled;
         if (ImGui::Checkbox((source.source + "##source:" + source.source).c_str(), &enabled)) {
@@ -381,7 +374,7 @@ void draw_subtitle_settings(const CoreState& state) {
 // Where text goes: the language it is prepared in, how it is spoken and how it is shown.
 void draw_output(const CoreState& state) {
     begin_box("Output");
-    draw_language_combo("Language", state, state.output_language, false, request_output_language);
+    draw_language_combo("Language", state, state.output_language, request_output_language);
     begin_section("Speech");
     draw_voice_combo(state);
     draw_speech_pace(state);

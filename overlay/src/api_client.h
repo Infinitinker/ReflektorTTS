@@ -38,7 +38,7 @@ struct CoreState {
     bool connected = false;
     std::string game;  // Empty while no game is being read.
     std::string voice;
-    std::string game_language;    // A code, or "auto".
+    std::string game_language;    // A code, e.g. "en".
     std::string output_language;  // A code, e.g. "pl".
     bool paused = false;
     bool ducking = true;       // Whether the game's sound is lowered while speaking.

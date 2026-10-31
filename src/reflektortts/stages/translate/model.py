@@ -10,7 +10,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 
-import platformdirs
+from reflektortts.user_dirs import data_dir
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +49,7 @@ class ModelDownloadError(Exception):
 
 
 def models_dir() -> Path:
-    return platformdirs.user_data_path("reflektortts", appauthor=False) / "translation"
+    return data_dir() / "translation"
 
 
 def download_file(url: str, destination: Path) -> None:

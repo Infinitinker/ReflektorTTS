@@ -20,7 +20,7 @@ from reflektortts.api.server import (
 )
 from reflektortts.bus import EventBus, Listener
 from reflektortts.events import ErrorEvent, GameInfo, SourceStages, StageState, Status, SubtitleEvent, TextEvent
-from reflektortts.languages import LanguageError, check_game_language, check_output_language
+from reflektortts.languages import LanguageError, check_language
 from reflektortts.tts.engine import VoiceError, VoiceInfo
 
 ADAM = VoiceInfo(id="windows:Microsoft Adam", engine="windows", name="Microsoft Adam", language="pl-PL")
@@ -40,7 +40,7 @@ class FakeCore:
         self.current = Status(
             game=GameInfo("Grand Theft Auto 2", 42),
             voice="piper:a",
-            game_language="auto",
+            game_language="pl",
             output_language="en",
             paused=False,
             ducking=True,
@@ -66,12 +66,12 @@ class FakeCore:
         return self.current
 
     def set_game_language(self, language: str) -> Status:
-        check_game_language(language)
+        check_language(language)
         self.current = replace(self.current, game_language=language)
         return self.current
 
     def set_output_language(self, language: str) -> Status:
-        check_output_language(language)
+        check_language(language)
         self.current = replace(self.current, output_language=language)
         return self.current
 
@@ -127,7 +127,7 @@ def test_status() -> None:
             "type": "status",
             "game": {"title": "Grand Theft Auto 2", "pid": 42},
             "voice": "piper:a",
-            "game_language": "auto",
+            "game_language": "pl",
             "output_language": "en",
             "paused": False,
             "ducking": True,
@@ -234,7 +234,7 @@ def test_subtitles_can_be_switched_on_and_set_up() -> None:
         ({"duck_volume": 1.5}, SETTINGS_HELP),
         ({"duck_volume": True}, SETTINGS_HELP),
         ({"output_language": "auto"}, 'There is no language "auto". Available: en, pl.'),
-        ({"game_language": "xx"}, 'There is no language "xx". Available: auto, en, pl.'),
+        ({"game_language": "auto"}, 'There is no language "auto". Available: en, pl.'),
         ({"voice": 5}, SETTINGS_HELP),
         ({"volume": 5}, SETTINGS_HELP),
         ("not json", "The request body must be a JSON object."),
@@ -352,4 +352,4 @@ def test_server_runs_on_its_own_thread_and_reports_a_busy_port() -> None:
 
 def test_language_errors_are_language_errors() -> None:
     with pytest.raises(LanguageError):
-        check_output_language("auto")
+        check_language("auto")

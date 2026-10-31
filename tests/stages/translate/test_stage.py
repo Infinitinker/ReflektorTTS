@@ -49,12 +49,6 @@ def test_lines_are_translated_sentence_by_sentence() -> None:
     assert engines.opened == [("en", "pl")]
 
 
-def test_auto_game_language_is_taken_as_english() -> None:
-    stage = make_stage(Engines())
-
-    assert translate(stage, "Kill Frenzy!", game="auto") == "<Kill Frenzy!>"
-
-
 def test_lines_already_in_the_output_language_pairs_without_a_model_and_empty_text_pass_unchanged() -> None:
     engines = Engines()
     stage = make_stage(engines)

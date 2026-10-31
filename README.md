@@ -29,7 +29,7 @@ Build the overlay as described in [overlay/README.md](overlay/README.md).
 
 ReflektorTTS then waits for a game it has a profile for. When you start the game, it loads the overlay into it and reads its text aloud; when the game exits, it waits for the next one. Stop it with Ctrl+C.
 
-- `--profiles DIR`: folder with game profiles. Default: `profiles` in your user data folder (`%LOCALAPPDATA%\reflektortts\profiles`).
+- `--profiles DIR`: folder with game profiles. Default: `profiles` in your user data folder (`%LOCALAPPDATA%\ReflektorTTS\profiles`).
 - `--overlay DIR`: folder with an overlay build. Repeat it to give both a 32-bit and a 64-bit build; the one matching the game is used. Without it, games run without the overlay.
 
 The first run downloads the default voice (about 60 MB).
@@ -40,14 +40,14 @@ Press **Ctrl+Shift+R** to open the ReflektorTTS panel. From top to bottom it fol
 
 ## Voices
 
-- **Piper** voices, downloaded on first use into `%LOCALAPPDATA%\reflektortts\voices`. The default, `en_US-ljspeech-medium`, is trained on the public-domain LJ Speech dataset.
+- **Piper** voices, downloaded on first use into `%LOCALAPPDATA%\ReflektorTTS\voices`. The default, `en_US-ljspeech-medium`, is trained on the public-domain LJ Speech dataset.
 - **Windows** voices installed in Windows Settings > Time & language > Speech, e.g. Microsoft Adam (Polish).
 
-The chosen voice is saved in `%LOCALAPPDATA%\reflektortts\settings.json`.
+Everything chosen in the panel, the voice included, is saved for each game, in `%LOCALAPPDATA%\ReflektorTTS\games\`, one file per game named like its profile (e.g. `mad-max-2015.json`). A game played for the first time starts with the defaults, and deleting its file resets it. `%LOCALAPPDATA%\ReflektorTTS\settings.json` remembers the voice last chosen for each language, so switching a game's output language picks it again.
 
 ## Game sound
 
-While a line is spoken, ReflektorTTS lowers the game's sound, like a *lektor* speaking over the original, and brings it back half a second after the voice stops. By default the game drops to 30% of its own volume; the panel's Output section switches this off or sets the level. Only the game's slider in the Windows volume mixer is changed, not other apps. If ReflektorTTS stops while the game is lowered, the game's own volume is kept in `%LOCALAPPDATA%\reflektortts\lowered-games.json` and put back the next time the game starts.
+While a line is spoken, ReflektorTTS lowers the game's sound, like a *lektor* speaking over the original, and brings it back half a second after the voice stops. By default the game drops to 30% of its own volume; the panel's Output section switches this off or sets the level. Only the game's slider in the Windows volume mixer is changed, not other apps. If ReflektorTTS stops while the game is lowered, the game's own volume is kept in `%LOCALAPPDATA%\ReflektorTTS\lowered-games.json` and put back the next time the game starts.
 
 ## Subtitles
 
@@ -57,7 +57,7 @@ ReflektorTTS can also show each line as a subtitle over the game, for example th
 
 ReflektorTTS can translate a game into the output language, in the style of a Polish *lektor*. Set the game language (in the panel's Game section) and the output language (in Output); when they differ, profiles with a `translate` stage translate each line before it is spoken. To turn it off, untick `translate` in the panel's Text processing section.
 
-Only English to Polish is available so far. It runs offline on the CPU, at about 0.1 s per line. The model (about 80 MB) is downloaded the first time a line needs it, into `%LOCALAPPDATA%\reflektortts\translation`. It is the English–Polish model of [Argos Translate](https://github.com/argosopentech/argos-translate), derived from an [OPUS-MT](https://github.com/Helsinki-NLP/Opus-MT) model by Jörg Tiedemann and Santhosh Thottingal and licensed CC-BY 4.0.
+Only English to Polish is available so far. It runs offline on the CPU, at about 0.1 s per line. The model (about 80 MB) is downloaded the first time a line needs it, into `%LOCALAPPDATA%\ReflektorTTS\translation`. It is the English–Polish model of [Argos Translate](https://github.com/argosopentech/argos-translate), derived from an [OPUS-MT](https://github.com/Helsinki-NLP/Opus-MT) model by Jörg Tiedemann and Santhosh Thottingal and licensed CC-BY 4.0.
 
 ## Local API
 

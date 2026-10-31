@@ -6,8 +6,8 @@ import time
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import replace
 from pathlib import Path
+from typing import Any
 
-import platformdirs
 import psutil
 
 from reflektortts.api.server import ApiServer, SourceError, StageError
@@ -18,11 +18,10 @@ from reflektortts.ducking.volume import DuckingUnavailableError, OpenAppVolume, 
 from reflektortts.events import ErrorEvent, GameInfo, SourceStages, StageState, Status
 from reflektortts.games.detector import RunningGame, find_running_games
 from reflektortts.languages import (
-    AUTO,
+    DEFAULT_GAME_LANGUAGE,
     DEFAULT_OUTPUT_LANGUAGE,
     Languages,
-    check_game_language,
-    check_output_language,
+    check_language,
     primary_language,
 )
 from reflektortts.overlay import inject_overlay
@@ -31,12 +30,13 @@ from reflektortts.pipeline.protocols import Sink
 from reflektortts.pipeline.runner import Route, Runner, log_error
 from reflektortts.profiles.loader import load_profiles
 from reflektortts.profiles.model import Profile
-from reflektortts.settings import Settings, load_settings, save_settings
+from reflektortts.settings import GameSettings, load_game, load_shared, save_game, save_shared
 from reflektortts.sinks.bus import BusSink
 from reflektortts.sinks.subtitles import Subtitles
 from reflektortts.sinks.tts.narrator import Narrator
 from reflektortts.sinks.tts.sink import TtsSink
 from reflektortts.tts.engine import VoiceError, VoiceInfo, available_voices
+from reflektortts.user_dirs import data_dir
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +48,7 @@ EXIT_CHECK_SECONDS = 0.1
 
 
 def default_profiles_dir() -> Path:
-    return platformdirs.user_data_path("reflektortts", appauthor=False) / "profiles"
+    return data_dir() / "profiles"
 
 
 def start_narrator(voice: str, on_speaking: Callable[[bool], None]) -> Narrator:
@@ -77,12 +77,9 @@ def _source_check(source: str, is_source_enabled: Callable[[str], bool]) -> Call
     return lambda: is_source_enabled(source)
 
 
-def _switched(disabled: dict[str, list[str]], profile_id: str, key: str, enabled: bool) -> dict[str, list[str]]:
-    """Switched-off keys by profile ID, with key switched on or off for one profile."""
-    keys = set(disabled.get(profile_id, []))
-    keys = keys - {key} if enabled else keys | {key}
-    stored = disabled | {profile_id: sorted(keys)}
-    return {profile: keys for profile, keys in stored.items() if keys}
+def _switched(disabled: tuple[str, ...], key: str, enabled: bool) -> tuple[str, ...]:
+    """Switched-off keys, with key switched on or off."""
+    return tuple(sorted(set(disabled) - {key} if enabled else set(disabled) | {key}))
 
 
 def build_routes(
@@ -125,7 +122,7 @@ def read_game(
     on_error: Callable[[ErrorEvent], None] = log_error,
     is_running: Callable[[int], bool] = psutil.pid_exists,
     check_seconds: float = GAME_CHECK_SECONDS,
-    languages: Callable[[], Languages] = lambda: Languages(game=AUTO, output=DEFAULT_OUTPUT_LANGUAGE),
+    languages: Callable[[], Languages] = lambda: Languages(DEFAULT_GAME_LANGUAGE, DEFAULT_OUTPUT_LANGUAGE),
 ) -> None:
     """Runs the pipeline until the game exits or stop is set, then closes the sources."""
     runner_stop = threading.Event()
@@ -143,12 +140,17 @@ def read_game(
 
 
 class Core:
-    """Owns the narrator, the settings and the event bus; the API controls it through these methods."""
+    """Owns the narrator, the settings and the event bus; the API controls it through these methods.
+
+    Settings belong to the game being read and are saved for it; a game starts with the defaults
+    until the player changes something in it. While no game is read, the defaults apply and
+    changes are not saved.
+    """
 
     def __init__(
         self,
         profiles: Sequence[Profile],
-        settings_file: Path,
+        settings_dir: Path,
         overlay_dirs: Sequence[Path] = (),
         narrator_factory: Callable[[str, Callable[[bool], None]], Narrator] = start_narrator,
         list_voices: Callable[[], list[VoiceInfo]] = available_voices,
@@ -161,8 +163,9 @@ class Core:
         self._profiles = profiles
         self._is_running = is_running
         self._exit_grace_seconds = exit_grace_seconds
-        self._settings_file = settings_file
-        self._settings = load_settings(settings_file)
+        self._settings_dir = settings_dir
+        self._shared = load_shared(settings_dir)
+        self._settings = GameSettings()
         self._overlay_dirs = overlay_dirs
         self._list_voices = list_voices
         self._stages = stage_plugins() if stages is None else stages
@@ -200,17 +203,17 @@ class Core:
         return Languages(game=self._settings.game_language, output=self._settings.output_language)
 
     def set_game_language(self, language: str) -> Status:
-        check_game_language(language)
-        self._save(replace(self._settings, game_language=language))
+        check_language(language)
+        self._change(game_language=language)
         return self._publish_status()
 
     def set_output_language(self, language: str) -> Status:
         """Also switches to a voice for the language, unless the current one speaks it."""
-        check_output_language(language)
+        check_language(language)
         voice = self._voice_for(language)
         if voice is not None:
             self._narrator.use_voice(voice)
-        self._save(replace(self._settings, output_language=language, voice=self._narrator.voice))
+        self._change(output_language=language, voice=self._narrator.voice)
         return self._publish_status()
 
     def voices(self) -> list[VoiceInfo]:
@@ -222,26 +225,28 @@ class Core:
         if voice not in voices:
             raise VoiceError(f'There is no voice "{voice}". Available: {", ".join(voices) or "none"}.')
         self._narrator.use_voice(voice)
-        remembered = self._settings.voices_by_language | {primary_language(voices[voice].language): voice}
-        self._save(replace(self._settings, voice=voice, voices_by_language=remembered))
+        remembered = self._shared.voices_by_language | {primary_language(voices[voice].language): voice}
+        self._shared = replace(self._shared, voices_by_language=remembered)
+        save_shared(self._shared, self._settings_dir)
+        self._change(voice=voice)
         return self._publish_status()
 
     def set_ducking(self, enabled: bool, volume: float) -> Status:
         """Whether, and how far, the game's sound is lowered while lines are spoken."""
         self._ducker.configure(enabled, volume)
-        self._save(replace(self._settings, ducking=enabled, duck_volume=volume))
+        self._change(ducking=enabled, duck_volume=volume)
         return self._publish_status()
 
     def set_speech(self, rate: float, cut_off: bool) -> Status:
         """How fast lines are spoken, and whether a new line cuts off the one being spoken."""
         self._narrator.configure(rate, cut_off)
-        self._save(replace(self._settings, speech_rate=rate, cut_off_lines=cut_off))
+        self._change(speech_rate=rate, cut_off_lines=cut_off)
         return self._publish_status()
 
     def set_subtitles(self, enabled: bool, size: str, position: str) -> Status:
         """Whether lines are shown as subtitles over the game, how large and where."""
         self._subtitles.configure(enabled)
-        self._save(replace(self._settings, subtitles=enabled, subtitle_size=size, subtitle_position=position))
+        self._change(subtitles=enabled, subtitle_size=size, subtitle_position=position)
         return self._publish_status()
 
     def set_paused(self, paused: bool) -> Status:
@@ -256,8 +261,7 @@ class Core:
         return self.status()
 
     def is_source_enabled(self, name: str) -> bool:
-        profile = self._profile
-        return profile is None or name not in self._settings.disabled_sources.get(profile.id, [])
+        return name not in self._settings.disabled_sources
 
     def set_source_enabled(self, name: str, enabled: bool) -> Status:
         """Switches a source of the game being read on or off; the choice is saved for that game."""
@@ -267,13 +271,11 @@ class Core:
         names = [source.name for source in profile.sources]
         if name not in names:
             raise SourceError(f'{profile.game.title} has no source "{name}". Its sources: {", ".join(names)}.')
-        disabled = _switched(self._settings.disabled_sources, profile.id, name, enabled)
-        self._save(replace(self._settings, disabled_sources=disabled))
+        self._change(disabled_sources=_switched(self._settings.disabled_sources, name, enabled))
         return self._publish_status()
 
     def is_stage_enabled(self, key: str) -> bool:
-        profile = self._profile
-        return profile is None or key not in self._settings.disabled_stages.get(profile.id, [])
+        return key not in self._settings.disabled_stages
 
     def set_stage_enabled(self, key: str, enabled: bool) -> Status:
         """Switches a stage of the game being read on or off; the choice is saved for that game."""
@@ -283,8 +285,7 @@ class Core:
         keys = [stage.key for source in self._source_stages() for stage in source.stages]
         if key not in keys:
             raise StageError(f'{profile.game.title} has no stage "{key}". Its stages: {", ".join(keys)}.')
-        disabled = _switched(self._settings.disabled_stages, profile.id, key, enabled)
-        self._save(replace(self._settings, disabled_stages=disabled))
+        self._change(disabled_stages=_switched(self._settings.disabled_stages, key, enabled))
         return self._publish_status()
 
     def subscribe(self, listener: Listener) -> Callable[[], None]:
@@ -301,9 +302,7 @@ class Core:
                 stop.wait(GAME_CHECK_SECONDS)
                 continue
             game = games[0]
-            self._game = GameInfo(title=game.profile.game.title, pid=game.process.pid)
-            self._profile = game.profile
-            self._publish_status()
+            self._enter(game)
             self._ducker.watch(game.process)
             if self._overlay_dirs:
                 inject_overlay(game.process.pid, self._overlay_dirs)
@@ -319,9 +318,7 @@ class Core:
             read_game(game, routes, sinks, stop, self._report, self._is_running, languages=self.languages)
             logger.info("%s closed", game.profile.game.title)
             self._ducker.watch(None)
-            self._game = None
-            self._profile = None
-            self._publish_status()
+            self._leave()
 
     def close(self) -> None:
         self._narrator.close()
@@ -366,7 +363,7 @@ class Core:
         if current is not None and primary_language(current.language) == language:
             return None
         matching = [voice.id for voice in voices if primary_language(voice.language) == language]
-        remembered = self._settings.voices_by_language.get(language)
+        remembered = self._shared.voices_by_language.get(language)
         if remembered in matching:
             return remembered
         return matching[0] if matching else None
@@ -376,9 +373,35 @@ class Core:
         self._ducker.speaking(active)
         self._subtitles.speaking(active)
 
-    def _save(self, settings: Settings) -> None:
+    def _enter(self, game: RunningGame) -> None:
+        """A game is being read from now on, with its settings."""
+        self._game = GameInfo(title=game.profile.game.title, pid=game.process.pid)
+        self._profile = game.profile
+        self._use(load_game(self._settings_dir, game.profile.id))
+        self._publish_status()
+
+    def _leave(self) -> None:
+        """The game is no longer read; the defaults apply again."""
+        self._game = None
+        self._profile = None
+        self._use(GameSettings())
+        self._publish_status()
+
+    def _use(self, settings: GameSettings) -> None:
+        """Switches to a game's settings, or to the defaults."""
         self._settings = settings
-        save_settings(settings, self._settings_file)
+        if settings.voice != self._narrator.voice:
+            self._narrator.use_voice(settings.voice)
+        self._narrator.configure(settings.speech_rate, settings.cut_off_lines)
+        self._ducker.configure(settings.ducking, settings.duck_volume)
+        self._subtitles.configure(settings.subtitles)
+
+    def _change(self, **changes: Any) -> None:
+        """Changes settings, saved for the game being read, if any."""
+        self._settings = replace(self._settings, **changes)
+        profile = self._profile
+        if profile is not None:
+            save_game(self._settings, self._settings_dir, profile.id)
 
     def _report(self, error: ErrorEvent) -> None:
         # A source usually fails a moment before the game's exit is noticed; that is not an error.
@@ -405,7 +428,7 @@ class Core:
         return status
 
 
-def run(profiles_dir: Path, settings_file: Path, overlay_dirs: Sequence[Path], stop: threading.Event) -> None:
+def run(profiles_dir: Path, settings_dir: Path, overlay_dirs: Sequence[Path], stop: threading.Event) -> None:
     """Starts the core and its API, and runs until stop is set or the process is interrupted."""
     profiles, errors = load_profiles(profiles_dir) if profiles_dir.is_dir() else ([], [])
     for error in errors:
@@ -414,7 +437,7 @@ def run(profiles_dir: Path, settings_file: Path, overlay_dirs: Sequence[Path], s
         logger.error("No game profiles in %s. Copy a profile there or pass --profiles.", profiles_dir)
         return
 
-    core = Core(profiles, settings_file, overlay_dirs)
+    core = Core(profiles, settings_dir, overlay_dirs)
     server = ApiServer(core)
     try:
         server.start()

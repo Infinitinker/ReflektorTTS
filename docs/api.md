@@ -6,6 +6,8 @@ Requests and responses are JSON (UTF-8). There is no authentication: the API onl
 
 ## Status
 
+Settings belong to the game being read: the status shows that game's, and changes are saved for it. A game played for the first time starts with the defaults. While no game is being read, the status shows the defaults, and changes apply until a game starts but are not saved.
+
 The status object, returned by several requests and sent as an event:
 
 ```json
@@ -13,7 +15,7 @@ The status object, returned by several requests and sent as an event:
   "type": "status",
   "game": { "title": "Grand Theft Auto 2", "pid": 4824 },
   "voice": "windows:Microsoft Adam",
-  "game_language": "auto",
+  "game_language": "en",
   "output_language": "pl",
   "paused": false,
   "ducking": true,
@@ -46,7 +48,7 @@ The status object, returned by several requests and sent as an event:
 |---|---|
 | `game` | The game being read, or `null` while waiting for one |
 | `voice` | The current voice, as `engine:name` |
-| `game_language` | The language of the game's text (ISO 639-1 code), or `auto` to let e.g. translation detect it |
+| `game_language` | The language of the game's text (ISO 639-1 code); English unless the player chose another |
 | `output_language` | The language lines are prepared, spoken and shown in (ISO 639-1 code) |
 | `paused` | Whether reading is paused |
 | `ducking` | Whether the game's sound is lowered while lines are spoken |
@@ -89,17 +91,15 @@ Returns the languages the pipeline supports, with their names in their own langu
 { "languages": [{ "code": "en", "name": "English" }, { "code": "pl", "name": "Polski" }] }
 ```
 
-`game_language` also accepts `auto`.
-
 ### `PATCH /v1/settings`
 
-Changes settings and saves them. Send any of the fields:
+Changes settings and saves them for the game being read (see Status). Send any of the fields:
 
 ```json
 { "game_language": "en", "output_language": "pl", "voice": "windows:Microsoft Adam" }
 ```
 
-- `game_language`: a `code` from `/v1/languages`, or `auto`.
+- `game_language`: a `code` from `/v1/languages`.
 - `output_language`: a `code` from `/v1/languages`. Lines read from then on are prepared for it. If the current voice does not speak it, the core switches to the voice last chosen for that language, or else the first voice that speaks it; with no such voice, the voice stays.
 - `voice`: an `id` from `/v1/voices`. Switching starts a new speech process; the next line is spoken with the new voice. The voice is also remembered for its language.
 - `ducking`: `true` or `false`, whether the game's sound is lowered while lines are spoken.

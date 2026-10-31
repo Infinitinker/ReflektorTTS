@@ -1,4 +1,9 @@
-"""Per-user settings, stored as JSON in the user's config folder."""
+"""Per-user settings, stored as JSON in the user's config folder.
+
+Each game has its own file, games/<profile ID>.json, with everything the player set in the panel
+for it; a game without one has the defaults. settings.json holds the voice last chosen for each
+language, in any game. On the first run neither exists.
+"""
 
 import json
 import logging
@@ -7,30 +12,27 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
-import platformdirs
-
 from reflektortts.ducking.ducker import DEFAULT_LEVEL
-from reflektortts.languages import AUTO, DEFAULT_OUTPUT_LANGUAGE
+from reflektortts.languages import DEFAULT_GAME_LANGUAGE, DEFAULT_OUTPUT_LANGUAGE, LANGUAGES
 from reflektortts.sinks.subtitles import DEFAULT_POSITION, DEFAULT_SIZE, POSITIONS, SIZES
 from reflektortts.tts.engine import DEFAULT_VOICE, MAX_RATE, MIN_RATE
 
 logger = logging.getLogger(__name__)
 
+SHARED_FILE = "settings.json"
+GAMES_FOLDER = "games"
+
 
 @dataclass(frozen=True)
-class Settings:
+class GameSettings:
+    """Everything the player sets in the panel, for one game."""
+
     voice: str = DEFAULT_VOICE
     """Voice as "engine:name", e.g. "windows:Microsoft Adam"."""
-    game_language: str = AUTO
-    """The language of the game's text (ISO 639-1), or "auto"."""
+    game_language: str = DEFAULT_GAME_LANGUAGE
+    """The language of the game's text (ISO 639-1)."""
     output_language: str = DEFAULT_OUTPUT_LANGUAGE
     """The language lines are prepared, spoken and shown in (ISO 639-1)."""
-    voices_by_language: dict[str, str] = field(default_factory=dict)
-    """The voice last chosen for each output language, e.g. {"pl": "windows:Microsoft Adam"}."""
-    disabled_sources: dict[str, list[str]] = field(default_factory=dict)
-    """Sources switched off by the player, by profile ID: {"grand-theft-auto-2-1999": ["subtitles"]}."""
-    disabled_stages: dict[str, list[str]] = field(default_factory=dict)
-    """Stages switched off by the player, by profile ID: {"grand-theft-auto-2-1999": ["subtitles/3:normalize"]}."""
     ducking: bool = True
     """Whether the game's sound is lowered while lines are spoken."""
     duck_volume: float = DEFAULT_LEVEL
@@ -45,10 +47,82 @@ class Settings:
     """One of SIZES."""
     subtitle_position: str = DEFAULT_POSITION
     """One of POSITIONS: where on the screen subtitles are shown."""
+    disabled_sources: tuple[str, ...] = ()
+    """Names of the sources the player switched off."""
+    disabled_stages: tuple[str, ...] = ()
+    """Keys of the stages the player switched off, e.g. "subtitles/3:normalize"."""
 
 
-def settings_path() -> Path:
-    return platformdirs.user_config_path("reflektortts", appauthor=False) / "settings.json"
+@dataclass(frozen=True)
+class SharedSettings:
+    """Settings for every game."""
+
+    voices_by_language: dict[str, str] = field(default_factory=dict)
+    """The voice last chosen for each output language, e.g. {"pl": "windows:Microsoft Adam"}."""
+
+
+def load_shared(directory: Path) -> SharedSettings:
+    """Reads settings.json; missing or invalid settings get defaults."""
+    return SharedSettings(voices_by_language=_text_map(_read(directory / SHARED_FILE).get("voices_by_language")))
+
+
+def save_shared(settings: SharedSettings, directory: Path) -> None:
+    _write(directory / SHARED_FILE, asdict(settings))
+
+
+def load_game(directory: Path, profile_id: str) -> GameSettings:
+    """A game's settings; missing or invalid ones get defaults."""
+    return _game_settings(_read(_game_path(directory, profile_id)))
+
+
+def save_game(settings: GameSettings, directory: Path, profile_id: str) -> None:
+    _write(_game_path(directory, profile_id), asdict(settings))
+
+
+def _game_path(directory: Path, profile_id: str) -> Path:
+    return directory / GAMES_FOLDER / f"{profile_id}.json"
+
+
+def _read(path: Path) -> dict[str, Any]:
+    """A settings file's fields; none if it is missing, and a broken file is reported."""
+    if not path.is_file():
+        return {}
+    try:
+        data = json.loads(path.read_text("utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        logger.error("Cannot read settings from %s (%s); using defaults.", path, error)
+        return {}
+    if not isinstance(data, dict):
+        logger.error("Settings in %s are not a JSON object; using defaults.", path)
+        return {}
+    return data
+
+
+def _write(path: Path, data: dict[str, Any]) -> None:
+    """Writes through a temporary file, so a crash never leaves a half-written file."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix(".tmp")
+    temporary.write_text(json.dumps(data, indent=2) + "\n", "utf-8")
+    os.replace(temporary, path)
+
+
+def _game_settings(data: dict[str, Any]) -> GameSettings:
+    defaults = GameSettings()
+    return GameSettings(
+        voice=_text(data, "voice", defaults.voice),
+        # Unsupported languages, such as a leftover "auto", become the default.
+        game_language=_choice(data, "game_language", tuple(LANGUAGES), defaults.game_language),
+        output_language=_choice(data, "output_language", tuple(LANGUAGES), defaults.output_language),
+        ducking=_flag(data, "ducking", defaults.ducking),
+        duck_volume=_number(data, "duck_volume", defaults.duck_volume, 0.0, 1.0),
+        speech_rate=_number(data, "speech_rate", defaults.speech_rate, MIN_RATE, MAX_RATE),
+        cut_off_lines=_flag(data, "cut_off_lines", defaults.cut_off_lines),
+        subtitles=_flag(data, "subtitles", defaults.subtitles),
+        subtitle_size=_choice(data, "subtitle_size", SIZES, defaults.subtitle_size),
+        subtitle_position=_choice(data, "subtitle_position", POSITIONS, defaults.subtitle_position),
+        disabled_sources=_texts(data.get("disabled_sources")),
+        disabled_stages=_texts(data.get("disabled_stages")),
+    )
 
 
 def _text(data: dict[str, Any], key: str, default: str) -> str:
@@ -73,59 +147,13 @@ def _choice(data: dict[str, Any], key: str, choices: tuple[str, ...], default: s
     return value if value in choices else default
 
 
+def _texts(value: object) -> tuple[str, ...]:
+    if not isinstance(value, list):
+        return ()
+    return tuple(item for item in value if isinstance(item, str))
+
+
 def _text_map(value: object) -> dict[str, str]:
     if not isinstance(value, dict):
         return {}
     return {key: item for key, item in value.items() if isinstance(key, str) and isinstance(item, str)}
-
-
-def _list_map(value: object) -> dict[str, list[str]]:
-    if not isinstance(value, dict):
-        return {}
-    return {
-        key: [item for item in items if isinstance(item, str)]
-        for key, items in value.items()
-        if isinstance(key, str) and isinstance(items, list)
-    }
-
-
-def load_settings(path: Path) -> Settings:
-    """Reads settings; missing or invalid ones get defaults. A broken file is reported and replaced by defaults."""
-    if not path.is_file():
-        return Settings()
-    try:
-        data = json.loads(path.read_text("utf-8"))
-    except (OSError, json.JSONDecodeError) as error:
-        logger.error("Cannot read settings from %s (%s); using defaults.", path, error)
-        return Settings()
-    if not isinstance(data, dict):
-        logger.error("Settings in %s are not a JSON object; using defaults.", path)
-        return Settings()
-    defaults = Settings()
-    # Older names of the output language: "speech_language", and "language" before game and
-    # output languages were split.
-    older = _text(data, "speech_language", _text(data, "language", defaults.output_language))
-    output_language = _text(data, "output_language", older)
-    return Settings(
-        voice=_text(data, "voice", defaults.voice),
-        game_language=_text(data, "game_language", defaults.game_language),
-        output_language=output_language,
-        voices_by_language=_text_map(data.get("voices_by_language")),
-        disabled_sources=_list_map(data.get("disabled_sources")),
-        disabled_stages=_list_map(data.get("disabled_stages")),
-        ducking=_flag(data, "ducking", defaults.ducking),
-        duck_volume=_number(data, "duck_volume", defaults.duck_volume, 0.0, 1.0),
-        speech_rate=_number(data, "speech_rate", defaults.speech_rate, MIN_RATE, MAX_RATE),
-        cut_off_lines=_flag(data, "cut_off_lines", defaults.cut_off_lines),
-        subtitles=_flag(data, "subtitles", defaults.subtitles),
-        subtitle_size=_choice(data, "subtitle_size", SIZES, defaults.subtitle_size),
-        subtitle_position=_choice(data, "subtitle_position", POSITIONS, defaults.subtitle_position),
-    )
-
-
-def save_settings(settings: Settings, path: Path) -> None:
-    """Writes settings through a temporary file, so a crash never leaves a half-written file."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_suffix(".tmp")
-    temporary.write_text(json.dumps(asdict(settings), indent=2) + "\n", "utf-8")
-    os.replace(temporary, path)

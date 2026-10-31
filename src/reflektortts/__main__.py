@@ -8,7 +8,7 @@ from pathlib import Path
 
 from reflektortts.api.server import ApiError
 from reflektortts.app import default_profiles_dir, run
-from reflektortts.settings import settings_path
+from reflektortts.user_dirs import config_dir
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -32,9 +32,9 @@ def main(argv: list[str] | None = None) -> int:
     # One line per API request would drown the log the user reads.
     logging.getLogger("aiohttp.access").setLevel(logging.WARNING)
     log = logging.getLogger(__name__)
-    log.info("Settings: %s (the voice is chosen in the in-game overlay or the API)", settings_path())
+    log.info("Settings: %s (each game's are set in the in-game overlay or through the API)", config_dir())
     try:
-        run(args.profiles, settings_path(), args.overlay, threading.Event())
+        run(args.profiles, config_dir(), args.overlay, threading.Event())
     except ApiError as error:
         log.error("%s", error)
         return 1

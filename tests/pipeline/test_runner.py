@@ -76,14 +76,14 @@ def test_text_passes_through_stages_in_order_to_every_sink() -> None:
 
 def test_events_carry_the_languages_current_when_read() -> None:
     sink = RecordingSink()
-    current = [Languages(game="auto", output="en")]
+    current = [Languages(game="pl", output="en")]
     runner = Runner([Route(ScriptedSource("memory", ["one", "two"]))], [sink], languages=lambda: current[0])
 
     runner.poll(0.0)
     current[0] = Languages(game="en", output="pl")
     runner.poll(1.0)
 
-    assert [(event.game_language, event.output_language) for event in sink.events] == [("auto", "en"), ("en", "pl")]
+    assert [(event.game_language, event.output_language) for event in sink.events] == [("pl", "en"), ("en", "pl")]
 
 
 def test_switched_off_stages_are_skipped() -> None:

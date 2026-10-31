@@ -9,13 +9,13 @@ import logging
 import os
 from pathlib import Path
 
-import platformdirs
+from reflektortts.user_dirs import state_dir
 
 logger = logging.getLogger(__name__)
 
 
 def records_path() -> Path:
-    return platformdirs.user_state_path("reflektortts", appauthor=False) / "lowered-games.json"
+    return state_dir() / "lowered-games.json"
 
 
 class DuckRecords:

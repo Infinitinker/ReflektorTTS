@@ -68,7 +68,8 @@ A failing source, stage or sink is reported once as a `source.error`, `stage.err
 | `ducking/` | Lowers the game's sound while lines are spoken; the per-app volume has one implementation per OS (`windows.py`, WASAPI audio sessions) |
 | `languages.py` | Supported languages and their checks |
 | `api/server.py` | The local API |
-| `settings.py` | Per-user settings |
+| `settings.py` | Per-user settings: one file per game, and the voice remembered for each language |
+| `user_dirs.py` | The per-user folders (`%LOCALAPPDATA%\ReflektorTTS` on Windows) |
 | `overlay.py` | Loads the overlay into a game |
 | `overlay/` (repository root) | The in-game overlay (C++); see [overlay/README.md](../overlay/README.md) |
 | `profiles/` (repository root) | Game profiles; see [profiles/README.md](../profiles/README.md) |
@@ -99,7 +100,7 @@ Finding a line's label when subtitles can be turned off: turn subtitles on and f
 
 ### Lektor mode (translation)
 
-- **Done:** the `translate` stage translates each line from the game language to the output language it carries, only when they differ, and runs before `normalize`. It splits lines into sentences, because the models are trained on single sentences and drop the rest of longer input, and it remembers recent lines, because games repeat them. `auto` is taken as English while English is the only source language.
+- **Done:** the `translate` stage translates each line from the game language to the output language it carries, only when they differ, and runs before `normalize`. It splits lines into sentences, because the models are trained on single sentences and drop the rest of longer input, and it remembers recent lines, because games repeat them. The game language is one the player chooses, English by default; it is not detected, because guessing wrong mistranslates every line (e.g. Polish text run through the English model).
 - **Engine:** Argos Translate's English–Polish model (OPUS-MT based, CC-BY 4.0), run directly with CTranslate2 on the CPU (int8) and tokenized as it was trained (Moses tokens, BPE subwords), without the `argostranslate` package and its heavy dependencies. It runs in the core process, at about 0.1 s per line and at most 0.4 s, once per settled line. The model is loaded once and shared by every translate stage, of every source and game. The packages are the optional `translate` extra; the model is downloaded on first use.
 - **Why this engine:** an EN→PL benchmark on game lines compared it with Opus-MT `en-zlw` and `tc-bible-big`, Firefox Translations' model (through `fxtranslate`), and Meta's NLLB-200 600M and M2M-100 418M. It gave the most natural translations and was the fastest. Firefox's model needs a Marian-based engine (its SSRU decoder does not run on CTranslate2), and NLLB-200 is licensed for non-commercial use only.
 - Planned: more language pairs; a glossary per profile for names and game terms (offline models take no context, so names would be swapped for placeholders and back); online engines (e.g. DeepL, LLMs) as optional plugins that can use a game's context.

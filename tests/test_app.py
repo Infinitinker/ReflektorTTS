@@ -16,9 +16,9 @@ from reflektortts.languages import LanguageError, Languages
 from reflektortts.pipeline.plugins import SourcePlugin, StagePlugin
 from reflektortts.pipeline.runner import Route
 from reflektortts.profiles.model import Game, Match, Profile, SourceSettings, StageSettings
-from reflektortts.settings import load_settings
+from reflektortts.settings import GameSettings, load_game, load_shared
 from reflektortts.sinks.tts.narrator import Narrator
-from reflektortts.tts.engine import VoiceError, VoiceInfo
+from reflektortts.tts.engine import DEFAULT_VOICE, VoiceError, VoiceInfo
 from tests.sinks.tts.test_narrator import Clients
 
 
@@ -138,14 +138,26 @@ GTA2 = Profile(
 )
 
 
+MAD_MAX = Profile("mad-max-2015", Game("Mad Max", 2015), Match(("MadMax.exe",)))
+
+
 def no_sound() -> OpenAppVolume:
     return lambda pid: None
+
+
+def playing(profile: Profile) -> RunningGame:
+    return RunningGame(profile, ProcessInfo(42, profile.match.processes[0]))
+
+
+def saved_for(tmp_path: Path, profile: Profile) -> GameSettings:
+    """What is saved for a game, or the defaults if nothing is."""
+    return load_game(tmp_path, profile.id)
 
 
 def make_core(tmp_path: Path, clients: Clients, voices: list[VoiceInfo] | None = None) -> Core:
     return Core(
         profiles=[GTA2],
-        settings_file=tmp_path / "settings.json",
+        settings_dir=tmp_path,
         narrator_factory=lambda voice, on_speaking: Narrator(voice, clients.start, on_speaking),
         list_voices=lambda: [LJSPEECH, ADAM, PAULINA] if voices is None else voices,
         stages=STAGES,
@@ -154,32 +166,41 @@ def make_core(tmp_path: Path, clients: Clients, voices: list[VoiceInfo] | None =
     )
 
 
-def test_core_saves_a_new_voice_and_remembers_it_for_its_language(tmp_path: Path) -> None:
+def test_a_new_voice_is_saved_for_the_game_and_remembered_for_its_language(tmp_path: Path) -> None:
     core = make_core(tmp_path, Clients())
+    core._enter(playing(GTA2))
     events: list[Event] = []
     core.subscribe(events.append)
 
     status = core.set_voice("windows:Microsoft Paulina")
 
+    assert status.voice == "windows:Microsoft Paulina"
+    assert events == [status]
+    assert saved_for(tmp_path, GTA2).voice == "windows:Microsoft Paulina"
+    assert load_shared(tmp_path).voices_by_language == {"pl": "windows:Microsoft Paulina"}
+
+
+def test_without_a_game_the_defaults_apply_and_changes_are_not_saved(tmp_path: Path) -> None:
+    core = make_core(tmp_path, Clients())
+
+    status = core.set_speech(1.5, False)
+
     assert status == Status(
         game=None,
-        voice="windows:Microsoft Paulina",
-        game_language="auto",
+        voice=DEFAULT_VOICE,
+        game_language="en",
         output_language="en",
         paused=False,
         ducking=True,
         duck_volume=0.3,
-        speech_rate=1.0,
+        speech_rate=1.5,
         cut_off_lines=False,
         subtitles=False,
         subtitle_size="medium",
         subtitle_position="top",
     )
-    assert events == [status]
-    saved = load_settings(tmp_path / "settings.json")
-    assert saved.voice == "windows:Microsoft Paulina"
-    assert saved.voices_by_language == {"pl": "windows:Microsoft Paulina"}
-    assert make_core(tmp_path, Clients()).status().voice == "windows:Microsoft Paulina"
+    assert not (tmp_path / "games").exists()
+    assert make_core(tmp_path, Clients()).status().speech_rate == 1.0
 
 
 def test_core_rejects_voices_that_are_not_available(tmp_path: Path) -> None:
@@ -197,7 +218,6 @@ def test_output_language_switches_to_the_voice_last_used_for_it(tmp_path: Path) 
     status = core.set_output_language("pl")
 
     assert (status.output_language, status.voice) == ("pl", "windows:Microsoft Paulina")
-    assert load_settings(tmp_path / "settings.json").voice == "windows:Microsoft Paulina"
 
 
 def test_output_language_without_a_remembered_voice_takes_the_first_that_speaks_it(tmp_path: Path) -> None:
@@ -223,25 +243,28 @@ def test_output_language_without_any_voice_keeps_the_current_voice(tmp_path: Pat
 
 def test_languages_are_saved_and_checked(tmp_path: Path) -> None:
     core = make_core(tmp_path, Clients())
+    core._enter(playing(GTA2))
 
-    core.set_game_language("en")
+    core.set_game_language("pl")
     core.set_output_language("pl")
 
-    assert core.languages() == Languages(game="en", output="pl")
-    assert load_settings(tmp_path / "settings.json").game_language == "en"
+    assert core.languages() == Languages(game="pl", output="pl")
+    saved = saved_for(tmp_path, GTA2)
+    assert (saved.game_language, saved.output_language) == ("pl", "pl")
     with pytest.raises(LanguageError, match='no language "auto"'):
         core.set_output_language("auto")
-    with pytest.raises(LanguageError, match='no language "xx"'):
-        core.set_game_language("xx")
+    with pytest.raises(LanguageError, match='no language "auto"'):
+        core.set_game_language("auto")
 
 
 def test_ducking_settings_are_saved(tmp_path: Path) -> None:
     core = make_core(tmp_path, Clients())
+    core._enter(playing(GTA2))
 
     status = core.set_ducking(False, 0.5)
 
     assert (status.ducking, status.duck_volume) == (False, 0.5)
-    saved = load_settings(tmp_path / "settings.json")
+    saved = saved_for(tmp_path, GTA2)
     assert (saved.ducking, saved.duck_volume) == (False, 0.5)
     core.close()
 
@@ -249,25 +272,26 @@ def test_ducking_settings_are_saved(tmp_path: Path) -> None:
 def test_speech_settings_are_saved_and_used_for_the_next_line(tmp_path: Path) -> None:
     clients = Clients()
     core = make_core(tmp_path, clients)
+    core._enter(playing(GTA2))
 
     status = core.set_speech(1.5, True)
     core._narrator.say("hi")
 
     assert (status.speech_rate, status.cut_off_lines) == (1.5, True)
-    saved = load_settings(tmp_path / "settings.json")
+    saved = saved_for(tmp_path, GTA2)
     assert (saved.speech_rate, saved.cut_off_lines) == (1.5, True)
     assert clients.started[0].how == [(1.5, True)]
-    assert make_core(tmp_path, Clients()).status().speech_rate == 1.5
     core.close()
 
 
 def test_subtitle_settings_are_saved(tmp_path: Path) -> None:
     core = make_core(tmp_path, Clients())
+    core._enter(playing(GTA2))
 
     status = core.set_subtitles(True, "large", "bottom")
 
     assert (status.subtitles, status.subtitle_size, status.subtitle_position) == (True, "large", "bottom")
-    saved = load_settings(tmp_path / "settings.json")
+    saved = saved_for(tmp_path, GTA2)
     assert (saved.subtitles, saved.subtitle_size, saved.subtitle_position) == (True, "large", "bottom")
     core.close()
 
@@ -284,16 +308,16 @@ def test_pause_resume_and_stop_line(tmp_path: Path) -> None:
 
 def test_stages_of_the_game_being_read_can_be_switched_off_and_stay_off(tmp_path: Path) -> None:
     core = make_core(tmp_path, Clients())
-    core._profile = GTA2
+    core._enter(playing(GTA2))
 
     status = core.set_stage_enabled("messages/1:suffix", False)
 
     assert [stage.enabled for stage in status.sources[0].stages] == [True, False]
     assert (status.sources[0].stages[0].type, status.sources[0].stages[0].summary) == ("suffix", "adds a suffix")
     assert not core.is_stage_enabled("messages/1:suffix")
-    assert load_settings(tmp_path / "settings.json").disabled_stages == {GTA2.id: ["messages/1:suffix"]}
+    assert saved_for(tmp_path, GTA2).disabled_stages == ("messages/1:suffix",)
     core.set_stage_enabled("messages/1:suffix", True)
-    assert load_settings(tmp_path / "settings.json").disabled_stages == {}
+    assert saved_for(tmp_path, GTA2).disabled_stages == ()
 
 
 def test_switching_stages_needs_a_game_and_a_known_stage(tmp_path: Path) -> None:
@@ -301,24 +325,67 @@ def test_switching_stages_needs_a_game_and_a_known_stage(tmp_path: Path) -> None
 
     with pytest.raises(StageError, match="No game is being read"):
         core.set_stage_enabled("messages/0:suffix", False)
-    core._profile = GTA2
+    core._enter(playing(GTA2))
     with pytest.raises(StageError, match='has no stage "messages/9:x"'):
         core.set_stage_enabled("messages/9:x", False)
 
 
 def test_sources_of_the_game_being_read_can_be_switched_off_and_stay_off(tmp_path: Path) -> None:
     core = make_core(tmp_path, Clients())
-    core._profile = GTA2
+    core._enter(playing(GTA2))
 
     status = core.set_source_enabled("messages", False)
 
     assert (status.sources[0].type, status.sources[0].enabled) == ("fixed", False)
     assert not core.is_source_enabled("messages")
-    assert load_settings(tmp_path / "settings.json").disabled_sources == {GTA2.id: ["messages"]}
+    assert saved_for(tmp_path, GTA2).disabled_sources == ("messages",)
     core.set_source_enabled("messages", True)
-    assert load_settings(tmp_path / "settings.json").disabled_sources == {}
+    assert saved_for(tmp_path, GTA2).disabled_sources == ()
     with pytest.raises(SourceError, match='has no source "signs"'):
         core.set_source_enabled("signs", False)
+
+
+def test_each_game_keeps_its_own_settings(tmp_path: Path) -> None:
+    core = make_core(tmp_path, Clients())
+    core._enter(playing(MAD_MAX))
+    core.set_output_language("pl")
+    core.set_speech(1.5, False)
+    core._leave()
+    core._enter(playing(GTA2))
+    core.set_speech(0.8, False)
+    core._leave()
+
+    core._enter(playing(MAD_MAX))
+
+    assert (core.status().output_language, core.status().speech_rate) == ("pl", 1.5)
+    assert core.status().voice == "windows:Microsoft Adam"
+    assert saved_for(tmp_path, GTA2).speech_rate == 0.8
+
+
+def test_a_game_played_for_the_first_time_starts_with_the_defaults(tmp_path: Path) -> None:
+    core = make_core(tmp_path, Clients())
+    core._enter(playing(GTA2))
+    core.set_game_language("pl")
+    core.set_voice("windows:Microsoft Paulina")
+    core.set_source_enabled("messages", False)
+    core._leave()
+
+    core._enter(playing(MAD_MAX))
+
+    status = core.status()
+    assert (status.game_language, status.voice) == ("en", DEFAULT_VOICE)
+    assert core.is_source_enabled("messages")
+    assert not (tmp_path / "games" / f"{MAD_MAX.id}.json").exists()
+
+
+def test_the_defaults_apply_again_once_the_game_closes(tmp_path: Path) -> None:
+    core = make_core(tmp_path, Clients())
+    core._enter(playing(GTA2))
+    core.set_game_language("pl")
+
+    core._leave()
+
+    assert core.status().game_language == "en"
 
 
 def test_build_routes_asks_whether_each_source_and_stage_is_enabled() -> None:
@@ -341,7 +408,7 @@ def test_build_routes_asks_whether_each_source_and_stage_is_enabled() -> None:
 def core_playing(tmp_path: Path, is_running: Callable[[int], bool], exit_grace_seconds: float) -> Core:
     core = Core(
         profiles=[],
-        settings_file=tmp_path / "settings.json",
+        settings_dir=tmp_path,
         narrator_factory=lambda voice, on_speaking: Narrator(voice, Clients().start, on_speaking),
         list_voices=lambda: [ADAM],
         is_running=is_running,

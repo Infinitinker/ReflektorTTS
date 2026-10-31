@@ -7,7 +7,7 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 
 from reflektortts.events import ErrorEvent, TextEvent
-from reflektortts.languages import AUTO, DEFAULT_OUTPUT_LANGUAGE, Languages
+from reflektortts.languages import DEFAULT_GAME_LANGUAGE, DEFAULT_OUTPUT_LANGUAGE, Languages
 from reflektortts.pipeline.protocols import Sink, Source, Stage
 
 logger = logging.getLogger(__name__)
@@ -56,7 +56,7 @@ class Runner:
         sinks: Sequence[Sink],
         on_error: Callable[[ErrorEvent], None] = log_error,
         clock: Callable[[], float] = time.monotonic,
-        languages: Callable[[], Languages] = lambda: Languages(game=AUTO, output=DEFAULT_OUTPUT_LANGUAGE),
+        languages: Callable[[], Languages] = lambda: Languages(DEFAULT_GAME_LANGUAGE, DEFAULT_OUTPUT_LANGUAGE),
     ) -> None:
         self._routes = routes
         self._sinks = sinks
