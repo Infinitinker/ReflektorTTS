@@ -2,7 +2,7 @@
 
 Your game, read aloud. ReflektorTTS reads game text (dialogue, subtitles, on-screen messages) and speaks it, configured per game through profiles and from inside the game through an overlay.
 
-This is an early version for developers: there is no installer yet. It works with Grand Theft Auto 2 (the 9.6 freeware release), which reads its on-screen messages from the game's memory.
+This is an early version for developers: there is no installer yet. It has profiles for Grand Theft Auto 2 (the 9.6 freeware release) and Grand Theft Auto: San Andreas (the Steam release: subtitles and the help box), both read from the game's memory.
 
 ## Setting up (Windows)
 

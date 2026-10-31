@@ -1,0 +1,62 @@
+{
+  "version": 2,
+  "game": {
+    "title": "Grand Theft Auto: San Andreas",
+    "year": 2004
+  },
+  "match": {
+    "process": ["gta-sa.exe"]
+  },
+  "sources": [
+    {
+      "type": "memory",
+      "name": "subtitles",
+      "poll_interval_ms": 250,
+      "encoding": "cp1252",
+      "pointers": [
+        {
+          "exe_sha256": "15e3cfedba9a841df67d8194e7249afb493b0e10d6138fb8ebab2c136e543efb",
+          "address": "gta-sa.exe+836168",
+          "offsets": []
+        }
+      ],
+      "stages": [
+        { "type": "tracker", "stable_ms": 300, "min_letters": 4 },
+        {
+          "type": "replace",
+          "rules": [
+            { "find": "~n~", "replace": " " },
+            { "pattern": "~[a-zA-Z]~", "replace": "" }
+          ]
+        },
+        { "type": "translate" },
+        { "type": "normalize" }
+      ]
+    },
+    {
+      "type": "memory",
+      "name": "help",
+      "poll_interval_ms": 250,
+      "encoding": "cp1252",
+      "pointers": [
+        {
+          "exe_sha256": "15e3cfedba9a841df67d8194e7249afb493b0e10d6138fb8ebab2c136e543efb",
+          "address": "gta-sa.exe+8355A8",
+          "offsets": []
+        }
+      ],
+      "stages": [
+        { "type": "tracker", "stable_ms": 300, "min_letters": 4 },
+        {
+          "type": "replace",
+          "rules": [
+            { "find": "~n~", "replace": " " },
+            { "pattern": "~[a-zA-Z]~", "replace": "" }
+          ]
+        },
+        { "type": "translate" },
+        { "type": "normalize" }
+      ]
+    }
+  ]
+}
