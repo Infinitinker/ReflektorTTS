@@ -7,6 +7,7 @@ from collections.abc import Callable
 from multiprocessing.connection import Connection
 from types import TracebackType
 
+from reflektortts.logs import file_log_dir
 from reflektortts.tts.service import Say, Speaking, Stop, run
 
 logger = logging.getLogger(__name__)
@@ -48,7 +49,7 @@ class TtsClient:
         events, service_events = context.Pipe(duplex=False)
         self._process = context.Process(
             target=run,
-            args=(service_end, service_events, voice, logging.getLogger().getEffectiveLevel()),
+            args=(service_end, service_events, voice, logging.getLogger().getEffectiveLevel(), file_log_dir()),
             name="reflektortts-tts",
             daemon=True,
         )

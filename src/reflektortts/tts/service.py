@@ -6,11 +6,15 @@ from collections import deque
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from multiprocessing.connection import Connection
+from pathlib import Path
 from typing import Protocol
 
+from reflektortts.logs import log_to_file
 from reflektortts.tts.engine import AudioChunk, TtsEngine, load_engine_plugin, parse_voice
 
 logger = logging.getLogger(__name__)
+
+LOG_FILE = "reflektortts-tts.log"
 
 MAX_WAITING = 3
 """Lines that may wait their turn; past that the oldest waiting is dropped, so the voice never
@@ -164,12 +168,16 @@ def report_to(events: Connection) -> Callable[[bool], None]:
     return report
 
 
-def run(connection: Connection, events: Connection, voice: str, log_level: int) -> None:
+def run(connection: Connection, events: Connection, voice: str, log_level: int, log_dir: Path | None) -> None:
     """Entry point of the TTS process. Commands arrive on connection; Speaking messages go to events.
 
-    voice is "engine:name", e.g. "windows:Microsoft Adam".
+    voice is "engine:name", e.g. "windows:Microsoft Adam". Logs go to a file in log_dir when the
+    core logs to files (it has no console), otherwise to the console.
     """
-    logging.basicConfig(level=log_level, format="%(asctime)s %(processName)s %(name)s: %(message)s")
+    if log_dir is None:
+        logging.basicConfig(level=log_level, format="%(asctime)s %(processName)s %(name)s: %(message)s")
+    else:
+        log_to_file(log_dir / LOG_FILE)
     from reflektortts.tts.playback import Player
 
     parsed = parse_voice(voice)

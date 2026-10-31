@@ -27,7 +27,13 @@ def inject_overlay(pid: int, overlay_dirs: Sequence[Path]) -> bool:
             continue
         try:
             result = subprocess.run(
-                [str(injector), "--pid", str(pid)], capture_output=True, text=True, timeout=TIMEOUT_S, check=False
+                [str(injector), "--pid", str(pid)],
+                capture_output=True,
+                text=True,
+                timeout=TIMEOUT_S,
+                check=False,
+                # Without a console of its own (the desktop app), Windows would open one for the injector.
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
             )
         except subprocess.TimeoutExpired:
             logger.error(

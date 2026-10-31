@@ -57,6 +57,8 @@ A failing source, stage or sink is reported once as a `source.error`, `stage.err
 | Path | Job |
 |---|---|
 | `src/reflektortts/__main__.py`, `app.py` | Command line; the core's main loop and its controls for the API |
+| `arguments.py`, `logs.py` | Command line options and where logs go, shared by the command line and the desktop app |
+| `desktop/` | The desktop app: runs the core on a background thread, with a tray icon (pystray) and a window (Tkinter) that follow the core through the local API, like the overlay |
 | `events.py`, `bus.py` | Event types and the event bus |
 | `pipeline/` | Plugin contracts, the plugin registry and the runner |
 | `profiles/` | Profile schema, loader and migrations |
@@ -78,7 +80,7 @@ A failing source, stage or sink is reported once as a `source.error`, `stage.err
 How the folders are organized:
 
 - **Plugin folders** (`sources/`, `stages/`, `sinks/`) hold one plugin each. A plugin is a single module while it is small (`stages/tracker.py`) and becomes a package when it needs several files (`stages/normalize/`, `sources/memory/`, `sinks/tts/`).
-- **Subsystems** that are not plugins sit at the top level: `pipeline/`, `profiles/`, `games/`, `api/`, `tts/`, `ducking/`, and `process_memory/`, which several sources share.
+- **Subsystems** that are not plugins sit at the top level: `pipeline/`, `profiles/`, `games/`, `api/`, `tts/`, `ducking/`, `desktop/`, and `process_memory/`, which several sources share.
 - **A folder's code runs in one process.** Code for a separate process gets its own folder, so the layout shows what runs where: `tts/` is the TTS process, and its client in the core lives with the sink in `sinks/tts/`.
 
 Writing plugins: [plugins.md](plugins.md). The local API: [api.md](api.md).
@@ -138,9 +140,9 @@ Known pitfalls of older games and how the overlay handles them:
 - **Linux** second: games under Proton/Wine with the same overlay DLL; native games through a Vulkan layer and `LD_PRELOAD` for OpenGL (as MangoHud does). Sources to port: memory (`process_vm_readv`), OCR (Tesseract), clipboard. Ducking needs a per-app volume through PipeWire/PulseAudio (e.g. `pulsectl`).
 - **macOS** is out of scope: the hardened runtime and SIP block injection, and reading memory (`task_for_pid`) needs extra permissions.
 - The core and its UIs stay portable; platform-specific code lives only in plugins and the overlay.
+- The desktop app uses Tkinter, part of Python, and pystray (LGPL-3.0) for the tray icon; Qt or wx would look more modern but add over 100 MB. The overlay works only with what is already downloaded: downloads (voices, translation models) belong in the desktop app. pystray and Tkinter both want the main thread on some Linux setups, so the app is checked there separately.
 
 ## Open questions
 
-- A desktop UI next to the overlay: Qt (PySide6), a web UI served by the core, or none.
 - How community profiles are distributed beyond this repository (e.g. a profile browser in the app).
 - Whether the API needs authentication beyond listening only on 127.0.0.1.

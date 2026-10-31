@@ -442,14 +442,17 @@ class Core:
         return status
 
 
+class NoProfilesError(Exception):
+    """There is no game profile to watch for."""
+
+
 def run(profiles_dir: Path, settings_dir: Path, overlay_dirs: Sequence[Path], stop: threading.Event) -> None:
     """Starts the core and its API, and runs until stop is set or the process is interrupted."""
     profiles, errors = load_profiles(profiles_dir) if profiles_dir.is_dir() else ([], [])
     for error in errors:
         logger.error("Skipping a profile: %s", error)
     if not profiles:
-        logger.error("No game profiles in %s. Copy a profile there or pass --profiles.", profiles_dir)
-        return
+        raise NoProfilesError(f"No game profiles in {profiles_dir}. Copy a profile there or pass --profiles.")
 
     core = Core(profiles, settings_dir, overlay_dirs)
     server = ApiServer(core)

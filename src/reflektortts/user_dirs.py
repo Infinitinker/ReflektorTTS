@@ -17,3 +17,7 @@ def data_dir() -> Path:
 
 def state_dir() -> Path:
     return platformdirs.user_state_path(APP_DIR, appauthor=False)
+
+
+def log_dir() -> Path:
+    return platformdirs.user_log_path(APP_DIR, appauthor=False)

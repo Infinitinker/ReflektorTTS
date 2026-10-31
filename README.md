@@ -14,20 +14,30 @@ From the repository root:
 py -3.13 -m venv .venv
 ```
 ```bash
-.venv\Scripts\pip install -e .[dev,translate]
+.venv\Scripts\pip install -e .[dev,translate,desktop]
 ```
 
-The `translate` extra is only needed to translate games (see [Translation](#translation)).
+The `translate` extra is only needed to translate games (see [Translation](#translation)), and `desktop` only for the desktop app (see [Running](#running)).
 
 Build the overlay as described in [overlay/README.md](overlay/README.md).
 
 ## Running
 
+As a desktop app, without a console:
+
+```bash
+.venv\Scripts\reflektortts-app --profiles profiles --overlay overlay\build\bin --overlay overlay\build64\bin
+```
+
+Its icon appears next to the clock: right-click it to open the window, pause reading or quit. The window shows what ReflektorTTS is doing and opens its logs and settings folders; closing it leaves ReflektorTTS running. Logs are written to `%LOCALAPPDATA%\ReflektorTTS\Logs`.
+
+Or in a console, with the log shown there:
+
 ```bash
 .venv\Scripts\python -m reflektortts --profiles profiles --overlay overlay\build\bin --overlay overlay\build64\bin
 ```
 
-ReflektorTTS then waits for a game it has a profile for. When you start the game, it loads the overlay into it and reads its text aloud; when the game exits, it waits for the next one. Stop it with Ctrl+C.
+Either way, ReflektorTTS then waits for a game it has a profile for. When you start the game, it loads the overlay into it and reads its text aloud; when the game exits, it waits for the next one. In the console, stop it with Ctrl+C.
 
 - `--profiles DIR`: folder with game profiles. Default: `profiles` in your user data folder (`%LOCALAPPDATA%\ReflektorTTS\profiles`).
 - `--overlay DIR`: folder with an overlay build. Repeat it to give both a 32-bit and a 64-bit build; the one matching the game is used. Without it, games run without the overlay.
