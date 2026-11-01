@@ -17,7 +17,7 @@
     {
       "type": "memory",
       "name": "subtitles",
-      "poll_interval_ms": 250,
+      "poll_interval_ms": 200,
       "encoding": "utf-16le",
       "pointers": [
         {
@@ -27,7 +27,7 @@
         }
       ],
       "stages": [
-        { "type": "tracker", "stable_ms": 500, "min_letters": 4 },
+        { "type": "tracker", "stable_ms": 400, "min_letters": 4 },
         { "type": "replace", "rules": [{ "pattern": "#([^#]*)#", "replace": "\\1" }] },
         { "type": "translate" },
         { "type": "normalize" }
