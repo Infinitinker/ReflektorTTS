@@ -109,6 +109,6 @@ The app's icon, `src/reflektortts/desktop/icon.ico`, is drawn in code by `tools/
 
 ## License
 
-GPL-3.0-or-later; see [LICENSE](LICENSE).
+GPL-3.0-or-later; see [LICENSE](LICENSE). The in-game overlay includes Dear ImGui, nlohmann/json and MinHook, whose licenses are in [THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES).
 
 Reading Avalanche games' files follows the formats as documented by [Gibbed.MadMax](https://github.com/gigaHours/Gibbed.MadMax) (Rick Gibbed, zlib license); file names are hashed with Bob Jenkins' public-domain lookup3. A game's text is read from the player's own copy while it runs and is not stored.

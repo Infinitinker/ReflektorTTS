@@ -108,7 +108,7 @@ def inactive_reason(languages: Languages) -> str | None: ...
 
 ```python
 class TtsEngine(Protocol):
-    def synthesize(self, text: str) -> Iterator[AudioChunk]: ...  # mono int16 samples + sample rate
+    def synthesize(self, text: str, rate: float) -> Iterator[AudioChunk]: ...  # mono int16 samples + sample rate
 ```
 
 ```python
@@ -120,6 +120,7 @@ def list_voices() -> list[VoiceInfo]: ...
 ```
 
 - Voices are written `engine:name`, e.g. `windows:Microsoft Adam`; `create` gets the part after the colon. A `VoiceInfo` also carries the engine's name as shown to players (`engine_title`, e.g. `Windows`).
+- `rate` is the player's reading speed, a multiple of the voice's own pace from 0.5 to 2.
 - Yield audio as soon as a part is ready (Piper yields per sentence), so speech starts early. The player plays it in short blocks so a new line can cut it off.
 - Raise `VoiceError` with a helpful message when a voice cannot be used, e.g. listing the installed voices and where to get more.
 - Engines run in the TTS process, but the core imports the plugin module to list voices. **Keep that import cheap**: import heavy libraries (models, runtimes) inside `create` or the engine class, as `tts/engines/piper.py` does.

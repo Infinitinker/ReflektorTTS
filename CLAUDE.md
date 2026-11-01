@@ -11,7 +11,7 @@ The design is in `docs/architecture.md`; plugin contracts in `docs/plugins.md`, 
 
 ## Open source
 
-- The project will be published on GitHub under **GPL-3.0-or-later**, so others can use it and contribute game profiles. GPL is required anyway: `piper-tts` (with espeak-ng) and `pedalboard` are GPL-3.0.
+- The project will be published on GitHub under **GPL-3.0-or-later**, so others can use it and contribute game profiles. GPL is required anyway: `piper-tts` (with espeak-ng) is GPL-3.0.
 - Every new dependency must have a GPL-3.0-compatible license (MIT, BSD, Apache-2.0, LGPL, GPL). Check the license before adding one.
 - Voice models have their own licenses (in each voice's model card). Check them before bundling a voice or making it a default; never bundle non-commercial-only voices.
 - Write code, docs and commit history as if strangers will read them: no personal paths, secrets or machine-specific settings in the repo.

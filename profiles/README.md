@@ -1,6 +1,6 @@
 # Game profiles
 
-Each file in this folder is a profile for one game: how to recognize it and where to read its text. Text processing and voices will be added as the core supports them.
+Each file in this folder is a profile for one game: how to recognize it, where to read its text, and how to process that text before it is spoken (the `stages` of each source). Voices are chosen by the player in the overlay, not in the profile.
 
 The profile format is not finalized yet. Its JSON Schema is `src/reflektortts/profiles/profile.schema.json`; a full guide to writing and contributing profiles will be added here once the format settles.
 
