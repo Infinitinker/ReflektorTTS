@@ -69,4 +69,6 @@ def test_an_injector_that_hangs_is_reported(
 
 def test_missing_injector_is_reported(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
     assert inject_overlay(42, [tmp_path]) is False
-    assert "No overlay injector" in caplog.text
+    assert "No overlay in" in caplog.text
+    assert "No overlay found; the app runs without the overlay." in caplog.text
+    assert "32-bit vs 64-bit" not in caplog.text

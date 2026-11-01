@@ -20,11 +20,13 @@ def inject_overlay(pid: int, overlay_dirs: Sequence[Path]) -> bool:
 
     A failure is reported and the app is read without the overlay.
     """
+    found = False
     for directory in overlay_dirs:
         injector = directory / INJECTOR
         if not injector.is_file():
-            logger.error("No overlay injector in %s; check --overlay.", directory)
+            logger.error("No overlay in %s.", directory)
             continue
+        found = True
         try:
             result = subprocess.run(
                 [str(injector), "--pid", str(pid)],
@@ -57,5 +59,8 @@ def inject_overlay(pid: int, overlay_dirs: Sequence[Path]) -> bool:
         if result.returncode != WRONG_BITNESS:
             logger.error("Could not load the overlay: %s", result.stderr.strip())
             return False
-    logger.error("No overlay build matches the app (32-bit vs 64-bit); the app runs without the overlay.")
+    if found:
+        logger.error("No overlay build matches the app (32-bit vs 64-bit); the app runs without the overlay.")
+    else:
+        logger.error("No overlay found; the app runs without the overlay.")
     return False
