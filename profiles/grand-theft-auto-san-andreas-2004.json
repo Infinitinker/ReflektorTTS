@@ -17,7 +17,7 @@
     {
       "type": "memory",
       "name": "subtitles",
-      "poll_interval_ms": 250,
+      "poll_interval_ms": 100,
       "encoding": "cp1252",
       "pointers": [
         {
@@ -27,7 +27,7 @@
         }
       ],
       "stages": [
-        { "type": "tracker", "stable_ms": 300, "min_letters": 4 },
+        { "type": "tracker", "stable_ms": 200, "min_letters": 3 },
         {
           "type": "replace",
           "rules": [
@@ -42,7 +42,7 @@
     {
       "type": "memory",
       "name": "help",
-      "poll_interval_ms": 250,
+      "poll_interval_ms": 100,
       "encoding": "cp1252",
       "pointers": [
         {
@@ -52,7 +52,7 @@
         }
       ],
       "stages": [
-        { "type": "tracker", "stable_ms": 300, "min_letters": 4 },
+        { "type": "tracker", "stable_ms": 200, "min_letters": 3 },
         {
           "type": "replace",
           "rules": [
