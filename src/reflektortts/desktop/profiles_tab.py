@@ -1,8 +1,9 @@
 """The Profiles tab: every profile, bundled and the user's own, with its state; the selected one's
-details, and buttons to enable or disable it and to open the user's profiles folder.
+details; buttons to enable or disable it, copy a bundled one to edit, remove one of the user's own,
+import a profile file, read the files again after editing them, and open the user's folder.
 
-The buttons never move: the one that enables or disables is as wide as its longest label, and is
-grayed out for a broken file."""
+The buttons never move: the one that enables or disables is as wide as its longest label, and a
+button that does not apply to the selected profile is grayed out."""
 
 import tkinter as tk
 from collections.abc import Callable
@@ -49,16 +50,22 @@ class ProfilesTab:
         parent: ttk.Notebook,
         status_bar: StatusBar,
         on_enable: Callable[[ProfileItem, bool], None],
+        on_copy: Callable[[ProfileItem], None],
+        on_remove: Callable[[ProfileItem], None],
+        on_import: Callable[[], None],
+        on_reload: Callable[[], None],
         on_open_folder: Callable[[], None],
     ) -> None:
         self.frame = ttk.Frame(parent, padding=(8, 8, 8, 6))
         self._status_bar = status_bar
         self._on_enable = on_enable
+        self._on_copy = on_copy
+        self._on_remove = on_remove
         self._items: dict[str, ProfileItem] = {}
         self.frame.columnconfigure(0, weight=1)
         self.frame.rowconfigure(0, weight=1)
         self._build_table()
-        self._build_details(on_open_folder)
+        self._build_details(on_import, on_reload, on_open_folder)
 
     def _build_table(self) -> None:
         table = ttk.Frame(self.frame)
@@ -80,7 +87,9 @@ class ProfilesTab:
         scroll.grid(row=0, column=1, sticky="ns")
         self._tree.bind("<<TreeviewSelect>>", lambda event: self._show_selected())
 
-    def _build_details(self, on_open_folder: Callable[[], None]) -> None:
+    def _build_details(
+        self, on_import: Callable[[], None], on_reload: Callable[[], None], on_open_folder: Callable[[], None]
+    ) -> None:
         header = ttk.Frame(self.frame)
         header.grid(row=1, column=0, sticky="ew", pady=(8, 4))
         self._title = ttk.Label(header, text="", font=heading_font())
@@ -113,9 +122,23 @@ class ProfilesTab:
             buttons, text="Disable", width=button_width(ENABLE_LABELS), state="disabled", command=self._act
         )
         self._button.grid(row=0, column=0)
+        self._copy = ttk.Button(buttons, text="Copy to edit", state="disabled", command=self._copy_selected)
+        self._copy.grid(row=0, column=1, padx=(6, 0))
+        self._remove = ttk.Button(buttons, text="Remove", state="disabled", command=self._remove_selected)
+        self._remove.grid(row=0, column=2, padx=(6, 0))
+        import_button = ttk.Button(buttons, text="Import…", command=on_import)
+        import_button.grid(row=0, column=3, padx=(6, 0))
+        reload = ttk.Button(buttons, text="Reload", command=on_reload)
+        reload.grid(row=0, column=4, padx=(6, 0))
         folder = ttk.Button(buttons, text="Open profiles folder", command=on_open_folder)
-        folder.grid(row=0, column=1, padx=(6, 0))
+        folder.grid(row=0, column=5, padx=(6, 0))
         self._status_bar.hint(self._button, self._button_hint)
+        self._status_bar.hint(
+            self._copy, lambda: "Copy a bundled profile to your folder and show it there, to edit it in an editor."
+        )
+        self._status_bar.hint(self._remove, self._remove_hint)
+        self._status_bar.hint(import_button, lambda: "Add a profile file to your own, once it is checked.")
+        self._status_bar.hint(reload, lambda: "Read the profile files again, after editing them.")
         self._status_bar.hint(folder, lambda: "Open the folder for your own profiles, which replace bundled ones.")
 
     def show_message(self, message: str) -> None:
@@ -160,6 +183,8 @@ class ProfilesTab:
         if item is not None:
             self._details.insert("1.0", details_text(item))
         self._details.configure(state="disabled")
+        self._copy.configure(state="normal" if item is not None and item.origin == "bundled" else "disabled")
+        self._remove.configure(state="normal" if item is not None and item.origin != "bundled" else "disabled")
         if item is None or item.state == "broken":
             self._button.configure(text="Disable", state="disabled")
         elif item.state == "disabled":
@@ -176,6 +201,22 @@ class ProfilesTab:
         if item.state == "disabled":
             return "Use this profile again."
         return "Stop using this profile: its app is not read until it is enabled again."
+
+    def _remove_hint(self) -> str:
+        item = self._selected()
+        if item is not None and item.origin == "override":
+            return "Delete your own file; the bundled profile is used again."
+        return "Delete your own profile file."
+
+    def _copy_selected(self) -> None:
+        item = self._selected()
+        if item is not None and item.origin == "bundled":
+            self._on_copy(item)
+
+    def _remove_selected(self) -> None:
+        item = self._selected()
+        if item is not None and item.origin != "bundled":
+            self._on_remove(item)
 
     def _act(self) -> None:
         item = self._selected()

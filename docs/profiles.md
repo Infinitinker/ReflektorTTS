@@ -9,6 +9,8 @@ A profile describes one app: how to recognize it, where to read its text, and ho
 - Of two profiles that match the same build of an app (the same executable name and a build in both, or no builds listed), your own is used and the bundled one is set aside. Two of your own clash: neither is used until one is disabled.
 - Any profile, bundled or your own, can be disabled; its app is then not read. A broken profile file is not used, and the reason is shown.
 
+The desktop app's Profiles tab lists them all with their state, and does the rest: **Copy to edit** copies a bundled profile to your folder (where it replaces the bundled one) and shows it there for your editor; **Remove** deletes your own file; **Import…** adds a profile file to your own once it is checked (a broken one is refused with the reason); **Reload** reads the files again after you edit them. A changed profile applies the next time its app starts.
+
 The profile format is not finalized yet. Its JSON Schema is `src/reflektortts/profiles/profile.schema.json`; a full guide to writing and contributing profiles will be added here once the format settles.
 
 ## Format (version 1)

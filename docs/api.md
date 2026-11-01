@@ -159,6 +159,22 @@ Lists every profile, bundled and the user's own, in ID order:
 
 Enables or disables a profile, saved for the user: `{"id": "mad-max-2015", "enabled": false}`. A disabled profile's app is not watched, and stops being read at once; which profiles clash is decided again. Returns the status; an unknown ID answers 400.
 
+### `POST /v1/profiles`
+
+Adds a profile to the user's own, once it is checked: `{"id": "my-game-2000", "profile": {...}, "replace": false}`. `id` becomes the file name (lowercase letters, digits and hyphens); `profile` is the profile's JSON. A broken profile, or an `id` that cannot be a file name, answers 400 and nothing is written; an `id` the user already has answers 409 unless `replace` is `true`. Returns the status.
+
+### `POST /v1/profiles/<id>/copy`
+
+Copies a bundled profile to the user's folder, where it replaces the bundled one, and returns `{"file": "<the copy's path>"}`. An unknown ID answers 404; a profile that is not bundled, or one the user already has a copy of, 409.
+
+### `DELETE /v1/profiles/<id>`
+
+Deletes the user's own profile file; a bundled profile with the same ID is used again. Returns the status. An unknown ID answers 404; a bundled profile, which cannot be removed, 409.
+
+### `POST /v1/profiles/reload`
+
+Reads the profile files again, e.g. after the user edited one, and returns the status. A changed profile applies the next time its app starts; one no longer used stops being read at once.
+
 ### `PATCH /v1/stages`
 
 Switches a stage of the app being read on or off. The choice is saved per app and applies to the next line read:

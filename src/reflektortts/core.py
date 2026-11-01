@@ -42,13 +42,13 @@ from reflektortts.pipeline.plugins import SourcePlugin, StagePlugin, inactive_re
 from reflektortts.pipeline.protocols import Sink
 from reflektortts.pipeline.runner import Route, Runner, log_error
 from reflektortts.profiles.catalog import (
-    CatalogEntry,
     Choice,
+    ProfileFiles,
     ProfileState,
+    ProfileStore,
     ProfileView,
     Standing,
     choose,
-    load_catalog,
 )
 from reflektortts.profiles.model import Profile
 from reflektortts.settings import (
@@ -220,7 +220,7 @@ class Core:
 
     def __init__(
         self,
-        catalog: Sequence[CatalogEntry],
+        profiles: ProfileFiles,
         settings_dir: Path,
         overlay_dirs: Sequence[Path] = (),
         narrator_factory: Callable[[str, Callable[[bool], None]], Narrator] = start_narrator,
@@ -235,7 +235,8 @@ class Core:
     ) -> None:
         self._lock = threading.RLock()
         """Held by every change; reentrant, since changes call each other and status()."""
-        self._catalog = list(catalog)
+        self._profile_files = profiles
+        self._catalog = profiles.load()
         self._is_running = is_running
         self._exit_grace_seconds = exit_grace_seconds
         self._settings_dir = settings_dir
@@ -396,14 +397,42 @@ class Core:
     def set_profile_enabled(self, profile_id: str, enabled: bool) -> Status:
         """Enables or disables a profile, saved for the user. A disabled profile's app is not
         watched, and stops being read at once; which profiles clash is decided again."""
-        if profile_id not in {entry.id for entry in self._catalog}:
-            ids = ", ".join(entry.id for entry in self._catalog)
-            raise UnknownProfileError(f'There is no profile "{profile_id}". Profiles: {ids}.')
+        self._check_profile(profile_id)
         disabled = _switched(self._shared.disabled_profiles, profile_id, enabled)
         self._shared = replace(self._shared, disabled_profiles=disabled)
         save_shared(self._shared, self._settings_dir)
         self._choices = choose(self._catalog, disabled)
         return self._publish_status()
+
+    @_serialized
+    def import_profile(self, profile_id: str, data: Any, replace: bool) -> Status:
+        """Adds a profile to the user's own, once checked. Raises ProfileError for a broken one,
+        ProfileExistsError if the user has one with that ID and replace is False, and
+        ProfileChangeError for an ID that cannot be a file name."""
+        self._profile_files.add(profile_id, data, replace)
+        return self._reload_profiles()
+
+    @_serialized
+    def copy_profile(self, profile_id: str) -> Path:
+        """Copies a bundled profile to the user's own, where it replaces the bundled one; returns
+        the copy's path. Raises UnknownProfileError or ProfileChangeError."""
+        self._check_profile(profile_id)
+        path = self._profile_files.copy(profile_id)
+        self._reload_profiles()
+        return path
+
+    @_serialized
+    def remove_profile(self, profile_id: str) -> Status:
+        """Deletes the user's own profile file. Raises UnknownProfileError, or ProfileChangeError
+        for a bundled one."""
+        self._check_profile(profile_id)
+        self._profile_files.remove(profile_id)
+        return self._reload_profiles()
+
+    @_serialized
+    def reload_profiles(self) -> Status:
+        """Reads the profile files again, e.g. after the user edited one."""
+        return self._reload_profiles()
 
     def downloads(self, refresh: bool) -> Listing:
         """What can be downloaded, with what is installed or downloading; refresh fetches the lists."""
@@ -473,6 +502,19 @@ class Core:
         self._unsupported = unsupported
         self._unsupported_profile = profile_id
         self._publish_status()
+
+    def _check_profile(self, profile_id: str) -> None:
+        if profile_id not in {entry.id for entry in self._catalog}:
+            ids = ", ".join(entry.id for entry in self._catalog)
+            raise UnknownProfileError(f'There is no profile "{profile_id}". Profiles: {ids}.')
+
+    def _reload_profiles(self) -> Status:
+        """Reads the profiles again and decides which are used. An app being read whose profile
+        is no longer used stops being read; a changed profile applies when its app starts again."""
+        self._catalog = self._profile_files.load()
+        self._choices = choose(self._catalog, self._shared.disabled_profiles)
+        self._log_choices()
+        return self._publish_status()
 
     def _used(self) -> list[Profile]:
         return [
@@ -642,7 +684,7 @@ class Core:
 def run(profiles_dir: Path, settings_dir: Path, overlay_dirs: Sequence[Path], stop: threading.Event) -> None:
     """Starts the core and its API, and runs until stop is set or the process is interrupted.
     profiles_dir holds the user's own profiles, next to the bundled ones."""
-    core = Core(load_catalog(profiles_dir), settings_dir, overlay_dirs)
+    core = Core(ProfileStore(profiles_dir), settings_dir, overlay_dirs)
     server = ApiServer(core)
     try:
         server.start()

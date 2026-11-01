@@ -1,3 +1,4 @@
+import json
 import threading
 from collections.abc import Callable, Mapping
 from pathlib import Path
@@ -15,7 +16,8 @@ from reflektortts.events import AppInfo, DownloadEvent, ErrorEvent, Status, Text
 from reflektortts.languages import LanguageError, Languages
 from reflektortts.pipeline.plugins import SourcePlugin, StagePlugin
 from reflektortts.pipeline.runner import Route
-from reflektortts.profiles.catalog import CatalogEntry, Origin, ProfileState
+from reflektortts.profiles.catalog import CatalogEntry, Origin, ProfileFiles, ProfileState, ProfileStore
+from reflektortts.profiles.loader import PluginSchemas
 from reflektortts.profiles.model import App, Executable, Match, Profile, SourceSettings, StageSettings
 from reflektortts.settings import ProfileSettings, load_profile_settings, load_shared
 from reflektortts.sinks.tts.narrator import Narrator
@@ -187,15 +189,36 @@ def saved_for(tmp_path: Path, profile: Profile) -> ProfileSettings:
     return load_profile_settings(tmp_path, profile.id)
 
 
-def bundled(*profiles: Profile) -> list[CatalogEntry]:
-    return [CatalogEntry(profile.id, Origin.BUNDLED, Path(f"{profile.id}.json"), profile) for profile in profiles]
+class FixedProfiles:
+    """Bundled profiles that need no files; adding, copying and removing are not used here."""
+
+    def __init__(self, *profiles: Profile) -> None:
+        self.catalog = [
+            CatalogEntry(profile.id, Origin.BUNDLED, Path(f"{profile.id}.json"), profile) for profile in profiles
+        ]
+
+    def load(self) -> list[CatalogEntry]:
+        return self.catalog
+
+    def add(self, profile_id: str, data: Any, replace: bool) -> Path:
+        raise NotImplementedError
+
+    def copy(self, profile_id: str) -> Path:
+        raise NotImplementedError
+
+    def remove(self, profile_id: str) -> None:
+        raise NotImplementedError
 
 
 def make_core(
-    tmp_path: Path, clients: Clients, voices: list[VoiceInfo] | None = None, previews: Clients | None = None
+    tmp_path: Path,
+    clients: Clients,
+    voices: list[VoiceInfo] | None = None,
+    previews: Clients | None = None,
+    profiles: ProfileFiles | None = None,
 ) -> Core:
     return Core(
-        catalog=bundled(GTA2),
+        profiles=profiles or FixedProfiles(GTA2),
         settings_dir=tmp_path,
         narrator_factory=lambda voice, on_speaking: Narrator(voice, clients.start, on_speaking),
         list_voices=lambda: [LJSPEECH, ADAM, PAULINA] if voices is None else voices,
@@ -555,7 +578,7 @@ def test_the_status_says_why_a_stage_does_nothing_and_keeps_its_tick(tmp_path: P
 
 def core_playing(tmp_path: Path, is_running: Callable[[int], bool], exit_grace_seconds: float) -> Core:
     core = Core(
-        catalog=[],
+        profiles=FixedProfiles(),
         settings_dir=tmp_path,
         narrator_factory=lambda voice, on_speaking: Narrator(voice, Clients().start, on_speaking),
         list_voices=lambda: [ADAM],
@@ -658,3 +681,28 @@ def test_a_disabled_profile_is_saved_stops_being_read_and_shows_its_state(tmp_pa
     assert load_shared(tmp_path).disabled_profiles == ()
     with pytest.raises(UnknownProfileError, match='no profile "nope"'):
         core.set_profile_enabled("nope", False)
+
+
+def test_profiles_imported_copied_or_removed_count_at_once(tmp_path: Path) -> None:
+    bundled = tmp_path / "bundled"
+    bundled.mkdir()
+    game = {"version": 1, "app": {"title": "Game", "year": 2000}, "match": {"executables": [{"name": "game.exe"}]}}
+    (bundled / "game-2000.json").write_text(json.dumps(game), "utf-8")
+    store = ProfileStore(tmp_path / "user", bundled, PluginSchemas(sources={}, stages={}))
+    core = make_core(tmp_path, Clients(), profiles=store)
+    events: list[Event] = []
+    core.subscribe(events.append)
+
+    core.import_profile("mine-2001", game | {"app": {"title": "Mine", "year": 2001}}, replace=False)
+    copy = core.copy_profile("game-2000")
+
+    assert copy == tmp_path / "user" / "game-2000.json"
+    assert [(view.choice.entry.id, view.choice.entry.origin, view.state) for view in core.profiles()] == [
+        ("game-2000", Origin.OVERRIDE, ProfileState.CLASH),
+        ("mine-2001", Origin.CUSTOM, ProfileState.CLASH),
+    ]
+    core.remove_profile("mine-2001")
+    assert [view.state for view in core.profiles()] == [ProfileState.NOT_RUNNING]
+    assert len([event for event in events if isinstance(event, Status)]) == 3
+    with pytest.raises(UnknownProfileError):
+        core.remove_profile("mine-2001")

@@ -7,15 +7,36 @@ two profiles that match the same build of an app, the user's own is used; two of
 clash, and neither is used until one is disabled.
 """
 
+import json
+import os
+import re
+import shutil
 from collections.abc import Collection
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
+from typing import Any, Protocol
 
-from reflektortts.profiles.loader import PluginSchemas, ProfileError, installed_plugin_schemas, load_profile
+from reflektortts.profiles.loader import (
+    PluginSchemas,
+    ProfileError,
+    installed_plugin_schemas,
+    load_profile,
+    parse_profile,
+)
 from reflektortts.profiles.model import Profile
 
 BUNDLED_DIR = Path(__file__).parent / "bundled"
+PROFILE_ID = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
+"""What a profile's ID, its file name without .json, may be: e.g. "grand-theft-auto-2-1999"."""
+
+
+class ProfileChangeError(Exception):
+    """A profile cannot be added, copied or removed; the message says why."""
+
+
+class ProfileExistsError(ProfileChangeError):
+    """The user already has a profile with that ID."""
 
 
 class Origin(StrEnum):
@@ -87,6 +108,71 @@ def load_catalog(
         else:
             entries.append(_load(profile_id, Origin.BUNDLED, bundled[profile_id], schemas))
     return entries
+
+
+class ProfileFiles(Protocol):
+    """Where the core reads profiles from and changes the user's own; see ProfileStore."""
+
+    def load(self) -> list[CatalogEntry]: ...
+
+    def add(self, profile_id: str, data: Any, replace: bool) -> Path: ...
+
+    def copy(self, profile_id: str) -> Path: ...
+
+    def remove(self, profile_id: str) -> None: ...
+
+
+class ProfileStore:
+    """The bundled profiles and the user's own folder: reads them, and adds, copies and removes
+    the user's own files. Bundled files are never changed."""
+
+    def __init__(self, user_dir: Path, bundled_dir: Path = BUNDLED_DIR, schemas: PluginSchemas | None = None) -> None:
+        self.user_dir = user_dir
+        self._bundled_dir = bundled_dir
+        self._schemas = installed_plugin_schemas() if schemas is None else schemas
+
+    def load(self) -> list[CatalogEntry]:
+        return load_catalog(self.user_dir, self._bundled_dir, self._schemas)
+
+    def add(self, profile_id: str, data: Any, replace: bool) -> Path:
+        """Saves a profile to the user's folder once it is checked; a broken one raises
+        ProfileError and nothing is written."""
+        if not PROFILE_ID.fullmatch(profile_id):
+            raise ProfileChangeError(
+                f'"{profile_id}" cannot be the name of a profile: use lowercase letters, digits and '
+                'hyphens, e.g. "grand-theft-auto-2-1999". Rename the file and import it again.'
+            )
+        parse_profile(data, profile_id, self._schemas)
+        path = self._user_path(profile_id)
+        if path.exists() and not replace:
+            raise ProfileExistsError(f"You already have a profile named {path.name}.")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        temporary = path.with_name(f".{path.name}.tmp")
+        temporary.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", "utf-8")
+        os.replace(temporary, path)
+        return path
+
+    def copy(self, profile_id: str) -> Path:
+        """Copies a bundled profile to the user's folder, where it replaces the bundled one."""
+        bundled = self._bundled_dir / f"{profile_id}.json"
+        if not bundled.is_file():
+            raise ProfileChangeError(f"{profile_id}.json is not a bundled profile, so there is nothing to copy.")
+        path = self._user_path(profile_id)
+        if path.exists():
+            raise ProfileExistsError(f"You already have your own {path.name}: edit that one.")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(bundled, path)
+        return path
+
+    def remove(self, profile_id: str) -> None:
+        """Deletes the user's own file; a bundled profile with its ID is then used again."""
+        path = self._user_path(profile_id)
+        if not path.is_file():
+            raise ProfileChangeError(f"{path.name} is a bundled profile, which cannot be removed: disable it instead.")
+        path.unlink()
+
+    def _user_path(self, profile_id: str) -> Path:
+        return self.user_dir / f"{profile_id}.json"
 
 
 def choose(catalog: list[CatalogEntry], disabled: Collection[str]) -> list[Choice]:

@@ -112,6 +112,13 @@ def load_profile(path: Path, schemas: PluginSchemas | None = None) -> Profile:
         raise ProfileError(f"{name}: cannot be read ({error.strerror}).") from error
     except json.JSONDecodeError as error:
         raise ProfileError(f"{name}: not valid JSON (line {error.lineno}, column {error.colno}).") from error
+    return parse_profile(data, path.stem, schemas)
+
+
+def parse_profile(data: Any, profile_id: str, schemas: PluginSchemas | None = None) -> Profile:
+    """Checks and reads a profile's JSON data, as in the file <profile_id>.json; raises
+    ProfileError naming that file and the problem."""
+    name = f"{profile_id}.json"
     if not isinstance(data, dict):
         raise ProfileError(f"{name}: must contain a JSON object.")
 
@@ -130,7 +137,7 @@ def load_profile(path: Path, schemas: PluginSchemas | None = None) -> Profile:
             "builds it was tested with."
         )
     return Profile(
-        id=path.stem,
+        id=profile_id,
         app=App(title=data["app"]["title"], year=data["app"]["year"]),
         match=Match(executables),
         sources=sources,

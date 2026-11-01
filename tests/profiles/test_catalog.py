@@ -2,8 +2,19 @@ import json
 from pathlib import Path
 from typing import Any
 
-from reflektortts.profiles.catalog import BUNDLED_DIR, Origin, Standing, choose, load_catalog
-from reflektortts.profiles.loader import PluginSchemas
+import pytest
+
+from reflektortts.profiles.catalog import (
+    BUNDLED_DIR,
+    Origin,
+    ProfileChangeError,
+    ProfileExistsError,
+    ProfileStore,
+    Standing,
+    choose,
+    load_catalog,
+)
+from reflektortts.profiles.loader import PluginSchemas, ProfileError
 
 SCHEMAS = PluginSchemas(sources={}, stages={})
 STEAM = "15e3cfedba9a841df67d8194e7249afb493b0e10d6138fb8ebab2c136e543efb"
@@ -88,3 +99,48 @@ def test_disabling_the_users_profile_brings_back_the_bundled_one(tmp_path: Path)
     write(tmp_path / "user", "my-game-2000", profile("My game", "game.exe"))
 
     assert standings(tmp_path, disabled=("my-game-2000",))["game-2000"] == (Standing.USED, None)
+
+
+def store(tmp_path: Path) -> ProfileStore:
+    return ProfileStore(tmp_path / "user", tmp_path / "bundled", SCHEMAS)
+
+
+def test_a_profile_is_added_once_checked_and_replaced_only_when_asked(tmp_path: Path) -> None:
+    profiles = store(tmp_path)
+
+    path = profiles.add("my-game-2000", profile("My game"), replace=False)
+
+    assert path == tmp_path / "user" / "my-game-2000.json"
+    assert json.loads(path.read_text("utf-8"))["app"]["title"] == "My game"
+    with pytest.raises(ProfileExistsError, match="already have a profile named my-game-2000.json"):
+        profiles.add("my-game-2000", profile("Again"), replace=False)
+    profiles.add("my-game-2000", profile("Again"), replace=True)
+    assert json.loads(path.read_text("utf-8"))["app"]["title"] == "Again"
+
+
+def test_a_broken_profile_or_a_bad_name_is_refused_and_nothing_written(tmp_path: Path) -> None:
+    profiles = store(tmp_path)
+
+    with pytest.raises(ProfileError, match="mine-2000.json: must contain a JSON object"):
+        profiles.add("mine-2000", [], replace=False)
+    with pytest.raises(ProfileChangeError, match="cannot be the name of a profile"):
+        profiles.add("My Game", profile("My game"), replace=False)
+    assert not (tmp_path / "user").exists()
+
+
+def test_a_bundled_profile_is_copied_to_replace_it_and_removing_the_copy_brings_it_back(tmp_path: Path) -> None:
+    write(tmp_path / "bundled", "game-2000", profile("Game"))
+    profiles = store(tmp_path)
+
+    path = profiles.copy("game-2000")
+
+    assert path.read_text("utf-8") == (tmp_path / "bundled" / "game-2000.json").read_text("utf-8")
+    assert [entry.origin for entry in profiles.load()] == [Origin.OVERRIDE]
+    with pytest.raises(ProfileExistsError, match="edit that one"):
+        profiles.copy("game-2000")
+    profiles.remove("game-2000")
+    assert [entry.origin for entry in profiles.load()] == [Origin.BUNDLED]
+    with pytest.raises(ProfileChangeError, match="cannot be removed: disable it instead"):
+        profiles.remove("game-2000")
+    with pytest.raises(ProfileChangeError, match="not a bundled profile"):
+        profiles.copy("other-2000")

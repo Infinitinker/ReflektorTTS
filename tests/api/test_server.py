@@ -36,7 +36,17 @@ from reflektortts.events import (
     TextEvent,
 )
 from reflektortts.languages import LanguageError, check_language
-from reflektortts.profiles.catalog import CatalogEntry, Choice, Origin, ProfileState, ProfileView, Standing
+from reflektortts.profiles.catalog import (
+    CatalogEntry,
+    Choice,
+    Origin,
+    ProfileChangeError,
+    ProfileExistsError,
+    ProfileState,
+    ProfileView,
+    Standing,
+)
+from reflektortts.profiles.loader import ProfileError
 from reflektortts.profiles.model import App, Executable, Match, Profile, SourceSettings, StageSettings
 from reflektortts.tts.engine import VoiceError, VoiceInfo
 
@@ -84,6 +94,9 @@ class FakeCore:
         self.removed: list[str] = []
         self.previewed: list[str] = []
         self.switched: list[tuple[str, bool]] = []
+        self.imported: list[tuple[str, bool]] = []
+        self.removed_profiles: list[str] = []
+        self.reloads = 0
         self.current = Status(
             app=AppInfo("Grand Theft Auto 2", 42),
             voice="piper:a",
@@ -185,6 +198,31 @@ class FakeCore:
         if profile_id != MAD_MAX.id:
             raise UnknownProfileError(f'There is no profile "{profile_id}".')
         self.switched.append((profile_id, enabled))
+        return self.current
+
+    def import_profile(self, profile_id: str, data: Any, replace: bool) -> Status:
+        if profile_id == "mad-max-2015" and not replace:
+            raise ProfileExistsError("You already have a profile named mad-max-2015.json.")
+        if not isinstance(data, dict):
+            raise ProfileError(f"{profile_id}.json: must contain a JSON object.")
+        self.imported.append((profile_id, replace))
+        return self.current
+
+    def copy_profile(self, profile_id: str) -> Path:
+        if profile_id != MAD_MAX.id:
+            raise UnknownProfileError(f'There is no profile "{profile_id}".')
+        return Path("profiles") / f"{profile_id}.json"
+
+    def remove_profile(self, profile_id: str) -> Status:
+        if profile_id == "bundled-2000":
+            raise ProfileChangeError("bundled-2000.json is a bundled profile, which cannot be removed.")
+        if profile_id != MAD_MAX.id:
+            raise UnknownProfileError(f'There is no profile "{profile_id}".')
+        self.removed_profiles.append(profile_id)
+        return self.current
+
+    def reload_profiles(self) -> Status:
+        self.reloads += 1
         return self.current
 
     def subscribe(self, listener: Listener) -> Callable[[], None]:
@@ -573,3 +611,32 @@ def test_profiles_are_listed_and_switched() -> None:
 
     with_client(core, test)
     assert core.switched == [("mad-max-2015", False)]
+
+
+def test_profiles_are_imported_copied_removed_and_reloaded() -> None:
+    core = FakeCore()
+
+    async def test(client: TestClient[Any, Any]) -> None:
+        added = await client.post("/v1/profiles", json={"id": "mine-2000", "profile": {"version": 1}})
+        assert added.status == 200
+        exists = await client.post("/v1/profiles", json={"id": "mad-max-2015", "profile": {}})
+        assert exists.status == 409
+        replaced = await client.post("/v1/profiles", json={"id": "mad-max-2015", "profile": {}, "replace": True})
+        assert replaced.status == 200
+        broken = await client.post("/v1/profiles", json={"id": "mine-2000", "profile": []})
+        assert (broken.status, (await broken.json())["error"]) == (400, "mine-2000.json: must contain a JSON object.")
+        assert (await client.post("/v1/profiles", json={"id": "mine-2000"})).status == 400
+
+        copied = await client.post("/v1/profiles/mad-max-2015/copy")
+        assert (copied.status, await copied.json()) == (200, {"file": str(Path("profiles") / "mad-max-2015.json")})
+        assert (await client.post("/v1/profiles/nope/copy")).status == 404
+
+        assert (await client.delete("/v1/profiles/mad-max-2015")).status == 200
+        assert (await client.delete("/v1/profiles/nope")).status == 404
+        assert (await client.delete("/v1/profiles/bundled-2000")).status == 409
+        assert (await client.post("/v1/profiles/reload")).status == 200
+
+    with_client(core, test)
+    assert core.imported == [("mine-2000", False), ("mad-max-2015", True)]
+    assert core.removed_profiles == ["mad-max-2015"]
+    assert core.reloads == 1

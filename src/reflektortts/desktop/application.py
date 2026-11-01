@@ -4,20 +4,23 @@ Tkinter works only on the thread that created it, so everything that touches the
 there: the status feed and the tray menu hand their work over through a queue.
 """
 
+import json
 import logging
 import queue
 import threading
 import tkinter as tk
 from collections.abc import Callable
-from tkinter import messagebox
+from pathlib import Path
+from tkinter import filedialog, messagebox
+from typing import Any
 
 from reflektortts.api.server import ApiError
 from reflektortts.arguments import Arguments
 from reflektortts.desktop.api_client import REFRESH_TIMEOUT_SECONDS, ApiClientError, StatusFeed, post, request_json
 from reflektortts.desktop.catalog import DownloadItem, DownloadList, DownloadProgress, other_voices, parse_list
 from reflektortts.desktop.core_thread import CoreThread
-from reflektortts.desktop.folders import open_folder
-from reflektortts.desktop.profiles import ProfileItem, parse_profiles
+from reflektortts.desktop.folders import open_folder, show_file
+from reflektortts.desktop.profiles import ProfileItem, file_name, name_text, parse_profiles
 from reflektortts.desktop.status import CoreStatus, describe
 from reflektortts.desktop.tray import Tray
 from reflektortts.desktop.window import Window
@@ -66,6 +69,12 @@ class Application:
             language_name=lambda code: self._language_names.get(code, code),
             on_profiles_opened=self._profiles_opened,
             on_enable_profile=self._enable_profile,
+            on_copy_profile=self._copy_profile,
+            on_remove_profile=self._remove_profile,
+            on_import_profile=self._import_profile,
+            on_reload_profiles=lambda: self._profile_request(
+                "POST", "/profiles/reload", None, "The profiles could not be read again"
+            ),
             on_open_profiles=lambda: open_folder(args.profiles),
         )
 
@@ -141,17 +150,75 @@ class Application:
         self._later(lambda: self._window.profiles.show(items))
 
     def _enable_profile(self, item: ProfileItem, enabled: bool) -> None:
-        """The status event that follows refreshes the list."""
+        action = "enabled" if enabled else "disabled"
+        body = {"id": item.id, "enabled": enabled}
+        self._profile_request("PATCH", "/profiles", body, f"{name_text(item)} could not be {action}")
 
-        def switch() -> None:
+    def _copy_profile(self, item: ProfileItem) -> None:
+        """Copies a bundled profile and shows the copy, ready to edit."""
+
+        def copy() -> None:
             try:
-                request_json("PATCH", "/profiles", {"id": item.id, "enabled": enabled})
+                answer = request_json("POST", f"/profiles/{item.id}/copy")
             except ApiClientError as error:
                 message = str(error)
-                action = "enabled" if enabled else "disabled"
-                self._later(lambda: self._show_error(f"{item.id} could not be {action}: {message}"))
+                self._later(lambda: self._show_error(f"{name_text(item)} could not be copied: {message}"))
+                return
+            show_file(Path(answer["file"]))
 
-        self._in_background(switch)
+        self._in_background(copy)
+
+    def _remove_profile(self, item: ProfileItem) -> None:
+        question = (
+            f"Remove your own {file_name(item)}? The bundled profile is used again."
+            if item.origin == "override"
+            else f"Remove {file_name(item)}? The file is deleted."
+        )
+        if messagebox.askyesno("ReflektorTTS", question, parent=self._root):
+            self._profile_request("DELETE", f"/profiles/{item.id}", None, f"{file_name(item)} could not be removed")
+
+    def _import_profile(self, replace: bool = False, chosen: str = "") -> None:
+        """Asks for a profile file and sends its contents; the core checks it before saving it."""
+        path = chosen or filedialog.askopenfilename(
+            parent=self._root, title="Import a profile", filetypes=[("Profiles", "*.json"), ("All files", "*")]
+        )
+        if not path:
+            return
+        try:
+            data = json.loads(Path(path).read_text("utf-8"))
+        except (OSError, ValueError) as error:
+            self._show_error(f"{Path(path).name} cannot be read as a profile: {error}")
+            return
+        body = {"id": Path(path).stem, "profile": data, "replace": replace}
+
+        def send() -> None:
+            try:
+                request_json("POST", "/profiles", body)
+            except ApiClientError as error:
+                message = str(error)
+                if error.status == 409:
+                    self._later(lambda: self._confirm_replace(message, path))
+                else:
+                    self._later(lambda: self._show_error(f"{Path(path).name} was not imported: {message}"))
+
+        self._in_background(send)
+
+    def _confirm_replace(self, message: str, path: str) -> None:
+        if messagebox.askyesno("ReflektorTTS", f"{message} Replace it?", parent=self._root):
+            self._import_profile(replace=True, chosen=path)
+
+    def _profile_request(self, method: str, path: str, body: Any, failure: str) -> None:
+        """Sends a change to the profiles in the background; the status event that follows
+        refreshes the list."""
+
+        def send() -> None:
+            try:
+                request_json(method, path, body)
+            except ApiClientError as error:
+                message = str(error)
+                self._later(lambda: self._show_error(f"{failure}: {message}"))
+
+        self._in_background(send)
 
     def _downloads_opened(self) -> None:
         """A downloads tab was opened: the lists are fetched from the internet once per opening

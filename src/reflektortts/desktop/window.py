@@ -49,6 +49,10 @@ class Window:
         language_name: Callable[[str], str],
         on_profiles_opened: Callable[[], None],
         on_enable_profile: Callable[[ProfileItem, bool], None],
+        on_copy_profile: Callable[[ProfileItem], None],
+        on_remove_profile: Callable[[ProfileItem], None],
+        on_import_profile: Callable[[], None],
+        on_reload_profiles: Callable[[], None],
         on_open_profiles: Callable[[], None],
     ) -> None:
         self._root = root
@@ -68,7 +72,16 @@ class Window:
         status = ttk.Frame(self._notebook, padding=PADDING)
         self._notebook.add(status, text="Status")
         self._build_status(status, on_pause_toggle, on_open_logs, on_open_settings)
-        self.profiles = ProfilesTab(self._notebook, self._status_bar, on_enable_profile, on_open_profiles)
+        self.profiles = ProfilesTab(
+            self._notebook,
+            self._status_bar,
+            on_enable_profile,
+            on_copy_profile,
+            on_remove_profile,
+            on_import_profile,
+            on_reload_profiles,
+            on_open_profiles,
+        )
         self._notebook.add(self.profiles.frame, text="Profiles")
 
         self.downloads: dict[str, DownloadsTab] = {}

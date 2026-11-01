@@ -23,7 +23,11 @@ TIMEOUT_SECONDS = 5.0
 
 
 class ApiClientError(Exception):
-    """The core did not take a command."""
+    """The core did not take a command; status is its HTTP status, or None if it did not answer."""
+
+    def __init__(self, message: str, status: int | None = None) -> None:
+        super().__init__(message)
+        self.status = status
 
 
 REFRESH_TIMEOUT_SECONDS = 120.0
@@ -52,7 +56,7 @@ def request_json(
             message = json.loads(error.read())["error"]
         except (ValueError, KeyError, TypeError):
             message = str(error)
-        raise ApiClientError(message) from error
+        raise ApiClientError(message, error.code) from error
     except (urllib.error.URLError, OSError) as error:
         raise ApiClientError(f"ReflektorTTS did not respond: {error}") from error
     return json.loads(text) if text else None

@@ -6,6 +6,7 @@ import threading
 import weakref
 from collections.abc import Callable
 from dataclasses import asdict
+from pathlib import Path
 from typing import Any, Protocol
 
 from aiohttp import WSMsgType, web
@@ -17,7 +18,8 @@ from reflektortts.downloads.manager import Listed, Listing
 from reflektortts.downloads.source import DownloadError, DownloadStateError, UnknownDownloadError
 from reflektortts.events import DownloadEvent, ErrorEvent, PreviewEvent, StageState, Status, SubtitleEvent, TextEvent
 from reflektortts.languages import LANGUAGES, LanguageError, check_language
-from reflektortts.profiles.catalog import ProfileView
+from reflektortts.profiles.catalog import ProfileChangeError, ProfileExistsError, ProfileView
+from reflektortts.profiles.loader import ProfileError
 from reflektortts.sinks.subtitles import POSITIONS, SIZES
 from reflektortts.tts.engine import MAX_RATE, MIN_RATE, VoiceError, VoiceInfo, find_voice
 
@@ -90,6 +92,17 @@ class CoreControl(Protocol):
 
     def set_profile_enabled(self, profile_id: str, enabled: bool) -> Status:
         """Raises UnknownProfileError if there is no such profile."""
+
+    def import_profile(self, profile_id: str, data: Any, replace: bool) -> Status:
+        """Raises ProfileError, ProfileExistsError or ProfileChangeError."""
+
+    def copy_profile(self, profile_id: str) -> Path:
+        """Raises UnknownProfileError or ProfileChangeError."""
+
+    def remove_profile(self, profile_id: str) -> Status:
+        """Raises UnknownProfileError or ProfileChangeError."""
+
+    def reload_profiles(self) -> Status: ...
 
     def downloads(self, refresh: bool) -> Listing:
         """refresh fetches the lists from the internet, so it can take a while."""
@@ -238,6 +251,7 @@ SETTINGS_HELP = (
 SOURCES_HELP = 'Send {"name": "<source name from the status>", "enabled": true or false}.'
 STAGES_HELP = 'Send {"key": "<stage key from the status>", "enabled": true or false}.'
 PROFILES_HELP = 'Send {"id": "<id from GET /v1/profiles>", "enabled": true or false}.'
+IMPORT_HELP = 'Send {"id": "<the file name without .json>", "profile": {<the profile>}, "replace": true or false}.'
 
 
 async def read_object(request: web.Request) -> dict[str, Any] | None:
@@ -371,6 +385,45 @@ async def patch_profiles(request: web.Request) -> web.Response:
     return web.json_response(status_json(status))
 
 
+async def post_profiles(request: web.Request) -> web.Response:
+    body = await read_object(request)
+    replace = body.get("replace", False) if body is not None else None
+    if body is None or not isinstance(body.get("id"), str) or "profile" not in body or not isinstance(replace, bool):
+        return error_response(IMPORT_HELP)
+    try:
+        status = await asyncio.to_thread(request.app[CORE].import_profile, body["id"], body["profile"], replace)
+    except ProfileExistsError as error:
+        return error_response(str(error), 409)
+    except (ProfileError, ProfileChangeError) as error:
+        return error_response(str(error))
+    return web.json_response(status_json(status))
+
+
+async def post_profile_copy(request: web.Request) -> web.Response:
+    try:
+        path = await asyncio.to_thread(request.app[CORE].copy_profile, request.match_info["id"])
+    except UnknownProfileError as error:
+        return error_response(str(error), 404)
+    except ProfileChangeError as error:
+        return error_response(str(error), 409)
+    return web.json_response({"file": str(path)})
+
+
+async def delete_profile(request: web.Request) -> web.Response:
+    try:
+        status = await asyncio.to_thread(request.app[CORE].remove_profile, request.match_info["id"])
+    except UnknownProfileError as error:
+        return error_response(str(error), 404)
+    except ProfileChangeError as error:
+        return error_response(str(error), 409)
+    return web.json_response(status_json(status))
+
+
+async def post_profiles_reload(request: web.Request) -> web.Response:
+    status = await asyncio.to_thread(request.app[CORE].reload_profiles)
+    return web.json_response(status_json(status))
+
+
 DOWNLOADS_HELP = 'Send {"id": "<id from GET /v1/downloads>"}.'
 
 
@@ -484,6 +537,10 @@ def create_app(core: CoreControl) -> web.Application:
             web.patch("/v1/stages", patch_stages),
             web.get("/v1/profiles", get_profiles),
             web.patch("/v1/profiles", patch_profiles),
+            web.post("/v1/profiles", post_profiles),
+            web.post("/v1/profiles/reload", post_profiles_reload),
+            web.post("/v1/profiles/{id}/copy", post_profile_copy),
+            web.delete("/v1/profiles/{id}", delete_profile),
             web.post("/v1/pause", post_pause),
             web.post("/v1/resume", post_resume),
             web.post("/v1/stop", post_stop),
