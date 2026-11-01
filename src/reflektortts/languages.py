@@ -11,6 +11,12 @@ LANGUAGES = {
     "pl": "Polski",
 }
 
+# A sentence in each language, spoken to let the player hear a voice.
+SAMPLES = {
+    "en": "This is how this voice reads your games.",
+    "pl": "Tak ten głos czyta twoje gry.",
+}
+
 
 class LanguageError(Exception):
     """A language is not supported; the message lists the supported ones."""

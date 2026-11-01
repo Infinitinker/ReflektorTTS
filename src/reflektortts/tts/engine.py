@@ -49,6 +49,8 @@ class VoiceInfo:
     name: str
     language: str
     """BCP 47 tag, e.g. "pl-PL"."""
+    engine_title: str
+    """The engine's name as shown to players, e.g. "Windows"."""
 
 
 @dataclass(frozen=True)

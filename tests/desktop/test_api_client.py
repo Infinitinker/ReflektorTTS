@@ -6,9 +6,9 @@ import pytest
 
 from reflektortts.api.server import ApiServer
 from reflektortts.desktop.api_client import ApiClientError, StatusFeed, post, request_json
-from reflektortts.desktop.catalog import DownloadProgress, parse_list
+from reflektortts.desktop.catalog import DownloadProgress, PreviewState, parse_list
 from reflektortts.desktop.status import CoreStatus
-from reflektortts.events import DownloadEvent
+from reflektortts.events import DownloadEvent, PreviewEvent
 from tests.api.test_server import GOSIA, FakeCore
 
 TIMEOUT = 5
@@ -77,6 +77,19 @@ def test_the_feed_passes_on_download_progress(server: ApiServer, core: FakeCore)
         assert progress.get(timeout=TIMEOUT) == DownloadProgress(
             GOSIA.id, "failed", 0, None, "Check your internet connection."
         )
+    finally:
+        feed.stop()
+
+
+def test_the_feed_passes_on_previews(server: ApiServer, core: FakeCore) -> None:
+    statuses: queue.SimpleQueue[CoreStatus | None] = queue.SimpleQueue()
+    previews: queue.SimpleQueue[PreviewState] = queue.SimpleQueue()
+    feed = StatusFeed(statuses.put, on_preview=previews.put, base_url=url(server))
+    feed.start()
+    try:
+        statuses.get(timeout=TIMEOUT)
+        core.bus.publish(PreviewEvent("windows:Microsoft Adam", playing=True))
+        assert previews.get(timeout=TIMEOUT) == PreviewState("windows:Microsoft Adam", playing=True)
     finally:
         feed.stop()
 

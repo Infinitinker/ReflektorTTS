@@ -64,7 +64,7 @@ A failing source, stage or sink is reported once as a `source.error`, `stage.err
 | `profiles/` | Profile schema, loader and migrations |
 | `games/detector.py` | Finds running games |
 | `sources/`, `stages/`, `sinks/` | Built-in plugins |
-| `sinks/tts/` | The tts sink: the core's side of speech (the narrator, which pauses and switches voices, and the client that starts the TTS process; the process runs only while a game is read) |
+| `sinks/tts/` | The tts sink: the core's side of speech (the narrator, which pauses and switches voices, and the client that starts the TTS process; the process runs only while a game is read), and the voice preview, which speaks a sample sentence through a TTS process of its own that exits once it is spoken |
 | `tts/` | The TTS service process: speech engines, playback and voices |
 | `downloads/` | Downloads the player asks for: the contract download sources follow, the Piper and Argos sources, and the manager running downloads |
 | `process_memory/` | Reading a running game's memory for the sources that need it: the process (one implementation per OS, `windows.py`), pointer chains, and which build of the game it is |

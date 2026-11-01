@@ -1,6 +1,14 @@
 import pytest
 
-from reflektortts.desktop.catalog import DownloadItem, DownloadList, parse_list, size_text, state_text, summary_text
+from reflektortts.desktop.catalog import (
+    DownloadItem,
+    DownloadList,
+    other_voices,
+    parse_list,
+    size_text,
+    state_text,
+    summary_text,
+)
 
 
 def test_a_listing_from_the_api_becomes_items() -> None:
@@ -8,6 +16,7 @@ def test_a_listing_from_the_api_becomes_items() -> None:
         "entries": [
             {
                 "id": "argos:en-pl",
+                "source_title": "Argos Translate",
                 "kind": "translation",
                 "name": "English → Polish",
                 "languages": ["en", "pl"],
@@ -35,6 +44,7 @@ def test_a_listing_from_the_api_becomes_items() -> None:
                 "installed",
                 0,
                 None,
+                "Argos Translate",
             ),
         ),
         ("Could not reach the Piper list.",),
@@ -60,6 +70,61 @@ def test_sizes_are_shown_in_megabytes() -> None:
 
 def test_the_summary_counts_the_installed_entries() -> None:
     def item(state: str) -> DownloadItem:
-        return DownloadItem("id", "voice", "Voice", ("en",), None, None, "https://example.invalid", state, 0, None)
+        return DownloadItem(
+            "id", "voice", "Voice", ("en",), None, None, "https://example.invalid", state, 0, None, "Piper"
+        )
 
     assert summary_text([item("installed"), item("available"), item("downloading")]) == "1 of 3 installed"
+
+
+def test_installed_voices_that_are_not_downloads_are_listed_but_not_removable() -> None:
+    gosia = DownloadItem(
+        "piper:pl_PL-gosia-medium",
+        "voice",
+        "pl_PL-gosia-medium",
+        ("pl",),
+        63,
+        None,
+        "https://x.invalid",
+        "installed",
+        0,
+        None,
+        "Piper",
+    )
+    voices = {
+        "voices": [
+            {
+                "id": "piper:pl_PL-gosia-medium",
+                "engine": "piper",
+                "name": "pl_PL-gosia-medium",
+                "language": "pl-PL",
+                "engine_title": "Piper",
+            },
+            {
+                "id": "windows:Microsoft Adam",
+                "engine": "windows",
+                "name": "Microsoft Adam",
+                "language": "pl-PL",
+                "engine_title": "Windows",
+            },
+            {
+                "id": "windows:Microsoft Hedda",
+                "engine": "windows",
+                "name": "Microsoft Hedda",
+                "language": "de-DE",
+                "engine_title": "Windows",
+            },
+        ]
+    }
+
+    [adam] = other_voices(voices, [gosia], languages={"en", "pl"})
+
+    assert (adam.id, adam.source, adam.languages, adam.state, adam.removable, adam.page) == (
+        "windows:Microsoft Adam",
+        "Windows",
+        ("pl",),
+        "installed",
+        False,
+        "",
+    )
+    assert adam.license is not None and "Settings > Time & language > Speech" in adam.license

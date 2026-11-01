@@ -17,8 +17,11 @@ class TtsServiceError(Exception):
     """The TTS process is not running."""
 
 
-def receive_events(events: Connection, on_speaking: Callable[[bool], None]) -> None:
-    """Passes the service's Speaking messages on until it exits; one that ends mid-line counts as falling silent."""
+def receive_events(
+    events: Connection, on_speaking: Callable[[bool], None], on_exit: Callable[[], None] = lambda: None
+) -> None:
+    """Passes the service's Speaking messages on until it exits, then calls on_exit; one that ends
+    mid-line counts as falling silent."""
     speaking = False
     try:
         while True:
@@ -35,15 +38,23 @@ def receive_events(events: Connection, on_speaking: Callable[[bool], None]) -> N
         events.close()
         if speaking:
             on_speaking(False)
+        on_exit()
 
 
 class TtsClient:
     """Runs the TTS service in its own process; usable as a context manager.
 
-    on_speaking is called, on a thread of its own, when the service starts speaking and when it falls silent.
+    on_speaking is called, on a thread of its own, when the service starts speaking and when it falls silent;
+    on_exit, on the same thread, once the process has exited, e.g. after close() or when the voice could not be
+    loaded.
     """
 
-    def __init__(self, voice: str, on_speaking: Callable[[bool], None] = lambda active: None) -> None:
+    def __init__(
+        self,
+        voice: str,
+        on_speaking: Callable[[bool], None] = lambda active: None,
+        on_exit: Callable[[], None] = lambda: None,
+    ) -> None:
         context = multiprocessing.get_context("spawn")
         self._connection, service_end = context.Pipe()
         events, service_events = context.Pipe(duplex=False)
@@ -57,7 +68,7 @@ class TtsClient:
         service_end.close()
         service_events.close()
         self._events = threading.Thread(
-            target=receive_events, args=(events, on_speaking), name="tts-events", daemon=True
+            target=receive_events, args=(events, on_speaking, on_exit), name="tts-events", daemon=True
         )
         self._events.start()
 

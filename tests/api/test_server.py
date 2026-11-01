@@ -34,7 +34,9 @@ from reflektortts.events import (
 from reflektortts.languages import LanguageError, check_language
 from reflektortts.tts.engine import VoiceError, VoiceInfo
 
-ADAM = VoiceInfo(id="windows:Microsoft Adam", engine="windows", name="Microsoft Adam", language="pl-PL")
+ADAM = VoiceInfo(
+    id="windows:Microsoft Adam", engine="windows", name="Microsoft Adam", language="pl-PL", engine_title="Windows"
+)
 GOSIA = Entry(
     "piper:pl_PL-gosia-medium",
     Kind.VOICE,
@@ -44,6 +46,7 @@ GOSIA = Entry(
     "Dataset: CC0",
     "https://x.invalid",
     False,
+    "Piper",
 )
 TRACKER = StageState(
     key="messages/0:tracker",
@@ -61,6 +64,7 @@ class FakeCore:
         self.refreshed: bool | None = None
         self.started: list[str] = []
         self.removed: list[str] = []
+        self.previewed: list[str] = []
         self.current = Status(
             game=GameInfo("Grand Theft Auto 2", 42),
             voice="piper:a",
@@ -88,6 +92,11 @@ class FakeCore:
             raise VoiceError(f'There is no voice "{voice}".')
         self.current = replace(self.current, voice=voice)
         return self.current
+
+    def preview_voice(self, voice: str) -> None:
+        if voice != ADAM.id:
+            raise VoiceError(f'There is no voice "{voice}".')
+        self.previewed.append(voice)
 
     def set_game_language(self, language: str) -> Status:
         check_language(language)
@@ -206,6 +215,7 @@ def test_downloads_are_listed_with_their_state_and_errors() -> None:
             "entries": [
                 {
                     "id": "piper:pl_PL-gosia-medium",
+                    "source_title": "Piper",
                     "kind": "voice",
                     "name": "pl_PL-gosia-medium",
                     "languages": ["pl"],
@@ -237,6 +247,19 @@ def test_a_download_is_started_and_removed_by_id() -> None:
 
     with_client(core, test)
     assert core.started == core.removed == [GOSIA.id]
+
+
+def test_a_voice_is_previewed_by_id() -> None:
+    core = FakeCore()
+
+    async def test(client: TestClient[Any, Any]) -> None:
+        assert (await client.post("/v1/voices/preview", json={"voice": ADAM.id})).status == 202
+        unknown = await client.post("/v1/voices/preview", json={"voice": "piper:x"})
+        assert (unknown.status, (await unknown.json())["error"]) == (400, 'There is no voice "piper:x".')
+        assert (await client.post("/v1/voices/preview", json={})).status == 400
+
+    with_client(core, test)
+    assert core.previewed == [ADAM.id]
 
 
 def test_download_progress_comes_as_events() -> None:
@@ -271,7 +294,13 @@ def test_voices() -> None:
         response = await client.get("/v1/voices")
         assert await response.json() == {
             "voices": [
-                {"id": "windows:Microsoft Adam", "engine": "windows", "name": "Microsoft Adam", "language": "pl-PL"}
+                {
+                    "id": "windows:Microsoft Adam",
+                    "engine": "windows",
+                    "name": "Microsoft Adam",
+                    "language": "pl-PL",
+                    "engine_title": "Windows",
+                }
             ]
         }
 

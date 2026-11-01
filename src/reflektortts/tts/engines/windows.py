@@ -64,7 +64,11 @@ class WindowsEngine:
 def list_voices() -> list[VoiceInfo]:
     return [
         VoiceInfo(
-            id=f"windows:{voice.display_name}", engine="windows", name=voice.display_name, language=voice.language
+            id=f"windows:{voice.display_name}",
+            engine="windows",
+            name=voice.display_name,
+            language=voice.language,
+            engine_title="Windows",
         )
         for voice in SpeechSynthesizer.all_voices
     ]

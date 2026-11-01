@@ -34,7 +34,8 @@ def create(voice_name: str) -> PiperEngine:
 
 def voice_info(name: str) -> VoiceInfo:
     """Piper voice names start with the language, e.g. "en_US-ljspeech-medium"."""
-    return VoiceInfo(id=f"piper:{name}", engine="piper", name=name, language=name.split("-")[0].replace("_", "-"))
+    language = name.split("-")[0].replace("_", "-")
+    return VoiceInfo(id=f"piper:{name}", engine="piper", name=name, language=language, engine_title="Piper")
 
 
 def list_voices() -> list[VoiceInfo]:

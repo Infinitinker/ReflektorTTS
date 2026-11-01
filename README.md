@@ -55,7 +55,7 @@ Press **Ctrl+Shift+R** to open the ReflektorTTS panel. From top to bottom it fol
 
 Any output language can be chosen. Without a voice for it, the panel's Voice box says so and lines are only translated and shown as subtitles.
 
-Voices and translation models are downloaded only when you ask for it: in the desktop app's **Voices** and **Translations** tabs, which list what Piper and Argos Translate publish. Select one to read its license as published (for Piper voices, the voice's model card) and to open its page, then **Download** it; it can be used right away, even in a game that is running. **Remove** deletes it again.
+Voices and translation models are downloaded only when you ask for it: in the desktop app's **Voices** and **Translations** tabs, which list what Piper and Argos Translate publish. Select one to read its license as published (for Piper voices, the voice's model card) and to open its page, then **Download** it; it can be used right away, even in a game that is running. **Remove** deletes it again. **Preview** speaks a sentence in an installed voice, also while a game is read. The Voices tab also lists the Windows voices for the languages ReflektorTTS supports; they are added and removed in Windows Settings.
 
 Everything chosen in the panel, the voice included, is saved for each game, in `%LOCALAPPDATA%\ReflektorTTS\games\`, one file per game named like its profile (e.g. `mad-max-2015.json`). A game played for the first time starts with the defaults, and deleting its file resets it. `%LOCALAPPDATA%\ReflektorTTS\settings.json` remembers the voice last chosen for each language, so switching a game's output language picks it again.
 

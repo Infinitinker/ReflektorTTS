@@ -1,5 +1,8 @@
 """A tab of downloads of one kind (voices, or translations): a table, the selected entry's name,
-license and buttons to download or remove it and to open its page."""
+license and buttons to download or remove it, to open its page and, for voices, to hear it.
+
+The buttons never move: the one that downloads or removes is as wide as its longest label, and a
+button that cannot be used for the selected entry is grayed out."""
 
 import tkinter as tk
 import tkinter.font as tkfont
@@ -13,9 +16,17 @@ from reflektortts.desktop.theme import BUSY, DIM, GOOD, group_background, headin
 
 LICENSE_LINES = 6
 NO_LICENSE = "The license is not published with this list. Open its page to read about it."
-COLUMNS = (("name", "Name"), ("languages", "Languages"), ("size", "Size"), ("state", "State"))
+COLUMNS = (("name", "Name"), ("source", "Source"), ("languages", "Languages"), ("size", "Size"), ("state", "State"))
 COLUMN_PADDING = 24
 """Pixels added to the widest text of a column."""
+ACTION_LABELS = ("Download", "Downloading…", "Remove")
+PREVIEW_LABELS = ("Preview", "Playing…")
+
+
+def _width(labels: tuple[str, ...]) -> int:
+    """A button's width for its longest label, so it never changes; in average character widths,
+    so a little room is left for wider letters."""
+    return max(len(label) for label in labels) + 2
 
 
 class DownloadsTab:
@@ -25,12 +36,17 @@ class DownloadsTab:
         status_bar: StatusBar,
         on_download: Callable[[DownloadItem], None],
         on_remove: Callable[[DownloadItem], None],
+        on_preview: Callable[[DownloadItem], None] | None,
         language_name: Callable[[str], str],
     ) -> None:
+        """on_preview is None for downloads that cannot be heard."""
         self.frame = ttk.Frame(parent, padding=(8, 8, 8, 6))
         self._status_bar = status_bar
         self._on_download = on_download
         self._on_remove = on_remove
+        self._on_preview = on_preview
+        self._playing: str | None = None
+        """The voice whose preview is loading or playing."""
         self._language_name = language_name
         self._items: dict[str, DownloadItem] = {}
         self.frame.columnconfigure(0, weight=1)
@@ -87,17 +103,26 @@ class DownloadsTab:
 
         buttons = ttk.Frame(self.frame)
         buttons.grid(row=3, column=0, sticky="w", pady=(8, 0))
-        self._button = ttk.Button(buttons, text="Download", state="disabled", command=self._act)
+        self._button = ttk.Button(
+            buttons, text="Download", width=_width(ACTION_LABELS), state="disabled", command=self._act
+        )
         self._button.grid(row=0, column=0)
         self._page = ttk.Button(buttons, text="Open page", state="disabled", command=self._open_page)
         self._page.grid(row=0, column=1, padx=(6, 0))
         self._status_bar.hint(self._button, self._button_hint)
         self._status_bar.hint(self._page, lambda: "Open its page in your browser, e.g. to read more about its license.")
+        self._preview: ttk.Button | None = None
+        if self._on_preview is not None:
+            self._preview = ttk.Button(
+                buttons, text="Preview", width=_width(PREVIEW_LABELS), state="disabled", command=self._play_preview
+            )
+            self._preview.grid(row=0, column=2, padx=(6, 0))
+            self._status_bar.hint(self._preview, self._preview_hint)
 
     def show_message(self, message: str) -> None:
         """Shows a message in place of the entries, e.g. while they load."""
         self._tree.delete(*self._tree.get_children())
-        self._tree.insert("", "end", iid="message", values=(message, "", "", ""), tags=("message",))
+        self._tree.insert("", "end", iid="message", values=(message, "", "", "", ""), tags=("message",))
         self._items = {}
         self._fit_columns()
         self._status_bar.set_text(self.frame, "")
@@ -117,12 +142,21 @@ class DownloadsTab:
         self._status_bar.set_text(self.frame, summary_text(items))
         self._show_selected()
 
+    def show_preview(self, voice: str, playing: bool) -> None:
+        """A voice's preview started (also while it loads) or ended; one plays at a time."""
+        if playing:
+            self._playing = voice
+        elif self._playing == voice:
+            self._playing = None
+        self._show_selected()
+
     def show_progress(self, progress: DownloadProgress) -> None:
         if progress.id in self._items and progress.state == "downloading":
             self._show_downloading(progress.id, progress.done, progress.total)
 
-    def _row(self, item: DownloadItem) -> tuple[str, str, str, str]:
-        return item.name, self._languages(item), size_text(item.size), state_text(item.state, item.done, item.total)
+    def _row(self, item: DownloadItem) -> tuple[str, str, str, str, str]:
+        state = state_text(item.state, item.done, item.total)
+        return item.name, item.source, self._languages(item), size_text(item.size), state
 
     def _languages(self, item: DownloadItem) -> str:
         return ", ".join(self._language_name(language) for language in item.languages)
@@ -164,13 +198,19 @@ class DownloadsTab:
         if item is not None:
             self._license.insert("1.0", item.license or NO_LICENSE)
         self._license.configure(state="disabled")
-        self._page.configure(state="disabled" if item is None else "normal")
+        self._page.configure(state="normal" if item is not None and item.page else "disabled")
+        if self._preview is not None:
+            if item is not None and item.id == self._playing:
+                self._preview.configure(text="Playing…", state="disabled")
+            else:
+                installed = item is not None and item.state == "installed"
+                self._preview.configure(text="Preview", state="normal" if installed else "disabled")
         if item is None:
             self._button.configure(text="Download", state="disabled")
         elif self._downloading(item):
             self._button.configure(text="Downloading…", state="disabled")
         elif item.state == "installed":
-            self._button.configure(text="Remove", state="normal")
+            self._button.configure(text="Remove", state="normal" if item.removable else "disabled")
         else:
             self._button.configure(text="Download", state="normal")
 
@@ -181,8 +221,22 @@ class DownloadsTab:
         if self._downloading(item):
             return "It is being downloaded."
         if item.state == "installed":
+            if not item.removable:
+                return "It was not downloaded here, so it cannot be removed here."
             return "Delete it from this computer. It can be downloaded again."
         return "Download it. It can be used right away, even in a game that is running."
+
+    def _preview_hint(self) -> str:
+        item = self._selected()
+        if item is None or item.state != "installed":
+            return "Hear a sentence in this voice, once it is installed."
+        return "Hear a sentence in this voice, even while a game is read."
+
+    def _play_preview(self) -> None:
+        item = self._selected()
+        if item is not None and self._on_preview is not None:
+            self.show_preview(item.id, True)
+            self._on_preview(item)
 
     def _act(self) -> None:
         item = self._selected()

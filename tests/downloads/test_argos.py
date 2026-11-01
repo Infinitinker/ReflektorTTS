@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from reflektortts.downloads.argos import INDEX_URL, PAGE_URL, ArgosModels
+from reflektortts.downloads.argos import INDEX_URL, PAGE_URL, TITLE, ArgosModels
 from reflektortts.downloads.source import DownloadError, Entry, Kind
 from reflektortts.stages.translate.model import installed_model
 from tests.downloads.fake_web import FakeWeb
@@ -40,9 +40,17 @@ def test_models_between_supported_languages_are_listed_with_an_unknown_license(t
 
     assert entries == [
         Entry(
-            "argos:en-pl", Kind.TRANSLATION, "English → Polish", ("en", "pl"), len(PACKAGE_BYTES), None, PAGE_URL, False
+            "argos:en-pl",
+            Kind.TRANSLATION,
+            "English → Polish",
+            ("en", "pl"),
+            len(PACKAGE_BYTES),
+            None,
+            PAGE_URL,
+            False,
+            TITLE,
         ),
-        Entry("argos:pl-en", Kind.TRANSLATION, "Polish → English", ("pl", "en"), None, None, PAGE_URL, False),
+        Entry("argos:pl-en", Kind.TRANSLATION, "Polish → English", ("pl", "en"), None, None, PAGE_URL, False, TITLE),
     ]
 
 

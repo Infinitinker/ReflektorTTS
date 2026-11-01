@@ -21,6 +21,7 @@ from reflektortts.tts.voices import downloaded_voices, voice_files, voices_dir
 logger = logging.getLogger(__name__)
 
 NAME = "piper"
+TITLE = "Piper"
 REPOSITORY = "https://huggingface.co/rhasspy/piper-voices"
 INDEX_URL = f"{REPOSITORY}/resolve/main/voices.json"
 FILE_URL = f"{REPOSITORY}/resolve/main/"
@@ -103,6 +104,7 @@ class PiperVoices:
         model = next(iter(files))
         return Entry(
             id=f"{NAME}:{key}",
+            source_title=TITLE,
             kind=Kind.VOICE,
             name=key,
             languages=(info["language"]["family"],),

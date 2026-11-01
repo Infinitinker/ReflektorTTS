@@ -4,9 +4,12 @@ from reflektortts.sinks.tts.narrator import Narrator
 
 
 class FakeClient:
-    def __init__(self, voice: str, on_speaking: Callable[[bool], None]) -> None:
+    def __init__(
+        self, voice: str, on_speaking: Callable[[bool], None], on_exit: Callable[[], None] = lambda: None
+    ) -> None:
         self.voice = voice
         self.on_speaking = on_speaking
+        self.on_exit = on_exit
         self.said: list[str] = []
         self.how: list[tuple[float, bool]] = []
         """Rate and cut-off of each line said."""
@@ -23,15 +26,20 @@ class FakeClient:
         self.dropped_waiting.append(drop_waiting)
 
     def close(self) -> None:
-        self.closed = True
+        """The process exits."""
+        if not self.closed:
+            self.closed = True
+            self.on_exit()
 
 
 class Clients:
     def __init__(self) -> None:
         self.started: list[FakeClient] = []
 
-    def start(self, voice: str, on_speaking: Callable[[bool], None]) -> FakeClient:
-        self.started.append(FakeClient(voice, on_speaking))
+    def start(
+        self, voice: str, on_speaking: Callable[[bool], None], on_exit: Callable[[], None] = lambda: None
+    ) -> FakeClient:
+        self.started.append(FakeClient(voice, on_speaking, on_exit))
         return self.started[-1]
 
 

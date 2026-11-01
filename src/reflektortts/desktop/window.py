@@ -42,6 +42,7 @@ class Window:
         on_downloads_opened: Callable[[], None],
         on_download: Callable[[DownloadItem], None],
         on_remove: Callable[[DownloadItem], None],
+        on_preview: Callable[[DownloadItem], None],
         language_name: Callable[[str], str],
     ) -> None:
         self._root = root
@@ -65,7 +66,9 @@ class Window:
         self.downloads: dict[str, DownloadsTab] = {}
         """Each kind's tab, by the kind's name in the API."""
         for kind, title in DOWNLOAD_TABS.items():
-            tab = DownloadsTab(self._notebook, self._status_bar, on_download, on_remove, language_name)
+            # Only voices can be heard before use.
+            preview = on_preview if kind == Kind.VOICE else None
+            tab = DownloadsTab(self._notebook, self._status_bar, on_download, on_remove, preview, language_name)
             self._notebook.add(tab.frame, text=title)
             self.downloads[kind.value] = tab
         self._notebook.bind("<<NotebookTabChanged>>", lambda event: self._tab_changed(on_downloads_opened))

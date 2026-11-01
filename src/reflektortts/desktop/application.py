@@ -15,7 +15,7 @@ from reflektortts.api.server import ApiError
 from reflektortts.app import NoProfilesError
 from reflektortts.arguments import Arguments
 from reflektortts.desktop.api_client import REFRESH_TIMEOUT_SECONDS, ApiClientError, StatusFeed, post, request_json
-from reflektortts.desktop.catalog import DownloadItem, DownloadList, DownloadProgress, parse_list
+from reflektortts.desktop.catalog import DownloadItem, DownloadList, DownloadProgress, other_voices, parse_list
 from reflektortts.desktop.core_thread import CoreThread
 from reflektortts.desktop.folders import open_folder
 from reflektortts.desktop.status import CoreStatus, describe
@@ -43,6 +43,7 @@ class Application:
         self._feed = StatusFeed(
             lambda status: self._later(lambda: self._show(status)),
             lambda progress: self._later(lambda: self._download_progress(progress)),
+            lambda preview: self._later(lambda: self._show_preview(preview.voice, preview.playing)),
         )
         self._tray = Tray(
             on_open=lambda: self._later(self._window_show),
@@ -58,6 +59,7 @@ class Application:
             on_downloads_opened=self._downloads_opened,
             on_download=self._start_download,
             on_remove=self._remove_download,
+            on_preview=self._preview,
             language_name=lambda code: self._language_names.get(code, code),
         )
 
@@ -127,11 +129,13 @@ class Application:
                 self._language_names = {language["code"]: language["name"] for language in languages}
             path = "/downloads?refresh=1" if refresh else "/downloads"
             timeout = REFRESH_TIMEOUT_SECONDS if refresh else 5.0
-            listing = parse_list(request_json("GET", path, timeout=timeout))
+            downloads = parse_list(request_json("GET", path, timeout=timeout))
+            others = other_voices(request_json("GET", "/voices"), downloads.items, self._language_names)
         except ApiClientError as error:
             message = str(error)
             self._later(lambda: self._list_failed(message))
             return
+        listing = DownloadList((*downloads.items, *others), downloads.errors)
         self._later(lambda: self._show_list(listing, report_errors=refresh))
 
     def _show_list(self, listing: DownloadList, report_errors: bool) -> None:
@@ -181,6 +185,21 @@ class Application:
             self._in_background(lambda: self._fetch_list(refresh=False))
         if progress.state == "failed" and item is not None:
             self._show_error(f"{item.name} could not be downloaded: {progress.message}")
+
+    def _preview(self, item: DownloadItem) -> None:
+        def preview() -> None:
+            try:
+                request_json("POST", "/voices/preview", {"voice": item.id})
+            except ApiClientError as error:
+                message = str(error)
+                self._later(lambda: self._show_preview(item.id, False))
+                self._later(lambda: self._show_error(f"{item.name} could not be previewed: {message}"))
+
+        self._in_background(preview)
+
+    def _show_preview(self, voice: str, playing: bool) -> None:
+        for tab in self._window.downloads.values():
+            tab.show_preview(voice, playing)
 
     def _in_background(self, work: Callable[[], None]) -> None:
         threading.Thread(target=work, name="api request", daemon=True).start()

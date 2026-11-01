@@ -13,7 +13,7 @@ from aiohttp import WSMsgType, web
 from reflektortts.bus import Event, Listener
 from reflektortts.downloads.manager import Listed, Listing
 from reflektortts.downloads.source import DownloadError
-from reflektortts.events import DownloadEvent, ErrorEvent, StageState, Status, SubtitleEvent, TextEvent
+from reflektortts.events import DownloadEvent, ErrorEvent, PreviewEvent, StageState, Status, SubtitleEvent, TextEvent
 from reflektortts.languages import LANGUAGES, LanguageError
 from reflektortts.sinks.subtitles import POSITIONS, SIZES
 from reflektortts.tts.engine import MAX_RATE, MIN_RATE, VoiceError, VoiceInfo
@@ -46,6 +46,9 @@ class CoreControl(Protocol):
 
     def set_voice(self, voice: str) -> Status:
         """Raises VoiceError if the voice is not available."""
+
+    def preview_voice(self, voice: str) -> None:
+        """Raises VoiceError if the voice is not available or speaks no supported language."""
 
     def set_game_language(self, language: str) -> Status:
         """Raises LanguageError if the language is not supported."""
@@ -130,6 +133,8 @@ def event_json(event: Event) -> dict[str, Any]:
         return {"type": "subtitle", "text": event.text}
     if isinstance(event, ErrorEvent):
         return {"type": "error", "kind": event.kind, "origin": event.origin, "message": event.message}
+    if isinstance(event, PreviewEvent):
+        return {"type": "preview", "voice": event.voice, "playing": event.playing}
     if isinstance(event, DownloadEvent):
         return {
             "type": "download",
@@ -146,6 +151,7 @@ def listed_json(listed: Listed) -> dict[str, Any]:
     entry = listed.entry
     return {
         "id": entry.id,
+        "source_title": entry.source_title,
         "kind": entry.kind,
         "name": entry.name,
         "languages": list(entry.languages),
@@ -330,6 +336,17 @@ async def post_stop(request: web.Request) -> web.Response:
     return web.json_response(status_json(request.app[CORE].stop_line()))
 
 
+async def post_voice_preview(request: web.Request) -> web.Response:
+    body = await read_object(request)
+    if body is None or not isinstance(body.get("voice"), str):
+        return error_response('Send {"voice": "<id from GET /v1/voices>"}.')
+    try:
+        await asyncio.to_thread(request.app[CORE].preview_voice, body["voice"])
+    except VoiceError as error:
+        return error_response(str(error))
+    return web.json_response({"voice": body["voice"]}, status=202)
+
+
 async def events(request: web.Request) -> web.WebSocketResponse:
     """Sends the current status, then every core event, until the client disconnects."""
     socket = web.WebSocketResponse(heartbeat=30)
@@ -376,6 +393,7 @@ def create_app(core: CoreControl) -> web.Application:
         [
             web.get("/v1/status", get_status),
             web.get("/v1/voices", get_voices),
+            web.post("/v1/voices/preview", post_voice_preview),
             web.get("/v1/languages", get_languages),
             web.patch("/v1/settings", patch_settings),
             web.patch("/v1/sources", patch_sources),

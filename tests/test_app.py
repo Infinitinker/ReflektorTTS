@@ -18,6 +18,7 @@ from reflektortts.pipeline.runner import Route
 from reflektortts.profiles.model import Game, Match, Profile, SourceSettings, StageSettings
 from reflektortts.settings import GameSettings, load_game, load_shared
 from reflektortts.sinks.tts.narrator import Narrator
+from reflektortts.sinks.tts.preview import VoicePreview
 from reflektortts.tts.engine import DEFAULT_VOICE, VoiceError, VoiceInfo
 from tests.sinks.tts.test_narrator import Clients
 
@@ -135,9 +136,9 @@ def test_read_game_returns_when_stopped() -> None:
     assert source.closed
 
 
-ADAM = VoiceInfo(id="windows:Microsoft Adam", engine="windows", name="Microsoft Adam", language="pl-PL")
-PAULINA = VoiceInfo(id="windows:Microsoft Paulina", engine="windows", name="Microsoft Paulina", language="pl-PL")
-LJSPEECH = VoiceInfo(id="piper:en_US-ljspeech-medium", engine="piper", name="en_US-ljspeech-medium", language="en-US")
+ADAM = VoiceInfo("windows:Microsoft Adam", "windows", "Microsoft Adam", "pl-PL", "Windows")
+PAULINA = VoiceInfo("windows:Microsoft Paulina", "windows", "Microsoft Paulina", "pl-PL", "Windows")
+LJSPEECH = VoiceInfo("piper:en_US-ljspeech-medium", "piper", "en_US-ljspeech-medium", "en-US", "Piper")
 GTA2 = Profile(
     "grand-theft-auto-2-1999",
     Game("Grand Theft Auto 2", 1999),
@@ -162,7 +163,9 @@ def saved_for(tmp_path: Path, profile: Profile) -> GameSettings:
     return load_game(tmp_path, profile.id)
 
 
-def make_core(tmp_path: Path, clients: Clients, voices: list[VoiceInfo] | None = None) -> Core:
+def make_core(
+    tmp_path: Path, clients: Clients, voices: list[VoiceInfo] | None = None, previews: Clients | None = None
+) -> Core:
     return Core(
         profiles=[GTA2],
         settings_dir=tmp_path,
@@ -172,6 +175,7 @@ def make_core(tmp_path: Path, clients: Clients, voices: list[VoiceInfo] | None =
         open_app_volume=no_sound,
         duck_records=DuckRecords(tmp_path / "lowered-games.json"),
         download_sources={},
+        preview_factory=lambda on_change: VoicePreview(on_change, (previews or Clients()).start, lambda work: work()),
     )
 
 
@@ -218,6 +222,20 @@ def test_core_rejects_voices_that_are_not_available(tmp_path: Path) -> None:
 
     with pytest.raises(VoiceError, match=r'no voice "piper:missing"\. Available: piper:en_US'):
         core.set_voice("piper:missing")
+
+
+def test_a_voice_is_previewed_in_its_language_without_touching_the_game_voice(tmp_path: Path) -> None:
+    clients, previews = Clients(), Clients()
+    core = make_core(tmp_path, clients, previews=previews)
+    core._enter(playing(GTA2))
+
+    core.preview_voice(ADAM.id)
+
+    sample = "Tak ten głos czyta twoje gry."
+    assert [(client.voice, client.said) for client in previews.started] == [(ADAM.id, [sample])]
+    assert [client.voice for client in clients.started] == [LJSPEECH.id]
+    with pytest.raises(VoiceError, match='no voice "piper:missing"'):
+        core.preview_voice("piper:missing")
 
 
 def test_output_language_switches_to_the_voice_last_used_for_it(tmp_path: Path) -> None:

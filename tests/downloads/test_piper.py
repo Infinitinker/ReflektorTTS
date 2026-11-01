@@ -54,6 +54,7 @@ def test_voices_in_supported_languages_are_listed_with_their_model_card(tmp_path
         license="# Model card for pl_PL-gosia-medium\n\nDataset: CC0",
         page=PAGE_URL + "pl/pl_PL/gosia/medium",
         installed=False,
+        source_title="Piper",
     )
 
 

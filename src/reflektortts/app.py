@@ -17,11 +17,12 @@ from reflektortts.downloads.source import DownloadSource, download_plugins
 from reflektortts.ducking.ducker import Ducker
 from reflektortts.ducking.records import DuckRecords, records_path
 from reflektortts.ducking.volume import DuckingUnavailableError, OpenAppVolume, system_app_volume
-from reflektortts.events import DownloadEvent, ErrorEvent, GameInfo, SourceStages, StageState, Status
+from reflektortts.events import DownloadEvent, ErrorEvent, GameInfo, PreviewEvent, SourceStages, StageState, Status
 from reflektortts.games.detector import RunningGame, find_running_games
 from reflektortts.languages import (
     DEFAULT_GAME_LANGUAGE,
     DEFAULT_OUTPUT_LANGUAGE,
+    SAMPLES,
     Languages,
     check_language,
     primary_language,
@@ -36,6 +37,7 @@ from reflektortts.settings import GameSettings, load_game, load_shared, save_gam
 from reflektortts.sinks.bus import BusSink
 from reflektortts.sinks.subtitles import Subtitles
 from reflektortts.sinks.tts.narrator import Narrator
+from reflektortts.sinks.tts.preview import VoicePreview
 from reflektortts.sinks.tts.sink import TtsSink
 from reflektortts.tts.engine import VoiceError, VoiceInfo, available_voices
 from reflektortts.user_dirs import cache_dir, data_dir
@@ -186,6 +188,7 @@ class Core:
         duck_records: DuckRecords | None = None,
         exit_grace_seconds: float = EXIT_GRACE_SECONDS,
         download_sources: Mapping[str, DownloadSource] | None = None,
+        preview_factory: Callable[[Callable[[PreviewEvent], None]], VoicePreview] = VoicePreview,
     ) -> None:
         self._profiles = profiles
         self._is_running = is_running
@@ -210,6 +213,7 @@ class Core:
         self._profile: Profile | None = None
         sources = load_download_sources() if download_sources is None else download_sources
         self._downloads = Downloads(sources, self._downloaded)
+        self._preview = preview_factory(self._bus.publish)
 
     def status(self) -> Status:
         return Status(
@@ -259,6 +263,16 @@ class Core:
         self._change(voice=voice)
         self._speak()
         return self._publish_status()
+
+    def preview_voice(self, voice: str) -> None:
+        """Speaks a sample sentence in the voice's language, also while a game is read."""
+        voices = {info.id: info for info in self.voices()}
+        if voice not in voices:
+            raise VoiceError(f'There is no voice "{voice}". Available: {", ".join(voices) or "none"}.')
+        language = primary_language(voices[voice].language)
+        if language not in SAMPLES:
+            raise VoiceError(f'"{voice}" speaks {language}, a language ReflektorTTS does not support.')
+        self._preview.play(voice, SAMPLES[language])
 
     def set_ducking(self, enabled: bool, volume: float) -> Status:
         """Whether, and how far, the game's sound is lowered while lines are spoken."""
@@ -363,6 +377,7 @@ class Core:
 
     def close(self) -> None:
         self._narrator.close()
+        self._preview.close()
         self._ducker.close()
         self._subtitles.close()
 

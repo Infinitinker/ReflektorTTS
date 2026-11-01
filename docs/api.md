@@ -76,13 +76,17 @@ Returns the voices available now, from every speech engine that works on this sy
 ```json
 {
   "voices": [
-    { "id": "piper:en_US-ljspeech-medium", "engine": "piper", "name": "en_US-ljspeech-medium", "language": "en-US" },
-    { "id": "windows:Microsoft Adam", "engine": "windows", "name": "Microsoft Adam", "language": "pl-PL" }
+    { "id": "piper:en_US-ljspeech-medium", "engine": "piper", "name": "en_US-ljspeech-medium", "language": "en-US", "engine_title": "Piper" },
+    { "id": "windows:Microsoft Adam", "engine": "windows", "name": "Microsoft Adam", "language": "pl-PL", "engine_title": "Windows" }
   ]
 }
 ```
 
-`id` is what `PATCH /v1/settings` takes; `language` is a BCP 47 tag, so a UI can offer only the voices that speak the output language. Only installed voices are listed; ReflektorTTS never downloads one by itself.
+`id` is what `PATCH /v1/settings` takes; `language` is a BCP 47 tag, so a UI can offer only the voices that speak the output language; `engine_title` is the engine's name as shown to players. Only installed voices are listed; ReflektorTTS never downloads one by itself.
+
+### `POST /v1/voices/preview`
+
+`{"voice": "piper:pl_PL-gosia-medium"}` speaks a sample sentence in the voice's language, so the player can hear it. It runs apart from the game being read, if any: the game keeps its voice and its sound is not lowered. A new preview cuts off the one playing. Answers 202 at once, and `preview` events say when it starts and ends; 400 if the voice is not installed or speaks no supported language.
 
 ### `GET /v1/languages`
 
@@ -158,6 +162,7 @@ Lists every source's entries in the languages ReflektorTTS supports. With `?refr
   "entries": [
     {
       "id": "piper:pl_PL-gosia-medium",
+      "source_title": "Piper",
       "kind": "voice",
       "name": "pl_PL-gosia-medium",
       "languages": ["pl"],
@@ -173,6 +178,7 @@ Lists every source's entries in the languages ReflektorTTS supports. With `?refr
 }
 ```
 
+- `source_title`: the source's name as shown to players, e.g. `Argos Translate`.
 - `kind`: `voice` or `translation`; `languages`: a voice's language, or a translation's from and to.
 - `size` in bytes, or `null` if the source does not say.
 - `license`: as the source publishes it (for Piper voices, the voice's model card), or `null` if the source does not; `page` is where to read more.
@@ -206,6 +212,7 @@ On connecting, the client receives the current status. After that, every event t
 | `subtitle` | The subtitle to show over the game changes, while subtitles are on | `text`: the subtitle, or `""` to hide it. The core decides how long each one stays: while it is spoken plus a moment, and at least as long as it takes to read |
 | `error` | A source, stage or sink fails (reported once until it works again) | `kind`: `source.error`, `stage.error` or `sink.error`; `origin`: which one; `message`: for the user |
 | `download` | A download moves on, a few times a second at most | `id`; `state`: `downloading`, `installed`, `failed` or `removed`; `done` and `total` bytes (`total` may be `null`); `message`: why it failed, for the user |
+| `preview` | A voice preview starts (also while its voice loads) or ends: spoken, cut off by another preview, or its voice could not be loaded | `voice`; `playing`: `true` when it starts, `false` when it ends. A preview cut off by another one gets no `false`: the other's `true` replaces it |
 
 Example:
 

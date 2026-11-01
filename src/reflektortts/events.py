@@ -47,6 +47,15 @@ class DownloadEvent:
 
 
 @dataclass(frozen=True)
+class PreviewEvent:
+    """A voice preview started (playing, also while its voice loads) or ended (not playing): it was
+    spoken, cut off by another preview, or its voice could not be loaded."""
+
+    voice: str
+    playing: bool
+
+
+@dataclass(frozen=True)
 class GameInfo:
     title: str
     pid: int

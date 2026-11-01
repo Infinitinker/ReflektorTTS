@@ -12,7 +12,7 @@ from typing import Any
 import aiohttp
 
 from reflektortts.api.server import HOST, PORT
-from reflektortts.desktop.catalog import DownloadProgress, parse_progress
+from reflektortts.desktop.catalog import DownloadProgress, PreviewState, parse_preview, parse_progress
 from reflektortts.desktop.status import CoreStatus, parse_status
 
 logger = logging.getLogger(__name__)
@@ -60,18 +60,21 @@ def request_json(
 
 class StatusFeed:
     """Follows /v1/events on a thread of its own and passes each status to on_status, or None
-    while the core does not answer (still starting, or stopped), and each download event to
-    on_download. It reconnects until stopped. Both are called on that thread.
+    while the core does not answer (still starting, or stopped), each download event to
+    on_download and each preview event to on_preview. It reconnects until stopped. All are called
+    on that thread.
     """
 
     def __init__(
         self,
         on_status: Callable[[CoreStatus | None], None],
         on_download: Callable[[DownloadProgress], None] = lambda progress: None,
+        on_preview: Callable[[PreviewState], None] = lambda preview: None,
         base_url: str = BASE_URL,
     ) -> None:
         self._on_status = on_status
         self._on_download = on_download
+        self._on_preview = on_preview
         self._url = f"{base_url}/events"
         self._loop: asyncio.AbstractEventLoop | None = None
         self._stopping: asyncio.Event | None = None
@@ -118,5 +121,8 @@ class StatusFeed:
                     progress = parse_progress(event)
                     if progress is not None:
                         self._on_download(progress)
+                    preview = parse_preview(event)
+                    if preview is not None:
+                        self._on_preview(preview)
         except (aiohttp.ClientError, OSError) as error:
             logger.debug("Status feed not connected: %s", error)

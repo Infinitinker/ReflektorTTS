@@ -18,6 +18,7 @@ from reflektortts.languages import LANGUAGES
 from reflektortts.stages.translate.model import ModelInstallError, Pair, install_archive, installed_model, remove_model
 
 NAME = "argos"
+TITLE = "Argos Translate"
 INDEX_URL = "https://raw.githubusercontent.com/argosopentech/argospm-index/main/index.json"
 PAGE_URL = "https://www.argosopentech.com/argospm/index/"
 
@@ -43,6 +44,7 @@ class ArgosModels:
         return [
             Entry(
                 id=f"{NAME}:{pair[0]}-{pair[1]}",
+                source_title=TITLE,
                 kind=Kind.TRANSLATION,
                 name=f"{package['from_name']} → {package['to_name']}",
                 languages=pair,

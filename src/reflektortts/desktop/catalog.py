@@ -1,10 +1,18 @@
-"""What the desktop app shows of the downloads: entries, their state and progress, from the API."""
+"""What the desktop app shows of the downloads: entries, their state and progress, from the API,
+and the voices installed by other means."""
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
+from reflektortts.languages import primary_language
+
 MB = 1024 * 1024
+OTHER_VOICE_LICENSES = {
+    "windows": "Comes with Windows: add or remove Windows voices in Settings > Time & language > Speech.",
+}
+"""In place of a license, where a voice installed by other means comes from, by its engine."""
+OTHER_VOICE_LICENSE = "Installed outside ReflektorTTS."
 
 
 @dataclass(frozen=True)
@@ -21,6 +29,10 @@ class DownloadItem:
     """"available", "downloading" or "installed"."""
     done: int
     total: int | None
+    source: str
+    """Where it comes from, as shown to players, e.g. "Piper" or "Windows"."""
+    removable: bool = True
+    """False for a voice installed by other means, e.g. one that comes with Windows."""
 
 
 @dataclass(frozen=True)
@@ -54,10 +66,52 @@ def parse_list(data: Mapping[str, Any]) -> DownloadList:
             state=entry["state"],
             done=entry["done"],
             total=entry["total"],
+            source=entry["source_title"],
         )
         for entry in data["entries"]
     )
     return DownloadList(items, tuple(data["errors"]))
+
+
+def other_voices(
+    voices: Mapping[str, Any], downloads: Sequence[DownloadItem], languages: Collection[str]
+) -> list[DownloadItem]:
+    """The installed voices in GET /v1/voices that are not downloads (a voice download's ID is
+    its voice's), in the given languages: listed as installed, but they cannot be removed here."""
+    listed = {item.id for item in downloads}
+    return [
+        DownloadItem(
+            id=voice["id"],
+            kind="voice",
+            name=voice["name"],
+            languages=(primary_language(voice["language"]),),
+            size=None,
+            license=OTHER_VOICE_LICENSES.get(voice["engine"], OTHER_VOICE_LICENSE),
+            page="",
+            state="installed",
+            done=0,
+            total=None,
+            source=voice["engine_title"],
+            removable=False,
+        )
+        for voice in voices["voices"]
+        if voice["id"] not in listed and primary_language(voice["language"]) in languages
+    ]
+
+
+@dataclass(frozen=True)
+class PreviewState:
+    """A preview event: a voice's preview started (playing, also while the voice loads) or ended."""
+
+    voice: str
+    playing: bool
+
+
+def parse_preview(event: Mapping[str, Any]) -> PreviewState | None:
+    """The preview event in an /v1/events message, or None for other events."""
+    if event.get("type") != "preview":
+        return None
+    return PreviewState(event["voice"], event["playing"])
 
 
 def parse_progress(event: Mapping[str, Any]) -> DownloadProgress | None:

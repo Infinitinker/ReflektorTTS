@@ -11,7 +11,9 @@ TIMEOUT = 5
 
 
 def entry(entry_id: str, installed: bool = False) -> Entry:
-    return Entry(entry_id, Kind.VOICE, entry_id.split(":")[1], ("pl",), 100, None, "https://example.invalid", installed)
+    return Entry(
+        entry_id, Kind.VOICE, entry_id.split(":")[1], ("pl",), 100, None, "https://example.invalid", installed, "Fake"
+    )
 
 
 class FakeSource:

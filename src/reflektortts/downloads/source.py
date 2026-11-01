@@ -38,6 +38,8 @@ class Entry:
     page: str
     """Where the player can read more about it."""
     installed: bool
+    source_title: str
+    """The source's name as shown to players, e.g. "Argos Translate"."""
 
 
 class DownloadError(Exception):
