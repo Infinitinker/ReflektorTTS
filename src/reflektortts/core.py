@@ -394,7 +394,7 @@ class Core:
 
     @_serialized
     def set_profile_enabled(self, profile_id: str, enabled: bool) -> Status:
-        """Switches a profile on or off, saved for the user. A switched-off profile's app is not
+        """Enables or disables a profile, saved for the user. A disabled profile's app is not
         watched, and stops being read at once; which profiles clash is decided again."""
         if profile_id not in {entry.id for entry in self._catalog}:
             ids = ", ".join(entry.id for entry in self._catalog)
@@ -482,7 +482,7 @@ class Core:
         ]
 
     def _watching(self, app: RunningApp) -> Callable[[int], bool]:
-        """Whether an app is still to be read: it runs, and its profile was not switched off (or
+        """Whether an app is still to be read: it runs, and its profile was not disabled (or
         set aside) meanwhile, which ends reading as if the app had closed."""
 
         def watching(pid: int) -> bool:

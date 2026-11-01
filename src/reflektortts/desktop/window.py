@@ -8,6 +8,8 @@ from tkinter import ttk
 from reflektortts.desktop.catalog import DownloadItem
 from reflektortts.desktop.downloads_tab import DownloadsTab
 from reflektortts.desktop.icon import icon_photo
+from reflektortts.desktop.profiles import ProfileItem
+from reflektortts.desktop.profiles_tab import ProfilesTab
 from reflektortts.desktop.status import CoreStatus, describe, hint
 from reflektortts.desktop.status_bar import StatusBar
 from reflektortts.desktop.theme import BUSY, DIM, GOOD, heading_font
@@ -45,6 +47,9 @@ class Window:
         on_remove: Callable[[DownloadItem], None],
         on_preview: Callable[[DownloadItem], None],
         language_name: Callable[[str], str],
+        on_profiles_opened: Callable[[], None],
+        on_enable_profile: Callable[[ProfileItem, bool], None],
+        on_open_profiles: Callable[[], None],
     ) -> None:
         self._root = root
         root.title("ReflektorTTS")
@@ -63,6 +68,8 @@ class Window:
         status = ttk.Frame(self._notebook, padding=PADDING)
         self._notebook.add(status, text="Status")
         self._build_status(status, on_pause_toggle, on_open_logs, on_open_settings)
+        self.profiles = ProfilesTab(self._notebook, self._status_bar, on_enable_profile, on_open_profiles)
+        self._notebook.add(self.profiles.frame, text="Profiles")
 
         self.downloads: dict[str, DownloadsTab] = {}
         """Each kind's tab, by the kind's name in the API."""
@@ -72,7 +79,9 @@ class Window:
             tab = DownloadsTab(self._notebook, self._status_bar, on_download, on_remove, preview, language_name)
             self._notebook.add(tab.frame, text=title)
             self.downloads[kind.value] = tab
-        self._notebook.bind("<<NotebookTabChanged>>", lambda event: self._tab_changed(on_downloads_opened))
+        self._notebook.bind(
+            "<<NotebookTabChanged>>", lambda event: self._tab_changed(on_profiles_opened, on_downloads_opened)
+        )
 
     def show_status(self, status: CoreStatus | None) -> None:
         self._paused = status is not None and status.paused
@@ -125,7 +134,15 @@ class Window:
     def _pause_hint(self) -> str:
         return "Read lines aloud again." if self._paused else "Stop reading lines aloud until you resume."
 
-    def _tab_changed(self, on_downloads_opened: Callable[[], None]) -> None:
-        self._status_bar.show_page(str(self._notebook.select()))  # type: ignore[no-untyped-call]  # Untyped in typeshed.
-        if self._notebook.index("current") > 0:  # type: ignore[no-untyped-call]  # Untyped in typeshed.
+    def profiles_shown(self) -> bool:
+        """Whether the window is open on the Profiles tab."""
+        current = str(self._notebook.select())  # type: ignore[no-untyped-call]  # Untyped in typeshed.
+        return self._root.state() != "withdrawn" and current == str(self.profiles.frame)
+
+    def _tab_changed(self, on_profiles_opened: Callable[[], None], on_downloads_opened: Callable[[], None]) -> None:
+        current = str(self._notebook.select())  # type: ignore[no-untyped-call]  # Untyped in typeshed.
+        self._status_bar.show_page(current)
+        if current == str(self.profiles.frame):
+            on_profiles_opened()
+        elif current in {str(tab.frame) for tab in self.downloads.values()}:
             on_downloads_opened()

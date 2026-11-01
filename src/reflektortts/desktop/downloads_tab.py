@@ -5,7 +5,6 @@ The buttons never move: the one that downloads or removes is as wide as its long
 button that cannot be used for the selected entry is grayed out."""
 
 import tkinter as tk
-import tkinter.font as tkfont
 import webbrowser
 from collections.abc import Callable
 from tkinter import ttk
@@ -13,20 +12,13 @@ from tkinter import ttk
 from reflektortts.desktop.catalog import DownloadItem, DownloadProgress, size_text, state_text, summary_text
 from reflektortts.desktop.status_bar import StatusBar
 from reflektortts.desktop.theme import BUSY, DIM, GOOD, group_background, heading_font
+from reflektortts.desktop.widgets import button_width, fit_columns
 
 LICENSE_LINES = 6
 NO_LICENSE = "The license is not published with this list. Open its page to read about it."
 COLUMNS = (("name", "Name"), ("source", "Source"), ("languages", "Languages"), ("size", "Size"), ("state", "State"))
-COLUMN_PADDING = 24
-"""Pixels added to the widest text of a column."""
 ACTION_LABELS = ("Download", "Downloading…", "Remove")
 PREVIEW_LABELS = ("Preview", "Playing…")
-
-
-def _width(labels: tuple[str, ...]) -> int:
-    """A button's width for its longest label, so it never changes; in average character widths,
-    so a little room is left for wider letters."""
-    return max(len(label) for label in labels) + 2
 
 
 class DownloadsTab:
@@ -104,7 +96,7 @@ class DownloadsTab:
         buttons = ttk.Frame(self.frame)
         buttons.grid(row=3, column=0, sticky="w", pady=(8, 0))
         self._button = ttk.Button(
-            buttons, text="Download", width=_width(ACTION_LABELS), state="disabled", command=self._act
+            buttons, text="Download", width=button_width(ACTION_LABELS), state="disabled", command=self._act
         )
         self._button.grid(row=0, column=0)
         self._page = ttk.Button(buttons, text="Open page", state="disabled", command=self._open_page)
@@ -114,7 +106,11 @@ class DownloadsTab:
         self._preview: ttk.Button | None = None
         if self._on_preview is not None:
             self._preview = ttk.Button(
-                buttons, text="Preview", width=_width(PREVIEW_LABELS), state="disabled", command=self._play_preview
+                buttons,
+                text="Preview",
+                width=button_width(PREVIEW_LABELS),
+                state="disabled",
+                command=self._play_preview,
             )
             self._preview.grid(row=0, column=2, padx=(6, 0))
             self._status_bar.hint(self._preview, self._preview_hint)
@@ -124,7 +120,7 @@ class DownloadsTab:
         self._tree.delete(*self._tree.get_children())
         self._tree.insert("", "end", iid="message", values=(message, "", "", "", ""), tags=("message",))
         self._items = {}
-        self._fit_columns()
+        fit_columns(self._tree, COLUMNS)
         self._status_bar.set_text(self.frame, "")
         self._show_selected()
 
@@ -138,7 +134,7 @@ class DownloadsTab:
         if selected in self._items:
             self._tree.selection_set(selected)
             self._tree.see(selected)
-        self._fit_columns()
+        fit_columns(self._tree, COLUMNS)
         self._status_bar.set_text(self.frame, summary_text(items))
         self._show_selected()
 
@@ -160,17 +156,6 @@ class DownloadsTab:
 
     def _languages(self, item: DownloadItem) -> str:
         return ", ".join(self._language_name(language) for language in item.languages)
-
-    def _fit_columns(self) -> None:
-        """Sizes each column to its widest text; the last one also takes the room left."""
-        style = ttk.Style()
-        font = tkfont.nametofont(style.lookup("Treeview", "font") or "TkDefaultFont")
-        heading = tkfont.nametofont(style.lookup("Treeview.Heading", "font") or "TkHeadingFont")
-        rows = self._tree.get_children()
-        for column, title in COLUMNS:
-            texts = [str(self._tree.set(row, column)) for row in rows]
-            width = max([heading.measure(title), *(font.measure(text) for text in texts)])
-            self._tree.column(column, width=width + COLUMN_PADDING)
 
     def _show_downloading(self, item_id: str, done: int, total: int | None) -> None:
         self._tree.set(item_id, "state", state_text("downloading", done, total))

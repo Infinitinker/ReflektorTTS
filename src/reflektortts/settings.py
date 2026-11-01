@@ -61,7 +61,7 @@ class SharedSettings:
     voices_by_language: dict[str, str] = field(default_factory=dict)
     """The voice last chosen for each output language, e.g. {"pl": "windows:Microsoft Adam"}."""
     disabled_profiles: tuple[str, ...] = ()
-    """IDs of the profiles the user switched off."""
+    """IDs of the profiles the user disabled."""
 
 
 def load_shared(directory: Path) -> SharedSettings:

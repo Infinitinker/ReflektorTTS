@@ -4,7 +4,7 @@ used.
 Bundled profiles ship with ReflektorTTS and are replaced with each update; the user's own are in
 their profiles folder. A user profile with a bundled profile's ID (its file name) replaces it. Of
 two profiles that match the same build of an app, the user's own is used; two of the user's own
-clash, and neither is used until one is switched off.
+clash, and neither is used until one is disabled.
 """
 
 from collections.abc import Collection
@@ -30,7 +30,7 @@ class Standing(StrEnum):
     """Whether a profile is used, apart from whether its app is running."""
 
     USED = "used"
-    SWITCHED_OFF = "switched_off"
+    DISABLED = "disabled"
     NOT_USED = "not_used"
     """Another profile, the user's own, matches the same build of the app."""
     CLASH = "clash"
@@ -57,7 +57,7 @@ class ProfileState(StrEnum):
     NOT_RUNNING = "not_running"
     UNSUPPORTED = "unsupported"
     """Its app runs, in a build the profile does not list."""
-    SWITCHED_OFF = "switched_off"
+    DISABLED = "disabled"
     NOT_USED = "not_used"
     CLASH = "clash"
     BROKEN = "broken"
@@ -68,7 +68,7 @@ class Choice:
     entry: CatalogEntry
     standing: Standing
     reason: str | None = None
-    """Why the profile is not used, for the user; None if it is, or is switched off."""
+    """Why the profile is not used, for the user; None if it is, or is disabled."""
 
 
 def load_catalog(
@@ -89,15 +89,15 @@ def load_catalog(
     return entries
 
 
-def choose(catalog: list[CatalogEntry], switched_off: Collection[str]) -> list[Choice]:
-    """Which profiles are used, in catalog order: every profile not switched off, broken or
+def choose(catalog: list[CatalogEntry], disabled: Collection[str]) -> list[Choice]:
+    """Which profiles are used, in catalog order: every profile not disabled, broken or
     matching an app another one is used for."""
     standings: dict[str, Choice] = {}
     for entry in catalog:
         if entry.profile is None:
             standings[entry.id] = Choice(entry, Standing.BROKEN, entry.error)
-        elif entry.id in switched_off:
-            standings[entry.id] = Choice(entry, Standing.SWITCHED_OFF)
+        elif entry.id in disabled:
+            standings[entry.id] = Choice(entry, Standing.DISABLED)
     active = [entry for entry in catalog if entry.id not in standings]
     for entry in active:
         if entry.origin != Origin.BUNDLED:
@@ -113,7 +113,7 @@ def choose(catalog: list[CatalogEntry], switched_off: Collection[str]) -> list[C
         for other in remaining:
             executable = other is not entry and _shared_executable(entry, other)
             if executable:
-                reason = f"Clashes with {_name(other)}: both match {executable}. Switch one off."
+                reason = f"Clashes with {_name(other)}: both match {executable}. Disable one."
                 standings[entry.id] = Choice(entry, Standing.CLASH, reason)
                 break
     return [standings.get(entry.id, Choice(entry, Standing.USED)) for entry in catalog]

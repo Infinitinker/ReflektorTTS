@@ -17,6 +17,7 @@ from reflektortts.desktop.api_client import REFRESH_TIMEOUT_SECONDS, ApiClientEr
 from reflektortts.desktop.catalog import DownloadItem, DownloadList, DownloadProgress, other_voices, parse_list
 from reflektortts.desktop.core_thread import CoreThread
 from reflektortts.desktop.folders import open_folder
+from reflektortts.desktop.profiles import ProfileItem, parse_profiles
 from reflektortts.desktop.status import CoreStatus, describe
 from reflektortts.desktop.tray import Tray
 from reflektortts.desktop.window import Window
@@ -63,6 +64,9 @@ class Application:
             on_remove=self._remove_download,
             on_preview=self._preview,
             language_name=lambda code: self._language_names.get(code, code),
+            on_profiles_opened=self._profiles_opened,
+            on_enable_profile=self._enable_profile,
+            on_open_profiles=lambda: open_folder(args.profiles),
         )
 
     def start(self) -> None:
@@ -88,6 +92,10 @@ class Application:
         if self._stopped:
             return
         self._status = status
+        # Whether profiles are read, disabled or unsupported changes with the status; the list
+        # follows while it is shown.
+        if status is not None and self._window.profiles_shown():
+            self._in_background(self._fetch_profiles)
         self._window.show_status(status)
         self._tray.show_status(describe(status), status is not None and status.paused, status is not None)
 
@@ -117,6 +125,33 @@ class Application:
 
         # In the background, like every request, so the window never waits for the core.
         self._in_background(toggle)
+
+    def _profiles_opened(self) -> None:
+        self._window.profiles.show_message("Loading…")
+        self._in_background(self._fetch_profiles)
+
+    def _fetch_profiles(self) -> None:
+        """Runs in the background; the list is shown on Tkinter's thread."""
+        try:
+            items = parse_profiles(request_json("GET", "/profiles"))
+        except ApiClientError as error:
+            message = str(error)
+            self._later(lambda: self._window.profiles.show_message(f"The profiles could not be loaded: {message}"))
+            return
+        self._later(lambda: self._window.profiles.show(items))
+
+    def _enable_profile(self, item: ProfileItem, enabled: bool) -> None:
+        """The status event that follows refreshes the list."""
+
+        def switch() -> None:
+            try:
+                request_json("PATCH", "/profiles", {"id": item.id, "enabled": enabled})
+            except ApiClientError as error:
+                message = str(error)
+                action = "enabled" if enabled else "disabled"
+                self._later(lambda: self._show_error(f"{item.id} could not be {action}: {message}"))
+
+        self._in_background(switch)
 
     def _downloads_opened(self) -> None:
         """A downloads tab was opened: the lists are fetched from the internet once per opening

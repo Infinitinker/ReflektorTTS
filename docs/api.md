@@ -153,11 +153,11 @@ Lists every profile, bundled and the user's own, in ID order:
 ```
 
 - `origin`: `bundled`, `custom` (the user's own) or `override` (the user's own, replacing the bundled profile with its ID).
-- `state`: `reading`, `not_running`, `unsupported` (its app runs in a build the profile does not list), `switched_off`, `not_used` (another profile, the user's own, matches the same app), `clash` (another of the user's own does) or `broken` (the file cannot be read as a profile; `title`, `year` and `overlay` are then `null`). `reason` says why for `not_used`, `clash` and `broken`.
+- `state`: `reading`, `not_running`, `unsupported` (its app runs in a build the profile does not list), `disabled`, `not_used` (another profile, the user's own, matches the same app), `clash` (another of the user's own does) or `broken` (the file cannot be read as a profile; `title`, `year` and `overlay` are then `null`). `reason` says why for `not_used`, `clash` and `broken`.
 
 ### `PATCH /v1/profiles`
 
-Switches a profile on or off, saved for the user: `{"id": "mad-max-2015", "enabled": false}`. A switched-off profile's app is not watched, and stops being read at once; which profiles clash is decided again. Returns the status; an unknown ID answers 400.
+Enables or disables a profile, saved for the user: `{"id": "mad-max-2015", "enabled": false}`. A disabled profile's app is not watched, and stops being read at once; which profiles clash is decided again. Returns the status; an unknown ID answers 400.
 
 ### `PATCH /v1/stages`
 

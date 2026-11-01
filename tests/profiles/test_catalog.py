@@ -21,9 +21,9 @@ def write(directory: Path, profile_id: str, data: object) -> None:
     (directory / f"{profile_id}.json").write_text(text, encoding="utf-8")
 
 
-def standings(tmp_path: Path, switched_off: tuple[str, ...] = ()) -> dict[str, tuple[Standing, str | None]]:
+def standings(tmp_path: Path, disabled: tuple[str, ...] = ()) -> dict[str, tuple[Standing, str | None]]:
     catalog = load_catalog(tmp_path / "user", tmp_path / "bundled", SCHEMAS)
-    return {choice.entry.id: (choice.standing, choice.reason) for choice in choose(catalog, switched_off)}
+    return {choice.entry.id: (choice.standing, choice.reason) for choice in choose(catalog, disabled)}
 
 
 def test_the_bundled_profiles_are_valid_and_do_not_clash() -> None:
@@ -62,17 +62,17 @@ def test_the_users_own_profile_is_used_instead_of_a_bundled_one_for_the_same_app
     }
 
 
-def test_two_of_the_users_profiles_for_the_same_build_clash_until_one_is_switched_off(tmp_path: Path) -> None:
+def test_two_of_the_users_profiles_for_the_same_build_clash_until_one_is_disabled(tmp_path: Path) -> None:
     write(tmp_path / "user", "a-2000", profile("A", "game.exe", STEAM))
     write(tmp_path / "user", "b-2000", profile("B", "game.exe", STEAM, RETAIL))
 
     assert standings(tmp_path) == {
-        "a-2000": (Standing.CLASH, "Clashes with B (b-2000.json): both match game.exe. Switch one off."),
-        "b-2000": (Standing.CLASH, "Clashes with A (a-2000.json): both match game.exe. Switch one off."),
+        "a-2000": (Standing.CLASH, "Clashes with B (b-2000.json): both match game.exe. Disable one."),
+        "b-2000": (Standing.CLASH, "Clashes with A (a-2000.json): both match game.exe. Disable one."),
     }
-    assert standings(tmp_path, switched_off=("b-2000",)) == {
+    assert standings(tmp_path, disabled=("b-2000",)) == {
         "a-2000": (Standing.USED, None),
-        "b-2000": (Standing.SWITCHED_OFF, None),
+        "b-2000": (Standing.DISABLED, None),
     }
 
 
@@ -83,8 +83,8 @@ def test_profiles_for_different_builds_of_one_app_do_not_clash(tmp_path: Path) -
     assert {standing for standing, _ in standings(tmp_path).values()} == {Standing.USED}
 
 
-def test_switching_off_the_users_profile_brings_back_the_bundled_one(tmp_path: Path) -> None:
+def test_disabling_the_users_profile_brings_back_the_bundled_one(tmp_path: Path) -> None:
     write(tmp_path / "bundled", "game-2000", profile("Game", "game.exe"))
     write(tmp_path / "user", "my-game-2000", profile("My game", "game.exe"))
 
-    assert standings(tmp_path, switched_off=("my-game-2000",))["game-2000"] == (Standing.USED, None)
+    assert standings(tmp_path, disabled=("my-game-2000",))["game-2000"] == (Standing.USED, None)

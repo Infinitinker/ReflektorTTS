@@ -638,7 +638,7 @@ def test_an_unsupported_build_is_reported_until_it_exits_and_not_read(tmp_path: 
     assert all(status.app is None for status in statuses)
 
 
-def test_a_switched_off_profile_is_saved_stops_being_read_and_shows_its_state(tmp_path: Path) -> None:
+def test_a_disabled_profile_is_saved_stops_being_read_and_shows_its_state(tmp_path: Path) -> None:
     core = make_core(tmp_path, Clients())
     core._is_running = lambda pid: True
     core._enter(playing(GTA2))
@@ -652,7 +652,7 @@ def test_a_switched_off_profile_is_saved_stops_being_read_and_shows_its_state(tm
 
     assert events == [status]
     assert not watching(42)
-    assert [view.state for view in core.profiles()] == [ProfileState.SWITCHED_OFF]
+    assert [view.state for view in core.profiles()] == [ProfileState.DISABLED]
     assert load_shared(tmp_path).disabled_profiles == (GTA2.id,)
     core.set_profile_enabled(GTA2.id, True)
     assert load_shared(tmp_path).disabled_profiles == ()

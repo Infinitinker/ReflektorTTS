@@ -29,7 +29,7 @@ As a desktop app, without a console: double-click `start.bat` in the repository 
 .venv\Scripts\reflektortts-desktop --overlay overlay\build\bin --overlay overlay\build64\bin
 ```
 
-Its icon appears next to the clock: right-click it to open the window, pause reading or quit. The window's Status tab shows what ReflektorTTS is doing and opens its logs and settings folders; its Voices and Translations tabs download voices and translation models. Closing it leaves ReflektorTTS running. Logs are written to `%LOCALAPPDATA%\ReflektorTTS\Logs`.
+Its icon appears next to the clock: right-click it to open the window, pause reading or quit. The window's Status tab shows what ReflektorTTS is doing and opens its logs and settings folders; its Profiles tab lists the profiles, bundled and your own, says which are used and why others are not, and enables or disables them; its Voices and Translations tabs download voices and translation models. Closing it leaves ReflektorTTS running. Logs are written to `%LOCALAPPDATA%\ReflektorTTS\Logs`.
 
 Or in a console, with the log shown there:
 
