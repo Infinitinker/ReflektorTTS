@@ -1,8 +1,8 @@
-"""Per-user settings, stored as JSON in the user's config folder.
+"""Per-user settings, stored as JSON in the settings folder of the user's config folder.
 
-Each game has its own file, games/<profile ID>.json, with everything the player set in the panel
-for it; a game without one has the defaults. settings.json holds the voice last chosen for each
-language, in any game. On the first run neither exists.
+Each app has its own file, profiles/<profile ID>.json, with everything the player set in the panel
+for it; an app without one has the defaults. shared.json holds the voice last chosen for each
+language, in any app. On the first run neither exists.
 """
 
 import json
@@ -13,14 +13,15 @@ from pathlib import Path
 from typing import Any
 
 from reflektortts.ducking.ducker import DEFAULT_LEVEL
-from reflektortts.languages import DEFAULT_GAME_LANGUAGE, DEFAULT_OUTPUT_LANGUAGE, LANGUAGES
+from reflektortts.languages import DEFAULT_INPUT_LANGUAGE, DEFAULT_OUTPUT_LANGUAGE, LANGUAGES
 from reflektortts.sinks.subtitles import DEFAULT_POSITION, DEFAULT_SIZE, POSITIONS, SIZES
 from reflektortts.tts.engine import DEFAULT_VOICE, MAX_RATE, MIN_RATE
 
 logger = logging.getLogger(__name__)
 
-SHARED_FILE = "settings.json"
-GAMES_FOLDER = "games"
+SETTINGS_FOLDER = "settings"
+SHARED_FILE = "shared.json"
+PROFILES_FOLDER = "profiles"
 
 
 @dataclass(frozen=True)
@@ -29,7 +30,7 @@ class GameSettings:
 
     voice: str = DEFAULT_VOICE
     """Voice as "engine:name", e.g. "windows:Microsoft Adam"."""
-    game_language: str = DEFAULT_GAME_LANGUAGE
+    input_language: str = DEFAULT_INPUT_LANGUAGE
     """The language of the game's text (ISO 639-1)."""
     output_language: str = DEFAULT_OUTPUT_LANGUAGE
     """The language lines are prepared, spoken and shown in (ISO 639-1)."""
@@ -62,12 +63,14 @@ class SharedSettings:
 
 
 def load_shared(directory: Path) -> SharedSettings:
-    """Reads settings.json; missing or invalid settings get defaults."""
-    return SharedSettings(voices_by_language=_text_map(_read(directory / SHARED_FILE).get("voices_by_language")))
+    """Reads shared.json; missing or invalid settings get defaults."""
+    return SharedSettings(
+        voices_by_language=_text_map(_read(directory / SETTINGS_FOLDER / SHARED_FILE).get("voices_by_language"))
+    )
 
 
 def save_shared(settings: SharedSettings, directory: Path) -> None:
-    _write(directory / SHARED_FILE, asdict(settings))
+    _write(directory / SETTINGS_FOLDER / SHARED_FILE, asdict(settings))
 
 
 def load_game(directory: Path, profile_id: str) -> GameSettings:
@@ -80,7 +83,7 @@ def save_game(settings: GameSettings, directory: Path, profile_id: str) -> None:
 
 
 def _game_path(directory: Path, profile_id: str) -> Path:
-    return directory / GAMES_FOLDER / f"{profile_id}.json"
+    return directory / SETTINGS_FOLDER / PROFILES_FOLDER / f"{profile_id}.json"
 
 
 def _read(path: Path) -> dict[str, Any]:
@@ -111,7 +114,7 @@ def _game_settings(data: dict[str, Any]) -> GameSettings:
     return GameSettings(
         voice=_text(data, "voice", defaults.voice),
         # Unsupported languages, such as a leftover "auto", become the default.
-        game_language=_choice(data, "game_language", tuple(LANGUAGES), defaults.game_language),
+        input_language=_choice(data, "input_language", tuple(LANGUAGES), defaults.input_language),
         output_language=_choice(data, "output_language", tuple(LANGUAGES), defaults.output_language),
         ducking=_flag(data, "ducking", defaults.ducking),
         duck_volume=_number(data, "duck_volume", defaults.duck_volume, 0.0, 1.0),

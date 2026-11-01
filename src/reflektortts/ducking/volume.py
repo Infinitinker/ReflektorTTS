@@ -26,4 +26,4 @@ def system_app_volume() -> OpenAppVolume:
         from reflektortts.ducking.windows import open_app_volume
 
         return open_app_volume
-    raise DuckingUnavailableError("Lowering the game's sound is not available on this system yet.")
+    raise DuckingUnavailableError("Lowering an app's sound is not available on this system yet.")

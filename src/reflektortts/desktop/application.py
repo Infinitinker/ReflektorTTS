@@ -21,6 +21,7 @@ from reflektortts.desktop.folders import open_folder
 from reflektortts.desktop.status import CoreStatus, describe
 from reflektortts.desktop.tray import Tray
 from reflektortts.desktop.window import Window
+from reflektortts.settings import SETTINGS_FOLDER
 from reflektortts.user_dirs import config_dir, log_dir
 
 logger = logging.getLogger(__name__)
@@ -56,7 +57,7 @@ class Application:
             root,
             on_pause_toggle=self._toggle_pause,
             on_open_logs=lambda: open_folder(log_dir()),
-            on_open_settings=lambda: open_folder(config_dir()),
+            on_open_settings=lambda: open_folder(config_dir() / SETTINGS_FOLDER),
             on_close=self._hide,
             on_downloads_opened=self._downloads_opened,
             on_download=self._start_download,

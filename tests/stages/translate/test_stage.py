@@ -32,7 +32,7 @@ class Engines:
 
 
 def translate(stage: Translate, text: str, game: str = "en", output: str = "pl") -> str:
-    event = stage.process(TextEvent("messages", text, 0.0, output_language=output, game_language=game))
+    event = stage.process(TextEvent("messages", text, 0.0, output_language=output, input_language=game))
     assert event is not None
     return event.text
 
@@ -61,8 +61,8 @@ def test_empty_text_passes_without_opening_the_engine() -> None:
     ("game", "output", "installed", "reason"),
     [
         ("en", "pl", True, None),
-        ("pl", "pl", True, "Game and output language are the same"),
-        ("en", "en", True, "Game and output language are the same"),
+        ("pl", "pl", True, "Input and output language are the same"),
+        ("en", "en", True, "Input and output language are the same"),
         ("en", "pl", False, "No translation model for these languages"),
         ("pl", "en", False, "No translation model for these languages"),
     ],

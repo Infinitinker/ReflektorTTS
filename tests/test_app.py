@@ -225,7 +225,7 @@ def test_without_a_game_the_defaults_apply_and_changes_are_not_saved(tmp_path: P
     assert status == Status(
         game=None,
         voice=DEFAULT_VOICE,
-        game_language="en",
+        input_language="en",
         output_language="en",
         paused=False,
         ducking=True,
@@ -236,7 +236,7 @@ def test_without_a_game_the_defaults_apply_and_changes_are_not_saved(tmp_path: P
         subtitle_size="medium",
         subtitle_position="top",
     )
-    assert not (tmp_path / "games").exists()
+    assert not (tmp_path / "settings" / "profiles").exists()
     assert make_core(tmp_path, Clients()).status().speech_rate == 1.0
 
 
@@ -296,16 +296,16 @@ def test_languages_are_saved_and_checked(tmp_path: Path) -> None:
     core = make_core(tmp_path, Clients())
     core._enter(playing(GTA2))
 
-    core.set_game_language("pl")
+    core.set_input_language("pl")
     core.set_output_language("pl")
 
-    assert core.languages() == Languages(game="pl", output="pl")
+    assert core.languages() == Languages(input="pl", output="pl")
     saved = saved_for(tmp_path, GTA2)
-    assert (saved.game_language, saved.output_language) == ("pl", "pl")
+    assert (saved.input_language, saved.output_language) == ("pl", "pl")
     with pytest.raises(LanguageError, match='no language "auto"'):
         core.set_output_language("auto")
     with pytest.raises(LanguageError, match='no language "auto"'):
-        core.set_game_language("auto")
+        core.set_input_language("auto")
 
 
 def test_ducking_settings_are_saved(tmp_path: Path) -> None:
@@ -375,7 +375,7 @@ def test_stages_of_the_game_being_read_can_be_switched_off_and_stay_off(tmp_path
 def test_switching_stages_needs_a_game_and_a_known_stage(tmp_path: Path) -> None:
     core = make_core(tmp_path, Clients())
 
-    with pytest.raises(StageError, match="No game is being read"):
+    with pytest.raises(StageError, match="No app is being read"):
         core.set_stage_enabled("messages/0:suffix", False)
     core._enter(playing(GTA2))
     with pytest.raises(StageError, match='has no stage "messages/9:x"'):
@@ -417,7 +417,7 @@ def test_each_game_keeps_its_own_settings(tmp_path: Path) -> None:
 def test_a_game_played_for_the_first_time_starts_with_the_defaults(tmp_path: Path) -> None:
     core = make_core(tmp_path, Clients())
     core._enter(playing(GTA2))
-    core.set_game_language("pl")
+    core.set_input_language("pl")
     core.set_voice("windows:Microsoft Paulina")
     core.set_source_enabled("messages", False)
     core._leave()
@@ -425,9 +425,9 @@ def test_a_game_played_for_the_first_time_starts_with_the_defaults(tmp_path: Pat
     core._enter(playing(MAD_MAX))
 
     status = core.status()
-    assert (status.game_language, status.voice) == ("en", DEFAULT_VOICE)
+    assert (status.input_language, status.voice) == ("en", DEFAULT_VOICE)
     assert core.is_source_enabled("messages")
-    assert not (tmp_path / "games" / f"{MAD_MAX.id}.json").exists()
+    assert not (tmp_path / "settings" / "profiles" / f"{MAD_MAX.id}.json").exists()
 
 
 def test_a_voice_is_loaded_only_while_a_game_is_read(tmp_path: Path) -> None:
@@ -446,8 +446,8 @@ def test_a_voice_is_loaded_only_while_a_game_is_read(tmp_path: Path) -> None:
 
 
 def test_a_game_whose_voice_is_not_installed_speaks_with_another_for_its_language(tmp_path: Path) -> None:
-    (tmp_path / "games").mkdir()
-    (tmp_path / "games" / f"{MAD_MAX.id}.json").write_text(
+    (tmp_path / "settings" / "profiles").mkdir(parents=True)
+    (tmp_path / "settings" / "profiles" / f"{MAD_MAX.id}.json").write_text(
         '{"voice": "piper:pl_PL-gone-medium", "output_language": "pl"}', "utf-8"
     )
     clients = Clients()
@@ -500,11 +500,11 @@ def test_no_voice_is_loaded_while_waiting_for_a_game(tmp_path: Path) -> None:
 def test_the_defaults_apply_again_once_the_game_closes(tmp_path: Path) -> None:
     core = make_core(tmp_path, Clients())
     core._enter(playing(GTA2))
-    core.set_game_language("pl")
+    core.set_input_language("pl")
 
     core._leave()
 
-    assert core.status().game_language == "en"
+    assert core.status().input_language == "en"
 
 
 def test_build_routes_asks_whether_each_source_and_stage_is_enabled() -> None:

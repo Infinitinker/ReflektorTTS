@@ -28,7 +28,7 @@ dependencies = [
 ]
 
 [project.gui-scripts]
-reflektortts-app = "reflektortts.desktop.__main__:main"
+reflektortts-desktop = "reflektortts.desktop.__main__:main"
 
 [project.entry-points."reflektortts.sources"]
 memory = "reflektortts.sources.memory.plugin:PLUGIN"

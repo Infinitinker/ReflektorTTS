@@ -7,7 +7,7 @@ from reflektortts.sources.memory.source import MemorySource, clean, decode_termi
 from tests.process_memory.fake_memory import FakeMemory
 
 CHAIN = PointerChain(exe_sha256="a" * 64, base=Address("gta2.exe", 0x10), offsets=(0x4,))
-ENGLISH = Languages(game="en", output="en")
+ENGLISH = Languages(input="en", output="en")
 
 
 def memory_with_text(text: bytes) -> FakeMemory:

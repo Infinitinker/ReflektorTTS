@@ -12,7 +12,7 @@ from pathlib import Path, PurePosixPath
 from reflektortts.user_dirs import data_dir
 
 type Pair = tuple[str, str]
-"""(game language, output language)"""
+"""(input language, output language)"""
 
 # What the stage needs from an Argos Translate package (the model, and its BPE or SentencePiece
 # tokenizer); its sentence splitter (stanza) is left out.

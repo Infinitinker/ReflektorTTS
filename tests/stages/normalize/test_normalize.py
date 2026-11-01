@@ -147,8 +147,8 @@ def test_text_without_numbers_and_empty_text_pass_unchanged() -> None:
 
 
 def test_it_does_nothing_for_an_output_language_without_rules() -> None:
-    assert PLUGIN.inactive_reason(Languages(game="en", output="xx")) == "No rules for the output language yet"
-    assert PLUGIN.inactive_reason(Languages(game="en", output="pl")) is None
+    assert PLUGIN.inactive_reason(Languages(input="en", output="xx")) == "No rules for the output language yet"
+    assert PLUGIN.inactive_reason(Languages(input="en", output="pl")) is None
 
 
 def test_every_output_language_has_rules() -> None:

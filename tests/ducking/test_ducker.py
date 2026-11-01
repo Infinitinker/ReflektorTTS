@@ -182,7 +182,7 @@ def test_a_failing_volume_is_logged_and_does_not_stop_the_ducker(
     ducker.watch(GTA2)
 
     ducker.speaking(True)
-    wait_until(lambda: "Could not change the game's volume" in caplog.text)
+    wait_until(lambda: "Could not change the app's volume" in caplog.text)
     volume.fail = False
     ducker.speaking(False)
     ducker.speaking(True)

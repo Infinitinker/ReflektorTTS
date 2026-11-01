@@ -32,7 +32,7 @@ class PointerChain:
 def parse_address(text: str) -> Address:
     match = _ADDRESS.match(text.strip())
     if match is None:
-        raise ValueError(f'"{text}" is not an address like "game.exe+1A2B" or "1A2B"')
+        raise ValueError(f'"{text}" is not an address like "app.exe+1A2B" or "1A2B"')
     return Address(module=match["module"], offset=int(match["offset"], 16))
 
 
@@ -54,7 +54,7 @@ def chain_for(chains: Iterable[PointerChain], exe_sha256: str) -> PointerChain:
     if chain is None:
         raise UnsupportedGameVersion(
             "This version of the game is not supported by its profile yet "
-            f"(game executable SHA-256 {exe_sha256}). Check for an updated profile."
+            f"(executable SHA-256 {exe_sha256}). Check for an updated profile."
         )
     return chain
 
@@ -68,12 +68,12 @@ def resolve(memory: ProcessMemory, base: Address, offsets: Sequence[int]) -> int
     if base.module is not None:
         module_base = memory.module_base(base.module)
         if module_base is None:
-            raise ProcessMemoryError(f"{base.module} is not loaded in the game.")
+            raise ProcessMemoryError(f"{base.module} is not loaded in the app.")
         address += module_base
     for offset in offsets:
         raw = memory.read(address, memory.pointer_size)
         if len(raw) < memory.pointer_size:
-            raise MemoryReadError(f"Cannot read the game's memory at {address:X}.")
+            raise MemoryReadError(f"Cannot read the app's memory at {address:X}.")
         pointer = int.from_bytes(raw, "little")
         if pointer == 0:
             return None

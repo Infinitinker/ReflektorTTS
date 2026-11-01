@@ -123,7 +123,7 @@ void apply_status(const json& status) {
     const json& game = status.at("game");
     std::string title = game.is_null() ? "" : game.at("title").get<std::string>();
     std::string voice = status.at("voice").get<std::string>();
-    std::string game_language = status.at("game_language").get<std::string>();
+    std::string input_language = status.at("input_language").get<std::string>();
     std::string output_language = status.at("output_language").get<std::string>();
     bool paused = status.at("paused").get<bool>();
     bool ducking = status.at("ducking").get<bool>();
@@ -138,7 +138,7 @@ void apply_status(const json& status) {
     std::lock_guard lock(g_state_mutex);
     g_state.game = std::move(title);
     g_state.voice = std::move(voice);
-    g_state.game_language = std::move(game_language);
+    g_state.input_language = std::move(input_language);
     g_state.output_language = std::move(output_language);
     g_state.paused = paused;
     g_state.ducking = ducking;
@@ -351,8 +351,8 @@ void request_voice(const std::string& voice_id) {
     enqueue({L"PATCH", L"/v1/settings", json{{"voice", voice_id}}.dump()});
 }
 
-void request_game_language(const std::string& code) {
-    enqueue({L"PATCH", L"/v1/settings", json{{"game_language", code}}.dump()});
+void request_input_language(const std::string& code) {
+    enqueue({L"PATCH", L"/v1/settings", json{{"input_language", code}}.dump()});
 }
 
 void request_output_language(const std::string& code) {

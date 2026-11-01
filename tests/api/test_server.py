@@ -69,7 +69,7 @@ class FakeCore:
         self.current = Status(
             game=GameInfo("Grand Theft Auto 2", 42),
             voice="piper:a",
-            game_language="pl",
+            input_language="pl",
             output_language="en",
             paused=False,
             ducking=True,
@@ -99,9 +99,9 @@ class FakeCore:
             raise VoiceError(f'There is no voice "{voice}".')
         self.previewed.append(voice)
 
-    def set_game_language(self, language: str) -> Status:
+    def set_input_language(self, language: str) -> Status:
         check_language(language)
-        self.current = replace(self.current, game_language=language)
+        self.current = replace(self.current, input_language=language)
         return self.current
 
     def set_output_language(self, language: str) -> Status:
@@ -176,7 +176,7 @@ def test_status() -> None:
             "game": {"title": "Grand Theft Auto 2", "pid": 42},
             "unsupported": None,
             "voice": "piper:a",
-            "game_language": "pl",
+            "input_language": "pl",
             "output_language": "en",
             "paused": False,
             "ducking": True,
@@ -312,10 +312,10 @@ def test_voices() -> None:
 def test_changing_all_settings_together() -> None:
     async def test(client: TestClient[Any, Any]) -> None:
         response = await client.patch(
-            "/v1/settings", json={"game_language": "en", "output_language": "pl", "voice": "windows:Microsoft Adam"}
+            "/v1/settings", json={"input_language": "en", "output_language": "pl", "voice": "windows:Microsoft Adam"}
         )
         body = await response.json()
-        assert (body["game_language"], body["output_language"], body["voice"]) == (
+        assert (body["input_language"], body["output_language"], body["voice"]) == (
             "en",
             "pl",
             "windows:Microsoft Adam",
@@ -365,7 +365,7 @@ def test_subtitles_can_be_switched_on_and_set_up() -> None:
         ({"duck_volume": 1.5}, f'"duck_volume" cannot be set to that. {SETTINGS_HELP}'),
         ({"duck_volume": True}, f'"duck_volume" cannot be set to that. {SETTINGS_HELP}'),
         ({"output_language": "auto"}, 'There is no language "auto". Available: en, pl.'),
-        ({"game_language": "auto"}, 'There is no language "auto". Available: en, pl.'),
+        ({"input_language": "auto"}, 'There is no language "auto". Available: en, pl.'),
         ({"voice": 5}, f'"voice" cannot be set to that. {SETTINGS_HELP}'),
         ({"volume": 5, "ducking": True}, f'There is no setting "volume". {SETTINGS_HELP}'),
         ({}, SETTINGS_HELP),

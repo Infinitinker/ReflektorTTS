@@ -121,7 +121,7 @@ class Ducker:
                 lowered = action(lowered)
             except Exception as error:
                 # The game may have stopped playing or exited; its record lets a later run restore it.
-                logger.warning("Could not change the game's volume: %s", error)
+                logger.warning("Could not change the app's volume: %s", error)
                 lowered = None
         if lowered is not None:
             try:

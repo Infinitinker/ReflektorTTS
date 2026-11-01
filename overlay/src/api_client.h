@@ -39,7 +39,7 @@ struct CoreState {
     bool connected = false;
     std::string game;  // Empty while no game is being read.
     std::string voice;
-    std::string game_language;    // A code, e.g. "en".
+    std::string input_language;    // A code, e.g. "en".
     std::string output_language;  // A code, e.g. "pl".
     bool paused = false;
     bool ducking = true;       // Whether the game's sound is lowered while speaking.
@@ -66,7 +66,7 @@ CoreState core_state();
 void request_paused(bool paused);
 void request_stop_line();
 void request_voice(const std::string& voice_id);
-void request_game_language(const std::string& code);
+void request_input_language(const std::string& code);
 void request_output_language(const std::string& code);
 void request_source_enabled(const std::string& name, bool enabled);
 void request_stage_enabled(const std::string& key, bool enabled);

@@ -7,7 +7,7 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 
 from reflektortts.events import ErrorEvent, TextEvent
-from reflektortts.languages import DEFAULT_GAME_LANGUAGE, DEFAULT_OUTPUT_LANGUAGE, Languages
+from reflektortts.languages import DEFAULT_INPUT_LANGUAGE, DEFAULT_OUTPUT_LANGUAGE, Languages
 from reflektortts.pipeline.protocols import Sink, Source, Stage
 
 logger = logging.getLogger(__name__)
@@ -43,7 +43,7 @@ class Runner:
 
     When a source has no text, its stages get an event with empty text, so they can tell
     a line disappeared; empty text is never delivered to sinks. Every event carries the
-    game and output languages current when it was read. Switched-off sources are not read
+    input and output languages current when it was read. Switched-off sources are not read
     and switched-off stages are skipped.
 
     A failing source, stage or sink is reported once through on_error and does not stop
@@ -56,7 +56,7 @@ class Runner:
         sinks: Sequence[Sink],
         on_error: Callable[[ErrorEvent], None] = log_error,
         clock: Callable[[], float] = time.monotonic,
-        languages: Callable[[], Languages] = lambda: Languages(DEFAULT_GAME_LANGUAGE, DEFAULT_OUTPUT_LANGUAGE),
+        languages: Callable[[], Languages] = lambda: Languages(DEFAULT_INPUT_LANGUAGE, DEFAULT_OUTPUT_LANGUAGE),
     ) -> None:
         self._routes = routes
         self._sinks = sinks
@@ -97,7 +97,7 @@ class Runner:
             text=text or "",
             time=now,
             output_language=languages.output,
-            game_language=languages.game,
+            input_language=languages.input,
         )
         for position, stage in enumerate(route.stages):
             if not route.is_enabled(position):

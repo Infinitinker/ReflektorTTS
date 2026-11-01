@@ -317,7 +317,7 @@ void draw_speech_pace(const CoreState& state) {
 
 void draw_ducking(const CoreState& state) {
     bool ducking = state.ducking;
-    if (ImGui::Checkbox("Lower game sound while speaking", &ducking)) {
+    if (ImGui::Checkbox("Lower app sound while speaking", &ducking)) {
         request_ducking(ducking);
     }
     // While dragging, the slider shows its own value; the core gets it on release.
@@ -326,7 +326,7 @@ void draw_ducking(const CoreState& state) {
     // Indented under the checkbox it depends on.
     ImGui::BeginDisabled(!state.ducking);
     begin_indented();
-    if (ImGui::SliderInt("Game volume", &percent, 0, 100, "%d%%", ImGuiSliderFlags_AlwaysClamp)) {
+    if (ImGui::SliderInt("App volume", &percent, 0, 100, "%d%%", ImGuiSliderFlags_AlwaysClamp)) {
         dragged_percent = percent;
     }
     if (ImGui::IsItemDeactivatedAfterEdit()) {
@@ -341,8 +341,8 @@ void draw_ducking(const CoreState& state) {
 
 // Where text comes from: the game's language and its sources, each of which can be switched off.
 void draw_game(const CoreState& state) {
-    begin_box("Game");
-    draw_language_combo("Game language", state, state.game_language, request_game_language);
+    begin_box("Input");
+    draw_language_combo("Language", state, state.input_language, request_input_language);
     for (const SourceStages& source : state.sources) {
         bool enabled = source.enabled;
         if (ImGui::Checkbox((source.source + "##source:" + source.source).c_str(), &enabled)) {

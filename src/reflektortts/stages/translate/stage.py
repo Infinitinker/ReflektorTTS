@@ -23,7 +23,7 @@ type Pair = tuple[str, str]
 
 
 class Translate:
-    """Translates each line from the game language into its output language, sentence by sentence.
+    """Translates each line from the input language into its output language, sentence by sentence.
 
     It runs only for pairs inactive_reason accepts. A pair's engine is opened the first time a line
     needs it. Recent translations are remembered, since games repeat lines.
@@ -37,7 +37,7 @@ class Translate:
     def process(self, event: TextEvent) -> TextEvent | None:
         if not event.text:
             return event
-        return replace(event, text=self._translate((event.game_language, event.output_language), event.text))
+        return replace(event, text=self._translate((event.input_language, event.output_language), event.text))
 
     def _translate(self, pair: Pair, text: str) -> str:
         key = (pair, text)
@@ -72,9 +72,9 @@ def open_engine(source: str, target: str) -> Engine:
 
 def inactive_reason(languages: Languages) -> str | None:
     """Models are never downloaded here: only an installed one is used."""
-    if languages.game == languages.output:
-        return "Game and output language are the same"
-    if installed_model((languages.game, languages.output)) is None:
+    if languages.input == languages.output:
+        return "Input and output language are the same"
+    if installed_model((languages.input, languages.output)) is None:
         return NO_MODEL
     return None
 

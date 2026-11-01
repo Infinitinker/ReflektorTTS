@@ -36,7 +36,7 @@ def hint(status: CoreStatus | None) -> str:
         if status.unsupported_sha256 is None:
             return "Its executable could not be read to tell which version it is; see the log."
         return f"To support it, its profile needs this version's SHA-256: {status.unsupported_sha256}"
-    return "In a game, open the ReflektorTTS panel with Ctrl+Shift+R."
+    return "In an app with the overlay, open the ReflektorTTS panel with Ctrl+Shift+R."
 
 
 def describe(status: CoreStatus | None) -> str:
@@ -45,5 +45,5 @@ def describe(status: CoreStatus | None) -> str:
         return "Starting…"
     if status.unsupported and not status.game:
         return f"This version of {status.unsupported} is not supported yet"
-    text = f"Reading {status.game}" if status.game else "Waiting for a game"
+    text = f"Reading {status.game}" if status.game else "Waiting for an app"
     return f"{text} (paused)" if status.paused else text

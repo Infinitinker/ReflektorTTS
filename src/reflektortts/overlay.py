@@ -52,10 +52,10 @@ def inject_overlay(pid: int, overlay_dirs: Sequence[Path]) -> bool:
                 logger.error("Could not start the overlay injector %s: %s", injector, error)
             return False
         if result.returncode == 0:
-            logger.info("In-game overlay loaded from %s", directory)
+            logger.info("Overlay loaded from %s", directory)
             return True
         if result.returncode != WRONG_BITNESS:
-            logger.error("Could not load the in-game overlay: %s", result.stderr.strip())
+            logger.error("Could not load the overlay: %s", result.stderr.strip())
             return False
-    logger.error("No overlay build matches the game (32-bit vs 64-bit); the game runs without the overlay.")
+    logger.error("No overlay build matches the app (32-bit vs 64-bit); the app runs without the overlay.")
     return False

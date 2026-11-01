@@ -1,4 +1,4 @@
-"""Desktop app entry point: reflektortts-app, or pythonw -m reflektortts.desktop."""
+"""Desktop app entry point: reflektortts-desktop, or pythonw -m reflektortts.desktop."""
 
 import logging
 import sys
@@ -21,7 +21,7 @@ def log_callback_error(kind: type[BaseException], error: BaseException, trace: T
 
 
 def main(argv: list[str] | None = None) -> int:
-    args = parse_arguments("reflektortts-app", argv)
+    args = parse_arguments("reflektortts-desktop", argv)
     log_to_file(log_dir() / LOG_FILE)
     logger.info("Started; settings in %s, logs in %s", config_dir(), log_dir())
     root = tk.Tk()

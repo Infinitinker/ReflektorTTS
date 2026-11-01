@@ -224,13 +224,13 @@ class DownloadsTab:
             if not item.removable:
                 return "It was not downloaded here, so it cannot be removed here."
             return "Delete it from this computer. It can be downloaded again."
-        return "Download it. It can be used right away, even in a game that is running."
+        return "Download it. It can be used right away, even in an app that is running."
 
     def _preview_hint(self) -> str:
         item = self._selected()
         if item is None or item.state != "installed":
             return "Hear a sentence in this voice, once it is installed."
-        return "Hear a sentence in this voice, even while a game is read."
+        return "Hear a sentence in this voice, even while an app is read."
 
     def _play_preview(self) -> None:
         item = self._selected()

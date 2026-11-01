@@ -120,7 +120,7 @@ class Window:
         settings.grid(row=0, column=2, padx=(6, 0))
         self._status_bar.hint(self._pause, self._pause_hint)
         self._status_bar.hint(logs, lambda: "Open the folder with ReflektorTTS's logs, e.g. to report a problem.")
-        self._status_bar.hint(settings, lambda: "Open the folder with the settings saved for each game.")
+        self._status_bar.hint(settings, lambda: "Open the folder with the settings saved for each app.")
 
     def _pause_hint(self) -> str:
         return "Read lines aloud again." if self._paused else "Stop reading lines aloud until you resume."

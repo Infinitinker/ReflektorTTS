@@ -1,6 +1,6 @@
 # Security
 
-ReflektorTTS loads code into running games, reads their memory, downloads voices and translation models, and serves a local API, so security problems in it matter. Thank you for reporting them.
+ReflektorTTS loads code into running apps, reads their memory, downloads voices and translation models, and serves a local API, so security problems in it matter. Thank you for reporting them.
 
 ## Reporting a vulnerability
 
@@ -9,9 +9,9 @@ Please do not open a public issue. Report it privately through GitHub instead: o
 ## What is in scope
 
 - The local API on `127.0.0.1:47821`, including what a web page or another program on the same computer can make it do.
-- The overlay DLL and the injector that loads it into games.
+- The overlay DLL and the injector that loads it into apps.
 - Downloads: lists, archives and the files they install.
-- Game profiles, which other players share: anything a crafted profile can make ReflektorTTS do.
+- Profiles, which other players share: anything a crafted profile can make ReflektorTTS do.
 
 ## Supported versions
 

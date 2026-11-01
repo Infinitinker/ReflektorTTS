@@ -52,7 +52,7 @@ class CoreControl(Protocol):
     def preview_voice(self, voice: str) -> None:
         """Raises VoiceError if the voice is not available or speaks no supported language."""
 
-    def set_game_language(self, language: str) -> Status:
+    def set_input_language(self, language: str) -> Status:
         """Raises LanguageError if the language is not supported."""
 
     def set_output_language(self, language: str) -> Status:
@@ -108,7 +108,7 @@ def status_json(status: Status) -> dict[str, Any]:
         "game": game,
         "unsupported": None if unsupported is None else {"title": unsupported.title, "sha256": unsupported.sha256},
         "voice": status.voice,
-        "game_language": status.game_language,
+        "input_language": status.input_language,
         "output_language": status.output_language,
         "paused": status.paused,
         "ducking": status.ducking,
@@ -190,7 +190,7 @@ async def get_languages(request: web.Request) -> web.Response:
 
 
 SETTINGS_HELP = (
-    'Send any of "game_language", "output_language" and "voice" (text), "ducking", "cut_off_lines" and '
+    'Send any of "input_language", "output_language" and "voice" (text), "ducking", "cut_off_lines" and '
     '"subtitles" (true or false), "duck_volume" (a number from 0 to 1), "speech_rate" (a number from 0.5 to 2), '
     '"subtitle_size" ("small", "medium" or "large") and "subtitle_position" ("top" or "bottom"), '
     'e.g. {"output_language": "pl"}.'
@@ -224,7 +224,7 @@ def is_flag(value: object) -> bool:
 
 
 SETTING_CHECKS: dict[str, Callable[[object], bool]] = {
-    "game_language": is_text,
+    "input_language": is_text,
     "output_language": is_text,
     "voice": is_text,
     "ducking": is_flag,
@@ -238,7 +238,7 @@ SETTING_CHECKS: dict[str, Callable[[object], bool]] = {
 
 
 async def patch_settings(request: web.Request) -> web.Response:
-    """Applies ducking, speech and subtitles, the game language, then the output language, then the voice.
+    """Applies ducking, speech and subtitles, the input language, then the output language, then the voice.
 
     Each is optional. Changing the output language may also switch the voice, so an explicit voice comes last.
     Everything is checked before anything is applied, so a request is applied in full or not at all.
@@ -255,7 +255,7 @@ async def patch_settings(request: web.Request) -> web.Response:
         return error_response(f'"{wrong[0]}" cannot be set to that. {SETTINGS_HELP}' if wrong else SETTINGS_HELP)
     core = request.app[CORE]
     try:
-        for field in ("game_language", "output_language"):
+        for field in ("input_language", "output_language"):
             if field in values:
                 check_language(values[field])
         if "voice" in values:
@@ -277,8 +277,8 @@ async def patch_settings(request: web.Request) -> web.Response:
                 values.get("subtitle_size", status.subtitle_size),
                 values.get("subtitle_position", status.subtitle_position),
             )
-        if "game_language" in values:
-            status = core.set_game_language(values["game_language"])
+        if "input_language" in values:
+            status = core.set_input_language(values["input_language"])
         if "output_language" in values:
             status = await asyncio.to_thread(core.set_output_language, values["output_language"])
         if "voice" in values:

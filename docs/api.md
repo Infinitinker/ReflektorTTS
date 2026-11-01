@@ -1,12 +1,12 @@
 # Local API (v1)
 
-Every ReflektorTTS user interface, the in-game overlay included, controls the core through this API. It is served by the core on **`http://127.0.0.1:47821/v1`**, only on the local machine. The port is fixed so the overlay knows where to connect.
+Every ReflektorTTS user interface, the overlay included, controls the core through this API. It is served by the core on **`http://127.0.0.1:47821/v1`**, only on the local machine. The port is fixed so the overlay knows where to connect.
 
 Requests and responses are JSON (UTF-8). There is no authentication, but web pages are kept out: a page open in the player's browser can also reach 127.0.0.1, so the API refuses what only browsers send (see [Requests from web pages](#requests-from-web-pages)).
 
 ## Status
 
-Settings belong to the game being read: the status shows that game's, and changes are saved for it. A game played for the first time starts with the defaults. While no game is being read, the status shows the defaults, and changes apply until a game starts but are not saved.
+Settings belong to the app being read: the status shows that app's, and changes are saved for it. An app read for the first time starts with the defaults. While no app is being read, the status shows the defaults, and changes apply until an app starts but are not saved.
 
 The status object, returned by several requests and sent as an event:
 
@@ -16,7 +16,7 @@ The status object, returned by several requests and sent as an event:
   "game": { "title": "Grand Theft Auto 2", "pid": 4824 },
   "unsupported": null,
   "voice": "windows:Microsoft Adam",
-  "game_language": "en",
+  "input_language": "en",
   "output_language": "pl",
   "paused": false,
   "ducking": true,
@@ -48,22 +48,22 @@ The status object, returned by several requests and sent as an event:
 
 | Field | Meaning |
 |---|---|
-| `game` | The game being read, or `null` while waiting for one |
-| `unsupported` | A game running in a build its profile does not list, which is neither read nor given the overlay: its `title` and its executable's `sha256` (or `null` if it could not be read); otherwise `null` |
+| `game` | The app being read, or `null` while waiting for one |
+| `unsupported` | An app running in a build its profile does not list, which is neither read nor given the overlay: its `title` and its executable's `sha256` (or `null` if it could not be read); otherwise `null` |
 | `voice` | The current voice, as `engine:name` |
-| `game_language` | The language of the game's text (ISO 639-1 code); English unless the player chose another |
+| `input_language` | The language of the app's text (ISO 639-1 code); English unless the player chose another |
 | `output_language` | The language lines are prepared, spoken and shown in (ISO 639-1 code) |
 | `paused` | Whether reading is paused |
-| `ducking` | Whether the game's sound is lowered while lines are spoken |
-| `duck_volume` | The game's volume while lines are spoken, as a fraction of its own volume (0 to 1) |
+| `ducking` | Whether the app's sound is lowered while lines are spoken |
+| `duck_volume` | The app's volume while lines are spoken, as a fraction of its own volume (0 to 1) |
 | `speech_rate` | How fast lines are spoken, as a multiple of the voice's own pace (0.5 to 2) |
 | `cut_off_lines` | Whether a new line cuts off the one being spoken; if not, lines wait their turn |
-| `subtitles` | Whether lines are shown as subtitles over the game |
+| `subtitles` | Whether lines are shown as subtitles over the app |
 | `subtitle_size` | `small`, `medium` or `large` |
 | `subtitle_position` | `top` or `bottom` of the screen |
-| `sources` | The stages of the game being read, per source in the game's profile, with whether the player has each switched on; empty while waiting for a game |
+| `sources` | The stages of the app being read, per source in the app's profile, with whether the player has each switched on; empty while waiting for an app |
 
-A source's `name` is its name in the profile, `type` its plugin, and `enabled` whether the player has it switched on; `name` identifies it for `PATCH /v1/sources`. A stage's `type` is its name in the profile and `summary` says in a few words what it does; `warning` (or `null`) is shown while the stage is switched off, if reading breaks without it. `inactive` says why the stage does nothing with the current languages (e.g. "Game and output language are the same" for `translate`), or is `null` if it works with them; such a stage is skipped whatever its `enabled`, which keeps the player's choice for when the languages change. `key` identifies the stage for `PATCH /v1/stages`.
+A source's `name` is its name in the profile, `type` its plugin, and `enabled` whether the player has it switched on; `name` identifies it for `PATCH /v1/sources`. A stage's `type` is its name in the profile and `summary` says in a few words what it does; `warning` (or `null`) is shown while the stage is switched off, if reading breaks without it. `inactive` says why the stage does nothing with the current languages (e.g. "Input and output language are the same" for `translate`), or is `null` if it works with them; such a stage is skipped whatever its `enabled`, which keeps the player's choice for when the languages change. `key` identifies the stage for `PATCH /v1/stages`.
 
 ## Requests
 
@@ -88,7 +88,7 @@ Returns the voices available now, from every speech engine that works on this sy
 
 ### `POST /v1/voices/preview`
 
-`{"voice": "piper:pl_PL-gosia-medium"}` speaks a sample sentence in the voice's language, so the player can hear it. It runs apart from the game being read, if any: the game keeps its voice and its sound is not lowered. A new preview cuts off the one playing. Answers 202 at once, and `preview` events say when it starts and ends; 400 if the voice is not installed or speaks no supported language.
+`{"voice": "piper:pl_PL-gosia-medium"}` speaks a sample sentence in the voice's language, so the player can hear it. It runs apart from the app being read, if any: the app keeps its voice and its sound is not lowered. A new preview cuts off the one playing. Answers 202 at once, and `preview` events say when it starts and ends; 400 if the voice is not installed or speaks no supported language.
 
 ### `GET /v1/languages`
 
@@ -100,20 +100,20 @@ Returns the languages the pipeline supports, with their names in their own langu
 
 ### `PATCH /v1/settings`
 
-Changes settings and saves them for the game being read (see Status). Send any of the fields below. A request is applied in full or not at all: an unknown field or a wrong value answers 400, naming the field, and changes nothing.
+Changes settings and saves them for the app being read (see Status). Send any of the fields below. A request is applied in full or not at all: an unknown field or a wrong value answers 400, naming the field, and changes nothing.
 
 ```json
-{ "game_language": "en", "output_language": "pl", "voice": "windows:Microsoft Adam" }
+{ "input_language": "en", "output_language": "pl", "voice": "windows:Microsoft Adam" }
 ```
 
-- `game_language`: a `code` from `/v1/languages`.
+- `input_language`: a `code` from `/v1/languages`.
 - `output_language`: a `code` from `/v1/languages`. Lines read from then on are prepared for it. If the current voice does not speak it, the core switches to the voice last chosen for that language, or else the first voice that speaks it; with no such voice, the voice stays.
-- `voice`: an `id` from `/v1/voices`. While a game is read, switching starts a new speech process and the next line is spoken with the new voice; otherwise the voice is only remembered, and loaded when a game starts. The voice is also remembered for its language.
-- `ducking`: `true` or `false`, whether the game's sound is lowered while lines are spoken.
-- `duck_volume`: a number from 0 to 1, the game's volume while lines are spoken as a fraction of its own; applies at once, also while lowered.
+- `voice`: an `id` from `/v1/voices`. While an app is read, switching starts a new speech process and the next line is spoken with the new voice; otherwise the voice is only remembered, and loaded when an app starts. The voice is also remembered for its language.
+- `ducking`: `true` or `false`, whether the app's sound is lowered while lines are spoken.
+- `duck_volume`: a number from 0 to 1, the app's volume while lines are spoken as a fraction of its own; applies at once, also while lowered.
 - `speech_rate`: a number from 0.5 to 2, how fast lines are spoken relative to the voice's own pace; applies from the next line.
 - `cut_off_lines`: `true` makes a new line cut off the one being spoken (and drop any waiting); `false`, the default, queues it, with at most 3 lines waiting and the oldest dropped first. `POST /v1/stop` then moves on to the next waiting line, and pausing drops the waiting ones.
-- `subtitles`: `true` or `false`, whether lines are shown as subtitles over the game. Switching them off hides the one shown.
+- `subtitles`: `true` or `false`, whether lines are shown as subtitles over the app. Switching them off hides the one shown.
 - `subtitle_size`: `small`, `medium` or `large`.
 - `subtitle_position`: `top` or `bottom`. Games usually show their own text at the bottom, so the default is `top`.
 
@@ -121,7 +121,7 @@ The ducking and subtitle fields are applied first, then the others in the order 
 
 ### `PATCH /v1/sources`
 
-Switches a source of the game being read on or off. A switched-off source is not read until switched on again; its stages keep their own settings. The choice is saved per game:
+Switches a source of the app being read on or off. A switched-off source is not read until switched on again; its stages keep their own settings. The choice is saved per app:
 
 ```json
 { "name": "subtitles", "enabled": false }
@@ -131,7 +131,7 @@ Returns the status.
 
 ### `PATCH /v1/stages`
 
-Switches a stage of the game being read on or off. The choice is saved per game and applies to the next line read:
+Switches a stage of the app being read on or off. The choice is saved per app and applies to the next line read:
 
 ```json
 { "key": "subtitles/3:normalize", "enabled": false }
@@ -221,9 +221,9 @@ On connecting, the client receives the current status. After that, every event t
 
 | `type` | Sent when | Other fields |
 |---|---|---|
-| `status` | The game, voice, languages, pause state or a stage switch changes | As in the status object |
+| `status` | The app, voice, languages, pause state or a stage switch changes | As in the status object |
 | `line` | A line has passed all stages and goes to the speech service | `source`: the source's name in the profile; `text`: the line |
-| `subtitle` | The subtitle to show over the game changes, while subtitles are on | `text`: the subtitle, or `""` to hide it. The core decides how long each one stays: while it is spoken plus a moment, and at least as long as it takes to read |
+| `subtitle` | The subtitle to show over the app changes, while subtitles are on | `text`: the subtitle, or `""` to hide it. The core decides how long each one stays: while it is spoken plus a moment, and at least as long as it takes to read |
 | `error` | A source, stage or sink fails (reported once until it works again) | `kind`: `source.error`, `stage.error` or `sink.error`; `origin`: which one; `message`: for the user |
 | `download` | A download moves on, a few times a second at most | `id`; `state`: `downloading`, `installed`, `failed` or `removed`; `done` and `total` bytes (`total` may be `null`); `message`: why it failed, for the user |
 | `preview` | A voice preview starts (also while its voice loads) or ends: spoken, cut off by another preview, or its voice could not be loaded | `voice`; `playing`: `true` when it starts, `false` when it ends. A preview cut off by another one gets no `false`: the other's `true` replaces it |

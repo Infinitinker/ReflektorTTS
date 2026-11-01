@@ -30,7 +30,7 @@ from reflektortts.events import (
 )
 from reflektortts.games.detector import Builds, RunningGame, find_running_games
 from reflektortts.languages import (
-    DEFAULT_GAME_LANGUAGE,
+    DEFAULT_INPUT_LANGUAGE,
     DEFAULT_OUTPUT_LANGUAGE,
     SAMPLES,
     Languages,
@@ -125,7 +125,7 @@ def build_routes(
     on_error: Callable[[ErrorEvent], None],
     is_enabled: Callable[[str], bool] = lambda key: True,
     is_source_enabled: Callable[[str], bool] = lambda name: True,
-    languages: Callable[[], Languages] = lambda: Languages(DEFAULT_GAME_LANGUAGE, DEFAULT_OUTPUT_LANGUAGE),
+    languages: Callable[[], Languages] = lambda: Languages(DEFAULT_INPUT_LANGUAGE, DEFAULT_OUTPUT_LANGUAGE),
 ) -> list[Route]:
     """Creates the game's sources and their stages; a source that cannot start, or one of whose
     stages cannot, is reported and skipped.
@@ -167,7 +167,7 @@ def read_game(
     on_error: Callable[[ErrorEvent], None] = log_error,
     is_running: Callable[[int], bool] = psutil.pid_exists,
     check_seconds: float = GAME_CHECK_SECONDS,
-    languages: Callable[[], Languages] = lambda: Languages(DEFAULT_GAME_LANGUAGE, DEFAULT_OUTPUT_LANGUAGE),
+    languages: Callable[[], Languages] = lambda: Languages(DEFAULT_INPUT_LANGUAGE, DEFAULT_OUTPUT_LANGUAGE),
 ) -> None:
     """Runs the pipeline until the game exits or stop is set, then closes the sources."""
     runner_stop = threading.Event()
@@ -253,7 +253,7 @@ class Core:
         return Status(
             game=self._game,
             voice=self._narrator.voice,
-            game_language=self._settings.game_language,
+            input_language=self._settings.input_language,
             output_language=self._settings.output_language,
             paused=self._narrator.paused,
             ducking=self._settings.ducking,
@@ -268,12 +268,12 @@ class Core:
         )
 
     def languages(self) -> Languages:
-        return Languages(game=self._settings.game_language, output=self._settings.output_language)
+        return Languages(input=self._settings.input_language, output=self._settings.output_language)
 
     @_serialized
-    def set_game_language(self, language: str) -> Status:
+    def set_input_language(self, language: str) -> Status:
         check_language(language)
-        self._change(game_language=language)
+        self._change(input_language=language)
         return self._publish_status()
 
     @_serialized
@@ -349,7 +349,7 @@ class Core:
         """Switches a source of the game being read on or off; the choice is saved for that game."""
         profile = self._profile
         if profile is None:
-            raise SourceError("No game is being read.")
+            raise SourceError("No app is being read.")
         names = [source.name for source in profile.sources]
         if name not in names:
             raise SourceError(f'{profile.game.title} has no source "{name}". Its sources: {", ".join(names)}.')
@@ -364,7 +364,7 @@ class Core:
         """Switches a stage of the game being read on or off; the choice is saved for that game."""
         profile = self._profile
         if profile is None:
-            raise StageError("No game is being read.")
+            raise StageError("No app is being read.")
         keys = [stage.key for source in self._source_stages() for stage in source.stages]
         if key not in keys:
             raise StageError(f'{profile.game.title} has no stage "{key}". Its stages: {", ".join(keys)}.')
@@ -550,7 +550,7 @@ class Core:
         # A source usually fails a moment before the game's exit is noticed; that is not an error.
         game = self._game
         if error.kind == "source.error" and game is not None and self._exits(game.pid):
-            logger.debug("Ignoring %s from %s: the game has exited", error.kind, error.origin)
+            logger.debug("Ignoring %s from %s: the app has exited", error.kind, error.origin)
             return
         log_error(error)
         self._bus.publish(error)
@@ -581,7 +581,7 @@ def run(profiles_dir: Path, settings_dir: Path, overlay_dirs: Sequence[Path], st
     for error in errors:
         logger.error("Skipping a profile: %s", error)
     if not profiles:
-        raise NoProfilesError(f"No game profiles in {profiles_dir}. Copy a profile there or pass --profiles.")
+        raise NoProfilesError(f"No profiles in {profiles_dir}. Copy a profile there or pass --profiles.")
 
     core = Core(profiles, settings_dir, overlay_dirs)
     server = ApiServer(core)

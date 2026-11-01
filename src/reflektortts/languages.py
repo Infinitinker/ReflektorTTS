@@ -1,8 +1,8 @@
-"""Languages: what the game's text is in, and what lines are spoken and shown in."""
+"""Languages: what the text read is in, and what lines are spoken and shown in."""
 
 from dataclasses import dataclass
 
-DEFAULT_GAME_LANGUAGE = "en"
+DEFAULT_INPUT_LANGUAGE = "en"
 DEFAULT_OUTPUT_LANGUAGE = "en"
 
 # ISO 639-1 code mapped to the language's own name, as shown to users.
@@ -24,8 +24,8 @@ class LanguageError(Exception):
 
 @dataclass(frozen=True)
 class Languages:
-    game: str
-    """The language of the game's text (ISO 639-1)."""
+    input: str
+    """The language of the text read (ISO 639-1)."""
     output: str
     """The language lines are prepared, spoken and shown in (ISO 639-1)."""
 

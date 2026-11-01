@@ -17,7 +17,7 @@ class Source(Protocol):
         """Returns the text shown right now, or None if there is none. Raises if reading fails.
 
         languages are the player's; a source that can read the text in several languages reads it
-        in the game language.
+        in the input language.
         """
 
     def close(self) -> None: ...

@@ -9,7 +9,7 @@ ReflektorTTS reads text through **sources**, processes it with **stages**, and s
 | TTS engine | `reflektortts.tts_engines` | `TtsEngine` in `tts/engine.py` | `piper`, `windows` (`tts/engines/`) |
 | Download source | `reflektortts.downloads` | `DownloadSource` in `downloads/source.py` | `piper`, `argos` (`downloads/`) |
 
-Sinks (where finished lines go) follow the `Sink` contract but have no plugin group yet: the core uses its built-in `tts`, `subtitles` and `events` sinks, which the player sets up in the overlay rather than per game. A group will be added with the first sink a profile needs to choose.
+Sinks (where finished lines go) follow the `Sink` contract but have no plugin group yet: the core uses its built-in `tts`, `subtitles` and `events` sinks, which the player sets up in the overlay rather than per app. A group will be added with the first sink a profile needs to choose.
 
 ## Registering a plugin
 
@@ -20,7 +20,7 @@ A plugin package declares an entry point whose value is a plugin object, for exa
 ocr = "my_package.ocr_plugin:PLUGIN"
 ```
 
-The entry point's object must be a `SourcePlugin`, `StagePlugin`, `EnginePlugin` or `DownloadPlugin`. A plugin that cannot be imported, or is something else, is logged and skipped, so it never stops the app or the other plugins. Likewise, a source or stage that fails while a game is read is reported (`source.error`, `stage.error`) and skipped, and a stage whose `inactive_reason` fails counts as inactive.
+The entry point's object must be a `SourcePlugin`, `StagePlugin`, `EnginePlugin` or `DownloadPlugin`. A plugin that cannot be imported, or is something else, is logged and skipped, so it never stops ReflektorTTS or the other plugins. Likewise, a source or stage that fails while an app is read is reported (`source.error`, `stage.error`) and skipped, and a stage whose `inactive_reason` fails counts as inactive.
 
 ## Settings and profiles
 
@@ -64,13 +64,13 @@ SourcePlugin(type="memory", settings_schema=..., create=create)
 def create(source: SourceSettings, game: RunningGame) -> Source: ...
 ```
 
-- `create` gets the profile's entry (`source.settings` holds the plugin's own, already validated fields; `source.name` and `source.poll_interval` come from the core) and the running game (its profile and process ID). Turn the settings into your own dataclasses here rather than passing dicts around.
+- `create` gets the profile's entry (`source.settings` holds the plugin's own, already validated fields; `source.name` and `source.poll_interval` come from the core) and the running app (its profile and process ID). Turn the settings into your own dataclasses here rather than passing dicts around.
 - `read` returns the **current** text on every call, even if it has not changed; the tracker stage turns that into one line per change. Return `None` (or an empty string) when there is no text.
-- `languages` are the player's game and output languages. Most sources read whatever the game shows and ignore them; a source that can read a line in several languages, like `avalanche`, reads it in the game language.
-- `read` runs on the thread that polls every source, so keep it quick: do slow work (reading a game's files, say) in a thread of your own and return `None` until it is done, as `avalanche` does.
-- Raise an exception with a message the player understands when reading fails ("Cannot read the game's memory at 672F40."). The runner reports it once as a `source.error` event and keeps polling; it logs when the source works again. A source that cannot start at all should raise from `create`, e.g. "This version of the game is not supported by its profile yet".
-- `close` releases what the source holds (handles, files). It is called when the game exits.
-- Platform-specific code stays inside the plugin, behind a small interface with one implementation per OS. Code that several sources need goes into a shared module instead: sources that read the game's memory use `process_memory/` for the process, pointer chains (`parse_pointer_chains`, `chain_for`, `resolve`), and the game's executable (`executable_path`, `executable_sha256`).
+- `languages` are the player's input and output languages. Most sources read whatever the app shows and ignore them; a source that can read a line in several languages, like `avalanche`, reads it in the input language.
+- `read` runs on the thread that polls every source, so keep it quick: do slow work (reading an app's files, say) in a thread of your own and return `None` until it is done, as `avalanche` does.
+- Raise an exception with a message the player understands when reading fails ("Cannot read the app's memory at 672F40."). The runner reports it once as a `source.error` event and keeps polling; it logs when the source works again. A source that cannot start at all should raise from `create`, e.g. "This version of the app is not supported by its profile yet".
+- `close` releases what the source holds (handles, files). It is called when the app exits.
+- Platform-specific code stays inside the plugin, behind a small interface with one implementation per OS. Code that several sources need goes into a shared module instead: sources that read the app's memory use `process_memory/` for the process, pointer chains (`parse_pointer_chains`, `chain_for`, `resolve`), and the app's executable (`executable_path`, `executable_sha256`).
 ## Stages
 
 ```python
@@ -97,8 +97,8 @@ def inactive_reason(languages: Languages) -> str | None: ...
 
 - Return the event to pass on (use `dataclasses.replace` to change its text), or `None` to drop it.
 - An event with **empty text** means the source has no text right now. Stages that keep state, like the tracker, use it to notice a line disappearing; empty text is never delivered to sinks.
-- `event.game_language` and `event.output_language` are the languages the player chose (ISO 639-1, e.g. `pl`), current when the line was read. Stages that depend on language, like `normalize` (output language) and `translate` (from the game to the output language), use them instead of settings of their own, so the player's choice applies to every game.
-- A stage that does nothing with some languages says so with `inactive_reason`: given the player's languages, it returns why, in a few words for the player ("Game and output language are the same"), or `None` if the stage works with them. Meanwhile the runner skips the stage, so `process` only sees languages it works with, and the overlay grays the stage out with the reason, keeping the player's tick. `translate` uses it for matching languages and pairs without a model, and `normalize` for output languages without rules.
+- `event.input_language` and `event.output_language` are the languages the player chose (ISO 639-1, e.g. `pl`), current when the line was read. Stages that depend on language, like `normalize` (output language) and `translate` (from the input to the output language), use them instead of settings of their own, so the player's choice applies to every app.
+- A stage that does nothing with some languages says so with `inactive_reason`: given the player's languages, it returns why, in a few words for the player ("Input and output language are the same"), or `None` if the stage works with them. Meanwhile the runner skips the stage, so `process` only sees languages it works with, and the overlay grays the stage out with the reason, keeping the player's tick. `translate` uses it for matching languages and pairs without a model, and `normalize` for output languages without rules.
 - Players can switch each stage on and off in the overlay; a switched-off stage is skipped. Next to its tick they see its `type` and its `summary`, a few words on what it does. Set `warning_when_disabled` if reading breaks without the stage; it replaces the summary while the stage is off. The overlay keeps each stage to one line and cuts longer text, so keep these short.
 - Each source gets its own stage objects, so a stage may keep state per source.
 - Heavy dependencies belong in an optional extra, imported only when the stage first needs them. Models live in the user data folder and are never downloaded by the stage: it uses an installed one, or doesn't apply (`inactive_reason`), as `translate` does (`stages/translate/`).
@@ -146,4 +146,4 @@ DownloadPlugin(name="piper", create=PiperVoices)  # create gets a cache folder o
 
 ## Testing
 
-Tests live in `tests/`, mirroring the package: the tests for `src/reflektortts/stages/tracker.py` are in `tests/stages/test_tracker.py`. They run without a game, GPU, audio device or network. Put hardware- and game-dependent parts behind an interface and test against a fake kept in `tests/`, as `tests/process_memory/fake_memory.py` and the fake streams in `tests/tts/test_playback.py` do.
+Tests live in `tests/`, mirroring the package: the tests for `src/reflektortts/stages/tracker.py` are in `tests/stages/test_tracker.py`. They run without a running app, GPU, audio device or network. Put hardware- and app-dependent parts behind an interface and test against a fake kept in `tests/`, as `tests/process_memory/fake_memory.py` and the fake streams in `tests/tts/test_playback.py` do.

@@ -47,7 +47,7 @@ class StagePlugin:
     written like the summary."""
     inactive_reason: Callable[[Languages], str | None] = lambda languages: None
     """Why the stage does nothing with the player's languages, written like the summary, e.g.
-    "Game and output language are the same"; None if it works with them. Meanwhile the stage is
+    "Input and output language are the same"; None if it works with them. Meanwhile the stage is
     skipped, and the overlay grays it out and shows the reason instead of the summary."""
 
 

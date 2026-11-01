@@ -18,7 +18,7 @@ def test_other_events_are_not_a_status() -> None:
     ("status", "text"),
     [
         (None, "Starting…"),
-        (CoreStatus(game=None, paused=False), "Waiting for a game"),
+        (CoreStatus(game=None, paused=False), "Waiting for an app"),
         (CoreStatus(game="Mad Max", paused=False), "Reading Mad Max"),
         (CoreStatus(game="Mad Max", paused=True), "Reading Mad Max (paused)"),
     ],
@@ -35,4 +35,7 @@ def test_an_unsupported_version_is_described_with_its_hash() -> None:
     assert status == CoreStatus(game=None, paused=False, unsupported="Mad Max", unsupported_sha256="abc")
     assert describe(status) == "This version of Mad Max is not supported yet"
     assert hint(status) == "To support it, its profile needs this version's SHA-256: abc"
-    assert hint(CoreStatus(game=None, paused=False)) == "In a game, open the ReflektorTTS panel with Ctrl+Shift+R."
+    assert (
+        hint(CoreStatus(game=None, paused=False))
+        == "In an app with the overlay, open the ReflektorTTS panel with Ctrl+Shift+R."
+    )

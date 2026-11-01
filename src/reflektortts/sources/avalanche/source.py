@@ -14,7 +14,7 @@ NO_LINE = 0
 
 class AvalancheSource:
     """The game's subtitle element holds the ID of the line it shows, the same in every language,
-    or 0 when no subtitle is shown. Its text, in the game language, comes from the game's files.
+    or 0 when no subtitle is shown. Its text, in the input language, comes from the game's files.
     """
 
     def __init__(
@@ -30,7 +30,7 @@ class AvalancheSource:
     def read(self, languages: Languages) -> str | None:
         # Asked for on every read, so the text is read as soon as the game starts, before its
         # first subtitle.
-        lines = self._texts.lines(languages.game)
+        lines = self._texts.lines(languages.input)
         line_id = self._shown_line()
         if line_id == NO_LINE or lines is None:
             return None

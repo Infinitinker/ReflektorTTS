@@ -13,8 +13,8 @@ from tests.sources.avalanche.fake_game import CHAMPION, KILL, make_game
 
 # MadMax.exe+10 points to the subtitle element at 0x5000; the line ID is at +8.
 CHAIN = PointerChain(exe_sha256="a" * 64, base=Address("MadMax.exe", 0x10), offsets=(0x8,))
-POLISH = Languages(game="pl", output="pl")
-ENGLISH = Languages(game="en", output="pl")
+POLISH = Languages(input="pl", output="pl")
+ENGLISH = Languages(input="en", output="pl")
 
 
 def game(shown: int) -> dict[int, bytes]:
@@ -31,7 +31,7 @@ def source_for(tmp_path: Path, regions: dict[int, bytes]) -> tuple[AvalancheSour
     return AvalancheSource("subtitles", 0.25, CHAIN, memory, texts), memory
 
 
-def test_the_shown_line_is_read_in_the_game_language(tmp_path: Path) -> None:
+def test_the_shown_line_is_read_in_the_input_language(tmp_path: Path) -> None:
     regions = game(KILL)
     source, _ = source_for(tmp_path, regions)
 
