@@ -97,7 +97,7 @@ def loads(monkeypatch: pytest.MonkeyPatch) -> Iterator[list[str]]:
         return FakeEngine()
 
     monkeypatch.setattr(translate_stage, "installed_model", lambda package: Path("model"))
-    monkeypatch.setattr(translate_stage, "MosesBpeEngine", fake_engine)
+    monkeypatch.setattr(translate_stage, "load_engine", fake_engine)
     open_engine.cache_clear()
     yield loaded
     open_engine.cache_clear()

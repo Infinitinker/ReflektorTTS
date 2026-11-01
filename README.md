@@ -29,7 +29,7 @@ As a desktop app, without a console: double-click `start-app.bat` in the reposit
 .venv\Scripts\reflektortts-app --profiles profiles --overlay overlay\build\bin --overlay overlay\build64\bin
 ```
 
-Its icon appears next to the clock: right-click it to open the window, pause reading or quit. The window shows what ReflektorTTS is doing and opens its logs and settings folders; closing it leaves ReflektorTTS running. Logs are written to `%LOCALAPPDATA%\ReflektorTTS\Logs`.
+Its icon appears next to the clock: right-click it to open the window, pause reading or quit. The window's Status tab shows what ReflektorTTS is doing and opens its logs and settings folders; its Voices and Translations tabs download voices and translation models. Closing it leaves ReflektorTTS running. Logs are written to `%LOCALAPPDATA%\ReflektorTTS\Logs`.
 
 Or in a console, with the log shown there:
 
@@ -55,14 +55,7 @@ Press **Ctrl+Shift+R** to open the ReflektorTTS panel. From top to bottom it fol
 
 Any output language can be chosen. Without a voice for it, the panel's Voice box says so and lines are only translated and shown as subtitles.
 
-Voices and translation models are downloaded only when you ask for it, from the lists Piper and Argos Translate publish, each shown with its licence as published. The desktop app's section for that comes next; until then, with ReflektorTTS running, the local API lists and downloads them (see [docs/api.md](docs/api.md#downloads)), e.g.:
-
-```bash
-curl "http://127.0.0.1:47821/v1/downloads?refresh=1"
-```
-```bash
-curl -X POST http://127.0.0.1:47821/v1/downloads -H "Content-Type: application/json" -d "{\"id\": \"piper:en_US-ljspeech-medium\"}"
-```
+Voices and translation models are downloaded only when you ask for it: in the desktop app's **Voices** and **Translations** tabs, which list what Piper and Argos Translate publish. Select one to read its licence as published (for Piper voices, the voice's model card) and to open its page, then **Download** it; it can be used right away, even in a game that is running. **Remove** deletes it again.
 
 Everything chosen in the panel, the voice included, is saved for each game, in `%LOCALAPPDATA%\ReflektorTTS\games\`, one file per game named like its profile (e.g. `mad-max-2015.json`). A game played for the first time starts with the defaults, and deleting its file resets it. `%LOCALAPPDATA%\ReflektorTTS\settings.json` remembers the voice last chosen for each language, so switching a game's output language picks it again.
 
@@ -78,8 +71,7 @@ ReflektorTTS can also show each line as a subtitle over the game, for example th
 
 ReflektorTTS can translate a game into the output language, in the style of a Polish *lektor*. Set the game language (in the panel's Game section) and the output language (in Output); when they differ, profiles with a `translate` stage translate each line before it is spoken. To turn it off, untick `translate` in the panel's Text processing section.
 
-Only English to Polish is available so far. It runs offline on the CPU, at about 0.1 s per line, with the model (about 80 MB) in `%LOCALAPPDATA%\ReflektorTTS\translation`. Without it, `translate` is greyed out with "No translation model for these languages" and lines are read untranslated. Download it like a voice, with the ID `argos:en-pl`.
- It is the English–Polish model of [Argos Translate](https://github.com/argosopentech/argos-translate), derived from an [OPUS-MT](https://github.com/Helsinki-NLP/Opus-MT) model by Jörg Tiedemann and Santhosh Thottingal and licensed CC-BY 4.0.
+It uses the translation models of [Argos Translate](https://github.com/argosopentech/argos-translate), one per pair of languages, downloaded in the desktop app's Translations tab into `%LOCALAPPDATA%\ReflektorTTS\translation`. They run offline on the CPU, at about 0.1 s per line. Without a model for the game and output languages, `translate` is greyed out with "No translation model for these languages" and lines are read untranslated. The English–Polish model (about 80 MB), for example, is derived from an [OPUS-MT](https://github.com/Helsinki-NLP/Opus-MT) model by Jörg Tiedemann and Santhosh Thottingal and licensed CC-BY 4.0.
 
 ## Local API
 

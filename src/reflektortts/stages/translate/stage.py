@@ -11,7 +11,7 @@ from typing import Any
 from reflektortts.events import TextEvent
 from reflektortts.languages import Languages
 from reflektortts.pipeline.plugins import StagePlugin, load_schema
-from reflektortts.stages.translate.engine import Engine, MosesBpeEngine
+from reflektortts.stages.translate.engine import Engine, load_engine
 from reflektortts.stages.translate.model import ModelNotInstalledError, installed_model
 from reflektortts.stages.translate.sentences import split_sentences
 
@@ -65,7 +65,7 @@ def open_engine(source: str, target: str) -> Engine:
     if model_dir is None:
         raise ModelNotInstalledError(NO_MODEL)
     started = time.perf_counter()
-    engine = MosesBpeEngine(model_dir, source, target)
+    engine = load_engine(model_dir, source, target)
     logger.info("Loaded the %s-%s translation model in %.1f s", source, target, time.perf_counter() - started)
     return engine
 

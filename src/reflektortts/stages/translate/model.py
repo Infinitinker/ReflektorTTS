@@ -14,8 +14,10 @@ from reflektortts.user_dirs import data_dir
 type Pair = tuple[str, str]
 """(game language, output language)"""
 
-# What the stage needs from an Argos Translate package; its sentence splitter (stanza) is left out.
-_KEPT = ("model", "bpe.model", "README.md")
+# What the stage needs from an Argos Translate package (the model, and its BPE or SentencePiece
+# tokenizer); its sentence splitter (stanza) is left out.
+_KEPT = ("model", "bpe.model", "sentencepiece.model", "README.md")
+_TOKENIZERS = ("bpe.model", "sentencepiece.model")
 
 
 class ModelInstallError(Exception):
@@ -41,7 +43,7 @@ def installed_model(pair: Pair, directory: Path | None = None) -> Path | None:
 
 
 def _is_model(folder: Path) -> bool:
-    return (folder / "model" / "model.bin").is_file() and (folder / "bpe.model").is_file()
+    return (folder / "model" / "model.bin").is_file() and any((folder / name).is_file() for name in _TOKENIZERS)
 
 
 def install_archive(archive: Path, pair: Pair, directory: Path | None = None) -> Path:

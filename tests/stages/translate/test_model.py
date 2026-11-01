@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 
 from reflektortts.stages.translate.model import ModelInstallError, install_archive, installed_model, remove_model
-from tests.stages.translate.fake_package import PACKAGE_BYTES
+from tests.stages.translate.fake_package import PACKAGE_BYTES, package_bytes
 
 PAIR = ("en", "pl")
 
@@ -23,6 +23,20 @@ def test_a_package_is_installed_without_its_sentence_splitter(tmp_path: Path) ->
     files = sorted(path.relative_to(model_dir).as_posix() for path in model_dir.rglob("*") if path.is_file())
     assert files == ["README.md", "bpe.model", "model/config.json", "model/model.bin"]
     assert list(models.iterdir()) == [model_dir]
+
+
+def test_a_package_with_a_sentencepiece_tokenizer_is_installed(tmp_path: Path) -> None:
+    models = tmp_path / "models"
+
+    model_dir = install_archive(archive(tmp_path, package_bytes("sentencepiece.model")), PAIR, models)
+
+    assert installed_model(PAIR, models) == model_dir
+    assert (model_dir / "sentencepiece.model").is_file()
+
+
+def test_a_package_without_a_tokenizer_is_rejected(tmp_path: Path) -> None:
+    with pytest.raises(ModelInstallError, match="not a translation model"):
+        install_archive(archive(tmp_path, package_bytes("other.model")), PAIR, tmp_path / "models")
 
 
 def test_a_damaged_package_is_rejected_and_leaves_nothing(tmp_path: Path) -> None:

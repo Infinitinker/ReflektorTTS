@@ -49,7 +49,7 @@ translate = "reflektortts.stages.translate.stage:PLUGIN"
 [project.optional-dependencies]
 desktop = ["pillow>=13.0", "pystray>=0.19.5"]
 dev =["mypy>=2.4", "pytest>=9.2", "ruff>=0.17", "types-jsonschema", "types-psutil"]
-translate = ["ctranslate2>=4.8", "sacremoses>=0.2", "subword-nmt>=0.3.8"]
+translate = ["ctranslate2>=4.8", "sacremoses>=0.2", "subword-nmt>=0.3.8", "sentencepiece>=0.2.2"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -65,5 +65,5 @@ strict = true
 files = ["src", "tests", "tools"]
 
 [[tool.mypy.overrides]]
-module = ["sounddevice", "num2words", "ctranslate2", "sacremoses", "subword_nmt.*", "pycaw.*", "comtypes", "pystray"]
+module = ["sounddevice", "num2words", "ctranslate2", "sacremoses", "subword_nmt.*", "sentencepiece", "pycaw.*", "comtypes", "pystray"]
 ignore_missing_imports = true

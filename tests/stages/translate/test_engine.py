@@ -3,7 +3,12 @@ from pathlib import Path
 
 import pytest
 
-from reflektortts.stages.translate.engine import MosesBpeEngine, TranslationUnavailableError, join_name_endings
+from reflektortts.stages.translate.engine import (
+    MosesBpeEngine,
+    SentencePieceEngine,
+    TranslationUnavailableError,
+    join_name_endings,
+)
 
 
 @pytest.mark.parametrize(
@@ -24,3 +29,10 @@ def test_missing_translation_packages_are_explained(tmp_path: Path, monkeypatch:
 
     with pytest.raises(TranslationUnavailableError, match=r"pip install reflektortts\[translate\]"):
         MosesBpeEngine(tmp_path, "en", "pl")
+
+
+def test_missing_sentencepiece_is_explained(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setitem(sys.modules, "sentencepiece", None)
+
+    with pytest.raises(TranslationUnavailableError, match=r"pip install reflektortts\[translate\]"):
+        SentencePieceEngine(tmp_path)
