@@ -2,7 +2,7 @@
 
 Every ReflektorTTS user interface, the in-game overlay included, controls the core through this API. It is served by the core on **`http://127.0.0.1:47821/v1`**, only on the local machine. The port is fixed so the overlay knows where to connect.
 
-Requests and responses are JSON (UTF-8). There is no authentication: the API only listens on 127.0.0.1.
+Requests and responses are JSON (UTF-8). There is no authentication, but web pages are kept out: a page open in the player's browser can also reach 127.0.0.1, so the API refuses what only browsers send (see [Requests from web pages](#requests-from-web-pages)).
 
 ## Status
 
@@ -200,6 +200,16 @@ A request that cannot be carried out returns **HTTP 400** with a message for the
 ```json
 { "error": "There is no voice \"piper:missing\". Available: piper:en_US-ljspeech-medium, windows:Microsoft Adam." }
 ```
+
+## Requests from web pages
+
+So that a web page cannot control ReflektorTTS or listen to its events, requests are refused when they carry what browsers add and ReflektorTTS's own clients never do. A client must therefore:
+
+- send no `Origin` header (browsers send it with cross-site requests and with every WebSocket): **403**;
+- address `127.0.0.1` or `localhost` in the `Host` header (a page that rebinds its own domain name to 127.0.0.1 sends that name): **403**;
+- send a body only as JSON, with `Content-Type: application/json` (pages can send text or form data unasked, but not JSON): **415**.
+
+These refusals use the same `{"error": "..."}` format.
 
 ## Events: `GET /v1/events` (WebSocket)
 

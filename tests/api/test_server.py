@@ -372,7 +372,7 @@ def test_subtitles_can_be_switched_on_and_set_up() -> None:
 def test_bad_settings_are_rejected_with_a_message(body: Any, message: str) -> None:
     async def test(client: TestClient[Any, Any]) -> None:
         if isinstance(body, str):
-            response = await client.patch("/v1/settings", data=body)
+            response = await client.patch("/v1/settings", data=body, headers={"Content-Type": "application/json"})
         else:
             response = await client.patch("/v1/settings", json=body)
         assert response.status == 400
