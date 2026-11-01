@@ -201,6 +201,8 @@ A request that cannot be carried out returns **HTTP 400** with a message for the
 { "error": "There is no voice \"piper:missing\". Available: piper:en_US-ljspeech-medium, windows:Microsoft Adam." }
 ```
 
+Every other failure uses the same format: **404** for a path that does not exist, **405** for a method a path does not take (the message lists the ones it does), and **500** for an unexpected error inside ReflektorTTS, whose details are in its log.
+
 ## Requests from web pages
 
 So that a web page cannot control ReflektorTTS or listen to its events, requests are refused when they carry what browsers add and ReflektorTTS's own clients never do. A client must therefore:

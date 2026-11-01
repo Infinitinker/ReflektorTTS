@@ -38,6 +38,8 @@ class FakeSource:
         progress(100, 100)
 
     def remove(self, entry: Entry) -> None:
+        if entry.id.endswith("locked"):
+            raise PermissionError(13, "Access is denied")
         self.removed.append(entry.id)
 
 
@@ -111,3 +113,14 @@ def test_removing_reports_it() -> None:
 
     assert source.removed == ["fake:a"]
     assert events == [DownloadEvent("fake:a", "removed")]
+
+
+def test_a_file_that_cannot_be_removed_is_reported() -> None:
+    events: list[DownloadEvent] = []
+    downloads = Downloads({"fake": FakeSource(entry("fake:locked", installed=True))}, events.append)
+    downloads.listing(refresh=True)
+
+    with pytest.raises(DownloadError, match=r"locked could not be removed \(Access is denied\)\. Close what"):
+        downloads.remove("fake:locked")
+
+    assert events == []

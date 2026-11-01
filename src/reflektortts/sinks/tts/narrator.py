@@ -1,11 +1,14 @@
 """The core's voice: speaks lines through the TTS process, can pause and switch voices."""
 
 import itertools
+import logging
 import threading
 from collections.abc import Callable
 from typing import Protocol
 
-from reflektortts.sinks.tts.client import TtsClient
+from reflektortts.sinks.tts.client import TtsClient, TtsServiceError
+
+logger = logging.getLogger(__name__)
 
 
 class SpeechClient(Protocol):
@@ -76,15 +79,13 @@ class Narrator:
     def stop_line(self) -> None:
         """Cuts off the line being spoken; the next waiting line, or the next line read, follows."""
         with self._lock:
-            if self._client is not None:
-                self._client.stop(drop_waiting=False)
+            self._stop(drop_waiting=False)
 
     def pause(self) -> None:
         """Stops the current line, drops those waiting, and ignores new ones until resume()."""
         with self._lock:
             self._paused = True
-            if self._client is not None:
-                self._client.stop(drop_waiting=True)
+            self._stop(drop_waiting=True)
 
     def resume(self) -> None:
         with self._lock:
@@ -108,6 +109,16 @@ class Narrator:
             client, self._client = self._client, None
         if client is not None:
             client.close()
+
+    def _stop(self, drop_waiting: bool) -> None:
+        """Stops speech, if any: a speech process that has died has nothing to stop. That is only
+        logged here; the next line spoken reports it to the player."""
+        if self._client is None:
+            return
+        try:
+            self._client.stop(drop_waiting)
+        except TtsServiceError as error:
+            logger.warning("Nothing to stop: %s", error)
 
     def _start(self, voice: str) -> SpeechClient:
         client_id = next(self._client_ids)

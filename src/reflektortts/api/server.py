@@ -10,6 +10,7 @@ from typing import Any, Protocol
 
 from aiohttp import WSMsgType, web
 
+from reflektortts.api.errors import json_errors
 from reflektortts.api.guard import refuse_web_pages
 from reflektortts.bus import Event, Listener
 from reflektortts.downloads.manager import Listed, Listing
@@ -387,7 +388,7 @@ async def close_sockets(app: web.Application) -> None:
 
 
 def create_app(core: CoreControl) -> web.Application:
-    app = web.Application(middlewares=[refuse_web_pages])
+    app = web.Application(middlewares=[json_errors, refuse_web_pages])
     app[CORE] = core
     app[SOCKETS] = weakref.WeakSet()
     app.add_routes(

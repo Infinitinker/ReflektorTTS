@@ -86,7 +86,12 @@ class Downloads:
                 raise DownloadError(f'There is no download "{entry_id}". List the downloads first.')
             if entry_id in self._running:
                 raise DownloadError(f"{entry.name} is downloading; wait until it is done.")
-        self._source(entry).remove(entry)
+        try:
+            self._source(entry).remove(entry)
+        except OSError as error:
+            raise DownloadError(
+                f"{entry.name} could not be removed ({error.strerror or error}). Close what is using it and try again."
+            ) from error
         logger.info("Removed %s", entry.name)
         self._on_event(DownloadEvent(entry_id, "removed"))
 

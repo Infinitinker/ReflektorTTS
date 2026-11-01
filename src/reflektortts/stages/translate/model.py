@@ -69,7 +69,10 @@ def install_archive(archive: Path, pair: Pair, directory: Path | None = None) ->
 
 
 def remove_model(pair: Pair, directory: Path | None = None) -> None:
-    shutil.rmtree(model_dir(pair, directory), ignore_errors=True)
+    """Raises OSError if a file cannot be removed, e.g. one in use."""
+    folder = model_dir(pair, directory)
+    if folder.exists():
+        shutil.rmtree(folder)
 
 
 def _unpack(archive: Path, destination: Path) -> None:

@@ -1,5 +1,6 @@
 from collections.abc import Callable
 
+from reflektortts.sinks.tts.client import TtsServiceError
 from reflektortts.sinks.tts.narrator import Narrator
 
 
@@ -148,3 +149,18 @@ def test_close_closes_the_service() -> None:
     narrator.close()
 
     assert clients.started[0].closed
+
+
+def test_pause_and_stop_work_after_the_speech_process_died() -> None:
+    clients = Clients()
+    narrator = started(clients)
+
+    def dead(drop_waiting: bool) -> None:
+        raise TtsServiceError("The speech service stopped (exit code 1); see the log for why.")
+
+    clients.started[0].stop = dead  # type: ignore[method-assign]
+
+    narrator.stop_line()
+    narrator.pause()
+
+    assert narrator.paused
