@@ -38,7 +38,7 @@ def test_plugin_is_registered() -> None:
 def write_profile(tmp_path: Path, rule: dict[str, str]) -> Path:
     path = tmp_path / "app.json"
     profile = {
-        "version": 2,
+        "version": 1,
         "app": {"title": "App", "year": 2000},
         "match": {"executables": [{"name": "app.exe"}]},
         "sources": [{"type": "fixed", "name": "text", "stages": [{"type": "replace", "rules": [rule]}]}],

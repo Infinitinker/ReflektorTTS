@@ -6,7 +6,7 @@
   "additionalProperties": false,
   "properties": {
     "stable_ms": {
-      "description": "How long the text must stay unchanged before it is passed on, in milliseconds. Default: 500.",
+      "description": "How long the text must stay unchanged before it is passed on, in milliseconds. Default: 500. The text is checked each time the source is read, so the wait is rounded up to whole poll intervals: best a multiple of the source's poll_interval_ms.",
       "type": "integer",
       "minimum": 0,
       "maximum": 10000

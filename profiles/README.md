@@ -4,7 +4,7 @@ Each file in this folder is a profile for one app: how to recognize it, where to
 
 The profile format is not finalized yet. Its JSON Schema is `src/reflektortts/profiles/profile.schema.json`; a full guide to writing and contributing profiles will be added here once the format settles.
 
-## Format (version 2)
+## Format (version 1)
 
 - `version`: the profile format version. Older profiles are migrated automatically.
 - `app`: the app's `title` and original release `year`, for display.
@@ -12,7 +12,7 @@ The profile format is not finalized yet. Its JSON Schema is `src/reflektortts/pr
 - `overlay` (optional, default `false`): whether the overlay is loaded into the app. It needs `sha256` for every executable, so the overlay is only ever loaded into builds it was tested with.
 - `sources` (optional): where to read the app's text. Each entry has a `type` (the source plugin), a `name`, optionally `poll_interval_ms` (default 250) and `stages`. Its other fields are defined by the plugin's own schema.
 - `stages` (optional, per source): processing applied in order to that source's text, each with a `type` and the plugin's own fields:
-  - `tracker`: passes a line on once it has stayed unchanged for `stable_ms` (default 500), has at least `min_letters` letters (default 4), and letters make up at least half of its visible characters; the same line is passed on again only after it disappears or changes. Nearly every source needs it, because sources report the current text on every read.
+  - `tracker`: passes a line on once it has stayed unchanged for `stable_ms` (default 500; the text is checked on every read of the source, so the wait is rounded up to whole `poll_interval_ms`: with 250 ms polling, 300 waits 500, so set a multiple), has at least `min_letters` letters (default 4), and letters make up at least half of its visible characters; the same line is passed on again only after it disappears or changes. Nearly every source needs it, because sources report the current text on every read.
   - `replace`: `rules`, a list of replacements applied in order, e.g. to remove an app's formatting marks. Each rule is either:
     - `{"find": "#", "replace": ""}`: plain text, matched literally;
     - `{"pattern": "#([^#]*)#", "replace": "\\1"}`: a regular expression (Python syntax), where `\1`, `\2`... in `replace` insert the pattern's groups. In JSON a backslash is written twice. GTA2 marks colored words like `#TEST#`; this rule keeps the word and drops the marks. Invalid patterns are reported when the profile loads.

@@ -14,13 +14,11 @@ from jsonschema.protocols import Validator
 from reflektortts.pipeline.plugins import source_plugins, stage_plugins
 from reflektortts.profiles.model import App, Executable, Match, Profile, SourceSettings, StageSettings
 
-CURRENT_VERSION = 2
+CURRENT_VERSION = 1
 
-# MIGRATIONS[n] turns a version n profile into version n + 1.
-MIGRATIONS: dict[int, Callable[[dict[str, Any]], dict[str, Any]]] = {
-    # Version 2 added the optional "sources" list.
-    1: lambda data: data | {"version": 2},
-}
+# MIGRATIONS[n] turns a version n profile into version n + 1. Empty until the format changes after
+# the first release.
+MIGRATIONS: dict[int, Callable[[dict[str, Any]], dict[str, Any]]] = {}
 
 # Fields of source and stage entries the core reads; the rest belong to the plugin.
 SOURCE_FIELDS = {"type", "name", "poll_interval_ms", "stages"}

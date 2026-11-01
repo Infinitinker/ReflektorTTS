@@ -12,7 +12,7 @@
   "properties": {
     "version": {
       "description": "Profile format version.",
-      "const": 2
+      "const": 1
     },
     "app": {
       "type": "object",

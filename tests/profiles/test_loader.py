@@ -3,7 +3,9 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from jsonschema import Draft202012Validator
 
+from reflektortts.profiles import loader
 from reflektortts.profiles.loader import PluginSchemas, ProfileError, load_profile, load_profiles
 from reflektortts.profiles.model import App, Executable, Match, Profile, SourceSettings, StageSettings
 
@@ -106,13 +108,20 @@ SCHEMAS = PluginSchemas(sources={"fixed": TEXT_SCHEMA}, stages={"cut": LIMIT_SCH
 
 
 def with_sources(*sources: dict[str, Any]) -> dict[str, Any]:
-    return VALID | {"version": 2, "sources": list(sources)}
+    return VALID | {"sources": list(sources)}
 
 
-def test_version_1_profile_is_migrated(tmp_path: Path) -> None:
+def test_an_older_profile_is_migrated_to_the_current_version(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # No migration exists before the first release, so a stand-in version 2 renames the title.
+    monkeypatch.setattr(loader, "CURRENT_VERSION", 2)
+    monkeypatch.setattr(
+        loader, "MIGRATIONS", {1: lambda data: data | {"version": 2, "app": data["app"] | {"title": "Renamed"}}}
+    )
+    monkeypatch.setattr(loader, "_validator", lambda: Draft202012Validator({}))
+
     profile = load_profile(write(tmp_path, "old.json", VALID), SCHEMAS)
 
-    assert profile.sources == ()
+    assert profile.app.title == "Renamed"
 
 
 def test_sources_are_split_into_core_fields_and_plugin_settings(tmp_path: Path) -> None:

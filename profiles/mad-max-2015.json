@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 1,
   "app": {
     "title": "Mad Max",
     "year": 2015
@@ -17,7 +17,7 @@
     {
       "type": "avalanche",
       "name": "subtitles",
-      "poll_interval_ms": 250,
+      "poll_interval_ms": 100,
       "pointers": [
         {
           "exe_sha256": "cd719a721db92575aa32ff01e07a590f47dd34b702b1bcd98ec698a07358bb0d",
@@ -26,7 +26,7 @@
         }
       ],
       "stages": [
-        { "type": "tracker", "stable_ms": 300, "min_letters": 4 },
+        { "type": "tracker", "stable_ms": 200, "min_letters": 4 },
         { "type": "translate" },
         { "type": "normalize" }
       ]
