@@ -34,6 +34,8 @@ class Application:
         self._tasks: queue.SimpleQueue[Callable[[], None]] = queue.SimpleQueue()
         self._status: CoreStatus | None = None
         self._stopped = False
+        self._quitting = False
+        """Set by quit: the window is gone, so nothing may touch it any more."""
         self._told_about_tray = False
         self._refreshed = False
         """Whether the download lists were fetched since the window was opened."""
@@ -74,8 +76,10 @@ class Application:
         self._tasks.put(task)
 
     def _run_tasks(self) -> None:
-        while not self._tasks.empty():
+        while not self._quitting and not self._tasks.empty():
             self._tasks.get()()
+        if self._quitting:
+            return
         if not self._stopped and self._core.stopped():
             self._core_stopped()
         self._root.after(POLL_MS, self._run_tasks)
@@ -215,6 +219,7 @@ class Application:
             self._tray.notify("ReflektorTTS keeps running here. Right-click its icon to quit.")
 
     def _quit(self) -> None:
+        self._quitting = True
         self._window.hide()
         self._tray.stop()
         self._feed.stop()
