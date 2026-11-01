@@ -174,6 +174,7 @@ def test_status() -> None:
         assert await response.json() == {
             "type": "status",
             "game": {"title": "Grand Theft Auto 2", "pid": 42},
+            "unsupported": None,
             "voice": "piper:a",
             "game_language": "pl",
             "output_language": "en",

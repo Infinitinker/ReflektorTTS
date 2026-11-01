@@ -1,9 +1,13 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "ReflektorTTS game profile",
-  "description": "Describes one game: how to recognize it and, later, where to read its text.",
+  "description": "Describes one game or other program: how to recognize it, where to read its text and how to process it.",
   "type": "object",
-  "required": ["version", "game", "match"],
+  "required": [
+    "version",
+    "game",
+    "match"
+  ],
   "additionalProperties": false,
   "properties": {
     "version": {
@@ -12,7 +16,10 @@
     },
     "game": {
       "type": "object",
-      "required": ["title", "year"],
+      "required": [
+        "title",
+        "year"
+      ],
       "additionalProperties": false,
       "properties": {
         "title": {
@@ -29,30 +36,58 @@
       }
     },
     "match": {
-      "description": "How to recognize the running game.",
+      "description": "How to recognize the running program.",
       "type": "object",
-      "required": ["process"],
+      "required": [
+        "executables"
+      ],
       "additionalProperties": false,
       "properties": {
-        "process": {
-          "description": "Executable names of the game, without folders, e.g. \"gta2.exe\".",
+        "executables": {
+          "description": "The program's executables; one program can ship several.",
           "type": "array",
           "minItems": 1,
-          "uniqueItems": true,
           "items": {
-            "type": "string",
-            "minLength": 1,
-            "pattern": "^[^\\\\/]+$"
+            "type": "object",
+            "required": [
+              "name"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "description": "The file name, without folders, e.g. \"gta2.exe\".",
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^[^\\\\/]+$"
+              },
+              "sha256": {
+                "description": "SHA-256 of each supported build of the file, in lowercase hex. Without it, any build with this name matches.",
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                }
+              }
+            }
           }
         }
       }
+    },
+    "overlay": {
+      "description": "Whether the in-game overlay is loaded into the program. Default: false. Needs the executables' sha256, so the overlay only goes into builds it was tested with.",
+      "type": "boolean"
     },
     "sources": {
       "description": "Where to read the game's text. Each source's other fields are defined by its plugin's own schema.",
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["type", "name"],
+        "required": [
+          "type",
+          "name"
+        ],
         "properties": {
           "type": {
             "description": "Source plugin, e.g. \"memory\".",
@@ -75,7 +110,9 @@
             "type": "array",
             "items": {
               "type": "object",
-              "required": ["type"],
+              "required": [
+                "type"
+              ],
               "properties": {
                 "type": {
                   "description": "Stage plugin, e.g. \"tracker\".",

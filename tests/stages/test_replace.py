@@ -40,7 +40,7 @@ def write_profile(tmp_path: Path, rule: dict[str, str]) -> Path:
     profile = {
         "version": 2,
         "game": {"title": "Game", "year": 2000},
-        "match": {"process": ["game.exe"]},
+        "match": {"executables": [{"name": "game.exe"}]},
         "sources": [{"type": "fixed", "name": "text", "stages": [{"type": "replace", "rules": [rule]}]}],
     }
     path.write_text(json.dumps(profile), "utf-8")

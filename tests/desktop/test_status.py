@@ -1,6 +1,6 @@
 import pytest
 
-from reflektortts.desktop.status import CoreStatus, describe, parse_status
+from reflektortts.desktop.status import CoreStatus, describe, hint, parse_status
 
 
 def test_a_status_event_gives_the_game_and_whether_reading_is_paused() -> None:
@@ -25,3 +25,14 @@ def test_other_events_are_not_a_status() -> None:
 )
 def test_the_status_in_a_few_words(status: CoreStatus | None, text: str) -> None:
     assert describe(status) == text
+
+
+def test_an_unsupported_version_is_described_with_its_hash() -> None:
+    event = {"type": "status", "game": None, "paused": False, "unsupported": {"title": "Mad Max", "sha256": "abc"}}
+
+    status = parse_status(event)
+
+    assert status == CoreStatus(game=None, paused=False, unsupported="Mad Max", unsupported_sha256="abc")
+    assert describe(status) == "This version of Mad Max is not supported yet"
+    assert hint(status) == "To support it, its profile needs this version's SHA-256: abc"
+    assert hint(CoreStatus(game=None, paused=False)) == "In a game, open the ReflektorTTS panel with Ctrl+Shift+R."

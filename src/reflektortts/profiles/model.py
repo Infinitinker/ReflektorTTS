@@ -1,4 +1,4 @@
-"""A loaded, validated game profile."""
+"""A loaded, validated profile: one game, or another program, whose text is read aloud."""
 
 from collections.abc import Mapping
 from dataclasses import dataclass, field
@@ -12,10 +12,19 @@ class Game:
 
 
 @dataclass(frozen=True)
-class Match:
-    """How to recognize the running game."""
+class Executable:
+    name: str
+    """The file name, without folders, e.g. "gta2.exe"."""
+    sha256: tuple[str, ...] = ()
+    """The builds the profile supports, by the SHA-256 of the file (lowercase hex); empty: any
+    build with this name."""
 
-    processes: tuple[str, ...]
+
+@dataclass(frozen=True)
+class Match:
+    """How to recognize the running program."""
+
+    executables: tuple[Executable, ...]
 
 
 @dataclass(frozen=True)
@@ -47,3 +56,5 @@ class Profile:
     game: Game
     match: Match
     sources: tuple[SourceSettings, ...] = field(default=())
+    overlay: bool = False
+    """Whether the in-game overlay is loaded into the program; only into builds listed by hash."""

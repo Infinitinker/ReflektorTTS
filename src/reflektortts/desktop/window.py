@@ -8,7 +8,7 @@ from tkinter import ttk
 from reflektortts.desktop.catalog import DownloadItem
 from reflektortts.desktop.downloads_tab import DownloadsTab
 from reflektortts.desktop.icon import icon_photo
-from reflektortts.desktop.status import CoreStatus, describe
+from reflektortts.desktop.status import CoreStatus, describe, hint
 from reflektortts.desktop.status_bar import StatusBar
 from reflektortts.desktop.theme import BUSY, DIM, GOOD, heading_font
 from reflektortts.downloads.source import Kind
@@ -23,10 +23,11 @@ DOWNLOAD_TABS = {Kind.VOICE: "Voices", Kind.TRANSLATION: "Translations"}
 
 
 def status_color(status: CoreStatus | None) -> str:
-    """Green while a game is read, amber while paused; empty for the default color."""
+    """Green while a game is read, amber while paused or for an unsupported version; empty for the
+    default color."""
     if status is None:
         return DIM
-    if status.paused:
+    if status.paused or (status.unsupported and not status.game):
         return BUSY
     return GOOD if status.game else ""
 
@@ -76,6 +77,7 @@ class Window:
     def show_status(self, status: CoreStatus | None) -> None:
         self._paused = status is not None and status.paused
         self._status.configure(text=describe(status), foreground=status_color(status))
+        self._hint.configure(text=hint(status))
         self._pause.configure(
             text="Resume reading" if self._paused else "Pause reading",
             state="disabled" if status is None else "normal",
@@ -104,8 +106,8 @@ class Window:
     ) -> None:
         self._status = ttk.Label(frame, text=describe(None), font=heading_font(), foreground=status_color(None))
         self._status.grid(row=0, column=0, sticky="w")
-        hint = "In a game, open the ReflektorTTS panel with Ctrl+Shift+R."
-        ttk.Label(frame, text=hint, foreground=DIM).grid(row=1, column=0, sticky="w", pady=(4, 16))
+        self._hint = ttk.Label(frame, text=hint(None), foreground=DIM)
+        self._hint.grid(row=1, column=0, sticky="w", pady=(4, 16))
 
         buttons = ttk.Frame(frame)
         buttons.grid(row=2, column=0, sticky="w")

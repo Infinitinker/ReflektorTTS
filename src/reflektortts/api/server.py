@@ -102,9 +102,11 @@ def stage_json(stage: StageState) -> dict[str, Any]:
 
 def status_json(status: Status) -> dict[str, Any]:
     game = None if status.game is None else {"title": status.game.title, "pid": status.game.pid}
+    unsupported = status.unsupported
     return {
         "type": "status",
         "game": game,
+        "unsupported": None if unsupported is None else {"title": unsupported.title, "sha256": unsupported.sha256},
         "voice": status.voice,
         "game_language": status.game_language,
         "output_language": status.output_language,

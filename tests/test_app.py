@@ -10,12 +10,12 @@ from reflektortts.app import Core, build_routes, read_game
 from reflektortts.bus import Event
 from reflektortts.ducking.records import DuckRecords
 from reflektortts.ducking.volume import OpenAppVolume
-from reflektortts.events import DownloadEvent, ErrorEvent, GameInfo, Status, TextEvent
+from reflektortts.events import DownloadEvent, ErrorEvent, GameInfo, Status, TextEvent, UnsupportedGame
 from reflektortts.games.detector import ProcessInfo, RunningGame
 from reflektortts.languages import LanguageError, Languages
 from reflektortts.pipeline.plugins import SourcePlugin, StagePlugin
 from reflektortts.pipeline.runner import Route
-from reflektortts.profiles.model import Game, Match, Profile, SourceSettings, StageSettings
+from reflektortts.profiles.model import Executable, Game, Match, Profile, SourceSettings, StageSettings
 from reflektortts.settings import GameSettings, load_game, load_shared
 from reflektortts.sinks.tts.narrator import Narrator
 from reflektortts.sinks.tts.preview import VoicePreview
@@ -83,7 +83,7 @@ STAGES = {
 
 
 def game_with(*sources: SourceSettings) -> RunningGame:
-    profile = Profile("game", Game("Game", 2000), Match(("game.exe",)), sources)
+    profile = Profile("game", Game("Game", 2000), Match((Executable("game.exe"),)), sources)
     return RunningGame(profile, ProcessInfo(42, "game.exe"))
 
 
@@ -165,12 +165,12 @@ LJSPEECH = VoiceInfo("piper:en_US-ljspeech-medium", "piper", "en_US-ljspeech-med
 GTA2 = Profile(
     "grand-theft-auto-2-1999",
     Game("Grand Theft Auto 2", 1999),
-    Match(("gta2.exe",)),
+    Match((Executable("gta2.exe"),)),
     (SourceSettings("fixed", "messages", 0.25, {}, (StageSettings("suffix", {}), StageSettings("suffix", {}))),),
 )
 
 
-MAD_MAX = Profile("mad-max-2015", Game("Mad Max", 2015), Match(("MadMax.exe",)))
+MAD_MAX = Profile("mad-max-2015", Game("Mad Max", 2015), Match((Executable("MadMax.exe"),)))
 
 
 def no_sound() -> OpenAppVolume:
@@ -178,7 +178,7 @@ def no_sound() -> OpenAppVolume:
 
 
 def playing(profile: Profile) -> RunningGame:
-    return RunningGame(profile, ProcessInfo(42, profile.match.processes[0]))
+    return RunningGame(profile, ProcessInfo(42, profile.match.executables[0].name))
 
 
 def saved_for(tmp_path: Path, profile: Profile) -> GameSettings:
@@ -617,3 +617,17 @@ def test_changes_made_at_the_same_time_are_all_kept(tmp_path: Path) -> None:
     assert (status.duck_volume, status.speech_rate) == (last_volume, last_rate)
     saved = saved_for(tmp_path, GTA2)
     assert (saved.duck_volume, saved.speech_rate) == (last_volume, last_rate)
+
+
+def test_an_unsupported_build_is_reported_until_it_exits_and_not_read(tmp_path: Path) -> None:
+    core = core_playing(tmp_path, lambda pid: False, exit_grace_seconds=0)
+    core._game = None
+    events: list[Event] = []
+    core.subscribe(events.append)
+    unsupported = RunningGame(GTA2, ProcessInfo(7, "gta2.exe"), build="abc", supported=False)
+
+    core._wait_while_unsupported(unsupported, threading.Event())
+
+    statuses = [event for event in events if isinstance(event, Status)]
+    assert [status.unsupported for status in statuses] == [UnsupportedGame("Grand Theft Auto 2", "abc"), None]
+    assert all(status.game is None for status in statuses)

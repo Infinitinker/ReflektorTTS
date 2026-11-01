@@ -5,15 +5,16 @@ from typing import Any
 import pytest
 
 from reflektortts.profiles.loader import PluginSchemas, ProfileError, load_profile, load_profiles
-from reflektortts.profiles.model import Game, Match, Profile, SourceSettings, StageSettings
+from reflektortts.profiles.model import Executable, Game, Match, Profile, SourceSettings, StageSettings
 
 REPO_PROFILES = Path(__file__).resolve().parents[2] / "profiles"
 
 VALID: dict[str, Any] = {
     "version": 1,
     "game": {"title": "Test Game", "year": 1999},
-    "match": {"process": ["test.exe"]},
+    "match": {"executables": [{"name": "test.exe"}]},
 }
+BUILD = "15e3cfedba9a841df67d8194e7249afb493b0e10d6138fb8ebab2c136e543efb"
 
 
 def write(directory: Path, name: str, data: object) -> Path:
@@ -28,8 +29,23 @@ def test_valid_profile_loads(tmp_path: Path) -> None:
     assert profile == Profile(
         id="test-game-1999",
         game=Game(title="Test Game", year=1999),
-        match=Match(processes=("test.exe",)),
+        match=Match((Executable("test.exe"),)),
     )
+
+
+def test_builds_are_listed_by_hash_and_the_overlay_is_off_unless_asked_for(tmp_path: Path) -> None:
+    data = VALID | {"match": {"executables": [{"name": "test.exe", "sha256": [BUILD]}]}}
+
+    profile = load_profile(write(tmp_path, "game.json", data))
+
+    assert profile.match == Match((Executable("test.exe", (BUILD,)),))
+    assert not profile.overlay
+    assert load_profile(write(tmp_path, "game.json", data | {"overlay": True})).overlay
+
+
+def test_the_overlay_needs_the_builds_it_was_tested_with(tmp_path: Path) -> None:
+    with pytest.raises(ProfileError, match='game.json: "overlay" needs the "sha256" of every executable'):
+        load_profile(write(tmp_path, "game.json", VALID | {"overlay": True}))
 
 
 def test_profiles_shipped_in_the_repo_are_valid() -> None:
@@ -43,8 +59,9 @@ def test_profiles_shipped_in_the_repo_are_valid() -> None:
     ("change", "message"),
     [
         ({"game": {"title": "Test Game"}}, "'year' is a required property"),
-        ({"match": {"process": []}}, "$.match.process"),
-        ({"match": {"process": ["C:\\Games\\test.exe"]}}, "$.match.process[0]"),
+        ({"match": {"executables": []}}, "$.match.executables"),
+        ({"match": {"executables": [{"name": "C:\\Games\\test.exe"}]}}, "$.match.executables[0].name"),
+        ({"match": {"executables": [{"name": "test.exe", "sha256": ["ABC"]}]}}, "$.match.executables[0].sha256[0]"),
         ({"extra": True}, "Additional properties are not allowed"),
     ],
 )

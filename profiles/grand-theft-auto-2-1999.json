@@ -5,8 +5,14 @@
     "year": 1999
   },
   "match": {
-    "process": ["gta2.exe"]
+    "executables": [
+      {
+        "name": "gta2.exe",
+        "sha256": ["420af867036b1a66ef94c54b8db2e7e654da359031987c6602bcfa74972e089f"]
+      }
+    ]
   },
+  "overlay": true,
   "sources": [
     {
       "type": "memory",

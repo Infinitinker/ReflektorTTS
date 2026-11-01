@@ -18,8 +18,17 @@ from reflektortts.downloads.source import DownloadSource, download_plugins
 from reflektortts.ducking.ducker import Ducker
 from reflektortts.ducking.records import DuckRecords, records_path
 from reflektortts.ducking.volume import DuckingUnavailableError, OpenAppVolume, system_app_volume
-from reflektortts.events import DownloadEvent, ErrorEvent, GameInfo, PreviewEvent, SourceStages, StageState, Status
-from reflektortts.games.detector import RunningGame, find_running_games
+from reflektortts.events import (
+    DownloadEvent,
+    ErrorEvent,
+    GameInfo,
+    PreviewEvent,
+    SourceStages,
+    StageState,
+    Status,
+    UnsupportedGame,
+)
+from reflektortts.games.detector import Builds, RunningGame, find_running_games
 from reflektortts.languages import (
     DEFAULT_GAME_LANGUAGE,
     DEFAULT_OUTPUT_LANGUAGE,
@@ -233,6 +242,8 @@ class Core:
         self._narrator.configure(self._settings.speech_rate, self._settings.cut_off_lines)
         self._game: GameInfo | None = None
         self._profile: Profile | None = None
+        self._unsupported: UnsupportedGame | None = None
+        self._builds = Builds()
         sources = load_download_sources() if download_sources is None else download_sources
         self._downloads = Downloads(sources, self._downloaded)
         self._preview = preview_factory(self._bus.publish)
@@ -253,6 +264,7 @@ class Core:
             subtitle_size=self._settings.subtitle_size,
             subtitle_position=self._settings.subtitle_position,
             sources=self._source_stages(),
+            unsupported=self._unsupported,
         )
 
     def languages(self) -> Languages:
@@ -380,14 +392,17 @@ class Core:
         sinks: list[Sink] = [TtsSink(self._narrator), self._subtitles, BusSink(self._bus)]
         logger.info("Watching for %s", ", ".join(profile.game.title for profile in self._profiles))
         while not stop.is_set():
-            games = find_running_games(self._profiles)
+            games = sorted(find_running_games(self._profiles, builds=self._builds), key=lambda game: not game.supported)
             if not games:
                 stop.wait(GAME_CHECK_SECONDS)
                 continue
             game = games[0]
+            if not game.supported:
+                self._wait_while_unsupported(game, stop)
+                continue
             self._enter(game)
             self._ducker.watch(game.process)
-            if self._overlay_dirs:
+            if game.profile.overlay and self._overlay_dirs:
                 inject_overlay(game.process.pid, self._overlay_dirs)
             routes = build_routes(
                 game, sources, self._stages, self._report, self.is_stage_enabled, self.is_source_enabled, self.languages
@@ -402,6 +417,26 @@ class Core:
             logger.info("%s closed", game.profile.game.title)
             self._ducker.watch(None)
             self._leave()
+
+    def _wait_while_unsupported(self, game: RunningGame, stop: threading.Event) -> None:
+        """A build the profile does not list is neither read nor given the overlay; the player is
+        told, until it exits."""
+        title = game.profile.game.title
+        logger.warning(
+            "%s is running, but this version of it is not supported yet (%s has SHA-256 %s)",
+            title,
+            game.process.name,
+            game.build or "unknown",
+        )
+        self._set_unsupported(UnsupportedGame(title, game.build))
+        while not stop.is_set() and self._is_running(game.process.pid):
+            stop.wait(GAME_CHECK_SECONDS)
+        self._set_unsupported(None)
+
+    @_serialized
+    def _set_unsupported(self, unsupported: UnsupportedGame | None) -> None:
+        self._unsupported = unsupported
+        self._publish_status()
 
     def close(self) -> None:
         self._narrator.close()

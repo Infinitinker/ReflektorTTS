@@ -43,7 +43,7 @@ Its main ideas:
 
 ## How a line is read
 
-1. The core watches running processes. When one matches a profile's `match.process`, it loads the overlay into the game (if an overlay build was given) and creates the profile's sources through their plugins.
+1. The core watches running processes. When one matches an executable in a profile's `match` (by name, and by SHA-256 where the profile lists builds), it loads the overlay into the game if the profile asks for it (and an overlay build was given), and creates the profile's sources through their plugins. A build the profile does not list is neither read nor given the overlay; the status reports it.
 2. The runner polls each source on its interval. A source returns the text currently shown, or nothing.
 3. Each reading carries the player's **game language** and **output language**. The text passes through that source's stages, e.g. the **tracker**, which passes a line on once it has settled and only once; **replace**, which removes formatting marks; **translate**, which translates the line into the output language when it differs from the game language; and **normalize**, which spells out numbers, money and percentages in the output language. Sources and stages the player switched off in the overlay are skipped.
 4. Finished lines go to every sink: the **TTS sink** sends the line to the TTS service at the chosen speed, which either queues it after the line being spoken (the default; at most 3 lines wait, the oldest dropped first) or cuts that line off; the **subtitles sink**, when subtitles are on, publishes it as the subtitle to show and later hides it, after the line has been spoken and read; the **events sink** publishes it to the event bus, from which the API sends lines and subtitles to the overlay, which draws subtitles over the game.
@@ -62,12 +62,12 @@ A failing source, stage or sink is reported once as a `source.error`, `stage.err
 | `events.py`, `bus.py` | Event types and the event bus |
 | `pipeline/` | Plugin contracts, the plugin registry and the runner |
 | `profiles/` | Profile schema, loader and migrations |
-| `games/detector.py` | Finds running games |
+| `games/` | Finds running games and other programs with a profile, and which build each is (`executable.py`) |
 | `sources/`, `stages/`, `sinks/` | Built-in plugins |
 | `sinks/tts/` | The tts sink: the core's side of speech (the narrator, which pauses and switches voices, and the client that starts the TTS process; the process runs only while a game is read), and the voice preview, which speaks a sample sentence through a TTS process of its own that exits once it is spoken |
 | `tts/` | The TTS service process: speech engines, playback and voices |
 | `downloads/` | Downloads the player asks for: the contract download sources follow, the Piper and Argos sources, and the manager running downloads |
-| `process_memory/` | Reading a running game's memory for the sources that need it: the process (one implementation per OS, `windows.py`), pointer chains, and which build of the game it is |
+| `process_memory/` | Reading a running game's memory for the sources that need it: the process (one implementation per OS, `windows.py`) and pointer chains |
 | `ducking/` | Lowers the game's sound while lines are spoken; the per-app volume has one implementation per OS (`windows.py`, WASAPI audio sessions) |
 | `languages.py` | Supported languages and their checks |
 | `api/` | The local API (`server.py`), the check that keeps web pages out (`guard.py`) and its error answers (`errors.py`) |

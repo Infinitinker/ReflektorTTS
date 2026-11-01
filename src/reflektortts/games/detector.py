@@ -1,11 +1,16 @@
-"""Finds running games by matching process names against profiles."""
+"""Finds running games, and other programs with a profile, by their executable's name and, where
+the profile lists builds, its SHA-256."""
 
+import logging
 from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 
 import psutil
 
-from reflektortts.profiles.model import Profile
+from reflektortts.games.executable import ExecutableError, executable_sha256
+from reflektortts.profiles.model import Executable, Profile
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -18,6 +23,10 @@ class ProcessInfo:
 class RunningGame:
     profile: Profile
     process: ProcessInfo
+    build: str | None = None
+    """The executable's SHA-256, if the profile lists builds and it could be read."""
+    supported: bool = True
+    """False for a build the profile does not list: it is neither read nor given the overlay."""
 
 
 def running_processes() -> list[ProcessInfo]:
@@ -28,17 +37,50 @@ def running_processes() -> list[ProcessInfo]:
     ]
 
 
+class Builds:
+    """Identifies builds, hashing each process's executable once: a big executable takes a moment
+    to hash, and the detector looks every few seconds."""
+
+    def __init__(self, sha256: Callable[[int], str] = executable_sha256) -> None:
+        self._sha256 = sha256
+        self._known: dict[ProcessInfo, str | None] = {}
+
+    def of(self, process: ProcessInfo) -> str | None:
+        """The SHA-256 of the process's executable, or None if it cannot be read."""
+        if process not in self._known:
+            try:
+                self._known[process] = self._sha256(process.pid)
+            except ExecutableError as error:
+                logger.warning("Cannot identify %s: %s", process.name, error)
+                self._known[process] = None
+        return self._known[process]
+
+
 def find_running_games(
     profiles: Sequence[Profile],
     list_processes: Callable[[], Iterable[ProcessInfo]] = running_processes,
+    builds: Builds | None = None,
 ) -> list[RunningGame]:
-    """Returns every running process that a profile's match.process names, in process order.
+    """Returns every running process that a profile's executables name, in process order; a
+    build the profile does not list is returned as not supported.
 
     Names are compared case-insensitively, since Windows ignores case in file names.
     """
-    by_name = {name.lower(): profile for profile in profiles for name in profile.match.processes}
-    return [
-        RunningGame(profile=by_name[process.name.lower()], process=process)
-        for process in list_processes()
-        if process.name.lower() in by_name
-    ]
+    builds = builds or Builds()
+    by_name: dict[str, tuple[Profile, Executable]] = {
+        executable.name.lower(): (profile, executable)
+        for profile in profiles
+        for executable in profile.match.executables
+    }
+    games = []
+    for process in list_processes():
+        found = by_name.get(process.name.lower())
+        if found is None:
+            continue
+        profile, executable = found
+        if not executable.sha256:
+            games.append(RunningGame(profile, process))
+            continue
+        build = builds.of(process)
+        games.append(RunningGame(profile, process, build, supported=build in executable.sha256))
+    return games

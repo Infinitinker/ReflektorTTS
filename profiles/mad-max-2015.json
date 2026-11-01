@@ -5,8 +5,14 @@
     "year": 2015
   },
   "match": {
-    "process": ["MadMax.exe"]
+    "executables": [
+      {
+        "name": "MadMax.exe",
+        "sha256": ["cd719a721db92575aa32ff01e07a590f47dd34b702b1bcd98ec698a07358bb0d"]
+      }
+    ]
   },
+  "overlay": true,
   "sources": [
     {
       "type": "avalanche",

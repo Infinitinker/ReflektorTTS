@@ -12,7 +12,7 @@ import jsonschema
 from jsonschema.protocols import Validator
 
 from reflektortts.pipeline.plugins import source_plugins, stage_plugins
-from reflektortts.profiles.model import Game, Match, Profile, SourceSettings, StageSettings
+from reflektortts.profiles.model import Executable, Game, Match, Profile, SourceSettings, StageSettings
 
 CURRENT_VERSION = 2
 
@@ -122,11 +122,21 @@ def load_profile(path: Path, schemas: PluginSchemas | None = None) -> Profile:
     schemas = installed_plugin_schemas() if schemas is None else schemas
     sources = tuple(_source(entry, index, schemas, name) for index, entry in enumerate(data.get("sources", [])))
     _check_unique_names(sources, name)
+    executables = tuple(
+        Executable(entry["name"], tuple(entry.get("sha256", ()))) for entry in data["match"]["executables"]
+    )
+    overlay = bool(data.get("overlay", False))
+    if overlay and not all(executable.sha256 for executable in executables):
+        raise ProfileError(
+            f'{name}: "overlay" needs the "sha256" of every executable, so the overlay is loaded only into '
+            "builds it was tested with."
+        )
     return Profile(
         id=path.stem,
         game=Game(title=data["game"]["title"], year=data["game"]["year"]),
-        match=Match(processes=tuple(data["match"]["process"])),
+        match=Match(executables),
         sources=sources,
+        overlay=overlay,
     )
 
 

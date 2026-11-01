@@ -14,6 +14,7 @@ The status object, returned by several requests and sent as an event:
 {
   "type": "status",
   "game": { "title": "Grand Theft Auto 2", "pid": 4824 },
+  "unsupported": null,
   "voice": "windows:Microsoft Adam",
   "game_language": "en",
   "output_language": "pl",
@@ -48,6 +49,7 @@ The status object, returned by several requests and sent as an event:
 | Field | Meaning |
 |---|---|
 | `game` | The game being read, or `null` while waiting for one |
+| `unsupported` | A game running in a build its profile does not list, which is neither read nor given the overlay: its `title` and its executable's `sha256` (or `null` if it could not be read); otherwise `null` |
 | `voice` | The current voice, as `engine:name` |
 | `game_language` | The language of the game's text (ISO 639-1 code); English unless the player chose another |
 | `output_language` | The language lines are prepared, spoken and shown in (ISO 639-1 code) |

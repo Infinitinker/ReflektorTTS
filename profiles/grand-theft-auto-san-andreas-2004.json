@@ -5,8 +5,14 @@
     "year": 2004
   },
   "match": {
-    "process": ["gta-sa.exe"]
+    "executables": [
+      {
+        "name": "gta-sa.exe",
+        "sha256": ["15e3cfedba9a841df67d8194e7249afb493b0e10d6138fb8ebab2c136e543efb"]
+      }
+    ]
   },
+  "overlay": true,
   "sources": [
     {
       "type": "memory",

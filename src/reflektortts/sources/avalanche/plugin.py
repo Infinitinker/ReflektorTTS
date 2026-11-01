@@ -1,8 +1,8 @@
 """Registers the avalanche source: its settings schema and how to create it for a running game."""
 
 from reflektortts.games.detector import RunningGame
+from reflektortts.games.executable import executable_path, executable_sha256
 from reflektortts.pipeline.plugins import SourcePlugin, load_schema
-from reflektortts.process_memory.executable import executable_path, executable_sha256
 from reflektortts.process_memory.memory import open_process_memory
 from reflektortts.process_memory.pointer import chain_for, parse_pointer_chains
 from reflektortts.profiles.model import SourceSettings

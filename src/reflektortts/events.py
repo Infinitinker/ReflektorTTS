@@ -62,6 +62,15 @@ class GameInfo:
 
 
 @dataclass(frozen=True)
+class UnsupportedGame:
+    """A program with a profile is running, but in a build the profile does not list."""
+
+    title: str
+    sha256: str | None
+    """Its executable's SHA-256, for whoever adds the build to the profile; None if unreadable."""
+
+
+@dataclass(frozen=True)
 class StageState:
     """One stage of the game being read, as the player sees it."""
 
@@ -112,3 +121,5 @@ class Status:
     subtitle_position: str
     sources: tuple[SourceStages, ...] = ()
     """The stages of the game being read, per source; empty while waiting for a game."""
+    unsupported: UnsupportedGame | None = None
+    """A running game in a build its profile does not list, which is not read."""
