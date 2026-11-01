@@ -151,6 +151,8 @@ void apply_status(const json& status) {
     g_state.sources = std::move(sources);
 }
 
+bool load_options();
+
 void handle_event(const std::string& text) {
     json event = json::parse(text, nullptr, false);
     if (event.is_discarded()) {
@@ -170,6 +172,12 @@ void handle_event(const std::string& text) {
         } else if (type == "error") {
             std::lock_guard lock(g_state_mutex);
             g_state.last_error = event.at("message").get<std::string>();
+        } else if (type == "download") {
+            // A voice installed or removed while the game runs changes what the panel can offer.
+            std::string state = event.at("state").get<std::string>();
+            if (state == "installed" || state == "removed") {
+                load_options();
+            }
         }
     } catch (const json::exception& error) {
         log_message(std::string("Ignoring a malformed event: ") + error.what());
