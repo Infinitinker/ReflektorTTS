@@ -16,9 +16,9 @@ from reflektortts.bus import Event, Listener
 from reflektortts.downloads.manager import Listed, Listing
 from reflektortts.downloads.source import DownloadError
 from reflektortts.events import DownloadEvent, ErrorEvent, PreviewEvent, StageState, Status, SubtitleEvent, TextEvent
-from reflektortts.languages import LANGUAGES, LanguageError
+from reflektortts.languages import LANGUAGES, LanguageError, check_language
 from reflektortts.sinks.subtitles import POSITIONS, SIZES
-from reflektortts.tts.engine import MAX_RATE, MIN_RATE, VoiceError, VoiceInfo
+from reflektortts.tts.engine import MAX_RATE, MIN_RATE, VoiceError, VoiceInfo, find_voice
 
 logger = logging.getLogger(__name__)
 
@@ -239,6 +239,7 @@ async def patch_settings(request: web.Request) -> web.Response:
     """Applies ducking, speech and subtitles, the game language, then the output language, then the voice.
 
     Each is optional. Changing the output language may also switch the voice, so an explicit voice comes last.
+    Everything is checked before anything is applied, so a request is applied in full or not at all.
     """
     body = await read_object(request)
     if body is None:
@@ -247,6 +248,14 @@ async def patch_settings(request: web.Request) -> web.Response:
     if not values or any(not SETTING_CHECKS[field](value) for field, value in values.items()):
         return error_response(SETTINGS_HELP)
     core = request.app[CORE]
+    try:
+        for field in ("game_language", "output_language"):
+            if field in values:
+                check_language(values[field])
+        if "voice" in values:
+            find_voice(values["voice"], await asyncio.to_thread(core.voices))
+    except (VoiceError, LanguageError) as error:
+        return error_response(str(error))
     try:
         status = core.status()
         if values.keys() & {"ducking", "duck_volume"}:

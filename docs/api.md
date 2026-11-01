@@ -187,11 +187,11 @@ Lists every source's entries in the languages ReflektorTTS supports. With `?refr
 
 ### `POST /v1/downloads`
 
-Starts downloading an entry from the list: `{"id": "piper:pl_PL-gosia-medium"}`. Returns **202** at once; progress comes as `download` events. Several downloads can run at once.
+Starts downloading an entry from the list: `{"id": "piper:pl_PL-gosia-medium"}`. Returns **202** at once; progress comes as `download` events. Several downloads can run at once. An ID can be used without listing the downloads first: the saved lists are read when needed.
 
 ### `DELETE /v1/downloads/<id>`
 
-Removes an installed entry.
+Removes an installed entry and returns `{"id": "..."}`; a `download` event with the state `removed` follows. An unknown ID, an entry still downloading, or files that cannot be deleted (e.g. in use) answer 400 with a message.
 
 ## Errors
 

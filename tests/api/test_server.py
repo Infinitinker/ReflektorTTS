@@ -353,7 +353,7 @@ def test_subtitles_can_be_switched_on_and_set_up() -> None:
 @pytest.mark.parametrize(
     ("body", "message"),
     [
-        ({"voice": "piper:missing"}, 'There is no voice "piper:missing".'),
+        ({"voice": "piper:missing"}, 'There is no voice "piper:missing". Available: windows:Microsoft Adam.'),
         ({"subtitle_size": "huge"}, SETTINGS_HELP),
         ({"speech_rate": 3}, SETTINGS_HELP),
         ({"cut_off_lines": "yes"}, SETTINGS_HELP),
@@ -379,6 +379,17 @@ def test_bad_settings_are_rejected_with_a_message(body: Any, message: str) -> No
         assert await response.json() == {"error": message}
 
     with_client(FakeCore(), test)
+
+
+def test_a_settings_change_with_one_bad_field_changes_nothing() -> None:
+    core = FakeCore()
+
+    async def test(client: TestClient[Any, Any]) -> None:
+        response = await client.patch("/v1/settings", json={"ducking": False, "voice": "piper:missing"})
+        assert response.status == 400
+
+    with_client(core, test)
+    assert core.current.ducking
 
 
 def test_switching_a_source_off() -> None:

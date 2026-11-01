@@ -1,7 +1,7 @@
 """The contract between the TTS service and speech engines, and how engines are found."""
 
 import logging
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Sequence
 from dataclasses import dataclass
 from importlib.metadata import entry_points
 from typing import Protocol
@@ -51,6 +51,15 @@ class VoiceInfo:
     """BCP 47 tag, e.g. "pl-PL"."""
     engine_title: str
     """The engine's name as shown to players, e.g. "Windows"."""
+
+
+def find_voice(voice: str, voices: Sequence[VoiceInfo]) -> VoiceInfo:
+    """The voice with this ID; raises VoiceError, listing the others, if it is not among them."""
+    for info in voices:
+        if info.id == voice:
+            return info
+    available = ", ".join(info.id for info in voices) or "none"
+    raise VoiceError(f'There is no voice "{voice}". Available: {available}.')
 
 
 @dataclass(frozen=True)

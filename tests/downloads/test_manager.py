@@ -124,3 +124,16 @@ def test_a_file_that_cannot_be_removed_is_reported() -> None:
         downloads.remove("fake:locked")
 
     assert events == []
+
+
+def test_downloads_can_start_and_be_removed_without_listing_them_first() -> None:
+    events: queue.SimpleQueue[DownloadEvent] = queue.SimpleQueue()
+    source = FakeSource(entry("fake:a"), entry("fake:b", installed=True))
+    downloads = Downloads({"fake": source}, events.put)
+
+    downloads.start("fake:a")
+    downloads.remove("fake:b")
+    source.release.set()
+
+    assert until(events, "installed").entry_id == "fake:a"
+    assert source.removed == ["fake:b"]

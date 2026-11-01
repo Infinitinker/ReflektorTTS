@@ -39,7 +39,7 @@ from reflektortts.sinks.subtitles import Subtitles
 from reflektortts.sinks.tts.narrator import Narrator
 from reflektortts.sinks.tts.preview import VoicePreview
 from reflektortts.sinks.tts.sink import TtsSink
-from reflektortts.tts.engine import VoiceError, VoiceInfo, available_voices
+from reflektortts.tts.engine import VoiceError, VoiceInfo, available_voices, find_voice
 from reflektortts.user_dirs import cache_dir, data_dir
 
 logger = logging.getLogger(__name__)
@@ -261,10 +261,8 @@ class Core:
 
     def set_voice(self, voice: str) -> Status:
         """Switches the voice and remembers it as the last one used for its language."""
-        voices = {info.id: info for info in self.voices()}
-        if voice not in voices:
-            raise VoiceError(f'There is no voice "{voice}". Available: {", ".join(voices) or "none"}.')
-        remembered = self._shared.voices_by_language | {primary_language(voices[voice].language): voice}
+        info = find_voice(voice, self.voices())
+        remembered = self._shared.voices_by_language | {primary_language(info.language): voice}
         self._shared = replace(self._shared, voices_by_language=remembered)
         save_shared(self._shared, self._settings_dir)
         self._change(voice=voice)
@@ -273,10 +271,7 @@ class Core:
 
     def preview_voice(self, voice: str) -> None:
         """Speaks a sample sentence in the voice's language, also while a game is read."""
-        voices = {info.id: info for info in self.voices()}
-        if voice not in voices:
-            raise VoiceError(f'There is no voice "{voice}". Available: {", ".join(voices) or "none"}.')
-        language = primary_language(voices[voice].language)
+        language = primary_language(find_voice(voice, self.voices()).language)
         if language not in SAMPLES:
             raise VoiceError(f'"{voice}" speaks {language}, a language ReflektorTTS does not support.')
         self._preview.play(voice, SAMPLES[language])

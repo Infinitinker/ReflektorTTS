@@ -69,21 +69,17 @@ class Downloads:
         return Listing(listed, tuple(errors))
 
     def start(self, entry_id: str) -> None:
-        """Starts a download of an entry from the last listing; raises DownloadError if it cannot."""
+        """Starts downloading an entry; raises DownloadError if it cannot."""
+        entry = self._find(entry_id)
         with self._lock:
-            entry = self._entries.get(entry_id)
-            if entry is None:
-                raise DownloadError(f'There is no download "{entry_id}". List the downloads first.')
             if entry_id in self._running:
                 raise DownloadError(f"{entry.name} is already downloading.")
             self._running[entry_id] = (0, entry.size)
         threading.Thread(target=self._download, args=(entry,), name=f"download {entry_id}", daemon=True).start()
 
     def remove(self, entry_id: str) -> None:
+        entry = self._find(entry_id)
         with self._lock:
-            entry = self._entries.get(entry_id)
-            if entry is None:
-                raise DownloadError(f'There is no download "{entry_id}". List the downloads first.')
             if entry_id in self._running:
                 raise DownloadError(f"{entry.name} is downloading; wait until it is done.")
         try:
@@ -94,6 +90,20 @@ class Downloads:
             ) from error
         logger.info("Removed %s", entry.name)
         self._on_event(DownloadEvent(entry_id, "removed"))
+
+    def _find(self, entry_id: str) -> Entry:
+        """The entry with this ID. Entries come from the last listing; if no client has listed
+        them yet (or the ID is new), the saved lists are read once, without the internet if a list
+        was saved before."""
+        with self._lock:
+            entry = self._entries.get(entry_id)
+        if entry is None:
+            self.listing(refresh=False)
+            with self._lock:
+                entry = self._entries.get(entry_id)
+        if entry is None:
+            raise DownloadError(f'There is no download "{entry_id}".')
+        return entry
 
     def _listed(self, entry: Entry) -> Listed:
         if entry.id in self._running:
