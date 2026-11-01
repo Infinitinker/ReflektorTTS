@@ -8,7 +8,6 @@ import hashlib
 import json
 import logging
 import re
-import tempfile
 from collections.abc import Callable
 from pathlib import Path, PurePosixPath
 from typing import Any
@@ -17,6 +16,7 @@ from reflektortts.downloads import http
 from reflektortts.downloads.cache import cached, save
 from reflektortts.downloads.source import DownloadError, DownloadPlugin, Entry, Kind, Progress
 from reflektortts.languages import LANGUAGES
+from reflektortts.staging import remove_leftovers, staging_folder
 from reflektortts.tts.voices import downloaded_voices, voice_files, voices_dir
 
 logger = logging.getLogger(__name__)
@@ -43,6 +43,7 @@ class PiperVoices:
         self._voices = voices or voices_dir()
         self._fetch = fetch
         self._download = download
+        remove_leftovers(self._voices)
 
     def entries(self, refresh: bool) -> list[Entry]:
         voices = self._index(refresh)
@@ -56,7 +57,7 @@ class PiperVoices:
         total = sum(file["size_bytes"] for file in files.values())
         self._voices.mkdir(parents=True, exist_ok=True)
         # Downloading into a staging folder means an interrupted download never leaves a broken voice.
-        with tempfile.TemporaryDirectory(dir=self._voices) as staging:
+        with staging_folder(self._voices) as staging:
             done = 0
 
             def overall(size: int, _file_total: int | None) -> None:

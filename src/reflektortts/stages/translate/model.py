@@ -5,10 +5,10 @@ with install_archive. Nothing here downloads.
 """
 
 import shutil
-import tempfile
 import zipfile
 from pathlib import Path, PurePosixPath
 
+from reflektortts.staging import staging_folder
 from reflektortts.user_dirs import data_dir
 
 type Pair = tuple[str, str]
@@ -52,9 +52,8 @@ def _is_model(folder: Path) -> bool:
 def install_archive(archive: Path, pair: Pair, directory: Path | None = None) -> Path:
     """Installs a downloaded Argos package as the pair's model, replacing an older one."""
     target = model_dir(pair, directory)
-    target.parent.mkdir(parents=True, exist_ok=True)
     # Unpacking into a staging folder means a broken archive never leaves a broken model behind.
-    with tempfile.TemporaryDirectory(dir=target.parent) as staging:
+    with staging_folder(target.parent) as staging:
         unpacked = Path(staging) / "unpacked"
         try:
             _unpack(archive, unpacked)

@@ -141,3 +141,13 @@ def test_listing_again_without_a_refresh_never_fetches_missing_cards(tmp_path: P
 
     assert fake.fetched == []
     assert all(entry.license is None for entry in entries)
+
+
+def test_folders_left_by_an_unfinished_download_are_removed_at_start(tmp_path: Path) -> None:
+    left = tmp_path / "voices" / ".staging-abc"
+    left.mkdir(parents=True)
+    (left / "pl_PL-gosia-medium.onnx").write_bytes(b"part")
+
+    source(tmp_path, web())
+
+    assert not left.exists()

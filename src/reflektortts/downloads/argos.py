@@ -6,7 +6,6 @@ package), so the page to read about the models is shown instead.
 """
 
 import json
-import tempfile
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -15,7 +14,15 @@ from reflektortts.downloads import http
 from reflektortts.downloads.cache import cached, save
 from reflektortts.downloads.source import DownloadError, DownloadPlugin, Entry, Kind, Progress
 from reflektortts.languages import LANGUAGES
-from reflektortts.stages.translate.model import ModelInstallError, Pair, install_archive, installed_model, remove_model
+from reflektortts.stages.translate.model import (
+    ModelInstallError,
+    Pair,
+    install_archive,
+    installed_model,
+    models_dir,
+    remove_model,
+)
+from reflektortts.staging import remove_leftovers, staging_folder
 
 NAME = "argos"
 TITLE = "Argos Translate"
@@ -37,6 +44,7 @@ class ArgosModels:
         self._fetch = fetch
         self._download = download
         self._size = size
+        remove_leftovers(models or models_dir())
 
     def entries(self, refresh: bool) -> list[Entry]:
         packages = self._index(refresh)
@@ -59,7 +67,7 @@ class ArgosModels:
     def download(self, entry: Entry, progress: Progress) -> None:
         pair = _pair(entry)
         package = self._index(refresh=False)[pair]
-        with tempfile.TemporaryDirectory() as staging:
+        with staging_folder(self._models or models_dir()) as staging:
             archive = Path(staging) / "package.argosmodel"
             self._download(package["links"][0], archive, progress)
             try:
