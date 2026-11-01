@@ -1,6 +1,7 @@
 """Desktop app entry point: reflektortts-desktop, or pythonw -m reflektortts.desktop."""
 
 import logging
+import multiprocessing
 import sys
 import tkinter as tk
 from types import TracebackType
@@ -21,6 +22,8 @@ def log_callback_error(kind: type[BaseException], error: BaseException, trace: T
 
 
 def main(argv: list[str] | None = None) -> int:
+    # In ReflektorTTS.exe, the speech process starts as another run of the exe; this lets it.
+    multiprocessing.freeze_support()
     args = parse_arguments("reflektortts-desktop", argv)
     log_to_file(log_dir() / LOG_FILE)
     logger.info("Started; settings in %s, logs in %s", config_dir(), log_dir())

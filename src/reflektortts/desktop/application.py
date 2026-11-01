@@ -322,7 +322,9 @@ class Application:
         self._refreshed = False
         if not self._told_about_tray:
             self._told_about_tray = True
-            self._tray.notify("ReflektorTTS keeps running here. Right-click its icon to quit.")
+            self._tray.notify(
+                "Still running", "ReflektorTTS keeps reading apps from here. Right-click its icon to quit."
+            )
 
     def _quit(self) -> None:
         self._quitting = True

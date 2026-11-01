@@ -44,5 +44,6 @@ class Tray:
         self._icon.title = f"ReflektorTTS: {text}"
         self._icon.update_menu()
 
-    def notify(self, message: str) -> None:
-        self._icon.notify(message, "ReflektorTTS")
+    def notify(self, title: str, message: str) -> None:
+        """Windows puts the app's name above the title, so the title says something of its own."""
+        self._icon.notify(message, title)

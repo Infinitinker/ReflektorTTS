@@ -13,6 +13,7 @@ from reflektortts.desktop.profiles_tab import ProfilesTab
 from reflektortts.desktop.status import CoreStatus, describe, hint
 from reflektortts.desktop.status_bar import StatusBar
 from reflektortts.desktop.theme import BUSY, DIM, GOOD, heading_font
+from reflektortts.desktop.widgets import button_width
 from reflektortts.downloads.source import Kind
 
 SIZE = (800, 600)
@@ -20,6 +21,8 @@ SIZE = (800, 600)
 PADDING = 16
 ICON_SIZES = (16, 32, 48, 256)
 """For the title bar, the taskbar and Alt+Tab; the system picks the size it needs."""
+PAUSE_LABELS = ("Pause reading", "Resume reading")
+"""The pause button's labels; it is as wide as the longer, so the buttons after it never move."""
 DOWNLOAD_TABS = {Kind.VOICE: "Voices", Kind.TRANSLATION: "Translations"}
 """The title of each kind of download's tab."""
 
@@ -101,7 +104,7 @@ class Window:
         self._status.configure(text=describe(status), foreground=status_color(status))
         self._hint.configure(text=hint(status))
         self._pause.configure(
-            text="Resume reading" if self._paused else "Pause reading",
+            text=PAUSE_LABELS[1] if self._paused else PAUSE_LABELS[0],
             state="disabled" if status is None else "normal",
         )
 
@@ -134,7 +137,13 @@ class Window:
         buttons = ttk.Frame(frame)
         buttons.grid(row=2, column=0, sticky="w")
         self._paused = False
-        self._pause = ttk.Button(buttons, text="Pause reading", command=on_pause_toggle, state="disabled")
+        self._pause = ttk.Button(
+            buttons,
+            text=PAUSE_LABELS[0],
+            width=button_width(PAUSE_LABELS),
+            command=on_pause_toggle,
+            state="disabled",
+        )
         self._pause.grid(row=0, column=0)
         logs = ttk.Button(buttons, text="Open logs folder", command=on_open_logs)
         logs.grid(row=0, column=1, padx=(6, 0))
