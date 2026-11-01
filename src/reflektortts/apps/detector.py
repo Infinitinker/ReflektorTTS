@@ -1,4 +1,4 @@
-"""Finds running games, and other programs with a profile, by their executable's name and, where
+"""Finds running apps, and other programs with a profile, by their executable's name and, where
 the profile lists builds, its SHA-256."""
 
 import logging
@@ -7,7 +7,7 @@ from dataclasses import dataclass
 
 import psutil
 
-from reflektortts.games.executable import ExecutableError, executable_sha256
+from reflektortts.apps.executable import ExecutableError, executable_sha256
 from reflektortts.profiles.model import Executable, Profile
 
 logger = logging.getLogger(__name__)
@@ -20,7 +20,7 @@ class ProcessInfo:
 
 
 @dataclass(frozen=True)
-class RunningGame:
+class RunningApp:
     profile: Profile
     process: ProcessInfo
     build: str | None = None
@@ -56,11 +56,11 @@ class Builds:
         return self._known[process]
 
 
-def find_running_games(
+def find_running_apps(
     profiles: Sequence[Profile],
     list_processes: Callable[[], Iterable[ProcessInfo]] = running_processes,
     builds: Builds | None = None,
-) -> list[RunningGame]:
+) -> list[RunningApp]:
     """Returns every running process that a profile's executables name, in process order; a
     build the profile does not list is returned as not supported.
 
@@ -72,15 +72,15 @@ def find_running_games(
         for profile in profiles
         for executable in profile.match.executables
     }
-    games = []
+    apps = []
     for process in list_processes():
         found = by_name.get(process.name.lower())
         if found is None:
             continue
         profile, executable = found
         if not executable.sha256:
-            games.append(RunningGame(profile, process))
+            apps.append(RunningApp(profile, process))
             continue
         build = builds.of(process)
-        games.append(RunningGame(profile, process, build, supported=build in executable.sha256))
-    return games
+        apps.append(RunningApp(profile, process, build, supported=build in executable.sha256))
+    return apps

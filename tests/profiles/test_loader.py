@@ -5,13 +5,13 @@ from typing import Any
 import pytest
 
 from reflektortts.profiles.loader import PluginSchemas, ProfileError, load_profile, load_profiles
-from reflektortts.profiles.model import Executable, Game, Match, Profile, SourceSettings, StageSettings
+from reflektortts.profiles.model import App, Executable, Match, Profile, SourceSettings, StageSettings
 
 REPO_PROFILES = Path(__file__).resolve().parents[2] / "profiles"
 
 VALID: dict[str, Any] = {
     "version": 1,
-    "game": {"title": "Test Game", "year": 1999},
+    "app": {"title": "Test App", "year": 1999},
     "match": {"executables": [{"name": "test.exe"}]},
 }
 BUILD = "15e3cfedba9a841df67d8194e7249afb493b0e10d6138fb8ebab2c136e543efb"
@@ -24,11 +24,11 @@ def write(directory: Path, name: str, data: object) -> Path:
 
 
 def test_valid_profile_loads(tmp_path: Path) -> None:
-    profile = load_profile(write(tmp_path, "test-game-1999.json", VALID))
+    profile = load_profile(write(tmp_path, "test-app-1999.json", VALID))
 
     assert profile == Profile(
-        id="test-game-1999",
-        game=Game(title="Test Game", year=1999),
+        id="test-app-1999",
+        app=App(title="Test App", year=1999),
         match=Match((Executable("test.exe"),)),
     )
 
@@ -36,16 +36,16 @@ def test_valid_profile_loads(tmp_path: Path) -> None:
 def test_builds_are_listed_by_hash_and_the_overlay_is_off_unless_asked_for(tmp_path: Path) -> None:
     data = VALID | {"match": {"executables": [{"name": "test.exe", "sha256": [BUILD]}]}}
 
-    profile = load_profile(write(tmp_path, "game.json", data))
+    profile = load_profile(write(tmp_path, "app.json", data))
 
     assert profile.match == Match((Executable("test.exe", (BUILD,)),))
     assert not profile.overlay
-    assert load_profile(write(tmp_path, "game.json", data | {"overlay": True})).overlay
+    assert load_profile(write(tmp_path, "app.json", data | {"overlay": True})).overlay
 
 
 def test_the_overlay_needs_the_builds_it_was_tested_with(tmp_path: Path) -> None:
-    with pytest.raises(ProfileError, match='game.json: "overlay" needs the "sha256" of every executable'):
-        load_profile(write(tmp_path, "game.json", VALID | {"overlay": True}))
+    with pytest.raises(ProfileError, match='app.json: "overlay" needs the "sha256" of every executable'):
+        load_profile(write(tmp_path, "app.json", VALID | {"overlay": True}))
 
 
 def test_profiles_shipped_in_the_repo_are_valid() -> None:
@@ -58,9 +58,9 @@ def test_profiles_shipped_in_the_repo_are_valid() -> None:
 @pytest.mark.parametrize(
     ("change", "message"),
     [
-        ({"game": {"title": "Test Game"}}, "'year' is a required property"),
+        ({"app": {"title": "Test App"}}, "'year' is a required property"),
         ({"match": {"executables": []}}, "$.match.executables"),
-        ({"match": {"executables": [{"name": "C:\\Games\\test.exe"}]}}, "$.match.executables[0].name"),
+        ({"match": {"executables": [{"name": "C:\\Apps\\test.exe"}]}}, "$.match.executables[0].name"),
         ({"match": {"executables": [{"name": "test.exe", "sha256": ["ABC"]}]}}, "$.match.executables[0].sha256[0]"),
         ({"extra": True}, "Additional properties are not allowed"),
     ],
@@ -85,7 +85,7 @@ def test_version_must_be_a_number(tmp_path: Path, version: object) -> None:
 
 
 def test_profile_from_a_newer_app_asks_to_update(tmp_path: Path) -> None:
-    with pytest.raises(ProfileError, match="Update the app"):
+    with pytest.raises(ProfileError, match="Update ReflektorTTS"):
         load_profile(write(tmp_path, "future.json", VALID | {"version": 99}))
 
 
@@ -127,7 +127,7 @@ def test_sources_are_split_into_core_fields_and_plugin_settings(tmp_path: Path) 
         },
     )
 
-    profile = load_profile(write(tmp_path, "game.json", data), SCHEMAS)
+    profile = load_profile(write(tmp_path, "app.json", data), SCHEMAS)
 
     assert profile.sources == (
         SourceSettings(type="fixed", name="first", poll_interval=0.25, settings={"text": "hi"}),
@@ -146,36 +146,36 @@ def test_two_sources_with_one_name_are_refused(tmp_path: Path) -> None:
         {"type": "fixed", "name": "subtitles", "text": "a"}, {"type": "fixed", "name": "subtitles", "text": "b"}
     )
 
-    with pytest.raises(ProfileError, match='game.json: two sources are named "subtitles"; give each its own name.'):
-        load_profile(write(tmp_path, "game.json", data), SCHEMAS)
+    with pytest.raises(ProfileError, match='app.json: two sources are named "subtitles"; give each its own name.'):
+        load_profile(write(tmp_path, "app.json", data), SCHEMAS)
 
 
 def test_unknown_source_type_lists_the_installed_ones(tmp_path: Path) -> None:
     data = with_sources({"type": "ocr", "name": "subtitles"})
 
     with pytest.raises(ProfileError, match=r'\$\.sources\[0\]: unknown source type "ocr" \(installed: fixed\)'):
-        load_profile(write(tmp_path, "game.json", data), SCHEMAS)
+        load_profile(write(tmp_path, "app.json", data), SCHEMAS)
 
 
 def test_unknown_stage_type_is_reported_with_its_position(tmp_path: Path) -> None:
     data = with_sources({"type": "fixed", "name": "first", "text": "hi", "stages": [{"type": "cut"}, {"type": "x"}]})
 
     with pytest.raises(ProfileError, match=r'\$\.sources\[0\]\.stages\[1\]: unknown stage type "x" \(installed: cut\)'):
-        load_profile(write(tmp_path, "game.json", data), SCHEMAS)
+        load_profile(write(tmp_path, "app.json", data), SCHEMAS)
 
 
 def test_plugin_settings_are_validated_against_the_plugin_schema(tmp_path: Path) -> None:
     data = with_sources({"type": "fixed", "name": "first", "text": 5})
 
-    with pytest.raises(ProfileError, match=r"game\.json: \$\.sources\[0\]\.text: 5 is not of type 'string'"):
-        load_profile(write(tmp_path, "game.json", data), SCHEMAS)
+    with pytest.raises(ProfileError, match=r"app\.json: \$\.sources\[0\]\.text: 5 is not of type 'string'"):
+        load_profile(write(tmp_path, "app.json", data), SCHEMAS)
 
 
 def test_stage_settings_are_validated_against_the_plugin_schema(tmp_path: Path) -> None:
     data = with_sources({"type": "fixed", "name": "first", "text": "hi", "stages": [{"type": "cut", "limit": "3"}]})
 
     with pytest.raises(ProfileError, match=r"\$\.sources\[0\]\.stages\[0\]\.limit: '3' is not of type 'integer'"):
-        load_profile(write(tmp_path, "game.json", data), SCHEMAS)
+        load_profile(write(tmp_path, "app.json", data), SCHEMAS)
 
 
 def test_broken_profile_does_not_stop_the_others(tmp_path: Path) -> None:

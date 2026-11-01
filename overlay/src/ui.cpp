@@ -124,7 +124,7 @@ float subtitle_font_size(const std::string& size, float screen_height) {
 }
 
 // The current subtitle, centered at the top or bottom of the screen on a dark band. It is drawn
-// on the background layer: over the game, under the panel, and never taking input.
+// on the background layer: over the app, under the panel, and never taking input.
 void draw_subtitle(const CoreState& state) {
     if (state.subtitle.empty()) {
         return;
@@ -226,15 +226,15 @@ void draw_header(const CoreState& state) {
     ImGui::Separator();
 }
 
-// The game being read, and whether reading is active or paused.
+// The app being read, and whether reading is active or paused.
 void draw_status(const CoreState& state) {
-    ImGui::TextUnformatted(state.game.c_str());
+    ImGui::TextUnformatted(state.app.c_str());
     const char* reading = state.paused ? "Paused" : "Active";
     align_right(dot_label_width(reading));
     dot_label(state.paused ? kAmber : kGreen, reading);
 }
 
-// A small arrow between groups, showing which way text flows through the app.
+// A small arrow between groups, showing which way text flows through ReflektorTTS.
 void draw_flow_arrow() {
     float size = ImGui::GetFontSize() * 0.5f;
     ImVec2 top = ImGui::GetCursorScreenPos();
@@ -339,8 +339,8 @@ void draw_ducking(const CoreState& state) {
     ImGui::EndDisabled();
 }
 
-// Where text comes from: the game's language and its sources, each of which can be switched off.
-void draw_game(const CoreState& state) {
+// Where text comes from: the app's language and its sources, each of which can be switched off.
+void draw_input(const CoreState& state) {
     begin_box("Input");
     draw_language_combo("Language", state, state.input_language, request_input_language);
     for (const SourceStages& source : state.sources) {
@@ -359,7 +359,7 @@ void draw_subtitle_settings(const CoreState& state) {
     if (ImGui::Checkbox("Show subtitles", &subtitles)) {
         request_subtitles(subtitles);
     }
-    // Indented under the checkbox they depend on, like the game volume.
+    // Indented under the checkbox they depend on, like the app volume.
     ImGui::BeginDisabled(!state.subtitles);
     begin_indented();
     draw_choice_combo("Size", state.subtitle_size, kSubtitleSizes, request_subtitle_size);
@@ -429,7 +429,7 @@ void draw_stage_note(const StageOption& stage) {
 }
 
 void draw_stage(const StageOption& stage) {
-    // A stage that does nothing with the player's languages is grayed out but keeps its tick, so
+    // A stage that does nothing with the user's languages is grayed out but keeps its tick, so
     // it works again as soon as the languages allow. Its reason is not faded, to stay readable.
     ImGui::BeginDisabled(stage.inactive.has_value());
     bool enabled = stage.enabled;
@@ -442,7 +442,7 @@ void draw_stage(const StageOption& stage) {
 
 void draw_text_processing(const CoreState& state) {
     begin_box("Text processing");
-    // Source names matter only when a game has more than one source.
+    // Source names matter only when an app has more than one source.
     bool headings = state.sources.size() > 1;
     for (const SourceStages& source : state.sources) {
         // A switched-off source's stages stay visible, grayed out, and keep their own state.
@@ -497,9 +497,9 @@ void draw_panel(const CoreState& state) {
     if (!state.connected) {
         ImGui::TextWrapped("Not connected to ReflektorTTS. Is it running?");
     } else {
-        // Top to bottom, the way a line goes through the app: game, processing, output.
+        // Top to bottom, the way a line goes through ReflektorTTS: input, processing, output.
         draw_status(state);
-        draw_game(state);
+        draw_input(state);
         draw_flow_arrow();
         draw_text_processing(state);
         draw_flow_arrow();

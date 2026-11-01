@@ -1,7 +1,7 @@
 """Registers the avalanche source: its settings schema and how to create it for a running game."""
 
-from reflektortts.games.detector import RunningGame
-from reflektortts.games.executable import executable_path, executable_sha256
+from reflektortts.apps.detector import RunningApp
+from reflektortts.apps.executable import executable_path, executable_sha256
 from reflektortts.pipeline.plugins import SourcePlugin, load_schema
 from reflektortts.process_memory.memory import open_process_memory
 from reflektortts.process_memory.pointer import chain_for, parse_pointer_chains
@@ -10,7 +10,7 @@ from reflektortts.sources.avalanche.line_texts import LineTexts
 from reflektortts.sources.avalanche.source import AvalancheSource
 
 
-def create(source: SourceSettings, game: RunningGame) -> AvalancheSource:
+def create(source: SourceSettings, game: RunningApp) -> AvalancheSource:
     chains = parse_pointer_chains(source.settings["pointers"])
     chain = chain_for(chains, executable_sha256(game.process.pid))
     texts = LineTexts(executable_path(game.process.pid).parent)

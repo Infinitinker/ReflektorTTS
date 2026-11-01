@@ -1,6 +1,6 @@
 """Keeps web pages away from the local API.
 
-A page open in the player's browser can send requests to 127.0.0.1 too, and its WebSocket can
+A page open in the user's browser can send requests to 127.0.0.1 too, and its WebSocket can
 listen to the events. Browsers mark such requests, and ReflektorTTS's own clients never send
 those marks, so they are refused:
 

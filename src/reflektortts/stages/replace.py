@@ -1,4 +1,4 @@
-"""Replace stage: text replacements, e.g. removing a game's formatting marks."""
+"""Replace stage: text replacements, e.g. removing an app's formatting marks."""
 
 import re
 from collections.abc import Mapping, Sequence

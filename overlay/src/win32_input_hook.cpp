@@ -28,20 +28,20 @@ decltype(&SetCursorPos) g_set_cursor_pos = SetCursorPos;
 decltype(&ClipCursor) g_clip_cursor = ClipCursor;
 
 std::mutex g_cursor_mutex;
-POINT g_game_cursor{};      // Where the game last saw or put the cursor.
-RECT g_game_clip{};         // The area the game last trapped the cursor in,
-bool g_game_clips = false;  // if it did.
+POINT g_app_cursor{};      // Where the app last saw or put the cursor.
+RECT g_app_clip{};         // The area the app last trapped the cursor in,
+bool g_app_clips = false;  // if it did.
 
 bool blocked_for_caller(const void* caller) {
-    return game_input_blocked() && !is_overlay_code(caller);
+    return app_input_blocked() && !is_overlay_code(caller);
 }
 
-// Input taken off the message queue for the game's window goes to the panel instead: the game
+// Input taken off the message queue for the app's window goes to the panel instead: the app
 // gets WM_NULL. Other windows are left alone: DirectInput reads the keyboard through raw input sent to a
 // hidden window of its own, and cutting that off would keep it from seeing keys released.
 void filter_message(MSG* message, bool removed) {
-    if (!removed || message == nullptr || !game_input_blocked() || !is_blocked_message(message->message) ||
-        !is_game_window(message->hwnd)) {
+    if (!removed || message == nullptr || !app_input_blocked() || !is_blocked_message(message->message) ||
+        !is_app_window(message->hwnd)) {
         return;
     }
     send_to_panel(message->hwnd, message->message, message->wParam, message->lParam);
@@ -81,7 +81,7 @@ BOOL WINAPI peek_message_w(MSG* message, HWND window, UINT first, UINT last, UIN
 }
 
 // The real function still runs, so its "pressed since the last call" bit does not fire a
-// stale key press at the game once blocking ends.
+// stale key press at the app once blocking ends.
 SHORT WINAPI get_async_key_state(int key) {
     SHORT state = g_get_async_key_state(key);
     return blocked_for_caller(__builtin_return_address(0)) ? 0 : state;
@@ -112,7 +112,7 @@ RAWINPUT* next_raw_input_block(RAWINPUT* input) {
 // over as meant for another window: movement zeroed, keys released. Gamepads pass unchanged.
 UINT WINAPI get_raw_input_buffer(RAWINPUT* data, UINT* size, UINT header_size) {
     UINT count = g_get_raw_input_buffer(data, size, header_size);
-    if (count == static_cast<UINT>(-1) || data == nullptr || !game_input_blocked()) {
+    if (count == static_cast<UINT>(-1) || data == nullptr || !app_input_blocked()) {
         return count;
     }
     RAWINPUT* input = data;
@@ -131,11 +131,11 @@ UINT WINAPI get_raw_input_buffer(RAWINPUT* data, UINT* size, UINT header_size) {
     return count;
 }
 
-// While blocked, the game sees the cursor stay where it was, and cannot move or trap it.
+// While blocked, the app sees the cursor stay where it was, and cannot move or trap it.
 BOOL WINAPI get_cursor_pos(POINT* point) {
     if (point != nullptr && blocked_for_caller(__builtin_return_address(0))) {
         std::lock_guard lock(g_cursor_mutex);
-        *point = g_game_cursor;
+        *point = g_app_cursor;
         return TRUE;
     }
     return g_get_cursor_pos(point);
@@ -144,7 +144,7 @@ BOOL WINAPI get_cursor_pos(POINT* point) {
 BOOL WINAPI set_cursor_pos(int x, int y) {
     if (blocked_for_caller(__builtin_return_address(0))) {
         std::lock_guard lock(g_cursor_mutex);
-        g_game_cursor = {x, y};
+        g_app_cursor = {x, y};
         return TRUE;
     }
     return g_set_cursor_pos(x, y);
@@ -153,12 +153,12 @@ BOOL WINAPI set_cursor_pos(int x, int y) {
 BOOL WINAPI clip_cursor(const RECT* area) {
     if (!is_overlay_code(__builtin_return_address(0))) {
         std::lock_guard lock(g_cursor_mutex);
-        g_game_clips = area != nullptr;
+        g_app_clips = area != nullptr;
         if (area != nullptr) {
-            g_game_clip = *area;
+            g_app_clip = *area;
         }
     }
-    return g_clip_cursor(game_input_blocked() ? nullptr : area);
+    return g_clip_cursor(app_input_blocked() ? nullptr : area);
 }
 
 }  // namespace
@@ -177,21 +177,21 @@ void install_win32_input_hooks() {
                   hook_export(user32, "SetCursorPos", &set_cursor_pos, &g_set_cursor_pos) &
                   hook_export(user32, "ClipCursor", &clip_cursor, &g_clip_cursor);
     if (!hooked) {
-        log_message("Some Windows input functions could not be hooked; the game may still get some input");
+        log_message("Some Windows input functions could not be hooked; the app may still get some input");
     }
 }
 
 void on_win32_input_blocking(bool blocked) {
     std::lock_guard lock(g_cursor_mutex);
     if (blocked) {
-        g_get_cursor_pos(&g_game_cursor);
+        g_get_cursor_pos(&g_app_cursor);
         g_clip_cursor(nullptr);
         return;
     }
-    // Back where the game left it, so a game that keeps the cursor centered does not see a jump.
-    g_set_cursor_pos(g_game_cursor.x, g_game_cursor.y);
-    if (g_game_clips) {
-        g_clip_cursor(&g_game_clip);
+    // Back where the app left it, so an app that keeps the cursor centered does not see a jump.
+    g_set_cursor_pos(g_app_cursor.x, g_app_cursor.y);
+    if (g_app_clips) {
+        g_clip_cursor(&g_app_clip);
     }
 }
 

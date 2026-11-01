@@ -77,7 +77,7 @@ DeviceKind device_kind(void* device) {
 
 HRESULT get_device_state(GetDeviceStateFn original, void* device, DWORD size, void* data) {
     HRESULT result = original(device, size, data);
-    if (SUCCEEDED(result) && data != nullptr && game_input_blocked() && device_kind(device) != DeviceKind::other) {
+    if (SUCCEEDED(result) && data != nullptr && app_input_blocked() && device_kind(device) != DeviceKind::other) {
         std::memset(data, 0, size);
     }
     return result;
@@ -89,15 +89,15 @@ bool is_release(DeviceKind kind, const DIDEVICEOBJECTDATA& event) {
     return button && (event.dwData & 0x80) == 0;
 }
 
-// Events are still read, so they do not pile up and reach the game after the panel closes.
+// Events are still read, so they do not pile up and reach the app after the panel closes.
 // Only releases are kept: a key held when the panel opened (such as the hotkey's) must not
-// stay down for the game. Events are object_size bytes apart, since their size differs by version.
+// stay down for the app. Events are object_size bytes apart, since their size differs by version.
 HRESULT get_device_data(GetDeviceDataFn original, void* device, DWORD object_size, DIDEVICEOBJECTDATA* data,
                         DWORD* count, DWORD flags) {
     HRESULT result = original(device, object_size, data, count, flags);
     // Without a buffer the call only counts waiting events (or flushes them); the count is left
-    // as is, because games such as GTA2 skip what they read when told nothing was waiting.
-    if (FAILED(result) || count == nullptr || data == nullptr || !game_input_blocked()) {
+    // as is, because apps such as GTA2 skip what they read when told nothing was waiting.
+    if (FAILED(result) || count == nullptr || data == nullptr || !app_input_blocked()) {
         return result;
     }
     DeviceKind kind = device_kind(device);
@@ -162,7 +162,7 @@ void hook_device_vtable(void* device) {
 }
 
 // Devices share their class's vtable, so throwaway keyboard and mouse devices give us the
-// game's, the same way the Direct3D hooks find theirs.
+// app's, the same way the Direct3D hooks find theirs.
 void hook_devices(void* input, const IID* device_iid) {
     for (const GUID* kind : {&GUID_SysKeyboard, &GUID_SysMouse}) {
         void* device = nullptr;

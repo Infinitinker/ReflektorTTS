@@ -1,4 +1,4 @@
-"""Lowers the game's sound while the narrator speaks, lektor style, and brings it back afterwards."""
+"""Lowers the app's sound while the narrator speaks, lektor style, and brings it back afterwards."""
 
 import logging
 import math
@@ -7,21 +7,21 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass
 
+from reflektortts.apps.detector import ProcessInfo
 from reflektortts.ducking.records import DuckRecords
 from reflektortts.ducking.volume import AppVolume, OpenAppVolume
-from reflektortts.games.detector import ProcessInfo
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_LEVEL = 0.3
-"""The game's volume while speaking, as a fraction of its own volume."""
+"""The app's volume while speaking, as a fraction of its own volume."""
 
 
 @dataclass(frozen=True)
 class Timing:
     fade_down: float = 0.15
     hold: float = 0.5
-    """How long speech must stay silent before the game comes back, so it does not pump between lines."""
+    """How long speech must stay silent before the app comes back, so it does not pump between lines."""
     fade_up: float = 0.4
     step: float = 0.01
 
@@ -31,7 +31,7 @@ DEFAULT_TIMING = Timing()
 
 @dataclass
 class _Lowered:
-    game: ProcessInfo
+    app: ProcessInfo
     volume: AppVolume
     original: float
     current: float
@@ -41,9 +41,9 @@ type _Action = Callable[[_Lowered | None], _Lowered | None]
 
 
 class Ducker:
-    """Fades the watched game down when speech starts and back up once it has been silent for a moment.
+    """Fades the watched app down when speech starts and back up once it has been silent for a moment.
 
-    All volume changes happen on a thread of its own. While a game is lowered, its original volume
+    All volume changes happen on a thread of its own. While an app is lowered, its original volume
     is kept in records, so a later run can put it back if this one stops before restoring it.
     """
 
@@ -65,22 +65,22 @@ class Ducker:
         self._clock = clock
         self._sleep = sleep
         self._changed = threading.Condition()
-        self._game: ProcessInfo | None = None
+        self._app: ProcessInfo | None = None
         self._restore_leftover = False
         self._speaking = False
         self._silent_since = -math.inf
         self._stretch = 0
-        """Counts stretches of speech, so a game with no sound is looked up once per stretch, not in a loop."""
+        """Counts stretches of speech, so an app with no sound is looked up once per stretch, not in a loop."""
         self._tried_stretch = 0
         self._closed = False
         self._thread = threading.Thread(target=self._run, name="ducker", daemon=True)
         self._thread.start()
 
-    def watch(self, game: ProcessInfo | None) -> None:
-        """Sets the game to lower; None when no game is running."""
+    def watch(self, app: ProcessInfo | None) -> None:
+        """Sets the app to lower; None when no app is running."""
         with self._changed:
-            self._game = game
-            self._restore_leftover = game is not None
+            self._app = app
+            self._restore_leftover = app is not None
             self._changed.notify()
 
     def speaking(self, active: bool) -> None:
@@ -99,7 +99,7 @@ class Ducker:
             self._changed.notify()
 
     def close(self) -> None:
-        """Puts a lowered game's volume back at once and stops the thread."""
+        """Puts a lowered app's volume back at once and stops the thread."""
         with self._changed:
             self._closed = True
             self._changed.notify()
@@ -120,26 +120,26 @@ class Ducker:
             try:
                 lowered = action(lowered)
             except Exception as error:
-                # The game may have stopped playing or exited; its record lets a later run restore it.
+                # The app may have stopped playing or exited; its record lets a later run restore it.
                 logger.warning("Could not change the app's volume: %s", error)
                 lowered = None
         if lowered is not None:
             try:
                 self._set(lowered, lowered.original)
-                self._records.remove(lowered.game.name)
+                self._records.remove(lowered.app.name)
             except Exception as error:
-                logger.warning("Could not restore the volume of %s: %s", lowered.game.name, error)
+                logger.warning("Could not restore the volume of %s: %s", lowered.app.name, error)
 
     def _decide(self, lowered: _Lowered | None) -> tuple[_Action | None, float | None]:
         """The next volume change, or None and how long to wait for one. Called with the lock held."""
-        game = self._game
-        if lowered is not None and (game is None or game.pid != lowered.game.pid):
+        app = self._app
+        if lowered is not None and (app is None or app.pid != lowered.app.pid):
             return self._forget, None
-        if game is None:
+        if app is None:
             return None, None
         if lowered is None and self._restore_leftover:
             self._restore_leftover = False
-            return lambda _: self._restore(game), None
+            return lambda _: self._restore(app), None
 
         silent_for = self._clock() - self._silent_since
         holding = not self._speaking and silent_for < self._timing.hold
@@ -150,24 +150,24 @@ class Ducker:
                 return None, None
             self._tried_stretch = self._stretch
             level = self._level
-            return lambda _: self._lower(game, level), None
+            return lambda _: self._lower(app, level), None
         target = lowered.original * self._level
         if not math.isclose(lowered.current, target, abs_tol=1e-6):
             return lambda current: self._fade_to(current, target), None
         return None, self._timing.hold - silent_for if holding else None
 
-    def _lower(self, game: ProcessInfo, level: float) -> _Lowered | None:
-        volume = self._open_volume(game.pid)
+    def _lower(self, app: ProcessInfo, level: float) -> _Lowered | None:
+        volume = self._open_volume(app.pid)
         if volume is None:
-            logger.info("%s plays no sound to lower right now", game.name)
+            logger.info("%s plays no sound to lower right now", app.name)
             return None
         current = volume.get()
-        # A record means an earlier run left the game lowered: the current volume is not its own.
-        original = self._records.get(game.name)
+        # A record means an earlier run left the app lowered: the current volume is not its own.
+        original = self._records.get(app.name)
         if original is None:
             original = current
-        self._records.put(game.name, original)
-        return self._fade_to(_Lowered(game, volume, original, current), original * level)
+        self._records.put(app.name, original)
+        return self._fade_to(_Lowered(app, volume, original, current), original * level)
 
     def _fade_to(self, lowered: _Lowered | None, target: float) -> _Lowered | None:
         assert lowered is not None
@@ -177,26 +177,26 @@ class Ducker:
 
     def _release(self, lowered: _Lowered | None) -> _Lowered | None:
         assert lowered is not None
-        # Speech starting again stops the fade; the game is then lowered again from where it got to.
+        # Speech starting again stops the fade; the app is then lowered again from where it got to.
         if not self._fade(lowered, lowered.original, self._timing.fade_up, lambda: self._enabled and self._speaking):
             return lowered
-        self._records.remove(lowered.game.name)
+        self._records.remove(lowered.app.name)
         return None
 
     def _forget(self, lowered: _Lowered | None) -> None:
         assert lowered is not None
-        logger.info("%s exited while lowered; its volume is restored when it starts again", lowered.game.name)
+        logger.info("%s exited while lowered; its volume is restored when it starts again", lowered.app.name)
 
-    def _restore(self, game: ProcessInfo) -> None:
-        original = self._records.get(game.name)
+    def _restore(self, app: ProcessInfo) -> None:
+        original = self._records.get(app.name)
         if original is None:
             return
-        volume = self._open_volume(game.pid)
+        volume = self._open_volume(app.pid)
         if volume is None:
-            return  # Restored when the game is first lowered.
+            return  # Restored when the app is first lowered.
         volume.set(original)
-        self._records.remove(game.name)
-        logger.info("Restored the volume of %s, left lowered by an earlier run", game.name)
+        self._records.remove(app.name)
+        logger.info("Restored the volume of %s, left lowered by an earlier run", app.name)
 
     def _fade(self, lowered: _Lowered, target: float, seconds: float, interrupted: Callable[[], bool]) -> bool:
         """Moves the volume to target in small steps; returns False if interrupted."""

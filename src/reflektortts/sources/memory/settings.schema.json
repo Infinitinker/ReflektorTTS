@@ -1,17 +1,17 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Memory source settings",
-  "description": "Reads text from the game's memory through a pointer chain found with a tool like Cheat Engine.",
+  "description": "Reads text from the app's memory through a pointer chain found with a tool like Cheat Engine.",
   "type": "object",
   "required": ["encoding", "pointers"],
   "additionalProperties": false,
   "properties": {
     "encoding": {
-      "description": "How the game stores its text.",
+      "description": "How the app stores its text.",
       "enum": ["utf-16le", "utf-8", "cp1250", "cp1252"]
     },
     "pointers": {
-      "description": "One pointer chain per supported build of the game.",
+      "description": "One pointer chain per supported build of the app.",
       "type": "array",
       "minItems": 1,
       "items": {
@@ -20,7 +20,7 @@
         "additionalProperties": false,
         "properties": {
           "exe_sha256": {
-            "description": "SHA-256 of the game executable this chain was found in.",
+            "description": "SHA-256 of the app executable this chain was found in.",
             "type": "string",
             "pattern": "^[0-9a-fA-F]{64}$"
           },

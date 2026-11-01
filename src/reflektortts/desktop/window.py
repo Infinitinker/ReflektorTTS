@@ -23,13 +23,13 @@ DOWNLOAD_TABS = {Kind.VOICE: "Voices", Kind.TRANSLATION: "Translations"}
 
 
 def status_color(status: CoreStatus | None) -> str:
-    """Green while a game is read, amber while paused or for an unsupported version; empty for the
+    """Green while an app is read, amber while paused or for an unsupported version; empty for the
     default color."""
     if status is None:
         return DIM
-    if status.paused or (status.unsupported and not status.game):
+    if status.paused or (status.unsupported and not status.app):
         return BUSY
-    return GOOD if status.game else ""
+    return GOOD if status.app else ""
 
 
 class Window:

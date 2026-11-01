@@ -70,7 +70,7 @@ LONG CALLBACK log_crash(EXCEPTION_POINTERS* exception) {
 
 }  // namespace
 
-// First in line, so the crash is logged even when the game's own crash handler ends the process.
+// First in line, so the crash is logged even when the app's own crash handler ends the process.
 void install_crash_log() {
     AddVectoredExceptionHandler(1, log_crash);
 }

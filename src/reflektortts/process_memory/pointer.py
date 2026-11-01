@@ -10,8 +10,8 @@ from reflektortts.process_memory.memory import MemoryReadError, ProcessMemory, P
 _ADDRESS = re.compile(r"^(?:(?P<module>[^+]+)\+)?(?P<offset>[0-9A-Fa-f]+)$")
 
 
-class UnsupportedGameVersion(Exception):
-    """The profile has no pointer for this build of the game."""
+class UnsupportedAppVersion(Exception):
+    """The profile has no pointer for this build of the app."""
 
 
 @dataclass(frozen=True)
@@ -24,7 +24,7 @@ class Address:
 @dataclass(frozen=True)
 class PointerChain:
     exe_sha256: str
-    """SHA-256 of the game executable the chain was found in."""
+    """SHA-256 of the app executable the chain was found in."""
     base: Address
     offsets: tuple[int, ...]
 
@@ -49,11 +49,11 @@ def parse_pointer_chains(entries: Iterable[Mapping[str, Any]]) -> tuple[PointerC
 
 
 def chain_for(chains: Iterable[PointerChain], exe_sha256: str) -> PointerChain:
-    """The chain found in this build of the game."""
+    """The chain found in this build of the app."""
     chain = next((chain for chain in chains if chain.exe_sha256.lower() == exe_sha256.lower()), None)
     if chain is None:
-        raise UnsupportedGameVersion(
-            "This version of the game is not supported by its profile yet "
+        raise UnsupportedAppVersion(
+            "This version of the app is not supported by its profile yet "
             f"(executable SHA-256 {exe_sha256}). Check for an updated profile."
         )
     return chain
@@ -62,7 +62,7 @@ def chain_for(chains: Iterable[PointerChain], exe_sha256: str) -> PointerChain:
 def resolve(memory: ProcessMemory, base: Address, offsets: Sequence[int]) -> int | None:
     """Follows the chain: read the pointer at the current address, add the next offset.
 
-    Returns None if a pointer on the way is null, which games use for "nothing there yet".
+    Returns None if a pointer on the way is null, which apps use for "nothing there yet".
     """
     address = base.offset
     if base.module is not None:

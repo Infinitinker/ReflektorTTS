@@ -1,4 +1,4 @@
-"""The subtitles sink: shows each line over the game for as long as it is spoken, or takes to read."""
+"""The subtitles sink: shows each line over the app for as long as it is spoken, or takes to read."""
 
 import math
 import threading

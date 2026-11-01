@@ -1,6 +1,6 @@
 """Per-user settings, stored as JSON in the settings folder of the user's config folder.
 
-Each app has its own file, profiles/<profile ID>.json, with everything the player set in the panel
+Each app has its own file, profiles/<profile ID>.json, with everything the user set in the panel
 for it; an app without one has the defaults. shared.json holds the voice last chosen for each
 language, in any app. On the first run neither exists.
 """
@@ -25,38 +25,38 @@ PROFILES_FOLDER = "profiles"
 
 
 @dataclass(frozen=True)
-class GameSettings:
-    """Everything the player sets in the panel, for one game."""
+class ProfileSettings:
+    """Everything the user sets in the panel, for one app."""
 
     voice: str = DEFAULT_VOICE
     """Voice as "engine:name", e.g. "windows:Microsoft Adam"."""
     input_language: str = DEFAULT_INPUT_LANGUAGE
-    """The language of the game's text (ISO 639-1)."""
+    """The language of the app's text (ISO 639-1)."""
     output_language: str = DEFAULT_OUTPUT_LANGUAGE
     """The language lines are prepared, spoken and shown in (ISO 639-1)."""
     ducking: bool = True
-    """Whether the game's sound is lowered while lines are spoken."""
+    """Whether the app's sound is lowered while lines are spoken."""
     duck_volume: float = DEFAULT_LEVEL
-    """The game's volume while lines are spoken, as a fraction of its own volume (0.0 to 1.0)."""
+    """The app's volume while lines are spoken, as a fraction of its own volume (0.0 to 1.0)."""
     speech_rate: float = 1.0
     """How fast lines are spoken, as a multiple of the voice's own pace (MIN_RATE to MAX_RATE)."""
     cut_off_lines: bool = False
     """Whether a new line cuts off the one being spoken; otherwise lines wait their turn."""
     subtitles: bool = False
-    """Whether lines are shown as subtitles over the game."""
+    """Whether lines are shown as subtitles over the app."""
     subtitle_size: str = DEFAULT_SIZE
     """One of SIZES."""
     subtitle_position: str = DEFAULT_POSITION
     """One of POSITIONS: where on the screen subtitles are shown."""
     disabled_sources: tuple[str, ...] = ()
-    """Names of the sources the player switched off."""
+    """Names of the sources the user switched off."""
     disabled_stages: tuple[str, ...] = ()
-    """Keys of the stages the player switched off, e.g. "subtitles/3:normalize"."""
+    """Keys of the stages the user switched off, e.g. "subtitles/3:normalize"."""
 
 
 @dataclass(frozen=True)
 class SharedSettings:
-    """Settings for every game."""
+    """Settings for every app."""
 
     voices_by_language: dict[str, str] = field(default_factory=dict)
     """The voice last chosen for each output language, e.g. {"pl": "windows:Microsoft Adam"}."""
@@ -73,16 +73,16 @@ def save_shared(settings: SharedSettings, directory: Path) -> None:
     _write(directory / SETTINGS_FOLDER / SHARED_FILE, asdict(settings))
 
 
-def load_game(directory: Path, profile_id: str) -> GameSettings:
-    """A game's settings; missing or invalid ones get defaults."""
-    return _game_settings(_read(_game_path(directory, profile_id)))
+def load_profile_settings(directory: Path, profile_id: str) -> ProfileSettings:
+    """An app's settings; missing or invalid ones get defaults."""
+    return _profile_settings(_read(_profile_settings_path(directory, profile_id)))
 
 
-def save_game(settings: GameSettings, directory: Path, profile_id: str) -> None:
-    _write(_game_path(directory, profile_id), asdict(settings))
+def save_profile_settings(settings: ProfileSettings, directory: Path, profile_id: str) -> None:
+    _write(_profile_settings_path(directory, profile_id), asdict(settings))
 
 
-def _game_path(directory: Path, profile_id: str) -> Path:
+def _profile_settings_path(directory: Path, profile_id: str) -> Path:
     return directory / SETTINGS_FOLDER / PROFILES_FOLDER / f"{profile_id}.json"
 
 
@@ -109,9 +109,9 @@ def _write(path: Path, data: dict[str, Any]) -> None:
     os.replace(temporary, path)
 
 
-def _game_settings(data: dict[str, Any]) -> GameSettings:
-    defaults = GameSettings()
-    return GameSettings(
+def _profile_settings(data: dict[str, Any]) -> ProfileSettings:
+    defaults = ProfileSettings()
+    return ProfileSettings(
         voice=_text(data, "voice", defaults.voice),
         # Unsupported languages, such as a leftover "auto", become the default.
         input_language=_choice(data, "input_language", tuple(LANGUAGES), defaults.input_language),

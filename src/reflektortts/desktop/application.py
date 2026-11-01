@@ -12,8 +12,8 @@ from collections.abc import Callable
 from tkinter import messagebox
 
 from reflektortts.api.server import ApiError
-from reflektortts.app import NoProfilesError
 from reflektortts.arguments import Arguments
+from reflektortts.core import NoProfilesError
 from reflektortts.desktop.api_client import REFRESH_TIMEOUT_SECONDS, ApiClientError, StatusFeed, post, request_json
 from reflektortts.desktop.catalog import DownloadItem, DownloadList, DownloadProgress, other_voices, parse_list
 from reflektortts.desktop.core_thread import CoreThread

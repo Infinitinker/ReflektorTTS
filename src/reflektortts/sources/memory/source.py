@@ -1,4 +1,4 @@
-"""MemorySource: reads the game's current text through a pointer chain."""
+"""MemorySource: reads the app's current text through a pointer chain."""
 
 import re
 from dataclasses import dataclass
@@ -11,7 +11,7 @@ MAX_CHARS = 400
 
 _CONTROL = re.compile("[\x00-\x1f�]+")
 
-# A pointer can outlive its text, e.g. in the game's menu, and then points at unrelated
+# A pointer can outlive its text, e.g. in the app's menu, and then points at unrelated
 # memory. Below this share of characters that can appear in dialogue, what was read is
 # not text (a threshold proven on GTA2).
 MIN_TEXT_RATIO = 0.9

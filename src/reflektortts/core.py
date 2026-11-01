@@ -1,4 +1,4 @@
-"""The core: watches for profiled games, reads them aloud, and answers the local API."""
+"""The core: watches for profiled apps, reads them aloud, and answers the local API."""
 
 import functools
 import logging
@@ -12,6 +12,7 @@ from typing import Any, Concatenate
 import psutil
 
 from reflektortts.api.server import ApiServer, SourceError, StageError
+from reflektortts.apps.detector import Builds, RunningApp, find_running_apps
 from reflektortts.bus import EventBus, Listener
 from reflektortts.downloads.manager import Downloads, Listing
 from reflektortts.downloads.source import DownloadSource, download_plugins
@@ -19,16 +20,15 @@ from reflektortts.ducking.ducker import Ducker
 from reflektortts.ducking.records import DuckRecords, records_path
 from reflektortts.ducking.volume import DuckingUnavailableError, OpenAppVolume, system_app_volume
 from reflektortts.events import (
+    AppInfo,
     DownloadEvent,
     ErrorEvent,
-    GameInfo,
     PreviewEvent,
     SourceStages,
     StageState,
     Status,
-    UnsupportedGame,
+    UnsupportedApp,
 )
-from reflektortts.games.detector import Builds, RunningGame, find_running_games
 from reflektortts.languages import (
     DEFAULT_INPUT_LANGUAGE,
     DEFAULT_OUTPUT_LANGUAGE,
@@ -43,7 +43,13 @@ from reflektortts.pipeline.protocols import Sink
 from reflektortts.pipeline.runner import Route, Runner, log_error
 from reflektortts.profiles.loader import load_profiles
 from reflektortts.profiles.model import Profile
-from reflektortts.settings import GameSettings, load_game, load_shared, save_game, save_shared
+from reflektortts.settings import (
+    ProfileSettings,
+    load_profile_settings,
+    load_shared,
+    save_profile_settings,
+    save_shared,
+)
 from reflektortts.sinks.bus import BusSink
 from reflektortts.sinks.subtitles import Subtitles
 from reflektortts.sinks.tts.narrator import Narrator
@@ -56,7 +62,7 @@ logger = logging.getLogger(__name__)
 
 GAME_CHECK_SECONDS = 2.0
 EXIT_GRACE_SECONDS = 2.0
-"""How long a source error waits for the game to exit before it is reported: while a game exits,
+"""How long a source error waits for the app to exit before it is reported: while an app exits,
 its memory is torn down before Windows counts the process as gone, so sources fail first."""
 EXIT_CHECK_SECONDS = 0.1
 
@@ -101,8 +107,8 @@ def _enabled_check(
     is_enabled: Callable[[str], bool],
     languages: Callable[[], Languages],
 ) -> Callable[[int], bool]:
-    """Whether the stage at a position runs: the player has it switched on, and it works with the
-    player's languages."""
+    """Whether the stage at a position runs: the user has it switched on, and it works with the
+    user's languages."""
     return lambda position: (
         is_enabled(stage_key(source, position, types[position]))
         and inactive_reason(plugins[types[position]], languages()) is None
@@ -119,7 +125,7 @@ def _switched(disabled: tuple[str, ...], key: str, enabled: bool) -> tuple[str, 
 
 
 def build_routes(
-    game: RunningGame,
+    app: RunningApp,
     sources: Mapping[str, SourcePlugin],
     stages: Mapping[str, StagePlugin],
     on_error: Callable[[ErrorEvent], None],
@@ -127,17 +133,17 @@ def build_routes(
     is_source_enabled: Callable[[str], bool] = lambda name: True,
     languages: Callable[[], Languages] = lambda: Languages(DEFAULT_INPUT_LANGUAGE, DEFAULT_OUTPUT_LANGUAGE),
 ) -> list[Route]:
-    """Creates the game's sources and their stages; a source that cannot start, or one of whose
+    """Creates the app's sources and their stages; a source that cannot start, or one of whose
     stages cannot, is reported and skipped.
 
-    is_enabled tells, by stage key, whether the player has the stage switched on; is_source_enabled
-    tells the same for a source, by name. A stage that does nothing with the player's languages is
+    is_enabled tells, by stage key, whether the user has the stage switched on; is_source_enabled
+    tells the same for a source, by name. A stage that does nothing with the user's languages is
     skipped too.
     """
     routes = []
-    for settings in game.profile.sources:
+    for settings in app.profile.sources:
         try:
-            source = sources[settings.type].create(settings, game)
+            source = sources[settings.type].create(settings, app)
         except Exception as error:
             on_error(ErrorEvent("source.error", settings.name, str(error)))
             continue
@@ -159,8 +165,8 @@ def build_routes(
     return routes
 
 
-def read_game(
-    game: RunningGame,
+def read_app(
+    app: RunningApp,
     routes: Sequence[Route],
     sinks: Sequence[Sink],
     stop: threading.Event,
@@ -169,13 +175,13 @@ def read_game(
     check_seconds: float = GAME_CHECK_SECONDS,
     languages: Callable[[], Languages] = lambda: Languages(DEFAULT_INPUT_LANGUAGE, DEFAULT_OUTPUT_LANGUAGE),
 ) -> None:
-    """Runs the pipeline until the game exits or stop is set, then closes the sources."""
+    """Runs the pipeline until the app exits or stop is set, then closes the sources."""
     runner_stop = threading.Event()
     runner = Runner(routes, sinks, on_error, languages=languages)
     worker = threading.Thread(target=runner.run, args=(runner_stop,), name="runner")
     worker.start()
     try:
-        while is_running(game.process.pid) and not stop.wait(check_seconds):
+        while is_running(app.process.pid) and not stop.wait(check_seconds):
             pass
     finally:
         runner_stop.set()
@@ -199,8 +205,8 @@ def _serialized[**P, R](method: Callable[Concatenate["Core", P], R]) -> Callable
 class Core:
     """Owns the narrator, the settings and the event bus; the API controls it through these methods.
 
-    Settings belong to the game being read and are saved for it; a game starts with the defaults
-    until the player changes something in it. While no game is read, the defaults apply and
+    Settings belong to the app being read and are saved for it; an app starts with the defaults
+    until the user changes something in it. While no app is read, the defaults apply and
     changes are not saved.
     """
 
@@ -226,7 +232,7 @@ class Core:
         self._exit_grace_seconds = exit_grace_seconds
         self._settings_dir = settings_dir
         self._shared = load_shared(settings_dir)
-        self._settings = GameSettings()
+        self._settings = ProfileSettings()
         self._overlay_dirs = overlay_dirs
         self._list_voices = list_voices
         self._stages = stage_plugins() if stages is None else stages
@@ -240,9 +246,9 @@ class Core:
         self._subtitles = Subtitles(self._bus.publish, self._settings.subtitles)
         self._narrator = narrator_factory(self._settings.voice, self._speaking)
         self._narrator.configure(self._settings.speech_rate, self._settings.cut_off_lines)
-        self._game: GameInfo | None = None
+        self._app: AppInfo | None = None
         self._profile: Profile | None = None
-        self._unsupported: UnsupportedGame | None = None
+        self._unsupported: UnsupportedApp | None = None
         self._builds = Builds()
         sources = load_download_sources() if download_sources is None else download_sources
         self._downloads = Downloads(sources, self._downloaded)
@@ -251,7 +257,7 @@ class Core:
     @_serialized
     def status(self) -> Status:
         return Status(
-            game=self._game,
+            app=self._app,
             voice=self._narrator.voice,
             input_language=self._settings.input_language,
             output_language=self._settings.output_language,
@@ -301,7 +307,7 @@ class Core:
         return self._publish_status()
 
     def preview_voice(self, voice: str) -> None:
-        """Speaks a sample sentence in the voice's language, also while a game is read."""
+        """Speaks a sample sentence in the voice's language, also while an app is read."""
         language = primary_language(find_voice(voice, self.voices()).language)
         if language not in SAMPLES:
             raise VoiceError(f'"{voice}" speaks {language}, a language ReflektorTTS does not support.')
@@ -309,7 +315,7 @@ class Core:
 
     @_serialized
     def set_ducking(self, enabled: bool, volume: float) -> Status:
-        """Whether, and how far, the game's sound is lowered while lines are spoken."""
+        """Whether, and how far, the app's sound is lowered while lines are spoken."""
         self._ducker.configure(enabled, volume)
         self._change(ducking=enabled, duck_volume=volume)
         return self._publish_status()
@@ -323,7 +329,7 @@ class Core:
 
     @_serialized
     def set_subtitles(self, enabled: bool, size: str, position: str) -> Status:
-        """Whether lines are shown as subtitles over the game, how large and where."""
+        """Whether lines are shown as subtitles over the app, how large and where."""
         self._subtitles.configure(enabled)
         self._change(subtitles=enabled, subtitle_size=size, subtitle_position=position)
         return self._publish_status()
@@ -346,13 +352,13 @@ class Core:
 
     @_serialized
     def set_source_enabled(self, name: str, enabled: bool) -> Status:
-        """Switches a source of the game being read on or off; the choice is saved for that game."""
+        """Switches a source of the app being read on or off; the choice is saved for that app."""
         profile = self._profile
         if profile is None:
             raise SourceError("No app is being read.")
         names = [source.name for source in profile.sources]
         if name not in names:
-            raise SourceError(f'{profile.game.title} has no source "{name}". Its sources: {", ".join(names)}.')
+            raise SourceError(f'{profile.app.title} has no source "{name}". Its sources: {", ".join(names)}.')
         self._change(disabled_sources=_switched(self._settings.disabled_sources, name, enabled))
         return self._publish_status()
 
@@ -361,13 +367,13 @@ class Core:
 
     @_serialized
     def set_stage_enabled(self, key: str, enabled: bool) -> Status:
-        """Switches a stage of the game being read on or off; the choice is saved for that game."""
+        """Switches a stage of the app being read on or off; the choice is saved for that app."""
         profile = self._profile
         if profile is None:
             raise StageError("No app is being read.")
         keys = [stage.key for source in self._source_stages() for stage in source.stages]
         if key not in keys:
-            raise StageError(f'{profile.game.title} has no stage "{key}". Its stages: {", ".join(keys)}.')
+            raise StageError(f'{profile.app.title} has no stage "{key}". Its stages: {", ".join(keys)}.')
         self._change(disabled_stages=_switched(self._settings.disabled_stages, key, enabled))
         return self._publish_status()
 
@@ -387,54 +393,54 @@ class Core:
         return self._bus.subscribe(listener)
 
     def run(self, stop: threading.Event) -> None:
-        """Reads every profiled game that starts, one at a time, until stop is set."""
+        """Reads every profiled app that starts, one at a time, until stop is set."""
         sources = source_plugins()
         sinks: list[Sink] = [TtsSink(self._narrator), self._subtitles, BusSink(self._bus)]
-        logger.info("Watching for %s", ", ".join(profile.game.title for profile in self._profiles))
+        logger.info("Watching for %s", ", ".join(profile.app.title for profile in self._profiles))
         while not stop.is_set():
-            games = sorted(find_running_games(self._profiles, builds=self._builds), key=lambda game: not game.supported)
-            if not games:
+            apps = sorted(find_running_apps(self._profiles, builds=self._builds), key=lambda app: not app.supported)
+            if not apps:
                 stop.wait(GAME_CHECK_SECONDS)
                 continue
-            game = games[0]
-            if not game.supported:
-                self._wait_while_unsupported(game, stop)
+            app = apps[0]
+            if not app.supported:
+                self._wait_while_unsupported(app, stop)
                 continue
-            self._enter(game)
-            self._ducker.watch(game.process)
-            if game.profile.overlay and self._overlay_dirs:
-                inject_overlay(game.process.pid, self._overlay_dirs)
+            self._enter(app)
+            self._ducker.watch(app.process)
+            if app.profile.overlay and self._overlay_dirs:
+                inject_overlay(app.process.pid, self._overlay_dirs)
             routes = build_routes(
-                game, sources, self._stages, self._report, self.is_stage_enabled, self.is_source_enabled, self.languages
+                app, sources, self._stages, self._report, self.is_stage_enabled, self.is_source_enabled, self.languages
             )
             if routes:
-                logger.info("Reading %s aloud", game.profile.game.title)
-            elif not game.profile.sources:
-                logger.warning("%s is running, but its profile has no sources to read yet.", game.profile.game.title)
+                logger.info("Reading %s aloud", app.profile.app.title)
+            elif not app.profile.sources:
+                logger.warning("%s is running, but its profile has no sources to read yet.", app.profile.app.title)
             else:
-                logger.error("%s is running, but none of its sources could start.", game.profile.game.title)
-            read_game(game, routes, sinks, stop, self._report, self._is_running, languages=self.languages)
-            logger.info("%s closed", game.profile.game.title)
+                logger.error("%s is running, but none of its sources could start.", app.profile.app.title)
+            read_app(app, routes, sinks, stop, self._report, self._is_running, languages=self.languages)
+            logger.info("%s closed", app.profile.app.title)
             self._ducker.watch(None)
             self._leave()
 
-    def _wait_while_unsupported(self, game: RunningGame, stop: threading.Event) -> None:
-        """A build the profile does not list is neither read nor given the overlay; the player is
+    def _wait_while_unsupported(self, app: RunningApp, stop: threading.Event) -> None:
+        """A build the profile does not list is neither read nor given the overlay; the user is
         told, until it exits."""
-        title = game.profile.game.title
+        title = app.profile.app.title
         logger.warning(
             "%s is running, but this version of it is not supported yet (%s has SHA-256 %s)",
             title,
-            game.process.name,
-            game.build or "unknown",
+            app.process.name,
+            app.build or "unknown",
         )
-        self._set_unsupported(UnsupportedGame(title, game.build))
-        while not stop.is_set() and self._is_running(game.process.pid):
+        self._set_unsupported(UnsupportedApp(title, app.build))
+        while not stop.is_set() and self._is_running(app.process.pid):
             stop.wait(GAME_CHECK_SECONDS)
         self._set_unsupported(None)
 
     @_serialized
-    def _set_unsupported(self, unsupported: UnsupportedGame | None) -> None:
+    def _set_unsupported(self, unsupported: UnsupportedApp | None) -> None:
         self._unsupported = unsupported
         self._publish_status()
 
@@ -484,13 +490,13 @@ class Core:
         return matching[0] if matching else None
 
     def _speak(self) -> None:
-        """While a game is read, speaks with an installed voice for its output language, or not at
-        all if there is none; voices are never downloaded here. With no game, the voice is only
+        """While an app is read, speaks with an installed voice for its output language, or not at
+        all if there is none; voices are never downloaded here. With no app, the voice is only
         remembered."""
         voice = self._voice_for(self._settings.output_language, self._settings.voice)
         if voice is not None:
             self._narrator.use_voice(voice)
-        if self._game is None:
+        if self._app is None:
             return
         if voice is None:
             self._narrator.close()
@@ -501,37 +507,37 @@ class Core:
     @_serialized
     def _downloaded(self, event: DownloadEvent) -> None:
         """A download moved on. Once a voice or model is installed or removed, it is used (or no
-        longer) right away: a game being read may now be spoken, or need another voice."""
+        longer) right away: an app being read may now be spoken, or need another voice."""
         self._bus.publish(event)
         if event.state in ("installed", "removed"):
             self._speak()
             self._publish_status()
 
     def _speaking(self, active: bool) -> None:
-        """The narrator started speaking or fell silent: the game's sound and the subtitle follow."""
+        """The narrator started speaking or fell silent: the app's sound and the subtitle follow."""
         self._ducker.speaking(active)
         self._subtitles.speaking(active)
 
     @_serialized
-    def _enter(self, game: RunningGame) -> None:
-        """A game is being read from now on, with its settings; its voice is loaded only now."""
-        self._game = GameInfo(title=game.profile.game.title, pid=game.process.pid)
-        self._profile = game.profile
-        self._use(load_game(self._settings_dir, game.profile.id))
+    def _enter(self, app: RunningApp) -> None:
+        """An app is being read from now on, with its settings; its voice is loaded only now."""
+        self._app = AppInfo(title=app.profile.app.title, pid=app.process.pid)
+        self._profile = app.profile
+        self._use(load_profile_settings(self._settings_dir, app.profile.id))
         self._speak()
         self._publish_status()
 
     @_serialized
     def _leave(self) -> None:
-        """The game is no longer read; its voice is unloaded and the defaults apply again."""
-        self._game = None
+        """The app is no longer read; its voice is unloaded and the defaults apply again."""
+        self._app = None
         self._profile = None
         self._narrator.close()
-        self._use(GameSettings())
+        self._use(ProfileSettings())
         self._publish_status()
 
-    def _use(self, settings: GameSettings) -> None:
-        """Switches to a game's settings, or to the defaults."""
+    def _use(self, settings: ProfileSettings) -> None:
+        """Switches to an app's settings, or to the defaults."""
         self._settings = settings
         if settings.voice != self._narrator.voice:
             self._narrator.use_voice(settings.voice)
@@ -540,23 +546,23 @@ class Core:
         self._subtitles.configure(settings.subtitles)
 
     def _change(self, **changes: Any) -> None:
-        """Changes settings, saved for the game being read, if any."""
+        """Changes settings, saved for the app being read, if any."""
         self._settings = replace(self._settings, **changes)
         profile = self._profile
         if profile is not None:
-            save_game(self._settings, self._settings_dir, profile.id)
+            save_profile_settings(self._settings, self._settings_dir, profile.id)
 
     def _report(self, error: ErrorEvent) -> None:
-        # A source usually fails a moment before the game's exit is noticed; that is not an error.
-        game = self._game
-        if error.kind == "source.error" and game is not None and self._exits(game.pid):
+        # A source usually fails a moment before the app's exit is noticed; that is not an error.
+        app = self._app
+        if error.kind == "source.error" and app is not None and self._exits(app.pid):
             logger.debug("Ignoring %s from %s: the app has exited", error.kind, error.origin)
             return
         log_error(error)
         self._bus.publish(error)
 
     def _exits(self, pid: int) -> bool:
-        """Whether the game exits within the grace time. Blocks the caller (the runner) meanwhile,
+        """Whether the app exits within the grace time. Blocks the caller (the runner) meanwhile,
         which happens only on a source's first failure."""
         deadline = time.monotonic() + self._exit_grace_seconds
         while self._is_running(pid):
@@ -572,7 +578,7 @@ class Core:
 
 
 class NoProfilesError(Exception):
-    """There is no game profile to watch for."""
+    """There is no app profile to watch for."""
 
 
 def run(profiles_dir: Path, settings_dir: Path, overlay_dirs: Sequence[Path], stop: threading.Event) -> None:

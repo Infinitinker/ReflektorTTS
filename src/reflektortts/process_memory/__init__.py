@@ -1,1 +1,1 @@
-"""Reading a running game's memory: the process, pointer chains, and which game build it is."""
+"""Reading a running app's memory: the process, pointer chains, and which app build it is."""

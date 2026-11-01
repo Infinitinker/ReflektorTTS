@@ -120,8 +120,8 @@ std::vector<SourceStages> read_sources(const json& sources) {
 
 // Parses everything first, so a malformed status leaves the state untouched.
 void apply_status(const json& status) {
-    const json& game = status.at("game");
-    std::string title = game.is_null() ? "" : game.at("title").get<std::string>();
+    const json& app = status.at("app");
+    std::string title = app.is_null() ? "" : app.at("title").get<std::string>();
     std::string voice = status.at("voice").get<std::string>();
     std::string input_language = status.at("input_language").get<std::string>();
     std::string output_language = status.at("output_language").get<std::string>();
@@ -136,7 +136,7 @@ void apply_status(const json& status) {
     std::vector<SourceStages> sources = read_sources(status.at("sources"));
 
     std::lock_guard lock(g_state_mutex);
-    g_state.game = std::move(title);
+    g_state.app = std::move(title);
     g_state.voice = std::move(voice);
     g_state.input_language = std::move(input_language);
     g_state.output_language = std::move(output_language);
@@ -173,7 +173,7 @@ void handle_event(const std::string& text) {
             std::lock_guard lock(g_state_mutex);
             g_state.last_error = event.at("message").get<std::string>();
         } else if (type == "download") {
-            // A voice installed or removed while the game runs changes what the panel can offer.
+            // A voice installed or removed while the app runs changes what the panel can offer.
             std::string state = event.at("state").get<std::string>();
             if (state == "installed" || state == "removed") {
                 load_options();
@@ -329,7 +329,7 @@ void start_api_client() {
         log_message("Cannot start WinHTTP; the overlay cannot reach ReflektorTTS");
         return;
     }
-    // The DLL stays loaded until the game exits, so these threads live as long as the game.
+    // The DLL stays loaded until the app exits, so these threads live as long as the app.
     std::thread(event_loop).detach();
     std::thread(request_loop).detach();
 }

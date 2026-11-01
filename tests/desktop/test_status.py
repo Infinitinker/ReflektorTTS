@@ -4,10 +4,10 @@ from reflektortts.desktop.status import CoreStatus, describe, hint, parse_status
 
 
 def test_a_status_event_gives_the_game_and_whether_reading_is_paused() -> None:
-    event = {"type": "status", "game": {"title": "Mad Max", "pid": 42}, "paused": True, "voice": "piper:a"}
+    event = {"type": "status", "app": {"title": "Mad Max", "pid": 42}, "paused": True, "voice": "piper:a"}
 
-    assert parse_status(event) == CoreStatus(game="Mad Max", paused=True)
-    assert parse_status({"type": "status", "game": None, "paused": False}) == CoreStatus(game=None, paused=False)
+    assert parse_status(event) == CoreStatus(app="Mad Max", paused=True)
+    assert parse_status({"type": "status", "app": None, "paused": False}) == CoreStatus(app=None, paused=False)
 
 
 def test_other_events_are_not_a_status() -> None:
@@ -18,9 +18,9 @@ def test_other_events_are_not_a_status() -> None:
     ("status", "text"),
     [
         (None, "Starting…"),
-        (CoreStatus(game=None, paused=False), "Waiting for an app"),
-        (CoreStatus(game="Mad Max", paused=False), "Reading Mad Max"),
-        (CoreStatus(game="Mad Max", paused=True), "Reading Mad Max (paused)"),
+        (CoreStatus(app=None, paused=False), "Waiting for an app"),
+        (CoreStatus(app="Mad Max", paused=False), "Reading Mad Max"),
+        (CoreStatus(app="Mad Max", paused=True), "Reading Mad Max (paused)"),
     ],
 )
 def test_the_status_in_a_few_words(status: CoreStatus | None, text: str) -> None:
@@ -28,14 +28,14 @@ def test_the_status_in_a_few_words(status: CoreStatus | None, text: str) -> None
 
 
 def test_an_unsupported_version_is_described_with_its_hash() -> None:
-    event = {"type": "status", "game": None, "paused": False, "unsupported": {"title": "Mad Max", "sha256": "abc"}}
+    event = {"type": "status", "app": None, "paused": False, "unsupported": {"title": "Mad Max", "sha256": "abc"}}
 
     status = parse_status(event)
 
-    assert status == CoreStatus(game=None, paused=False, unsupported="Mad Max", unsupported_sha256="abc")
+    assert status == CoreStatus(app=None, paused=False, unsupported="Mad Max", unsupported_sha256="abc")
     assert describe(status) == "This version of Mad Max is not supported yet"
     assert hint(status) == "To support it, its profile needs this version's SHA-256: abc"
     assert (
-        hint(CoreStatus(game=None, paused=False))
+        hint(CoreStatus(app=None, paused=False))
         == "In an app with the overlay, open the ReflektorTTS panel with Ctrl+Shift+R."
     )

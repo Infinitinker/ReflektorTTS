@@ -30,7 +30,7 @@ HWND device_window(IDirect3DDevice9* device) {
     return parameters.hDeviceWindow;
 }
 
-// Games may create a new device, e.g. when switching from the menu to gameplay, so the
+// Apps may create a new device, e.g. when switching from the menu to gameplay, so the
 // overlay follows the device that presented last.
 void attach(IDirect3DDevice9* device) {
     HWND window = device_window(device);
@@ -62,9 +62,9 @@ void render_d3d9_frame(IDirect3DDevice9* device) {
         return;
     }
 
-    // The game may have left a texture as the render target; draw on the back buffer.
+    // The app may have left a texture as the render target; draw on the back buffer.
     IDirect3DSurface9* back_buffer = nullptr;
-    IDirect3DSurface9* game_target = nullptr;
+    IDirect3DSurface9* app_target = nullptr;
     if (FAILED(device->GetBackBuffer(0, 0, D3DBACKBUFFER_TYPE_MONO, &back_buffer))) {
         return;
     }
@@ -73,16 +73,16 @@ void render_d3d9_frame(IDirect3DDevice9* device) {
     ImGui_ImplDX9_NewFrame();
     build_overlay_frame(desc.Width, desc.Height);
 
-    device->GetRenderTarget(0, &game_target);
+    device->GetRenderTarget(0, &app_target);
     device->SetRenderTarget(0, back_buffer);
     if (SUCCEEDED(device->BeginScene())) {
         ImGui_ImplDX9_RenderDrawData(ImGui::GetDrawData());
         device->EndScene();
     }
-    device->SetRenderTarget(0, game_target);
+    device->SetRenderTarget(0, app_target);
     back_buffer->Release();
-    if (game_target != nullptr) {
-        game_target->Release();
+    if (app_target != nullptr) {
+        app_target->Release();
     }
 }
 

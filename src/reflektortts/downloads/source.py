@@ -21,7 +21,7 @@ class Kind(StrEnum):
 
 @dataclass(frozen=True)
 class Entry:
-    """Something the player can download."""
+    """Something the user can download."""
 
     id: str
     """Unique across sources: the source's name, a colon, and the source's own ID."""
@@ -34,10 +34,10 @@ class Entry:
     license: str | None
     """As the source publishes it (e.g. a voice's model card), or None if it does not."""
     page: str
-    """Where the player can read more about it."""
+    """Where the user can read more about it."""
     installed: bool
     source_title: str
-    """The source's name as shown to players, e.g. "Argos Translate"."""
+    """The source's name as shown to users, e.g. "Argos Translate"."""
 
 
 class DownloadError(Exception):

@@ -26,7 +26,7 @@ class Narrator:
     spoken or waiting its turn; switching voices starts a new TTS process.
 
     The TTS process, which loads the voice, runs only between start() and close(), e.g. while a
-    game is read; meanwhile the narrator only remembers the voice, and has nothing to say or stop.
+    app is read; meanwhile the narrator only remembers the voice, and has nothing to say or stop.
 
     on_speaking is called with True when speech starts after silence and with False when it falls
     silent, across voice switches: an old voice still finishing counts as speaking.
@@ -112,7 +112,7 @@ class Narrator:
 
     def _stop(self, drop_waiting: bool) -> None:
         """Stops speech, if any: a speech process that has died has nothing to stop. That is only
-        logged here; the next line spoken reports it to the player."""
+        logged here; the next line spoken reports it to the user."""
         if self._client is None:
             return
         try:

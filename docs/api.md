@@ -2,7 +2,7 @@
 
 Every ReflektorTTS user interface, the overlay included, controls the core through this API. It is served by the core on **`http://127.0.0.1:47821/v1`**, only on the local machine. The port is fixed so the overlay knows where to connect.
 
-Requests and responses are JSON (UTF-8). There is no authentication, but web pages are kept out: a page open in the player's browser can also reach 127.0.0.1, so the API refuses what only browsers send (see [Requests from web pages](#requests-from-web-pages)).
+Requests and responses are JSON (UTF-8). There is no authentication, but web pages are kept out: a page open in the user's browser can also reach 127.0.0.1, so the API refuses what only browsers send (see [Requests from web pages](#requests-from-web-pages)).
 
 ## Status
 
@@ -13,7 +13,7 @@ The status object, returned by several requests and sent as an event:
 ```json
 {
   "type": "status",
-  "game": { "title": "Grand Theft Auto 2", "pid": 4824 },
+  "app": { "title": "Grand Theft Auto 2", "pid": 4824 },
   "unsupported": null,
   "voice": "windows:Microsoft Adam",
   "input_language": "en",
@@ -48,10 +48,10 @@ The status object, returned by several requests and sent as an event:
 
 | Field | Meaning |
 |---|---|
-| `game` | The app being read, or `null` while waiting for one |
+| `app` | The app being read, or `null` while waiting for one |
 | `unsupported` | An app running in a build its profile does not list, which is neither read nor given the overlay: its `title` and its executable's `sha256` (or `null` if it could not be read); otherwise `null` |
 | `voice` | The current voice, as `engine:name` |
-| `input_language` | The language of the app's text (ISO 639-1 code); English unless the player chose another |
+| `input_language` | The language of the app's text (ISO 639-1 code); English unless the user chose another |
 | `output_language` | The language lines are prepared, spoken and shown in (ISO 639-1 code) |
 | `paused` | Whether reading is paused |
 | `ducking` | Whether the app's sound is lowered while lines are spoken |
@@ -61,9 +61,9 @@ The status object, returned by several requests and sent as an event:
 | `subtitles` | Whether lines are shown as subtitles over the app |
 | `subtitle_size` | `small`, `medium` or `large` |
 | `subtitle_position` | `top` or `bottom` of the screen |
-| `sources` | The stages of the app being read, per source in the app's profile, with whether the player has each switched on; empty while waiting for an app |
+| `sources` | The stages of the app being read, per source in the app's profile, with whether the user has each switched on; empty while waiting for an app |
 
-A source's `name` is its name in the profile, `type` its plugin, and `enabled` whether the player has it switched on; `name` identifies it for `PATCH /v1/sources`. A stage's `type` is its name in the profile and `summary` says in a few words what it does; `warning` (or `null`) is shown while the stage is switched off, if reading breaks without it. `inactive` says why the stage does nothing with the current languages (e.g. "Input and output language are the same" for `translate`), or is `null` if it works with them; such a stage is skipped whatever its `enabled`, which keeps the player's choice for when the languages change. `key` identifies the stage for `PATCH /v1/stages`.
+A source's `name` is its name in the profile, `type` its plugin, and `enabled` whether the user has it switched on; `name` identifies it for `PATCH /v1/sources`. A stage's `type` is its name in the profile and `summary` says in a few words what it does; `warning` (or `null`) is shown while the stage is switched off, if reading breaks without it. `inactive` says why the stage does nothing with the current languages (e.g. "Input and output language are the same" for `translate`), or is `null` if it works with them; such a stage is skipped whatever its `enabled`, which keeps the user's choice for when the languages change. `key` identifies the stage for `PATCH /v1/stages`.
 
 ## Requests
 
@@ -84,11 +84,11 @@ Returns the voices available now, from every speech engine that works on this sy
 }
 ```
 
-`id` is what `PATCH /v1/settings` takes; `language` is a BCP 47 tag, so a UI can offer only the voices that speak the output language; `engine_title` is the engine's name as shown to players. Only installed voices are listed; ReflektorTTS never downloads one by itself.
+`id` is what `PATCH /v1/settings` takes; `language` is a BCP 47 tag, so a UI can offer only the voices that speak the output language; `engine_title` is the engine's name as shown to users. Only installed voices are listed; ReflektorTTS never downloads one by itself.
 
 ### `POST /v1/voices/preview`
 
-`{"voice": "piper:pl_PL-gosia-medium"}` speaks a sample sentence in the voice's language, so the player can hear it. It runs apart from the app being read, if any: the app keeps its voice and its sound is not lowered. A new preview cuts off the one playing. Answers 202 at once, and `preview` events say when it starts and ends; 400 if the voice is not installed or speaks no supported language.
+`{"voice": "piper:pl_PL-gosia-medium"}` speaks a sample sentence in the voice's language, so the user can hear it. It runs apart from the app being read, if any: the app keeps its voice and its sound is not lowered. A new preview cuts off the one playing. Answers 202 at once, and `preview` events say when it starts and ends; 400 if the voice is not installed or speaks no supported language.
 
 ### `GET /v1/languages`
 
@@ -153,7 +153,7 @@ Stops the line being spoken; the next waiting line, or the next line read, is sp
 
 ## Downloads
 
-Voices and translation models the player can download, from download source plugins (Piper voices, Argos Translate models). Nothing downloads unless a client asks; what is installed is used right away.
+Voices and translation models the user can download, from download source plugins (Piper voices, Argos Translate models). Nothing downloads unless a client asks; what is installed is used right away.
 
 ### `GET /v1/downloads`
 
@@ -180,7 +180,7 @@ Lists every source's entries in the languages ReflektorTTS supports. With `?refr
 }
 ```
 
-- `source_title`: the source's name as shown to players, e.g. `Argos Translate`.
+- `source_title`: the source's name as shown to users, e.g. `Argos Translate`.
 - `kind`: `voice` or `translation`; `languages`: a voice's language, or a translation's from and to.
 - `size` in bytes, or `null` if the source does not say.
 - `license`: as the source publishes it (for Piper voices, the voice's model card), or `null` if the source does not; `page` is where to read more.

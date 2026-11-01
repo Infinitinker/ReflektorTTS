@@ -32,9 +32,9 @@ class Route:
     source: Source
     stages: Sequence[Stage] = ()
     is_enabled: Callable[[int], bool] = always_enabled
-    """Whether the stage at a position runs; the player can switch stages off while playing."""
+    """Whether the stage at a position runs; the user can switch stages off while the app runs."""
     is_source_enabled: Callable[[], bool] = always_on
-    """Whether the source is read; the player can switch sources off while playing."""
+    """Whether the source is read; the user can switch sources off while the app runs."""
     next_poll: float = field(default=0.0, init=False)
 
 

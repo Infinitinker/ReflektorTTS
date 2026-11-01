@@ -25,7 +25,7 @@ void STDMETHODCALLTYPE execute_command_lists_detour(ID3D12CommandQueue* queue, U
     g_original_execute_command_lists(queue, count, lists);
 }
 
-// Direct command queues share their class's vtable, so a throwaway queue gives us the game's.
+// Direct command queues share their class's vtable, so a throwaway queue gives us the app's.
 void** find_command_queue_vtable() {
     HMODULE d3d12 = GetModuleHandleW(L"d3d12.dll");
     auto create = d3d12 == nullptr ? nullptr
@@ -71,7 +71,7 @@ bool install_d3d12_queue_hook() {
     return true;
 }
 
-ID3D12CommandQueue* game_command_queue() {
+ID3D12CommandQueue* app_command_queue() {
     return g_queue.load();
 }
 

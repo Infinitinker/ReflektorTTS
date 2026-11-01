@@ -27,7 +27,7 @@ class AudioChunk:
 
 MIN_RATE = 0.5
 MAX_RATE = 2.0
-"""Speaking rates players can choose: 1.0 is the voice's own pace, 2.0 twice as fast."""
+"""Speaking rates users can choose: 1.0 is the voice's own pace, 2.0 twice as fast."""
 
 
 class TtsEngine(Protocol):
@@ -50,7 +50,7 @@ class VoiceInfo:
     language: str
     """BCP 47 tag, e.g. "pl-PL"."""
     engine_title: str
-    """The engine's name as shown to players, e.g. "Windows"."""
+    """The engine's name as shown to users, e.g. "Windows"."""
 
 
 def find_voice(voice: str, voices: Sequence[VoiceInfo]) -> VoiceInfo:

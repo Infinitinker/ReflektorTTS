@@ -31,8 +31,8 @@ class Engines:
         return self.engine
 
 
-def translate(stage: Translate, text: str, game: str = "en", output: str = "pl") -> str:
-    event = stage.process(TextEvent("messages", text, 0.0, output_language=output, input_language=game))
+def translate(stage: Translate, text: str, app: str = "en", output: str = "pl") -> str:
+    event = stage.process(TextEvent("messages", text, 0.0, output_language=output, input_language=app))
     assert event is not None
     return event.text
 
@@ -58,7 +58,7 @@ def test_empty_text_passes_without_opening_the_engine() -> None:
 
 
 @pytest.mark.parametrize(
-    ("game", "output", "installed", "reason"),
+    ("app", "output", "installed", "reason"),
     [
         ("en", "pl", True, None),
         ("pl", "pl", True, "Input and output language are the same"),
@@ -68,11 +68,11 @@ def test_empty_text_passes_without_opening_the_engine() -> None:
     ],
 )
 def test_it_does_nothing_for_matching_languages_or_without_an_installed_model(
-    game: str, output: str, installed: bool, reason: str | None, monkeypatch: pytest.MonkeyPatch
+    app: str, output: str, installed: bool, reason: str | None, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(translate_stage, "installed_model", lambda package: Path("model") if installed else None)
 
-    assert PLUGIN.inactive_reason(Languages(game, output)) == reason
+    assert PLUGIN.inactive_reason(Languages(app, output)) == reason
 
 
 def test_the_engine_is_opened_once_and_repeated_lines_are_remembered() -> None:

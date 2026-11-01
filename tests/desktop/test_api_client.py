@@ -59,9 +59,9 @@ def test_the_feed_passes_on_the_status_and_its_changes(server: ApiServer, core: 
     feed = StatusFeed(statuses.put, base_url=url(server))
     feed.start()
     try:
-        assert statuses.get(timeout=TIMEOUT) == CoreStatus(game="Grand Theft Auto 2", paused=False)
-        core.bus.publish(replace(core.current, game=None, paused=True))
-        assert statuses.get(timeout=TIMEOUT) == CoreStatus(game=None, paused=True)
+        assert statuses.get(timeout=TIMEOUT) == CoreStatus(app="Grand Theft Auto 2", paused=False)
+        core.bus.publish(replace(core.current, app=None, paused=True))
+        assert statuses.get(timeout=TIMEOUT) == CoreStatus(app=None, paused=True)
     finally:
         feed.stop()
 

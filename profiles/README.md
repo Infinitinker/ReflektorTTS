@@ -1,13 +1,13 @@
 # Profiles
 
-Each file in this folder is a profile for one app: how to recognize it, where to read its text, and how to process that text before it is spoken (the `stages` of each source). Voices are chosen by the player in the overlay, not in the profile.
+Each file in this folder is a profile for one app: how to recognize it, where to read its text, and how to process that text before it is spoken (the `stages` of each source). Voices are chosen by the user in the overlay, not in the profile.
 
 The profile format is not finalized yet. Its JSON Schema is `src/reflektortts/profiles/profile.schema.json`; a full guide to writing and contributing profiles will be added here once the format settles.
 
 ## Format (version 2)
 
 - `version`: the profile format version. Older profiles are migrated automatically.
-- `game`: the app's `title` and original release `year`, for display.
+- `app`: the app's `title` and original release `year`, for display.
 - `match`: how the app is recognized. `executables` lists its executables, because one app can ship several. Each has a `name` (the file name, e.g. `"gta2.exe"`) and, optionally, `sha256`: the SHA-256 of each build of that file the profile supports, in lowercase hex. With `sha256`, only those builds are read, and another build is reported as not supported yet, with its SHA-256, in the Status tab of the desktop app. Without it, any build with that name is read, which suits programs that update often.
 - `overlay` (optional, default `false`): whether the overlay is loaded into the app. It needs `sha256` for every executable, so the overlay is only ever loaded into builds it was tested with.
 - `sources` (optional): where to read the app's text. Each entry has a `type` (the source plugin), a `name`, optionally `poll_interval_ms` (default 250) and `stages`. Its other fields are defined by the plugin's own schema.
@@ -16,8 +16,8 @@ The profile format is not finalized yet. Its JSON Schema is `src/reflektortts/pr
   - `replace`: `rules`, a list of replacements applied in order, e.g. to remove an app's formatting marks. Each rule is either:
     - `{"find": "#", "replace": ""}`: plain text, matched literally;
     - `{"pattern": "#([^#]*)#", "replace": "\\1"}`: a regular expression (Python syntax), where `\1`, `\2`... in `replace` insert the pattern's groups. In JSON a backslash is written twice. GTA2 marks colored words like `#TEST#`; this rule keeps the word and drops the marks. Invalid patterns are reported when the profile loads.
-  - `translate`: translates lines from the input language into the output language the player chose in the overlay (lektor mode), when the two differ and a translation model for them is installed (otherwise lines pass untranslated). Only English to Polish is available so far. The input language is English unless the player chooses another. Place it after the stages that clean up the text and before `normalize`. It has no settings.
-  - `normalize`: spells out numbers, money, percentages, units, times, dates, common abbreviations and the symbols & and + in the output language the player chose in the overlay, e.g. `$50,000` becomes "fifty thousand dollars" in English and "pięćdziesiąt tysięcy dolarów" in Polish, "2 min" becomes "dwie minuty", and "o 14:30" becomes "o czternastej trzydzieści". Place it after the stages that clean up the text. It has no settings.
+  - `translate`: translates lines from the input language into the output language the user chose in the overlay (lektor mode), when the two differ and a translation model for them is installed (otherwise lines pass untranslated). Only English to Polish is available so far. The input language is English unless the user chooses another. Place it after the stages that clean up the text and before `normalize`. It has no settings.
+  - `normalize`: spells out numbers, money, percentages, units, times, dates, common abbreviations and the symbols & and + in the output language the user chose in the overlay, e.g. `$50,000` becomes "fifty thousand dollars" in English and "pięćdziesiąt tysięcy dolarów" in Polish, "2 min" becomes "dwie minuty", and "o 14:30" becomes "o czternastej trzydzieści". Place it after the stages that clean up the text. It has no settings.
 
 ### Memory source (`"type": "memory"`)
 

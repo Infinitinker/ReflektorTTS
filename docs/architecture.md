@@ -45,7 +45,7 @@ Its main ideas:
 
 1. The core watches running processes. When one matches an executable in a profile's `match` (by name, and by SHA-256 where the profile lists builds), it loads the overlay into the app if the profile asks for it (and an overlay build was given), and creates the profile's sources through their plugins. A build the profile does not list is neither read nor given the overlay; the status reports it.
 2. The runner polls each source on its interval. A source returns the text currently shown, or nothing.
-3. Each reading carries the player's **input language** and **output language**. The text passes through that source's stages, e.g. the **tracker**, which passes a line on once it has settled and only once; **replace**, which removes formatting marks; **translate**, which translates the line into the output language when it differs from the input language; and **normalize**, which spells out numbers, money and percentages in the output language. Sources and stages the player switched off in the overlay are skipped.
+3. Each reading carries the user's **input language** and **output language**. The text passes through that source's stages, e.g. the **tracker**, which passes a line on once it has settled and only once; **replace**, which removes formatting marks; **translate**, which translates the line into the output language when it differs from the input language; and **normalize**, which spells out numbers, money and percentages in the output language. Sources and stages the user switched off in the overlay are skipped.
 4. Finished lines go to every sink: the **TTS sink** sends the line to the TTS service at the chosen speed, which either queues it after the line being spoken (the default; at most 3 lines wait, the oldest dropped first) or cuts that line off; the **subtitles sink**, when subtitles are on, publishes it as the subtitle to show and later hides it, after the line has been spoken and read; the **events sink** publishes it to the event bus, from which the API sends lines and subtitles to the overlay, which draws subtitles over the app.
 5. The TTS service tells the core when it starts speaking and when it falls silent, and the core's **ducker** lowers the app's sound for that time, lektor style: it fades the app's own audio sessions down (to 30% by default) and back up half a second after the voice stops, so the app does not pump between close lines. Windows keeps each app's mixer volume between runs, so while an app is lowered its original volume is also kept in a file, and a later run puts it back if this one stopped first.
 6. When the app exits, the core closes its sources and waits for the next app.
@@ -56,17 +56,17 @@ A failing source, stage or sink is reported once as a `source.error`, `stage.err
 
 | Path | Job |
 |---|---|
-| `src/reflektortts/__main__.py`, `app.py` | Command line; the core's main loop and its controls for the API. API requests, the core thread and finished downloads change the core one at a time, under one lock, so each change is made in full |
+| `src/reflektortts/__main__.py`, `core.py` | Command line; the core's main loop and its controls for the API. API requests, the core thread and finished downloads change the core one at a time, under one lock, so each change is made in full |
 | `arguments.py`, `logs.py` | Command line options and where logs go, shared by the command line and the desktop app |
 | `desktop/` | The desktop app: runs the core on a background thread, with a tray icon (pystray) and a window (Tkinter) that follow the core through the local API, like the overlay. The window has a Status tab, one tab per kind of download (voices, translations) and a status bar that says what the button under the mouse does |
 | `events.py`, `bus.py` | Event types and the event bus |
 | `pipeline/` | Plugin contracts, the plugin registry and the runner |
 | `profiles/` | Profile schema, loader and migrations |
-| `games/` | Finds running apps with a profile, and which build each is (`executable.py`) |
+| `apps/` | Finds running apps with a profile, and which build each is (`executable.py`) |
 | `sources/`, `stages/`, `sinks/` | Built-in plugins |
 | `sinks/tts/` | The tts sink: the core's side of speech (the narrator, which pauses and switches voices, and the client that starts the TTS process; the process runs only while an app is read), and the voice preview, which speaks a sample sentence through a TTS process of its own that exits once it is spoken |
 | `tts/` | The TTS service process: speech engines, playback and voices |
-| `downloads/` | Downloads the player asks for: the contract download sources follow, the Piper and Argos sources, and the manager running downloads |
+| `downloads/` | Downloads the user asks for: the contract download sources follow, the Piper and Argos sources, and the manager running downloads |
 | `process_memory/` | Reading a running app's memory for the sources that need it: the process (one implementation per OS, `windows.py`) and pointer chains |
 | `ducking/` | Lowers the app's sound while lines are spoken; the per-app volume has one implementation per OS (`windows.py`, WASAPI audio sessions) |
 | `languages.py` | Supported languages and their checks |
@@ -82,7 +82,7 @@ A failing source, stage or sink is reported once as a `source.error`, `stage.err
 How the folders are organized:
 
 - **Plugin folders** (`sources/`, `stages/`, `sinks/`) hold one plugin each. A plugin is a single module while it is small (`stages/tracker.py`) and becomes a package when it needs several files (`stages/normalize/`, `sources/memory/`, `sinks/tts/`).
-- **Subsystems** that are not plugins sit at the top level: `pipeline/`, `profiles/`, `games/`, `api/`, `tts/`, `ducking/`, `desktop/`, and `process_memory/`, which several sources share.
+- **Subsystems** that are not plugins sit at the top level: `pipeline/`, `profiles/`, `apps/`, `api/`, `tts/`, `ducking/`, `desktop/`, and `process_memory/`, which several sources share.
 - **A folder's code runs in one process.** Code for a separate process gets its own folder, so the layout shows what runs where: `tts/` is the TTS process, and its client in the core lives with the sink in `sinks/tts/`.
 
 Writing plugins: [plugins.md](plugins.md). The local API: [api.md](api.md).
@@ -104,7 +104,7 @@ Finding a line's label when subtitles can be turned off: turn subtitles on and f
 
 ### Lektor mode (translation)
 
-- **Done:** the `translate` stage translates each line from the input language to the output language it carries, only when they differ, and runs before `normalize`. It splits lines into sentences, because the models are trained on single sentences and drop the rest of longer input, and it remembers recent lines, because apps repeat them. The input language is one the player chooses, English by default; it is not detected, because guessing wrong mistranslates every line (e.g. Polish text run through the English model).
+- **Done:** the `translate` stage translates each line from the input language to the output language it carries, only when they differ, and runs before `normalize`. It splits lines into sentences, because the models are trained on single sentences and drop the rest of longer input, and it remembers recent lines, because apps repeat them. The input language is one the user chooses, English by default; it is not detected, because guessing wrong mistranslates every line (e.g. Polish text run through the English model).
 - **Engine:** Argos Translate's English–Polish model (OPUS-MT based, CC-BY 4.0), run directly with CTranslate2 on the CPU (int8) and tokenized as it was trained (Moses tokens split into BPE subwords, or SentencePiece pieces, whichever tokenizer the package comes with), without the `argostranslate` package and its heavy dependencies. It runs in the core process, at about 0.1 s per line and at most 0.4 s, once per settled line. The model is loaded once and shared by every translate stage, of every source and app. The packages are the optional `translate` extra; only an installed model is used, never downloaded by the stage (downloads belong in the desktop app).
 - **Why this engine:** an EN→PL benchmark on game lines compared it with Opus-MT `en-zlw` and `tc-bible-big`, Firefox Translations' model (through `fxtranslate`), and Meta's NLLB-200 600M and M2M-100 418M. It gave the most natural translations and was the fastest. Firefox's model needs a Marian-based engine (its SSRU decoder does not run on CTranslate2), and NLLB-200 is licensed for non-commercial use only.
 - Planned: more language pairs; a glossary per profile for names and terms (offline models take no context, so names would be swapped for placeholders and back); online engines (e.g. DeepL, LLMs) as optional plugins that can use an app's context.

@@ -4,7 +4,7 @@ from reflektortts.process_memory.memory import MemoryReadError, ProcessMemoryErr
 from reflektortts.process_memory.pointer import (
     Address,
     PointerChain,
-    UnsupportedGameVersion,
+    UnsupportedAppVersion,
     chain_for,
     parse_address,
     parse_pointer_chains,
@@ -22,7 +22,7 @@ def pointer(value: int) -> bytes:
     [
         ("gta2.exe+272F40", Address("gta2.exe", 0x272F40)),
         ("4A2F40", Address(None, 0x4A2F40)),
-        (" game.exe+ff ", Address("game.exe", 0xFF)),
+        (" app.exe+ff ", Address("app.exe", 0xFF)),
     ],
 )
 def test_parse_address(text: str, expected: Address) -> None:
@@ -49,7 +49,7 @@ def test_chain_is_chosen_by_executable_hash_ignoring_case() -> None:
 
 
 def test_unknown_game_build_is_rejected() -> None:
-    with pytest.raises(UnsupportedGameVersion, match="not supported by its profile yet"):
+    with pytest.raises(UnsupportedAppVersion, match="not supported by its profile yet"):
         chain_for((), "c" * 64)
 
 

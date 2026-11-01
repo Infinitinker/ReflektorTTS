@@ -18,7 +18,7 @@ LOG_FILE = "reflektortts-tts.log"
 
 MAX_WAITING = 3
 """Lines that may wait their turn; past that the oldest waiting is dropped, so the voice never
-falls far behind the game."""
+falls far behind the app."""
 
 
 @dataclass(frozen=True)

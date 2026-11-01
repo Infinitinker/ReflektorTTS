@@ -26,11 +26,11 @@ bool is_loaded(const wchar_t* module_name) {
     return GetModuleHandleW(module_name) != nullptr;
 }
 
-// The core loads the overlay within seconds of the game starting; if the game has run longer,
-// ReflektorTTS was started after it, and the game may already have made its graphics device.
+// The core loads the overlay within seconds of the app starting; if the app has run longer,
+// ReflektorTTS was started after it, and the app may already have made its graphics device.
 constexpr ULONGLONG kJustStartedSeconds = 10;
 
-bool game_just_started() {
+bool app_just_started() {
     FILETIME created{}, exited{}, kernel{}, user{}, now{};
     GetProcessTimes(GetCurrentProcess(), &created, &exited, &kernel, &user);
     GetSystemTimeAsFileTime(&now);
@@ -38,17 +38,17 @@ bool game_just_started() {
     return ticks(now) - ticks(created) < kJustStartedSeconds * 10'000'000;
 }
 
-// Hooks only the APIs whose DLLs the game has loaded, so the overlay never pulls in a graphics
-// DLL (or a wrapper from the game folder) the game does not use. The core loads the overlay as
-// soon as it sees the game's process, often before the game has set up its graphics, and games
+// Hooks only the APIs whose DLLs the app has loaded, so the overlay never pulls in a graphics
+// DLL (or a wrapper from the app folder) the app does not use. The core loads the overlay as
+// soon as it sees the app's process, often before the app has set up its graphics, and apps
 // may load another API later (after a launcher, or for a video), so each API is hooked when its
 // DLL arrives, however late. Each is tried once.
 DWORD WINAPI start_overlay(LPVOID) {
     install_crash_log();
     // A Direct3D 9 device may already exist only if its DLL was loaded before the overlay arrived
-    // and the game was not just started.
-    bool d3d9_device_may_exist = is_loaded(L"d3d9.dll") && !game_just_started();
-    // Never closed: the loader keeps signalling it for as long as the game runs.
+    // and the app was not just started.
+    bool d3d9_device_may_exist = is_loaded(L"d3d9.dll") && !app_just_started();
+    // Never closed: the loader keeps signalling it for as long as the app runs.
     HANDLE dll_loaded = CreateEventW(nullptr, FALSE, FALSE, nullptr);
     bool notified = dll_loaded != nullptr && signal_on_dll_load(dll_loaded);
 

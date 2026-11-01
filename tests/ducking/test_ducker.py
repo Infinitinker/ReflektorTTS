@@ -5,9 +5,9 @@ from pathlib import Path
 
 import pytest
 
+from reflektortts.apps.detector import ProcessInfo
 from reflektortts.ducking.ducker import Ducker, Timing
 from reflektortts.ducking.records import DuckRecords
-from reflektortts.games.detector import ProcessInfo
 
 GTA2 = ProcessInfo(pid=42, name="gta2.exe")
 INSTANT = Timing(fade_down=0.0, hold=0.0, fade_up=0.0, step=0.0)
@@ -29,7 +29,7 @@ class FakeVolume:
 
 
 class FakeMixer:
-    """Finds the volume of pid 42 once the game plays sound."""
+    """Finds the volume of pid 42 once the app plays sound."""
 
     def __init__(self, volume: FakeVolume | None) -> None:
         self.volume = volume
@@ -54,7 +54,7 @@ def settle() -> None:
 
 @pytest.fixture
 def records(tmp_path: Path) -> DuckRecords:
-    return DuckRecords(tmp_path / "lowered-games.json")
+    return DuckRecords(tmp_path / "lowered-apps.json")
 
 
 @pytest.fixture

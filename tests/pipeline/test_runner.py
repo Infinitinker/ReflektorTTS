@@ -154,14 +154,14 @@ def test_no_text_reaches_stages_as_empty_text_but_never_sinks() -> None:
 def test_failing_source_is_reported_once_and_others_keep_working() -> None:
     errors: list[ErrorEvent] = []
     sink = RecordingSink()
-    broken = ScriptedSource("memory", [OSError("game closed"), OSError("game closed"), "back"])
+    broken = ScriptedSource("memory", [OSError("app closed"), OSError("app closed"), "back"])
     healthy = ScriptedSource("clipboard", ["a", "b", "c"])
     runner = Runner([Route(broken), Route(healthy)], [sink], on_error=errors.append)
 
     for tick in range(3):
         runner.poll(float(tick))
 
-    assert errors == [ErrorEvent("source.error", "memory", "game closed")]
+    assert errors == [ErrorEvent("source.error", "memory", "app closed")]
     assert texts(sink) == ["a", "b", "back", "c"]
 
 

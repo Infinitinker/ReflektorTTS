@@ -20,7 +20,7 @@ bool g_hotkey_down = false;
 std::mutex g_windows_mutex;
 std::unordered_map<HWND, WNDPROC> g_original_procs;
 
-// Messages arrive on the game's message thread, which in many engines is not the one that
+// Messages arrive on the app's message thread, which in many engines is not the one that
 // draws; ImGui may only be used from the drawing thread, so they wait here until its next frame.
 struct PanelMessage {
     HWND window;
@@ -53,11 +53,11 @@ LRESULT CALLBACK overlay_window_proc(HWND window, UINT message, WPARAM wparam, L
         std::lock_guard lock(g_windows_mutex);
         original = g_original_procs[window];
     }
-    // Input messages queued for the game are already taken off the queue by the message hooks;
+    // Input messages queued for the app are already taken off the queue by the message hooks;
     // this catches the ones sent straight to the window.
     if (g_panel_open) {
         send_to_panel(window, message, wparam, lparam);
-        if (game_input_blocked() && is_blocked_message(message)) {
+        if (app_input_blocked() && is_blocked_message(message)) {
             return 0;
         }
     }
@@ -76,7 +76,7 @@ void attach_input(HWND window) {
     SetWindowLongPtrW(window, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(&overlay_window_proc));
 }
 
-// Games using DirectInput, or replacing their window procedure, keep click messages from
+// Apps using DirectInput, or replacing their window procedure, keep click messages from
 // reaching ImGui; reading the buttons directly works regardless. ImGui ignores repeated
 // states, so clicks that do arrive as messages are not counted twice.
 void poll_mouse_buttons() {
@@ -91,9 +91,9 @@ bool update_panel_toggle(HWND window) {
     bool down = foreground && is_down(VK_CONTROL) && is_down(VK_SHIFT) && is_down('R');
     if (down && !g_hotkey_down) {
         g_panel_open = !g_panel_open;
-        block_game_input(g_panel_open);
+        block_app_input(g_panel_open);
         ImGuiIO& io = ImGui::GetIO();
-        // Games often hide the system cursor, so ImGui draws its own while the panel is open.
+        // Apps often hide the system cursor, so ImGui draws its own while the panel is open.
         io.MouseDrawCursor = g_panel_open;
     }
     g_hotkey_down = down;
@@ -108,7 +108,7 @@ bool panel_open() {
     return g_panel_open;
 }
 
-bool is_game_window(HWND window) {
+bool is_app_window(HWND window) {
     std::lock_guard lock(g_windows_mutex);
     return g_original_procs.contains(window);
 }

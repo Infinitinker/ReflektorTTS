@@ -12,7 +12,7 @@ std::atomic<bool> g_blocked = false;
 
 }  // namespace
 
-void block_game_input(bool blocked) {
+void block_app_input(bool blocked) {
     if (blocked) {
         install_win32_input_hooks();
         install_dinput_hooks();
@@ -21,7 +21,7 @@ void block_game_input(bool blocked) {
     on_win32_input_blocking(blocked);
 }
 
-bool game_input_blocked() {
+bool app_input_blocked() {
     return g_blocked;
 }
 

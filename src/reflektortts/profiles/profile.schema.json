@@ -1,11 +1,11 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "ReflektorTTS game profile",
-  "description": "Describes one game or other program: how to recognize it, where to read its text and how to process it.",
+  "title": "ReflektorTTS profile",
+  "description": "Describes one app: how to recognize it, where to read its text and how to process it.",
   "type": "object",
   "required": [
     "version",
-    "game",
+    "app",
     "match"
   ],
   "additionalProperties": false,
@@ -14,7 +14,7 @@
       "description": "Profile format version.",
       "const": 2
     },
-    "game": {
+    "app": {
       "type": "object",
       "required": [
         "title",
@@ -23,7 +23,7 @@
       "additionalProperties": false,
       "properties": {
         "title": {
-          "description": "The game's title, as shown to users.",
+          "description": "The app's title, as shown to users.",
           "type": "string",
           "minLength": 1
         },
@@ -76,11 +76,11 @@
       }
     },
     "overlay": {
-      "description": "Whether the in-game overlay is loaded into the program. Default: false. Needs the executables' sha256, so the overlay only goes into builds it was tested with.",
+      "description": "Whether the overlay is loaded into the app. Default: false. Needs the executables' sha256, so the overlay only goes into builds it was tested with.",
       "type": "boolean"
     },
     "sources": {
-      "description": "Where to read the game's text. Each source's other fields are defined by its plugin's own schema.",
+      "description": "Where to read the app's text. Each source's other fields are defined by its plugin's own schema.",
       "type": "array",
       "items": {
         "type": "object",

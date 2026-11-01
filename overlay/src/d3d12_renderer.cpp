@@ -123,9 +123,9 @@ void start(IDXGISwapChain* swap_chain) {
     if (FAILED(swap_chain->GetDevice(__uuidof(ID3D12Device), reinterpret_cast<void**>(&device)))) {
         return;
     }
-    // The overlay's drawing goes through the game's queue, which is known only once
-    // the game has submitted work to it.
-    ID3D12CommandQueue* queue = game_command_queue();
+    // The overlay's drawing goes through the app's queue, which is known only once
+    // the app has submitted work to it.
+    ID3D12CommandQueue* queue = app_command_queue();
     if (queue == nullptr) {
         device->Release();
         return;
@@ -148,7 +148,7 @@ void start(IDXGISwapChain* swap_chain) {
     g_state = State::Running;
 }
 
-// Games replace their swap chain, e.g. when switching from the menu to gameplay, so the
+// Apps replace their swap chain, e.g. when switching from the menu to gameplay, so the
 // overlay follows the swap chain that presented last. Moving to another device is not
 // supported yet; the old one is abandoned, never released (see forget_renderer_backend).
 void switch_swap_chain(IDXGISwapChain* swap_chain) {
@@ -158,7 +158,7 @@ void switch_swap_chain(IDXGISwapChain* swap_chain) {
     }
     device->Release();
     if (device != g_device) {
-        log_message("The game moved to another Direct3D 12 device; overlay disabled");
+        log_message("The app moved to another Direct3D 12 device; overlay disabled");
         g_state = State::Disabled;
         return;
     }
@@ -168,7 +168,7 @@ void switch_swap_chain(IDXGISwapChain* swap_chain) {
     g_swap_chain = swap_chain;
 }
 
-// The back buffer is taken per frame so the overlay never keeps the game's buffers alive.
+// The back buffer is taken per frame so the overlay never keeps the app's buffers alive.
 ID3D12Resource* current_back_buffer(IDXGISwapChain* swap_chain, UINT& index) {
     IDXGISwapChain3* swap_chain3 = nullptr;
     if (FAILED(swap_chain->QueryInterface(__uuidof(IDXGISwapChain3), reinterpret_cast<void**>(&swap_chain3)))) {

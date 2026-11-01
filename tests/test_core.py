@@ -6,17 +6,17 @@ from typing import Any
 import pytest
 
 from reflektortts.api.server import SourceError, StageError
-from reflektortts.app import Core, build_routes, read_game
+from reflektortts.apps.detector import ProcessInfo, RunningApp
 from reflektortts.bus import Event
+from reflektortts.core import Core, build_routes, read_app
 from reflektortts.ducking.records import DuckRecords
 from reflektortts.ducking.volume import OpenAppVolume
-from reflektortts.events import DownloadEvent, ErrorEvent, GameInfo, Status, TextEvent, UnsupportedGame
-from reflektortts.games.detector import ProcessInfo, RunningGame
+from reflektortts.events import AppInfo, DownloadEvent, ErrorEvent, Status, TextEvent, UnsupportedApp
 from reflektortts.languages import LanguageError, Languages
 from reflektortts.pipeline.plugins import SourcePlugin, StagePlugin
 from reflektortts.pipeline.runner import Route
-from reflektortts.profiles.model import Executable, Game, Match, Profile, SourceSettings, StageSettings
-from reflektortts.settings import GameSettings, load_game, load_shared
+from reflektortts.profiles.model import App, Executable, Match, Profile, SourceSettings, StageSettings
+from reflektortts.settings import ProfileSettings, load_profile_settings, load_shared
 from reflektortts.sinks.tts.narrator import Narrator
 from reflektortts.sinks.tts.preview import VoicePreview
 from reflektortts.tts.engine import DEFAULT_VOICE, VoiceError, VoiceInfo
@@ -60,9 +60,9 @@ class RecordingSink:
         pass
 
 
-def create_source(settings: SourceSettings, game: RunningGame) -> FixedSource:
+def create_source(settings: SourceSettings, app: RunningApp) -> FixedSource:
     if settings.settings.get("broken"):
-        raise RuntimeError("This version of the game is not supported")
+        raise RuntimeError("This version of the app is not supported")
     return FixedSource(settings.name, settings.settings["text"])
 
 
@@ -82,31 +82,31 @@ STAGES = {
 }
 
 
-def game_with(*sources: SourceSettings) -> RunningGame:
-    profile = Profile("game", Game("Game", 2000), Match((Executable("game.exe"),)), sources)
-    return RunningGame(profile, ProcessInfo(42, "game.exe"))
+def app_with(*sources: SourceSettings) -> RunningApp:
+    profile = Profile("app", App("App", 2000), Match((Executable("app.exe"),)), sources)
+    return RunningApp(profile, ProcessInfo(42, "app.exe"))
 
 
 def test_routes_get_their_sources_and_stages_and_broken_sources_are_reported() -> None:
     errors: list[ErrorEvent] = []
-    game = game_with(
+    app = app_with(
         SourceSettings("fixed", "broken", 0.25, {"broken": True}),
         SourceSettings("fixed", "messages", 0.25, {"text": "hi"}, (StageSettings("suffix", {"suffix": "!"}),)),
     )
 
-    routes = build_routes(game, SOURCES, STAGES, errors.append)
+    routes = build_routes(app, SOURCES, STAGES, errors.append)
 
     assert len(routes) == 1
     assert routes[0].source.name == "messages"
     assert [type(stage) for stage in routes[0].stages] == [Suffix]
-    assert errors == [ErrorEvent("source.error", "broken", "This version of the game is not supported")]
+    assert errors == [ErrorEvent("source.error", "broken", "This version of the app is not supported")]
 
 
 def test_a_source_whose_stage_cannot_start_is_reported_closed_and_skipped() -> None:
     errors: list[ErrorEvent] = []
     created: list[FixedSource] = []
 
-    def create(settings: SourceSettings, game: RunningGame) -> FixedSource:
+    def create(settings: SourceSettings, app: RunningApp) -> FixedSource:
         created.append(FixedSource(settings.name, "hi"))
         return created[-1]
 
@@ -114,9 +114,9 @@ def test_a_source_whose_stage_cannot_start_is_reported_closed_and_skipped() -> N
         raise RuntimeError("no rules for this language")
 
     stages = {"broken": StagePlugin("broken", {}, broken_stage)}
-    game = game_with(SourceSettings("fixed", "messages", 0.25, {}, (StageSettings("broken", {}),)))
+    app = app_with(SourceSettings("fixed", "messages", 0.25, {}, (StageSettings("broken", {}),)))
 
-    routes = build_routes(game, {"fixed": SourcePlugin("fixed", {}, create)}, stages, errors.append)
+    routes = build_routes(app, {"fixed": SourcePlugin("fixed", {}, create)}, stages, errors.append)
 
     assert routes == []
     assert created[0].closed
@@ -136,8 +136,8 @@ def test_read_game_runs_until_the_game_exits_then_closes_sources() -> None:
             running.clear()
         return running.is_set()
 
-    read_game(
-        game_with(),
+    read_app(
+        app_with(),
         [Route(source, [Suffix("!")])],
         [sink],
         threading.Event(),
@@ -154,7 +154,7 @@ def test_read_game_returns_when_stopped() -> None:
     stop = threading.Event()
     stop.set()
 
-    read_game(game_with(), [Route(source)], [], stop, is_running=lambda pid: True, check_seconds=0.01)
+    read_app(app_with(), [Route(source)], [], stop, is_running=lambda pid: True, check_seconds=0.01)
 
     assert source.closed
 
@@ -164,26 +164,26 @@ PAULINA = VoiceInfo("windows:Microsoft Paulina", "windows", "Microsoft Paulina",
 LJSPEECH = VoiceInfo("piper:en_US-ljspeech-medium", "piper", "en_US-ljspeech-medium", "en-US", "Piper")
 GTA2 = Profile(
     "grand-theft-auto-2-1999",
-    Game("Grand Theft Auto 2", 1999),
+    App("Grand Theft Auto 2", 1999),
     Match((Executable("gta2.exe"),)),
     (SourceSettings("fixed", "messages", 0.25, {}, (StageSettings("suffix", {}), StageSettings("suffix", {}))),),
 )
 
 
-MAD_MAX = Profile("mad-max-2015", Game("Mad Max", 2015), Match((Executable("MadMax.exe"),)))
+MAD_MAX = Profile("mad-max-2015", App("Mad Max", 2015), Match((Executable("MadMax.exe"),)))
 
 
 def no_sound() -> OpenAppVolume:
     return lambda pid: None
 
 
-def playing(profile: Profile) -> RunningGame:
-    return RunningGame(profile, ProcessInfo(42, profile.match.executables[0].name))
+def playing(profile: Profile) -> RunningApp:
+    return RunningApp(profile, ProcessInfo(42, profile.match.executables[0].name))
 
 
-def saved_for(tmp_path: Path, profile: Profile) -> GameSettings:
-    """What is saved for a game, or the defaults if nothing is."""
-    return load_game(tmp_path, profile.id)
+def saved_for(tmp_path: Path, profile: Profile) -> ProfileSettings:
+    """What is saved for an app, or the defaults if nothing is."""
+    return load_profile_settings(tmp_path, profile.id)
 
 
 def make_core(
@@ -196,7 +196,7 @@ def make_core(
         list_voices=lambda: [LJSPEECH, ADAM, PAULINA] if voices is None else voices,
         stages=STAGES,
         open_app_volume=no_sound,
-        duck_records=DuckRecords(tmp_path / "lowered-games.json"),
+        duck_records=DuckRecords(tmp_path / "lowered-apps.json"),
         download_sources={},
         preview_factory=lambda on_change: VoicePreview(on_change, (previews or Clients()).start, lambda work: work()),
     )
@@ -223,7 +223,7 @@ def test_without_a_game_the_defaults_apply_and_changes_are_not_saved(tmp_path: P
     status = core.set_speech(1.5, False)
 
     assert status == Status(
-        game=None,
+        app=None,
         voice=DEFAULT_VOICE,
         input_language="en",
         output_language="en",
@@ -490,7 +490,7 @@ def test_a_voice_installed_while_a_game_is_read_is_used_right_away(tmp_path: Pat
     assert isinstance(events[-1], Status)
 
 
-def test_no_voice_is_loaded_while_waiting_for_a_game(tmp_path: Path) -> None:
+def test_no_voice_is_loaded_while_waiting_for_a_app(tmp_path: Path) -> None:
     clients = Clients()
     make_core(tmp_path, clients)
 
@@ -508,7 +508,7 @@ def test_the_defaults_apply_again_once_the_game_closes(tmp_path: Path) -> None:
 
 
 def test_build_routes_asks_whether_each_source_and_stage_is_enabled() -> None:
-    game = game_with(
+    app = app_with(
         SourceSettings("fixed", "messages", 0.25, {"text": "hi"}, (StageSettings("suffix", {"suffix": "!"}),))
     )
     asked: list[str] = []
@@ -517,7 +517,7 @@ def test_build_routes_asks_whether_each_source_and_stage_is_enabled() -> None:
         asked.append(key)
         return False
 
-    routes = build_routes(game, SOURCES, STAGES, lambda error: None, is_enabled, is_enabled)
+    routes = build_routes(app, SOURCES, STAGES, lambda error: None, is_enabled, is_enabled)
 
     assert routes[0].is_enabled(0) is False
     assert routes[0].is_source_enabled() is False
@@ -525,12 +525,12 @@ def test_build_routes_asks_whether_each_source_and_stage_is_enabled() -> None:
 
 
 def test_a_stage_that_does_nothing_with_the_languages_is_skipped() -> None:
-    game = game_with(
+    app = app_with(
         SourceSettings("fixed", "messages", 0.25, {"text": "hi"}, (StageSettings("polish", {"suffix": "!"}),))
     )
     current = [Languages("en", "en")]
 
-    routes = build_routes(game, SOURCES, STAGES, lambda error: None, languages=lambda: current[0])
+    routes = build_routes(app, SOURCES, STAGES, lambda error: None, languages=lambda: current[0])
 
     assert routes[0].is_enabled(0) is False
     current[0] = Languages("en", "pl")
@@ -539,7 +539,7 @@ def test_a_stage_that_does_nothing_with_the_languages_is_skipped() -> None:
 
 def test_the_status_says_why_a_stage_does_nothing_and_keeps_its_tick(tmp_path: Path) -> None:
     core = make_core(tmp_path, Clients())
-    core._enter(game_with(SourceSettings("fixed", "messages", 0.25, {}, (StageSettings("polish", {}),))))
+    core._enter(app_with(SourceSettings("fixed", "messages", 0.25, {}, (StageSettings("polish", {}),))))
 
     stage = core.status().sources[0].stages[0]
     assert (stage.enabled, stage.inactive) == (True, "Only Polish")
@@ -557,11 +557,11 @@ def core_playing(tmp_path: Path, is_running: Callable[[int], bool], exit_grace_s
         is_running=is_running,
         stages=STAGES,
         open_app_volume=no_sound,
-        duck_records=DuckRecords(tmp_path / "lowered-games.json"),
+        duck_records=DuckRecords(tmp_path / "lowered-apps.json"),
         exit_grace_seconds=exit_grace_seconds,
         download_sources={},
     )
-    core._game = GameInfo("Game", 42)
+    core._app = AppInfo("App", 42)
     return core
 
 
@@ -621,13 +621,13 @@ def test_changes_made_at_the_same_time_are_all_kept(tmp_path: Path) -> None:
 
 def test_an_unsupported_build_is_reported_until_it_exits_and_not_read(tmp_path: Path) -> None:
     core = core_playing(tmp_path, lambda pid: False, exit_grace_seconds=0)
-    core._game = None
+    core._app = None
     events: list[Event] = []
     core.subscribe(events.append)
-    unsupported = RunningGame(GTA2, ProcessInfo(7, "gta2.exe"), build="abc", supported=False)
+    unsupported = RunningApp(GTA2, ProcessInfo(7, "gta2.exe"), build="abc", supported=False)
 
     core._wait_while_unsupported(unsupported, threading.Event())
 
     statuses = [event for event in events if isinstance(event, Status)]
-    assert [status.unsupported for status in statuses] == [UnsupportedGame("Grand Theft Auto 2", "abc"), None]
-    assert all(status.game is None for status in statuses)
+    assert [status.unsupported for status in statuses] == [UnsupportedApp("Grand Theft Auto 2", "abc"), None]
+    assert all(status.app is None for status in statuses)

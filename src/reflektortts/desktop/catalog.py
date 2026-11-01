@@ -30,7 +30,7 @@ class DownloadItem:
     done: int
     total: int | None
     source: str
-    """Where it comes from, as shown to players, e.g. "Piper" or "Windows"."""
+    """Where it comes from, as shown to users, e.g. "Piper" or "Windows"."""
     removable: bool = True
     """False for a voice installed by other means, e.g. one that comes with Windows."""
 

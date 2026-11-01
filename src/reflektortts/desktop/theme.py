@@ -7,7 +7,7 @@ import tkinter.font as tkfont
 from tkinter import ttk
 
 GOOD = "#0a7a0a"
-"""Text for what works: an installed entry, a game being read."""
+"""Text for what works: an installed entry, an app being read."""
 BUSY = "#9a6b00"
 """Text for what is under way or on hold: a download, paused reading."""
 DIM = "#666666"

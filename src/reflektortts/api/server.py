@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 HOST = "127.0.0.1"
 PORT = 47821
-"""Fixed so the in-game overlay knows where to connect."""
+"""Fixed so the overlay knows where to connect."""
 
 
 class ApiError(Exception):
@@ -59,7 +59,7 @@ class CoreControl(Protocol):
         """Raises LanguageError if the language is not supported."""
 
     def set_ducking(self, enabled: bool, volume: float) -> Status:
-        """volume is the game's volume while speaking, from 0.0 to 1.0 of its own."""
+        """volume is the app's volume while speaking, from 0.0 to 1.0 of its own."""
 
     def set_speech(self, rate: float, cut_off: bool) -> Status:
         """rate is from MIN_RATE to MAX_RATE."""
@@ -72,10 +72,10 @@ class CoreControl(Protocol):
     def stop_line(self) -> Status: ...
 
     def set_source_enabled(self, name: str, enabled: bool) -> Status:
-        """Raises SourceError if no game is read or it has no such source."""
+        """Raises SourceError if no app is read or it has no such source."""
 
     def set_stage_enabled(self, key: str, enabled: bool) -> Status:
-        """Raises StageError if no game is read or it has no such stage."""
+        """Raises StageError if no app is read or it has no such stage."""
 
     def downloads(self, refresh: bool) -> Listing:
         """refresh fetches the lists from the internet, so it can take a while."""
@@ -101,11 +101,11 @@ def stage_json(stage: StageState) -> dict[str, Any]:
 
 
 def status_json(status: Status) -> dict[str, Any]:
-    game = None if status.game is None else {"title": status.game.title, "pid": status.game.pid}
+    app = None if status.app is None else {"title": status.app.title, "pid": status.app.pid}
     unsupported = status.unsupported
     return {
         "type": "status",
-        "game": game,
+        "app": app,
         "unsupported": None if unsupported is None else {"title": unsupported.title, "sha256": unsupported.sha256},
         "voice": status.voice,
         "input_language": status.input_language,

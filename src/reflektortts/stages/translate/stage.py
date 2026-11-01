@@ -26,7 +26,7 @@ class Translate:
     """Translates each line from the input language into its output language, sentence by sentence.
 
     It runs only for pairs inactive_reason accepts. A pair's engine is opened the first time a line
-    needs it. Recent translations are remembered, since games repeat lines.
+    needs it. Recent translations are remembered, since apps repeat lines.
     """
 
     def __init__(self, open_engine: Callable[[str, str], Engine]) -> None:
@@ -58,7 +58,7 @@ NO_MODEL = "No translation model for these languages"
 
 @functools.cache
 def open_engine(source: str, target: str) -> Engine:
-    """Loads the pair's installed model, once: every translate stage, of every source and game,
+    """Loads the pair's installed model, once: every translate stage, of every source and app,
     shares the loaded model. A failed load is tried again next time.
     """
     model_dir = installed_model((source, target))

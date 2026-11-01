@@ -1,4 +1,4 @@
-"""Lets the player hear a voice: a sample sentence spoken through a TTS process of its own."""
+"""Lets the user hear a voice: a sample sentence spoken through a TTS process of its own."""
 
 import threading
 from collections.abc import Callable
@@ -13,7 +13,7 @@ def _in_background(work: Callable[[], None]) -> None:
 
 
 class VoicePreview:
-    """Speaks a sample with a voice, apart from the game's narrator: a game being read keeps its
+    """Speaks a sample with a voice, apart from the app's narrator: an app being read keeps its
     voice, and its sound is not lowered. The TTS process exits once the sample is spoken; a new
     preview cuts off the one playing.
 

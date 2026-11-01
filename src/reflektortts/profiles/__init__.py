@@ -1,1 +1,1 @@
-"""Game profiles: one JSON file per game, validated against profile.schema.json."""
+"""App profiles: one JSON file per app, validated against profile.schema.json."""

@@ -5,16 +5,16 @@ from typing import Protocol
 
 
 class ProcessMemoryError(Exception):
-    """The game's memory cannot be accessed; the message says what to do."""
+    """The app's memory cannot be accessed; the message says what to do."""
 
 
 class MemoryReadError(ProcessMemoryError):
-    """An address in the game's memory cannot be read."""
+    """An address in the app's memory cannot be read."""
 
 
 class ProcessMemory(Protocol):
     pointer_size: int
-    """Size of a pointer in the game: 4 for 32-bit games, 8 for 64-bit ones."""
+    """Size of a pointer in the app: 4 for 32-bit apps, 8 for 64-bit ones."""
 
     def read(self, address: int, size: int) -> bytes:
         """Returns up to size bytes from address; fewer where readable memory ends, none if unreadable."""

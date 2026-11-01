@@ -23,9 +23,9 @@ from reflektortts.bus import EventBus, Listener
 from reflektortts.downloads.manager import Listed, Listing, State
 from reflektortts.downloads.source import DownloadError, Entry, Kind
 from reflektortts.events import (
+    AppInfo,
     DownloadEvent,
     ErrorEvent,
-    GameInfo,
     SourceStages,
     StageState,
     Status,
@@ -67,7 +67,7 @@ class FakeCore:
         self.removed: list[str] = []
         self.previewed: list[str] = []
         self.current = Status(
-            game=GameInfo("Grand Theft Auto 2", 42),
+            app=AppInfo("Grand Theft Auto 2", 42),
             voice="piper:a",
             input_language="pl",
             output_language="en",
@@ -173,7 +173,7 @@ def test_status() -> None:
         response = await client.get("/v1/status")
         assert await response.json() == {
             "type": "status",
-            "game": {"title": "Grand Theft Auto 2", "pid": 42},
+            "app": {"title": "Grand Theft Auto 2", "pid": 42},
             "unsupported": None,
             "voice": "piper:a",
             "input_language": "pl",
@@ -465,7 +465,7 @@ def test_events_start_with_the_status_then_follow_the_core() -> None:
         first = await socket.receive_json(timeout=2)
         core.bus.publish(TextEvent("messages", "Welcome to Downtown", 1.0))
         core.bus.publish(SubtitleEvent("Witamy w Downtown"))
-        core.bus.publish(ErrorEvent("source.error", "messages", "game closed"))
+        core.bus.publish(ErrorEvent("source.error", "messages", "app closed"))
         line = await socket.receive_json(timeout=2)
         subtitle = await socket.receive_json(timeout=2)
         error = await socket.receive_json(timeout=2)
@@ -474,7 +474,7 @@ def test_events_start_with_the_status_then_follow_the_core() -> None:
         assert first["type"] == "status"
         assert line == {"type": "line", "source": "messages", "text": "Welcome to Downtown"}
         assert subtitle == {"type": "subtitle", "text": "Witamy w Downtown"}
-        assert error == {"type": "error", "kind": "source.error", "origin": "messages", "message": "game closed"}
+        assert error == {"type": "error", "kind": "source.error", "origin": "messages", "message": "app closed"}
 
     with_client(core, test)
 

@@ -33,8 +33,8 @@ HRESULT STDMETHODCALLTYPE present1_detour(IDXGISwapChain1* swap_chain, UINT sync
     return g_original_present1(swap_chain, sync_interval, flags, parameters);
 }
 
-// Prefers the d3d11.dll the game already uses (it may be a wrapper) over the system one.
-// Direct3D 12 games may not load d3d11.dll, but their swap chains share the same vtable.
+// Prefers the d3d11.dll the app already uses (it may be a wrapper) over the system one.
+// Direct3D 12 apps may not load d3d11.dll, but their swap chains share the same vtable.
 HMODULE d3d11_module() {
     HMODULE module = GetModuleHandleW(L"d3d11.dll");
     return module != nullptr ? module : LoadLibraryExW(L"d3d11.dll", nullptr, LOAD_LIBRARY_SEARCH_SYSTEM32);
@@ -47,7 +47,7 @@ struct SwapChainVtable {
     bool has_present1 = false;
 };
 
-// Swap chains share their class's vtable, so a throwaway swap chain gives us the game's.
+// Swap chains share their class's vtable, so a throwaway swap chain gives us the app's.
 bool find_swap_chain_vtable(SwapChainVtable& vtable) {
     HMODULE d3d11 = d3d11_module();
     auto create = d3d11 == nullptr ? nullptr

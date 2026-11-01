@@ -1,6 +1,6 @@
-"""Remembers games' original volumes while they are lowered, so a crash cannot leave a game quiet.
+"""Remembers apps' original volumes while they are lowered, so a crash cannot leave an app quiet.
 
-Windows keeps each app's mixer volume between runs: a game still lowered when ReflektorTTS
+Windows keeps each app's mixer volume between runs: an app still lowered when ReflektorTTS
 stopped would start quiet next time. The record lets its volume be put back.
 """
 
@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 
 def records_path() -> Path:
-    return state_dir() / "lowered-games.json"
+    return state_dir() / "lowered-apps.json"
 
 
 class DuckRecords:

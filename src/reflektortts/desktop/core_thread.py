@@ -5,7 +5,7 @@ import threading
 from collections.abc import Callable, Sequence
 from pathlib import Path
 
-from reflektortts.app import run
+from reflektortts.core import run
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +26,7 @@ class CoreThread:
         self._thread.start()
 
     def stop(self) -> None:
-        """Stops the core and waits for it, which takes up to a few seconds while it reads a game."""
+        """Stops the core and waits for it, which takes up to a few seconds while it reads an app."""
         self._stop.set()
         self._thread.join()
 

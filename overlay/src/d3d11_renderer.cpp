@@ -31,7 +31,7 @@ bool use_device(ID3D11Device* device) {
     return ImGui_ImplDX11_Init(g_device, g_context);
 }
 
-// Games replace their swap chain, and sometimes their device, e.g. when switching from
+// Apps replace their swap chain, and sometimes their device, e.g. when switching from
 // the menu to gameplay, so the overlay follows the swap chain that presented last.
 void attach(IDXGISwapChain* swap_chain) {
     ID3D11Device* device = nullptr;
@@ -56,7 +56,7 @@ void attach(IDXGISwapChain* swap_chain) {
 }
 
 // ImGui's backend saves and restores the state it changes, except that it unbinds the hull,
-// domain and compute shaders and leaves them unbound. Games that keep those bound between
+// domain and compute shaders and leaves them unbound. Apps that keep those bound between
 // frames (tessellation, compute) would then draw without them and crash in the driver.
 template <typename Shader>
 struct ShaderBinding {
@@ -118,7 +118,7 @@ void render_d3d11_frame(IDXGISwapChain* swap_chain) {
     if (g_state != State::Running || swap_chain != g_swap_chain) {
         return;
     }
-    // The view is created per frame so the overlay never keeps the game's back buffer alive.
+    // The view is created per frame so the overlay never keeps the app's back buffer alive.
     D3D11_TEXTURE2D_DESC desc{};
     ID3D11RenderTargetView* target = create_render_target(swap_chain, desc);
     if (target == nullptr) {
@@ -128,22 +128,22 @@ void render_d3d11_frame(IDXGISwapChain* swap_chain) {
     ImGui_ImplDX11_NewFrame();
     build_overlay_frame(desc.Width, desc.Height);
 
-    // Setting one render target unbinds the others, so all of the game's are put back.
-    ID3D11RenderTargetView* game_targets[D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT] = {};
-    ID3D11DepthStencilView* game_depth = nullptr;
-    g_context->OMGetRenderTargets(D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT, game_targets, &game_depth);
-    ShaderStages game_stages(g_context);
+    // Setting one render target unbinds the others, so all of the app's are put back.
+    ID3D11RenderTargetView* app_targets[D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT] = {};
+    ID3D11DepthStencilView* app_depth = nullptr;
+    g_context->OMGetRenderTargets(D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT, app_targets, &app_depth);
+    ShaderStages app_stages(g_context);
     g_context->OMSetRenderTargets(1, &target, nullptr);
     ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
-    game_stages.restore(g_context);
-    g_context->OMSetRenderTargets(D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT, game_targets, game_depth);
-    for (ID3D11RenderTargetView* game_target : game_targets) {
-        if (game_target != nullptr) {
-            game_target->Release();
+    app_stages.restore(g_context);
+    g_context->OMSetRenderTargets(D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT, app_targets, app_depth);
+    for (ID3D11RenderTargetView* app_target : app_targets) {
+        if (app_target != nullptr) {
+            app_target->Release();
         }
     }
-    if (game_depth != nullptr) {
-        game_depth->Release();
+    if (app_depth != nullptr) {
+        app_depth->Release();
     }
     target->Release();
 }

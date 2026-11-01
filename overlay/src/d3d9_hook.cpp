@@ -100,7 +100,7 @@ CreateDeviceExFn g_original_create_device_ex = nullptr;
 
 void hook_new_device(HRESULT result, void* device) {
     if (SUCCEEDED(result) && device != nullptr && hook_device_class(*static_cast<void***>(device))) {
-        log_message("Hooked the game's Direct3D 9 device as it was created");
+        log_message("Hooked the app's Direct3D 9 device as it was created");
     }
 }
 
@@ -143,7 +143,7 @@ bool hook_factory_class(void** vtable, bool is_ex) {
     return !is_ex || hook_method(vtable, kCreateDeviceExIndex, &create_device_ex_detour, &g_original_create_device_ex);
 }
 
-// Making a Direct3D object needs no window or device, so it is safe whatever state the game is in.
+// Making a Direct3D object needs no window or device, so it is safe whatever state the app is in.
 bool hook_device_creation(HMODULE d3d9) {
     bool hooked = false;
     auto create = reinterpret_cast<decltype(&Direct3DCreate9)>(GetProcAddress(d3d9, "Direct3DCreate9"));
@@ -164,8 +164,8 @@ bool hook_device_creation(HMODULE d3d9) {
 }
 
 // Devices share their class's vtable, so a throwaway device gives us the class of a device the
-// game made before the overlay arrived. A hardware (HAL) device is like the ones games create;
-// while a game owns the screen in fullscreen that fails, but a null-reference device does not.
+// app made before the overlay arrived. A hardware (HAL) device is like the ones apps create;
+// while an app owns the screen in fullscreen that fails, but a null-reference device does not.
 void** probe_device_vtable(HMODULE d3d9) {
     auto create = reinterpret_cast<decltype(&Direct3DCreate9)>(GetProcAddress(d3d9, "Direct3DCreate9"));
     IDirect3D9* direct3d = create != nullptr ? create(D3D_SDK_VERSION) : nullptr;

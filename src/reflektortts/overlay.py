@@ -1,4 +1,4 @@
-"""Loads the in-game overlay into a game, using the injector built with the overlay."""
+"""Loads the overlay into an app, using the injector built with the overlay."""
 
 import logging
 import subprocess
@@ -8,7 +8,7 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 INJECTOR = "reflektortts-inject.exe"
-# Exit code of the injector when the game and the overlay build differ in bitness.
+# Exit code of the injector when the app and the overlay build differ in bitness.
 WRONG_BITNESS = 3
 TIMEOUT_S = 30
 # Windows errors for a program its antivirus or policy will not let run.
@@ -16,9 +16,9 @@ BLOCKED_BY_ANTIVIRUS = {225, 1260}
 
 
 def inject_overlay(pid: int, overlay_dirs: Sequence[Path]) -> bool:
-    """Tries each overlay build (e.g. 32-bit, then 64-bit) until one matches the game.
+    """Tries each overlay build (e.g. 32-bit, then 64-bit) until one matches the app.
 
-    A failure is reported and the game is read without the overlay.
+    A failure is reported and the app is read without the overlay.
     """
     for directory in overlay_dirs:
         injector = directory / INJECTOR
@@ -37,15 +37,15 @@ def inject_overlay(pid: int, overlay_dirs: Sequence[Path]) -> bool:
             )
         except subprocess.TimeoutExpired:
             logger.error(
-                "The overlay injector did not finish within %d s; the game runs without the overlay.", TIMEOUT_S
+                "The overlay injector did not finish within %d s; the app runs without the overlay.", TIMEOUT_S
             )
             return False
         except OSError as error:
             if getattr(error, "winerror", None) in BLOCKED_BY_ANTIVIRUS:
                 logger.error(
                     "Windows blocked the overlay injector (%s) as unwanted software. Overlays work by loading "
-                    "into the game, which antivirus programs may distrust; allow it in your antivirus to use "
-                    "the overlay. The game is read without it.",
+                    "into the app, which antivirus programs may distrust; allow it in your antivirus to use "
+                    "the overlay. The app is read without it.",
                     injector,
                 )
             else:

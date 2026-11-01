@@ -1,4 +1,4 @@
-"""A loaded, validated profile: one game, or another program, whose text is read aloud."""
+"""A loaded, validated profile: one app, or another program, whose text is read aloud."""
 
 from collections.abc import Mapping
 from dataclasses import dataclass, field
@@ -6,7 +6,7 @@ from typing import Any
 
 
 @dataclass(frozen=True)
-class Game:
+class App:
     title: str
     year: int
 
@@ -53,8 +53,8 @@ class SourceSettings:
 class Profile:
     id: str
     """The file name without .json, e.g. "grand-theft-auto-2-1999"."""
-    game: Game
+    app: App
     match: Match
     sources: tuple[SourceSettings, ...] = field(default=())
     overlay: bool = False
-    """Whether the in-game overlay is loaded into the program; only into builds listed by hash."""
+    """Whether the overlay is loaded into the program; only into builds listed by hash."""

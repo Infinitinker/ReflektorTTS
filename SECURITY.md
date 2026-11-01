@@ -11,7 +11,7 @@ Please do not open a public issue. Report it privately through GitHub instead: o
 - The local API on `127.0.0.1:47821`, including what a web page or another program on the same computer can make it do.
 - The overlay DLL and the injector that loads it into apps.
 - Downloads: lists, archives and the files they install.
-- Profiles, which other players share: anything a crafted profile can make ReflektorTTS do.
+- Profiles, which other users share: anything a crafted profile can make ReflektorTTS do.
 
 ## Supported versions
 

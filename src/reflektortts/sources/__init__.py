@@ -1,1 +1,1 @@
-"""Source plugins: where game text is read from."""
+"""Source plugins: where app text is read from."""

@@ -83,7 +83,7 @@ void forget_renderer_backend() {
 void build_overlay_frame(UINT back_buffer_width, UINT back_buffer_height) {
     ImGui_ImplWin32_NewFrame();
     // ImGui works in window coordinates, where the mouse is; the image is scaled to the
-    // back buffer, which can differ in size when the game or a wrapper scales its image.
+    // back buffer, which can differ in size when the app or a wrapper scales its image.
     ImGuiIO& io = ImGui::GetIO();
     if (io.DisplaySize.x > 0 && io.DisplaySize.y > 0) {
         io.DisplayFramebufferScale = ImVec2(static_cast<float>(back_buffer_width) / io.DisplaySize.x,

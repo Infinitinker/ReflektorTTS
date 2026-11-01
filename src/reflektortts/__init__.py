@@ -1,1 +1,1 @@
-"""ReflektorTTS: your game, read aloud."""
+"""ReflektorTTS: your app, read aloud."""

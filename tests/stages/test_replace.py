@@ -36,11 +36,11 @@ def test_plugin_is_registered() -> None:
 
 
 def write_profile(tmp_path: Path, rule: dict[str, str]) -> Path:
-    path = tmp_path / "game.json"
+    path = tmp_path / "app.json"
     profile = {
         "version": 2,
-        "game": {"title": "Game", "year": 2000},
-        "match": {"executables": [{"name": "game.exe"}]},
+        "app": {"title": "App", "year": 2000},
+        "match": {"executables": [{"name": "app.exe"}]},
         "sources": [{"type": "fixed", "name": "text", "stages": [{"type": "replace", "rules": [rule]}]}],
     }
     path.write_text(json.dumps(profile), "utf-8")

@@ -9,9 +9,9 @@ from reflektortts.desktop.window import status_color
     ("status", "color"),
     [
         (None, DIM),
-        (CoreStatus(game=None, paused=False), ""),
-        (CoreStatus(game="GTA2", paused=False), GOOD),
-        (CoreStatus(game="GTA2", paused=True), BUSY),
+        (CoreStatus(app=None, paused=False), ""),
+        (CoreStatus(app="GTA2", paused=False), GOOD),
+        (CoreStatus(app="GTA2", paused=True), BUSY),
     ],
 )
 def test_the_status_color(status: CoreStatus | None, color: str) -> None:

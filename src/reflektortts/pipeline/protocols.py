@@ -7,7 +7,7 @@ from reflektortts.languages import Languages
 
 
 class Source(Protocol):
-    """Reads the game's current text when polled."""
+    """Reads the app's current text when polled."""
 
     name: str
     poll_interval: float
@@ -16,7 +16,7 @@ class Source(Protocol):
     def read(self, languages: Languages) -> str | None:
         """Returns the text shown right now, or None if there is none. Raises if reading fails.
 
-        languages are the player's; a source that can read the text in several languages reads it
+        languages are the user's; a source that can read the text in several languages reads it
         in the input language.
         """
 

@@ -11,9 +11,9 @@ LANGUAGES = {
     "pl": "Polski",
 }
 
-# A sentence in each language, spoken to let the player hear a voice.
+# A sentence in each language, spoken to let the user hear a voice.
 SAMPLES = {
-    "en": "This is how this voice reads your games.",
+    "en": "This is how this voice reads your apps.",
     "pl": "Tak ten głos czyta twoje gry.",
 }
 

@@ -1,4 +1,4 @@
-"""ProcessMemory for Windows, through ReadProcessMemory. Works on 32-bit games from 64-bit Python."""
+"""ProcessMemory for Windows, through ReadProcessMemory. Works on 32-bit apps from 64-bit Python."""
 
 import ctypes
 import sys
@@ -49,7 +49,7 @@ class WindowsProcessMemory:
         if not handle:
             raise ProcessMemoryError(
                 f"Cannot open the app's process (Windows error {ctypes.get_last_error()}). "
-                "If the game runs as administrator, run ReflektorTTS as administrator too."
+                "If the app runs as administrator, run ReflektorTTS as administrator too."
             )
         self._handle = handle
         wow64 = wintypes.BOOL()
@@ -94,7 +94,7 @@ class WindowsProcessMemory:
             ):
                 raise ProcessMemoryError(
                     f"Cannot list the app's modules (Windows error {ctypes.get_last_error()}). "
-                    "The game may still be starting; try again in a moment."
+                    "The app may still be starting; try again in a moment."
                 )
             if needed.value <= ctypes.sizeof(handles):
                 break

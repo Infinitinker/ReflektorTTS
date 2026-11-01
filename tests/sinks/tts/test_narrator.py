@@ -45,7 +45,7 @@ class Clients:
 
 
 def started(clients: Clients, on_speaking: Callable[[bool], None] = lambda active: None) -> Narrator:
-    """A narrator with its voice loaded, as while a game is read."""
+    """A narrator with its voice loaded, as while an app is read."""
     narrator = Narrator("piper:a", clients.start, on_speaking)
     narrator.start()
     return narrator

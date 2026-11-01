@@ -18,7 +18,7 @@ bool hook_export(HMODULE module, const char* name, Fn detour, Fn* original) {
 }
 
 // Whether a code address lies in the overlay DLL. Input hooks let the overlay's own calls
-// through, so the panel (and ImGui) keep seeing real input while the game does not.
+// through, so the panel (and ImGui) keep seeing real input while the app does not.
 bool is_overlay_code(const void* address);
 
 // The overlay DLL's module handle.

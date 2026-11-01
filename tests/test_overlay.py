@@ -21,7 +21,7 @@ def fake_run(exit_codes: dict[str, int], calls: list[list[str]]) -> Any:
     return run
 
 
-def test_builds_are_tried_until_one_matches_the_game(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_builds_are_tried_until_one_matches_the_app(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     calls: list[list[str]] = []
     monkeypatch.setattr(subprocess, "run", fake_run({"x86": WRONG_BITNESS, "x64": 0}, calls))
 

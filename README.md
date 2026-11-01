@@ -61,7 +61,7 @@ Everything chosen in the panel, the voice included, is saved for each app, in `%
 
 ## App sound
 
-While a line is spoken, ReflektorTTS lowers the app's sound, like a *lektor* speaking over the original, and brings it back half a second after the voice stops. By default the app drops to 30% of its own volume; the panel's Output section switches this off or sets the level. Only the app's slider in the Windows volume mixer is changed, not other apps. If ReflektorTTS stops while the app is lowered, the app's own volume is kept in `%LOCALAPPDATA%\ReflektorTTS\lowered-games.json` and put back the next time the app starts.
+While a line is spoken, ReflektorTTS lowers the app's sound, like a *lektor* speaking over the original, and brings it back half a second after the voice stops. By default the app drops to 30% of its own volume; the panel's Output section switches this off or sets the level. Only the app's slider in the Windows volume mixer is changed, not other apps. If ReflektorTTS stops while the app is lowered, the app's own volume is kept in `%LOCALAPPDATA%\ReflektorTTS\lowered-apps.json` and put back the next time the app starts.
 
 ## Subtitles
 
@@ -111,4 +111,4 @@ The icon of ReflektorTTS, `src/reflektortts/desktop/icon.ico`, is drawn in code 
 
 GPL-3.0-or-later; see [LICENSE](LICENSE). The overlay includes Dear ImGui, nlohmann/json and MinHook, whose licenses are in [THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES).
 
-Reading Avalanche games' files follows the formats as documented by [Gibbed.MadMax](https://github.com/gigaHours/Gibbed.MadMax) (Rick Gibbed, zlib license); file names are hashed with Bob Jenkins' public-domain lookup3. An app's text is read from the player's own copy while it runs and is not stored.
+Reading Avalanche games' files follows the formats as documented by [Gibbed.MadMax](https://github.com/gigaHours/Gibbed.MadMax) (Rick Gibbed, zlib license); file names are hashed with Bob Jenkins' public-domain lookup3. An app's text is read from the user's own copy while it runs and is not stored.

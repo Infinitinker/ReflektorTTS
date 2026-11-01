@@ -24,7 +24,7 @@ struct StageOption {
     std::string summary;
     std::optional<std::string> warning;  // Shown while the stage is switched off.
     bool enabled = true;
-    std::optional<std::string> inactive;  // Why it does nothing with the player's languages.
+    std::optional<std::string> inactive;  // Why it does nothing with the user's languages.
 };
 
 struct SourceStages {
@@ -37,16 +37,16 @@ struct SourceStages {
 // What the overlay knows about the core, from its /v1 API.
 struct CoreState {
     bool connected = false;
-    std::string game;  // Empty while no game is being read.
+    std::string app;  // Empty while no app is being read.
     std::string voice;
     std::string input_language;    // A code, e.g. "en".
     std::string output_language;  // A code, e.g. "pl".
     bool paused = false;
-    bool ducking = true;       // Whether the game's sound is lowered while speaking.
-    float duck_volume = 0.3f;  // The game's volume while speaking, as a fraction of its own.
+    bool ducking = true;       // Whether the app's sound is lowered while speaking.
+    float duck_volume = 0.3f;  // The app's volume while speaking, as a fraction of its own.
     float speech_rate = 1.0f;  // How fast lines are spoken, as a multiple of the voice's own pace.
     bool cut_off_lines = false;  // Whether a new line cuts off the one being spoken.
-    bool subtitles = false;    // Whether lines are shown as subtitles over the game.
+    bool subtitles = false;    // Whether lines are shown as subtitles over the app.
     std::string subtitle_size = "medium";   // "small", "medium" or "large".
     std::string subtitle_position = "top";  // "top" or "bottom".
     std::vector<SourceStages> sources;

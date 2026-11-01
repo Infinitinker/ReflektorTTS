@@ -13,14 +13,14 @@ class TextEvent:
     text: str
     time: float
     output_language: str = DEFAULT_OUTPUT_LANGUAGE
-    """The language the line is prepared, spoken and shown in (ISO 639-1), from the player's settings."""
+    """The language the line is prepared, spoken and shown in (ISO 639-1), from the user's settings."""
     input_language: str = DEFAULT_INPUT_LANGUAGE
-    """The language of the game's text (ISO 639-1), from the player's settings."""
+    """The language of the app's text (ISO 639-1), from the user's settings."""
 
 
 @dataclass(frozen=True)
 class SubtitleEvent:
-    """The subtitle to show over the game from now on; empty text hides it."""
+    """The subtitle to show over the app from now on; empty text hides it."""
 
     text: str
 
@@ -36,7 +36,7 @@ class ErrorEvent:
 
 @dataclass(frozen=True)
 class DownloadEvent:
-    """A download the player started moved on: state is "downloading" (with done and total bytes,
+    """A download the user started moved on: state is "downloading" (with done and total bytes,
     total if known), "installed", "failed" (with a message for the user) or "removed"."""
 
     entry_id: str
@@ -56,13 +56,13 @@ class PreviewEvent:
 
 
 @dataclass(frozen=True)
-class GameInfo:
+class AppInfo:
     title: str
     pid: int
 
 
 @dataclass(frozen=True)
-class UnsupportedGame:
+class UnsupportedApp:
     """A program with a profile is running, but in a build the profile does not list."""
 
     title: str
@@ -72,7 +72,7 @@ class UnsupportedGame:
 
 @dataclass(frozen=True)
 class StageState:
-    """One stage of the game being read, as the player sees it."""
+    """One stage of the app being read, as the user sees it."""
 
     key: str
     """Identifies the stage within its profile, e.g. "subtitles/3:normalize"."""
@@ -81,14 +81,14 @@ class StageState:
     warning: str | None
     """Shown while the stage is switched off, if switching it off breaks reading."""
     enabled: bool
-    """Whether the player has the stage switched on."""
+    """Whether the user has the stage switched on."""
     inactive: str | None = None
-    """Why the stage does nothing with the player's languages, or None if it works with them."""
+    """Why the stage does nothing with the user's languages, or None if it works with them."""
 
 
 @dataclass(frozen=True)
 class SourceStages:
-    """One source of the game being read and its stages, as the player sees them."""
+    """One source of the app being read and its stages, as the user sees them."""
 
     source: str
     type: str
@@ -101,25 +101,25 @@ class SourceStages:
 class Status:
     """What the core is doing; published whenever any of it changes."""
 
-    game: GameInfo | None
-    """The game being read, or None while waiting for one."""
+    app: AppInfo | None
+    """The app being read, or None while waiting for one."""
     voice: str
     input_language: str
     output_language: str
     paused: bool
     ducking: bool
-    """Whether the game's sound is lowered while lines are spoken."""
+    """Whether the app's sound is lowered while lines are spoken."""
     duck_volume: float
-    """The game's volume while lines are spoken, as a fraction of its own volume."""
+    """The app's volume while lines are spoken, as a fraction of its own volume."""
     speech_rate: float
     """How fast lines are spoken, as a multiple of the voice's own pace."""
     cut_off_lines: bool
     """Whether a new line cuts off the one being spoken; otherwise lines wait their turn."""
     subtitles: bool
-    """Whether lines are shown as subtitles over the game."""
+    """Whether lines are shown as subtitles over the app."""
     subtitle_size: str
     subtitle_position: str
     sources: tuple[SourceStages, ...] = ()
-    """The stages of the game being read, per source; empty while waiting for a game."""
-    unsupported: UnsupportedGame | None = None
-    """A running game in a build its profile does not list, which is not read."""
+    """The stages of the app being read, per source; empty while waiting for an app."""
+    unsupported: UnsupportedApp | None = None
+    """A running app in a build its profile does not list, which is not read."""

@@ -7,8 +7,8 @@ from dataclasses import dataclass
 from importlib import resources
 from typing import Any
 
+from reflektortts.apps.detector import RunningApp
 from reflektortts.entry_points import load_plugins
-from reflektortts.games.detector import RunningGame
 from reflektortts.languages import Languages
 from reflektortts.pipeline.protocols import Source, Stage
 from reflektortts.profiles.model import SourceSettings
@@ -27,7 +27,7 @@ class SourcePlugin:
     """The "type" profiles use to pick this plugin, e.g. "memory"."""
     settings_schema: Mapping[str, Any]
     """JSON Schema for the plugin's own fields in a profile's source entry."""
-    create: Callable[[SourceSettings, RunningGame], Source]
+    create: Callable[[SourceSettings, RunningApp], Source]
 
 
 @dataclass(frozen=True)
@@ -46,7 +46,7 @@ class StagePlugin:
     """Shown instead of the summary while the stage is switched off, if reading breaks without it;
     written like the summary."""
     inactive_reason: Callable[[Languages], str | None] = lambda languages: None
-    """Why the stage does nothing with the player's languages, written like the summary, e.g.
+    """Why the stage does nothing with the user's languages, written like the summary, e.g.
     "Input and output language are the same"; None if it works with them. Meanwhile the stage is
     skipped, and the overlay grays it out and shows the reason instead of the summary."""
 

@@ -1,4 +1,4 @@
-"""Downloads: every source's entries with their state, and the downloads the player started.
+"""Downloads: every source's entries with their state, and the downloads the user started.
 
 Several downloads can run at once, each on a thread of its own. Their progress is reported as
 DownloadEvents, at most a few times a second each.
@@ -38,7 +38,7 @@ class Listed:
 class Listing:
     entries: tuple[Listed, ...]
     errors: tuple[str, ...]
-    """Why some source's list could not be shown, for the player."""
+    """Why some source's list could not be shown, for the user."""
 
 
 class Downloads:

@@ -12,7 +12,7 @@ import jsonschema
 from jsonschema.protocols import Validator
 
 from reflektortts.pipeline.plugins import source_plugins, stage_plugins
-from reflektortts.profiles.model import Executable, Game, Match, Profile, SourceSettings, StageSettings
+from reflektortts.profiles.model import App, Executable, Match, Profile, SourceSettings, StageSettings
 
 CURRENT_VERSION = 2
 
@@ -58,7 +58,7 @@ def _migrate(data: dict[str, Any], name: str) -> dict[str, Any]:
     if not isinstance(version, int) or isinstance(version, bool):
         raise ProfileError(f'{name}: "version" must be a whole number.')
     if version > CURRENT_VERSION:
-        raise ProfileError(f"{name}: made for a newer ReflektorTTS (profile version {version}). Update the app.")
+        raise ProfileError(f"{name}: made for a newer ReflektorTTS (profile version {version}). Update ReflektorTTS.")
     while version < CURRENT_VERSION:
         data = MIGRATIONS[version](data)
         version = data["version"]
@@ -133,7 +133,7 @@ def load_profile(path: Path, schemas: PluginSchemas | None = None) -> Profile:
         )
     return Profile(
         id=path.stem,
-        game=Game(title=data["game"]["title"], year=data["game"]["year"]),
+        app=App(title=data["app"]["title"], year=data["app"]["year"]),
         match=Match(executables),
         sources=sources,
         overlay=overlay,

@@ -47,7 +47,7 @@ bool hook_vtable_entry(void** vtable, int index, Fn detour, Fn* original) {
 // before it, whichever came first, and the chain ends at the method. A vtable entry does not
 // chain with them: the Steam overlay calls the entry it finds there as the next hook after its
 // own, while ours calls the method, whose code begins with Steam's jump, and the two call each
-// other until the stack runs out. Games that keep the method's address instead of reading the
+// other until the stack runs out. Apps that keep the method's address instead of reading the
 // vtable each frame are caught as well. Patching the vtable remains the fallback.
 template <typename Fn>
 bool hook_method(void** vtable, int index, Fn detour, Fn* original) {
