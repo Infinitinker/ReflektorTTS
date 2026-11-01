@@ -41,7 +41,7 @@ class Player:
         self._open_output = open_output
 
     def play(self, chunks: Iterable[AudioChunk], cancel: threading.Event) -> bool:
-        """Plays chunks until they run out or cancel is set; returns False if cancelled."""
+        """Plays chunks until they run out or cancel is set; returns False if canceled."""
         stream: OutputStream | None = None
         stream_rate = 0
         try:

@@ -35,7 +35,7 @@ def source(tmp_path: Path, fake: FakeWeb) -> ArgosModels:
     return ArgosModels(tmp_path / "cache", tmp_path / "models", fake.fetch, fake.download, fake.size)
 
 
-def test_models_between_supported_languages_are_listed_with_an_unknown_licence(tmp_path: Path) -> None:
+def test_models_between_supported_languages_are_listed_with_an_unknown_license(tmp_path: Path) -> None:
     entries = source(tmp_path, web()).entries(refresh=True)
 
     assert entries == [

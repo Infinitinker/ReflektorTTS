@@ -55,7 +55,7 @@ Press **Ctrl+Shift+R** to open the ReflektorTTS panel. From top to bottom it fol
 
 Any output language can be chosen. Without a voice for it, the panel's Voice box says so and lines are only translated and shown as subtitles.
 
-Voices and translation models are downloaded only when you ask for it: in the desktop app's **Voices** and **Translations** tabs, which list what Piper and Argos Translate publish. Select one to read its licence as published (for Piper voices, the voice's model card) and to open its page, then **Download** it; it can be used right away, even in a game that is running. **Remove** deletes it again.
+Voices and translation models are downloaded only when you ask for it: in the desktop app's **Voices** and **Translations** tabs, which list what Piper and Argos Translate publish. Select one to read its license as published (for Piper voices, the voice's model card) and to open its page, then **Download** it; it can be used right away, even in a game that is running. **Remove** deletes it again.
 
 Everything chosen in the panel, the voice included, is saved for each game, in `%LOCALAPPDATA%\ReflektorTTS\games\`, one file per game named like its profile (e.g. `mad-max-2015.json`). A game played for the first time starts with the defaults, and deleting its file resets it. `%LOCALAPPDATA%\ReflektorTTS\settings.json` remembers the voice last chosen for each language, so switching a game's output language picks it again.
 
@@ -71,7 +71,7 @@ ReflektorTTS can also show each line as a subtitle over the game, for example th
 
 ReflektorTTS can translate a game into the output language, in the style of a Polish *lektor*. Set the game language (in the panel's Game section) and the output language (in Output); when they differ, profiles with a `translate` stage translate each line before it is spoken. To turn it off, untick `translate` in the panel's Text processing section.
 
-It uses the translation models of [Argos Translate](https://github.com/argosopentech/argos-translate), one per pair of languages, downloaded in the desktop app's Translations tab into `%LOCALAPPDATA%\ReflektorTTS\translation`. They run offline on the CPU, at about 0.1 s per line. Without a model for the game and output languages, `translate` is greyed out with "No translation model for these languages" and lines are read untranslated. The English–Polish model (about 80 MB), for example, is derived from an [OPUS-MT](https://github.com/Helsinki-NLP/Opus-MT) model by Jörg Tiedemann and Santhosh Thottingal and licensed CC-BY 4.0.
+It uses the translation models of [Argos Translate](https://github.com/argosopentech/argos-translate), one per pair of languages, downloaded in the desktop app's Translations tab into `%LOCALAPPDATA%\ReflektorTTS\translation`. They run offline on the CPU, at about 0.1 s per line. Without a model for the game and output languages, `translate` is grayed out with "No translation model for these languages" and lines are read untranslated. The English–Polish model (about 80 MB), for example, is derived from an [OPUS-MT](https://github.com/Helsinki-NLP/Opus-MT) model by Jörg Tiedemann and Santhosh Thottingal and licensed CC-BY 4.0.
 
 ## Local API
 
@@ -111,4 +111,4 @@ The app's icon, `src/reflektortts/desktop/icon.ico`, is drawn in code by `tools/
 
 GPL-3.0-or-later; see [LICENSE](LICENSE).
 
-Reading Avalanche games' files follows the formats as documented by [Gibbed.MadMax](https://github.com/gigaHours/Gibbed.MadMax) (Rick Gibbed, zlib licence); file names are hashed with Bob Jenkins' public-domain lookup3. A game's text is read from the player's own copy while it runs and is not stored.
+Reading Avalanche games' files follows the formats as documented by [Gibbed.MadMax](https://github.com/gigaHours/Gibbed.MadMax) (Rick Gibbed, zlib license); file names are hashed with Bob Jenkins' public-domain lookup3. A game's text is read from the player's own copy while it runs and is not stored.

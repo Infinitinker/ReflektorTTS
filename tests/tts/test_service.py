@@ -24,7 +24,7 @@ class RecordingEngine:
 
 
 class BlockingPlayer:
-    """Plays until cancelled or until finish() is called, reporting each start."""
+    """Plays until canceled or until finish() is called, reporting each start."""
 
     def __init__(self) -> None:
         self.started = threading.Semaphore(0)

@@ -47,7 +47,7 @@ void draw_hint() {
     ImGui::End();
 }
 
-// A coloured dot followed by a label, on the current line.
+// A colored dot followed by a label, on the current line.
 void dot_label(ImU32 color, const char* label) {
     ImVec2 position = ImGui::GetCursorScreenPos();
     float radius = ImGui::GetFontSize() * 0.3f;
@@ -123,7 +123,7 @@ float subtitle_font_size(const std::string& size, float screen_height) {
     return std::max(kMinSubtitleFontSize, screen_height * share);
 }
 
-// The current subtitle, centred at the top or bottom of the screen on a dark band. It is drawn
+// The current subtitle, centered at the top or bottom of the screen on a dark band. It is drawn
 // on the background layer: over the game, under the panel, and never taking input.
 void draw_subtitle(const CoreState& state) {
     if (state.subtitle.empty()) {
@@ -429,7 +429,7 @@ void draw_stage_note(const StageOption& stage) {
 }
 
 void draw_stage(const StageOption& stage) {
-    // A stage that does nothing with the player's languages is greyed out but keeps its tick, so
+    // A stage that does nothing with the player's languages is grayed out but keeps its tick, so
     // it works again as soon as the languages allow. Its reason is not faded, to stay readable.
     ImGui::BeginDisabled(stage.inactive.has_value());
     bool enabled = stage.enabled;
@@ -445,7 +445,7 @@ void draw_text_processing(const CoreState& state) {
     // Source names matter only when a game has more than one source.
     bool headings = state.sources.size() > 1;
     for (const SourceStages& source : state.sources) {
-        // A switched-off source's stages stay visible, greyed out, and keep their own state.
+        // A switched-off source's stages stay visible, grayed out, and keep their own state.
         ImGui::BeginDisabled(!source.enabled);
         if (headings) {
             ImGui::TextUnformatted(source.source.c_str());

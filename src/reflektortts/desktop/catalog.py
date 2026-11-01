@@ -1,6 +1,6 @@
 """What the desktop app shows of the downloads: entries, their state and progress, from the API."""
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -15,7 +15,7 @@ class DownloadItem:
     name: str
     languages: tuple[str, ...]
     size: int | None
-    licence: str | None
+    license: str | None
     page: str
     state: str
     """"available", "downloading" or "installed"."""
@@ -49,7 +49,7 @@ def parse_list(data: Mapping[str, Any]) -> DownloadList:
             name=entry["name"],
             languages=tuple(entry["languages"]),
             size=entry["size"],
-            licence=entry["licence"],
+            license=entry["license"],
             page=entry["page"],
             state=entry["state"],
             done=entry["done"],
@@ -69,6 +69,11 @@ def parse_progress(event: Mapping[str, Any]) -> DownloadProgress | None:
 
 def size_text(size: int | None) -> str:
     return "" if size is None else f"{size / MB:.0f} MB"
+
+
+def summary_text(items: Sequence[DownloadItem]) -> str:
+    installed = sum(item.state == "installed" for item in items)
+    return f"{installed} of {len(items)} installed"
 
 
 def state_text(state: str, done: int = 0, total: int | None = None) -> str:

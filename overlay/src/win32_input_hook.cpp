@@ -188,7 +188,7 @@ void on_win32_input_blocking(bool blocked) {
         g_clip_cursor(nullptr);
         return;
     }
-    // Back where the game left it, so a game that keeps the cursor centred does not see a jump.
+    // Back where the game left it, so a game that keeps the cursor centered does not see a jump.
     g_set_cursor_pos(g_game_cursor.x, g_game_cursor.y);
     if (g_game_clips) {
         g_clip_cursor(&g_game_clip);

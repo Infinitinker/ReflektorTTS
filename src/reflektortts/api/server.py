@@ -150,7 +150,7 @@ def listed_json(listed: Listed) -> dict[str, Any]:
         "name": entry.name,
         "languages": list(entry.languages),
         "size": entry.size,
-        "licence": entry.licence,
+        "license": entry.license,
         "page": entry.page,
         "state": listed.state,
         "done": listed.done,

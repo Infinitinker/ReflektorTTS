@@ -118,7 +118,7 @@ def pop_filter() -> list[Image.Image]:
 
 
 def simple_microphone() -> list[Image.Image]:
-    """For small sizes: only the microphone, centred and bold, with a light head."""
+    """For small sizes: only the microphone, centered and bold, with a light head."""
     body = Image.new("L", (S, S), 0)
     draw = ImageDraw.Draw(body)
     draw.rounded_rectangle((302, 90, 722, 800), radius=210, fill=255)

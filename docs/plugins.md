@@ -138,7 +138,7 @@ class DownloadSource(Protocol):
 DownloadPlugin(name="piper", create=PiperVoices)  # create gets a cache folder of the source's own
 ```
 
-- Every source behaves the same, so the desktop app shows them all alike. An `Entry` has an ID starting with the source's name (`piper:pl_PL-gosia-medium`), a kind (`voice` or `translation`), its languages, size (or `None`), licence as the source publishes it (or `None` if it does not), a page to read more, and whether it is installed.
+- Every source behaves the same, so the desktop app shows them all alike. An `Entry` has an ID starting with the source's name (`piper:pl_PL-gosia-medium`), a kind (`voice` or `translation`), its languages, size (or `None`), license as the source publishes it (or `None` if it does not), a page to read more, and whether it is installed.
 - `entries` lists only languages ReflektorTTS supports. With `refresh`, fetch the list from the internet and save it in the cache folder; without a connection, use the saved list; raise `DownloadError` with a message for the player only if there is neither.
 - `download` checks the download (against the source's checksums, if it gives any), installs it where its engine or stage finds it, and reports progress as it goes; it runs on a thread of its own. Use a staging folder, so a failed download never leaves a broken install.
 - Fetch with `downloads/http.py` and keep lists with `downloads/cache.py`, so every source talks to the internet the same way.

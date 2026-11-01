@@ -33,7 +33,7 @@ class Entry:
     """ISO 639-1: a voice's language, or a translation's from and to."""
     size: int | None
     """In bytes, if the source knows it."""
-    licence: str | None
+    license: str | None
     """As the source publishes it (e.g. a voice's model card), or None if it does not."""
     page: str
     """Where the player can read more about it."""

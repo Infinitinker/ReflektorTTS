@@ -210,7 +210,7 @@ def test_downloads_are_listed_with_their_state_and_errors() -> None:
                     "name": "pl_PL-gosia-medium",
                     "languages": ["pl"],
                     "size": 63,
-                    "licence": "Dataset: CC0",
+                    "license": "Dataset: CC0",
                     "page": "https://x.invalid",
                     "state": "available",
                     "done": 0,

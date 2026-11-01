@@ -1,6 +1,6 @@
 """Avalanche's small archives (SARC version 2), which bundle the files a level or a cutscene needs.
 
-From Gibbed.MadMax (zlib licence): a 16-byte header {u32 4, "SARC", u32 version, u32 table size},
+From Gibbed.MadMax (zlib license): a 16-byte header {u32 4, "SARC", u32 version, u32 table size},
 then the table: per file {u32 name length, name padded with zeros, u32 offset, u32 size}, with
 offsets from the bundle's start.
 """

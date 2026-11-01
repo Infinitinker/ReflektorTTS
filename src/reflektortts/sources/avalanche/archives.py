@@ -1,7 +1,7 @@
 """Avalanche's archives: a .tab file listing each file by the hash of its name, and an .arc file
 with the data.
 
-The layout comes from Gibbed.MadMax (zlib licence). The .tab starts with u32 0x800 (the
+The layout comes from Gibbed.MadMax (zlib license). The .tab starts with u32 0x800 (the
 alignment), then the files stored in chunks: {u32 name hash, u32 chunk count, per chunk {u32
 offset in the file, u32 offset in the compressed data}}; then, to its end, every file: {u32 name
 hash, u32 offset in the .arc, u32 compressed size, u32 size}. A file is stored as is when both

@@ -1,67 +1,106 @@
-"""A tab of downloads of one kind (voices, or translations): a table, the selected entry's licence
-and page, and the button to download or remove it."""
+"""A tab of downloads of one kind (voices, or translations): a table, the selected entry's name,
+license and buttons to download or remove it and to open its page."""
 
 import tkinter as tk
+import tkinter.font as tkfont
 import webbrowser
 from collections.abc import Callable
 from tkinter import ttk
 
-from reflektortts.desktop.catalog import DownloadItem, DownloadProgress, size_text, state_text
+from reflektortts.desktop.catalog import DownloadItem, DownloadProgress, size_text, state_text, summary_text
+from reflektortts.desktop.status_bar import StatusBar
+from reflektortts.desktop.theme import BUSY, DIM, GOOD, group_background, heading_font
 
-DETAILS_LINES = 7
-NO_LICENCE = "The licence is not published with this list. Open its page to read about it."
+LICENSE_LINES = 6
+NO_LICENSE = "The license is not published with this list. Open its page to read about it."
+COLUMNS = (("name", "Name"), ("languages", "Languages"), ("size", "Size"), ("state", "State"))
+COLUMN_PADDING = 24
+"""Pixels added to the widest text of a column."""
 
 
 class DownloadsTab:
     def __init__(
         self,
         parent: ttk.Notebook,
+        status_bar: StatusBar,
         on_download: Callable[[DownloadItem], None],
         on_remove: Callable[[DownloadItem], None],
         language_name: Callable[[str], str],
     ) -> None:
-        self.frame = ttk.Frame(parent, padding=8)
+        self.frame = ttk.Frame(parent, padding=(8, 8, 8, 6))
+        self._status_bar = status_bar
         self._on_download = on_download
         self._on_remove = on_remove
         self._language_name = language_name
         self._items: dict[str, DownloadItem] = {}
         self.frame.columnconfigure(0, weight=1)
         self.frame.rowconfigure(0, weight=1)
+        self._build_table()
+        self._build_details()
 
+    def _build_table(self) -> None:
         table = ttk.Frame(self.frame)
         table.grid(row=0, column=0, sticky="nsew")
         table.columnconfigure(0, weight=1)
         table.rowconfigure(0, weight=1)
-        self._tree = ttk.Treeview(table, columns=("name", "languages", "size", "state"), show="headings")
-        for column, title, width in (
-            ("name", "Name", 340),
-            ("languages", "Languages", 160),
-            ("size", "Size", 80),
-            ("state", "State", 160),
-        ):
+        self._tree = ttk.Treeview(
+            table, columns=[column for column, _ in COLUMNS], show="headings", selectmode="browse"
+        )
+        for column, title in COLUMNS:
             self._tree.heading(column, text=title, anchor="w")
-            self._tree.column(column, width=width, anchor="w")
+            self._tree.column(column, anchor="w", stretch=column == "state")
+        self._tree.tag_configure("installed", foreground=GOOD)
+        self._tree.tag_configure("downloading", foreground=BUSY)
+        self._tree.tag_configure("message", foreground=DIM)
         scroll = ttk.Scrollbar(table, orient="vertical", command=self._tree.yview)
         self._tree.configure(yscrollcommand=scroll.set)
         self._tree.grid(row=0, column=0, sticky="nsew")
         scroll.grid(row=0, column=1, sticky="ns")
         self._tree.bind("<<TreeviewSelect>>", lambda event: self._show_selected())
 
-        details = ttk.LabelFrame(self.frame, text="Licence", padding=8)
-        details.grid(row=1, column=0, sticky="ew", pady=(8, 0))
-        details.columnconfigure(0, weight=1)
-        self._licence = tk.Text(details, height=DETAILS_LINES, wrap="word", relief="flat", state="disabled")
-        self._licence.grid(row=0, column=0, rowspan=3, sticky="nsew")
-        self._button = ttk.Button(details, text="Download", state="disabled", command=self._act)
-        self._button.grid(row=0, column=1, sticky="ew", padx=(8, 0))
-        self._page = ttk.Button(details, text="Open page", state="disabled", command=self._open_page)
-        self._page.grid(row=1, column=1, sticky="ew", padx=(8, 0), pady=(6, 0))
+    def _build_details(self) -> None:
+        header = ttk.Frame(self.frame)
+        header.grid(row=1, column=0, sticky="ew", pady=(8, 4))
+        self._title = ttk.Label(header, text="", font=heading_font())
+        self._title.grid(row=0, column=0, sticky="w")
+        self._subtitle = ttk.Label(header, text="", foreground=DIM)
+        self._subtitle.grid(row=1, column=0, sticky="w")
+
+        group = ttk.LabelFrame(self.frame, text="License", padding=(8, 2, 2, 4))
+        group.grid(row=2, column=0, sticky="ew")
+        group.columnconfigure(0, weight=1)
+        self._license = tk.Text(
+            group,
+            height=LICENSE_LINES,
+            wrap="word",
+            font="TkDefaultFont",
+            background=group_background(),
+            relief="flat",
+            borderwidth=0,
+            highlightthickness=0,
+            state="disabled",
+        )
+        self._license.grid(row=0, column=0, sticky="nsew")
+        license_scroll = ttk.Scrollbar(group, orient="vertical", command=self._license.yview)
+        self._license.configure(yscrollcommand=license_scroll.set)
+        license_scroll.grid(row=0, column=1, sticky="ns")
+
+        buttons = ttk.Frame(self.frame)
+        buttons.grid(row=3, column=0, sticky="w", pady=(8, 0))
+        self._button = ttk.Button(buttons, text="Download", state="disabled", command=self._act)
+        self._button.grid(row=0, column=0)
+        self._page = ttk.Button(buttons, text="Open page", state="disabled", command=self._open_page)
+        self._page.grid(row=0, column=1, padx=(6, 0))
+        self._status_bar.hint(self._button, self._button_hint)
+        self._status_bar.hint(self._page, lambda: "Open its page in your browser, e.g. to read more about its license.")
 
     def show_message(self, message: str) -> None:
         """Shows a message in place of the entries, e.g. while they load."""
         self._tree.delete(*self._tree.get_children())
-        self._tree.insert("", "end", iid="message", values=(message, "", "", ""))
+        self._tree.insert("", "end", iid="message", values=(message, "", "", ""), tags=("message",))
         self._items = {}
+        self._fit_columns()
+        self._status_bar.set_text(self.frame, "")
         self._show_selected()
 
     def show(self, items: list[DownloadItem]) -> None:
@@ -70,19 +109,39 @@ class DownloadsTab:
         self._tree.delete(*self._tree.get_children())
         self._items = {item.id: item for item in sorted(items, key=lambda item: (item.languages, item.name))}
         for item in self._items.values():
-            self._tree.insert("", "end", iid=item.id, values=self._row(item))
+            self._tree.insert("", "end", iid=item.id, values=self._row(item), tags=(item.state,))
         if selected in self._items:
             self._tree.selection_set(selected)
+            self._tree.see(selected)
+        self._fit_columns()
+        self._status_bar.set_text(self.frame, summary_text(items))
         self._show_selected()
 
     def show_progress(self, progress: DownloadProgress) -> None:
         if progress.id in self._items and progress.state == "downloading":
-            self._tree.set(progress.id, "state", state_text("downloading", progress.done, progress.total))
-            self._show_selected()
+            self._show_downloading(progress.id, progress.done, progress.total)
 
     def _row(self, item: DownloadItem) -> tuple[str, str, str, str]:
-        languages = ", ".join(self._language_name(language) for language in item.languages)
-        return item.name, languages, size_text(item.size), state_text(item.state, item.done, item.total)
+        return item.name, self._languages(item), size_text(item.size), state_text(item.state, item.done, item.total)
+
+    def _languages(self, item: DownloadItem) -> str:
+        return ", ".join(self._language_name(language) for language in item.languages)
+
+    def _fit_columns(self) -> None:
+        """Sizes each column to its widest text; the last one also takes the room left."""
+        style = ttk.Style()
+        font = tkfont.nametofont(style.lookup("Treeview", "font") or "TkDefaultFont")
+        heading = tkfont.nametofont(style.lookup("Treeview.Heading", "font") or "TkHeadingFont")
+        rows = self._tree.get_children()
+        for column, title in COLUMNS:
+            texts = [str(self._tree.set(row, column)) for row in rows]
+            width = max([heading.measure(title), *(font.measure(text) for text in texts)])
+            self._tree.column(column, width=width + COLUMN_PADDING)
+
+    def _show_downloading(self, item_id: str, done: int, total: int | None) -> None:
+        self._tree.set(item_id, "state", state_text("downloading", done, total))
+        self._tree.item(item_id, tags=("downloading",))
+        self._show_selected()
 
     def _selected_id(self) -> str | None:
         selection = self._tree.selection()
@@ -92,22 +151,38 @@ class DownloadsTab:
         selected = self._selected_id()
         return self._items.get(selected) if selected else None
 
+    def _downloading(self, item: DownloadItem) -> bool:
+        return "downloading" in self._tree.item(item.id, "tags")
+
     def _show_selected(self) -> None:
         item = self._selected()
-        self._licence.configure(state="normal")
-        self._licence.delete("1.0", "end")
+        self._title.configure(text="" if item is None else item.name)
+        details = [] if item is None else [self._languages(item), size_text(item.size)]
+        self._subtitle.configure(text=", ".join(detail for detail in details if detail))
+        self._license.configure(state="normal")
+        self._license.delete("1.0", "end")
         if item is not None:
-            self._licence.insert("1.0", item.licence or NO_LICENCE)
-        self._licence.configure(state="disabled")
+            self._license.insert("1.0", item.license or NO_LICENSE)
+        self._license.configure(state="disabled")
         self._page.configure(state="disabled" if item is None else "normal")
         if item is None:
             self._button.configure(text="Download", state="disabled")
-        elif self._tree.set(item.id, "state").startswith("Downloading"):
+        elif self._downloading(item):
             self._button.configure(text="Downloading…", state="disabled")
         elif item.state == "installed":
             self._button.configure(text="Remove", state="normal")
         else:
             self._button.configure(text="Download", state="normal")
+
+    def _button_hint(self) -> str:
+        item = self._selected()
+        if item is None:
+            return ""
+        if self._downloading(item):
+            return "It is being downloaded."
+        if item.state == "installed":
+            return "Delete it from this computer. It can be downloaded again."
+        return "Download it. It can be used right away, even in a game that is running."
 
     def _act(self) -> None:
         item = self._selected()
@@ -116,8 +191,7 @@ class DownloadsTab:
         if item.state == "installed":
             self._on_remove(item)
         else:
-            self._tree.set(item.id, "state", state_text("downloading", 0, item.size))
-            self._show_selected()
+            self._show_downloading(item.id, 0, item.size)
             self._on_download(item)
 
     def _open_page(self) -> None:

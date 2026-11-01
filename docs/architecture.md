@@ -58,7 +58,7 @@ A failing source, stage or sink is reported once as a `source.error`, `stage.err
 |---|---|
 | `src/reflektortts/__main__.py`, `app.py` | Command line; the core's main loop and its controls for the API |
 | `arguments.py`, `logs.py` | Command line options and where logs go, shared by the command line and the desktop app |
-| `desktop/` | The desktop app: runs the core on a background thread, with a tray icon (pystray) and a window (Tkinter) that follow the core through the local API, like the overlay. The window has a Status tab and one tab per kind of download (voices, translations) |
+| `desktop/` | The desktop app: runs the core on a background thread, with a tray icon (pystray) and a window (Tkinter) that follow the core through the local API, like the overlay. The window has a Status tab, one tab per kind of download (voices, translations) and a status bar that says what the button under the mouse does |
 | `events.py`, `bus.py` | Event types and the event bus |
 | `pipeline/` | Plugin contracts, the plugin registry and the runner |
 | `profiles/` | Profile schema, loader and migrations |
@@ -95,7 +95,7 @@ Writing plugins: [plugins.md](plugins.md). The local API: [api.md](api.md).
 |---|---|---|---|
 | Memory: subtitle buffer | no | per game | **Done.** Needs a static pointer; proven on GTA2 |
 | Memory: label of the current line + the game's text table | usually | per game | Text comes from the game's files (e.g. GXT), with exact timing. **Done** for Avalanche's engine (Mad Max, `avalanche` source): the line's ID from memory, its text in the game language from the game's archives, read in a few seconds in the background as soon as the game is detected |
-| OCR | no | any game | Struggles with coloured text and textures; works better on frames grabbed by the overlay |
+| OCR | no | any game | Struggles with colored text and textures; works better on frames grabbed by the overlay |
 | Clipboard | depends on the tool | any game with a tool like Textractor | |
 | Speech recognition (Whisper) | yes | any game | Audio of one process (Windows process loopback); about 1–2 s delay. Will check the `Source` contract on a source that pushes text |
 | Game function hook | yes | per game | Needs code inside the game (the overlay) |
@@ -115,7 +115,7 @@ Finding a line's label when subtitles can be turned off: turn subtitles on and f
 ### Overlay
 
 - A profile editor with forms built from the plugins' schemas.
-- Selecting an OCR region and text colours directly on the game's frame, and OCR on frames grabbed from the back buffer (works in fullscreen too).
+- Selecting an OCR region and text colors directly on the game's frame, and OCR on frames grabbed from the back buffer (works in fullscreen too).
 - Searching the game's memory for text and pointers from inside the game.
 - More graphics APIs: OpenGL and Vulkan (Direct3D 9, 11 and 12 are done). DirectDraw and Direct3D 1–8 games work through a wrapper such as dgVoodoo2.
 

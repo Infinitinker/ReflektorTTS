@@ -1,7 +1,7 @@
 """Reads a stringlookup file: a game's text, one table per language, keyed by line ID.
 
 A stringlookup is an ADF file (Avalanche's data format, version 4, as Gibbed.MadMax reads it,
-zlib licence): a 0x40-byte header {" FDA", u32 version, u32 instance count, u32 instance offset,
+zlib license): a 0x40-byte header {" FDA", u32 version, u32 instance count, u32 instance offset,
 ...}, and per instance {u32 name hash, u32 type hash, u32 offset, u32 size, s64 name}. A
 stringlookup instance starts {u64 index offset, u64 line count, u64 text offset, u64 text size},
 offsets from the instance. Its index has a 24-byte entry per line: {u32 line ID, u32 offset in

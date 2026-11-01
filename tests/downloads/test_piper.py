@@ -51,7 +51,7 @@ def test_voices_in_supported_languages_are_listed_with_their_model_card(tmp_path
         name="pl_PL-gosia-medium",
         languages=("pl",),
         size=len(MODEL) + len(CONFIG),
-        licence="# Model card for pl_PL-gosia-medium\n\nDataset: CC0",
+        license="# Model card for pl_PL-gosia-medium\n\nDataset: CC0",
         page=PAGE_URL + "pl/pl_PL/gosia/medium",
         installed=False,
     )
@@ -103,7 +103,7 @@ def test_offline_the_saved_list_is_shown_and_cards_are_fetched_once(tmp_path: Pa
 
     entries = source(tmp_path, fake).entries(refresh=True)
 
-    assert len(entries) == 2 and entries[0].licence is not None
+    assert len(entries) == 2 and entries[0].license is not None
     assert fake.fetched == [INDEX_URL]
 
 

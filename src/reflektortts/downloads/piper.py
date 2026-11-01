@@ -1,6 +1,6 @@
 """Piper voices from their published list (rhasspy/piper-voices on Hugging Face).
 
-The list gives each voice's files with their sizes and MD5 checksums. Licences are not in it: each
+The list gives each voice's files with their sizes and MD5 checksums. Licenses are not in it: each
 voice's model card describes its dataset and training, so the card's text is shown as published.
 """
 
@@ -107,7 +107,7 @@ class PiperVoices:
             name=key,
             languages=(info["language"]["family"],),
             size=sum(file["size_bytes"] for file in files.values()),
-            licence=card,
+            license=card,
             page=PAGE_URL + str(PurePosixPath(model).parent),
             installed=installed,
         )

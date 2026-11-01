@@ -1,7 +1,7 @@
 """Translation models from Argos Translate's published package index.
 
-The index gives each model's languages and download link only: no licence, size or checksum. The
-size is asked from the server; the licence is unknown until the model is downloaded (it is in the
+The index gives each model's languages and download link only: no license, size or checksum. The
+size is asked from the server; the license is unknown until the model is downloaded (it is in the
 package), so the page to read about the models is shown instead.
 """
 
@@ -47,7 +47,7 @@ class ArgosModels:
                 name=f"{package['from_name']} → {package['to_name']}",
                 languages=pair,
                 size=sizes.get(package["links"][0]),
-                licence=None,
+                license=None,
                 page=PAGE_URL,
                 installed=installed_model(pair, self._models) is not None,
             )

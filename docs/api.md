@@ -162,7 +162,7 @@ Lists every source's entries in the languages ReflektorTTS supports. With `?refr
       "name": "pl_PL-gosia-medium",
       "languages": ["pl"],
       "size": 63205000,
-      "licence": "# Model card for gosia (medium) ...",
+      "license": "# Model card for gosia (medium) ...",
       "page": "https://huggingface.co/rhasspy/piper-voices/tree/main/pl/pl_PL/gosia/medium",
       "state": "available",
       "done": 0,
@@ -175,7 +175,7 @@ Lists every source's entries in the languages ReflektorTTS supports. With `?refr
 
 - `kind`: `voice` or `translation`; `languages`: a voice's language, or a translation's from and to.
 - `size` in bytes, or `null` if the source does not say.
-- `licence`: as the source publishes it (for Piper voices, the voice's model card), or `null` if the source does not; `page` is where to read more.
+- `license`: as the source publishes it (for Piper voices, the voice's model card), or `null` if the source does not; `page` is where to read more.
 - `state`: `available`, `downloading` (with `done` and `total` bytes) or `installed`.
 - `errors`: why a source's list could not be shown, e.g. without an internet connection and no list saved earlier; the other sources are still listed.
 
