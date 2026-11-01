@@ -5,7 +5,7 @@ from typing import Any
 
 import pytest
 
-from reflektortts.api.server import NoAppError, SourceError, StageError
+from reflektortts.api.server import NoAppError, SourceError, StageError, UnknownProfileError
 from reflektortts.apps.detector import ProcessInfo, RunningApp
 from reflektortts.bus import Event
 from reflektortts.core import Core, build_routes, read_app
@@ -15,6 +15,7 @@ from reflektortts.events import AppInfo, DownloadEvent, ErrorEvent, Status, Text
 from reflektortts.languages import LanguageError, Languages
 from reflektortts.pipeline.plugins import SourcePlugin, StagePlugin
 from reflektortts.pipeline.runner import Route
+from reflektortts.profiles.catalog import CatalogEntry, Origin, ProfileState
 from reflektortts.profiles.model import App, Executable, Match, Profile, SourceSettings, StageSettings
 from reflektortts.settings import ProfileSettings, load_profile_settings, load_shared
 from reflektortts.sinks.tts.narrator import Narrator
@@ -186,11 +187,15 @@ def saved_for(tmp_path: Path, profile: Profile) -> ProfileSettings:
     return load_profile_settings(tmp_path, profile.id)
 
 
+def bundled(*profiles: Profile) -> list[CatalogEntry]:
+    return [CatalogEntry(profile.id, Origin.BUNDLED, Path(f"{profile.id}.json"), profile) for profile in profiles]
+
+
 def make_core(
     tmp_path: Path, clients: Clients, voices: list[VoiceInfo] | None = None, previews: Clients | None = None
 ) -> Core:
     return Core(
-        profiles=[GTA2],
+        catalog=bundled(GTA2),
         settings_dir=tmp_path,
         narrator_factory=lambda voice, on_speaking: Narrator(voice, clients.start, on_speaking),
         list_voices=lambda: [LJSPEECH, ADAM, PAULINA] if voices is None else voices,
@@ -550,7 +555,7 @@ def test_the_status_says_why_a_stage_does_nothing_and_keeps_its_tick(tmp_path: P
 
 def core_playing(tmp_path: Path, is_running: Callable[[int], bool], exit_grace_seconds: float) -> Core:
     core = Core(
-        profiles=[],
+        catalog=[],
         settings_dir=tmp_path,
         narrator_factory=lambda voice, on_speaking: Narrator(voice, Clients().start, on_speaking),
         list_voices=lambda: [ADAM],
@@ -631,3 +636,25 @@ def test_an_unsupported_build_is_reported_until_it_exits_and_not_read(tmp_path: 
     statuses = [event for event in events if isinstance(event, Status)]
     assert [status.unsupported for status in statuses] == [UnsupportedApp("Grand Theft Auto 2", "abc"), None]
     assert all(status.app is None for status in statuses)
+
+
+def test_a_switched_off_profile_is_saved_stops_being_read_and_shows_its_state(tmp_path: Path) -> None:
+    core = make_core(tmp_path, Clients())
+    core._is_running = lambda pid: True
+    core._enter(playing(GTA2))
+    watching = core._watching(playing(GTA2))
+    events: list[Event] = []
+    core.subscribe(events.append)
+
+    assert [view.state for view in core.profiles()] == [ProfileState.READING]
+    assert watching(42)
+    status = core.set_profile_enabled(GTA2.id, False)
+
+    assert events == [status]
+    assert not watching(42)
+    assert [view.state for view in core.profiles()] == [ProfileState.SWITCHED_OFF]
+    assert load_shared(tmp_path).disabled_profiles == (GTA2.id,)
+    core.set_profile_enabled(GTA2.id, True)
+    assert load_shared(tmp_path).disabled_profiles == ()
+    with pytest.raises(UnknownProfileError, match='no profile "nope"'):
+        core.set_profile_enabled("nope", False)

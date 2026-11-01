@@ -11,7 +11,7 @@ from typing import Any, Concatenate
 
 import psutil
 
-from reflektortts.api.server import ApiServer, NoAppError, SourceError, StageError
+from reflektortts.api.server import ApiServer, NoAppError, SourceError, StageError, UnknownProfileError
 from reflektortts.apps.detector import Builds, RunningApp, find_running_apps
 from reflektortts.bus import EventBus, Listener
 from reflektortts.downloads.manager import Downloads, Listing
@@ -41,7 +41,15 @@ from reflektortts.overlay import inject_overlay
 from reflektortts.pipeline.plugins import SourcePlugin, StagePlugin, inactive_reason, source_plugins, stage_plugins
 from reflektortts.pipeline.protocols import Sink
 from reflektortts.pipeline.runner import Route, Runner, log_error
-from reflektortts.profiles.loader import load_profiles
+from reflektortts.profiles.catalog import (
+    CatalogEntry,
+    Choice,
+    ProfileState,
+    ProfileView,
+    Standing,
+    choose,
+    load_catalog,
+)
 from reflektortts.profiles.model import Profile
 from reflektortts.settings import (
     ProfileSettings,
@@ -60,7 +68,7 @@ from reflektortts.user_dirs import cache_dir, data_dir
 
 logger = logging.getLogger(__name__)
 
-GAME_CHECK_SECONDS = 2.0
+APP_CHECK_SECONDS = 2.0
 EXIT_GRACE_SECONDS = 2.0
 """How long a source error waits for the app to exit before it is reported: while an app exits,
 its memory is torn down before Windows counts the process as gone, so sources fail first."""
@@ -172,7 +180,7 @@ def read_app(
     stop: threading.Event,
     on_error: Callable[[ErrorEvent], None] = log_error,
     is_running: Callable[[int], bool] = psutil.pid_exists,
-    check_seconds: float = GAME_CHECK_SECONDS,
+    check_seconds: float = APP_CHECK_SECONDS,
     languages: Callable[[], Languages] = lambda: Languages(DEFAULT_INPUT_LANGUAGE, DEFAULT_OUTPUT_LANGUAGE),
 ) -> None:
     """Runs the pipeline until the app exits or stop is set, then closes the sources."""
@@ -212,7 +220,7 @@ class Core:
 
     def __init__(
         self,
-        profiles: Sequence[Profile],
+        catalog: Sequence[CatalogEntry],
         settings_dir: Path,
         overlay_dirs: Sequence[Path] = (),
         narrator_factory: Callable[[str, Callable[[bool], None]], Narrator] = start_narrator,
@@ -227,11 +235,12 @@ class Core:
     ) -> None:
         self._lock = threading.RLock()
         """Held by every change; reentrant, since changes call each other and status()."""
-        self._profiles = profiles
+        self._catalog = list(catalog)
         self._is_running = is_running
         self._exit_grace_seconds = exit_grace_seconds
         self._settings_dir = settings_dir
         self._shared = load_shared(settings_dir)
+        self._choices = choose(self._catalog, self._shared.disabled_profiles)
         self._settings = ProfileSettings()
         self._overlay_dirs = overlay_dirs
         self._list_voices = list_voices
@@ -249,6 +258,7 @@ class Core:
         self._app: AppInfo | None = None
         self._profile: Profile | None = None
         self._unsupported: UnsupportedApp | None = None
+        self._unsupported_profile: str | None = None
         self._builds = Builds()
         sources = load_download_sources() if download_sources is None else download_sources
         self._downloads = Downloads(sources, self._downloaded)
@@ -377,6 +387,24 @@ class Core:
         self._change(disabled_stages=_switched(self._settings.disabled_stages, key, enabled))
         return self._publish_status()
 
+    @_serialized
+    def profiles(self) -> list[ProfileView]:
+        """Every profile, with why it is not used or what its app is doing."""
+        return [ProfileView(choice, self._profile_state(choice)) for choice in self._choices]
+
+    @_serialized
+    def set_profile_enabled(self, profile_id: str, enabled: bool) -> Status:
+        """Switches a profile on or off, saved for the user. A switched-off profile's app is not
+        watched, and stops being read at once; which profiles clash is decided again."""
+        if profile_id not in {entry.id for entry in self._catalog}:
+            ids = ", ".join(entry.id for entry in self._catalog)
+            raise UnknownProfileError(f'There is no profile "{profile_id}". Profiles: {ids}.')
+        disabled = _switched(self._shared.disabled_profiles, profile_id, enabled)
+        self._shared = replace(self._shared, disabled_profiles=disabled)
+        save_shared(self._shared, self._settings_dir)
+        self._choices = choose(self._catalog, disabled)
+        return self._publish_status()
+
     def downloads(self, refresh: bool) -> Listing:
         """What can be downloaded, with what is installed or downloading; refresh fetches the lists."""
         return self._downloads.listing(refresh)
@@ -396,11 +424,11 @@ class Core:
         """Reads every profiled app that starts, one at a time, until stop is set."""
         sources = source_plugins()
         sinks: list[Sink] = [TtsSink(self._narrator), self._subtitles, BusSink(self._bus)]
-        logger.info("Watching for %s", ", ".join(profile.app.title for profile in self._profiles))
+        self._log_choices()
         while not stop.is_set():
-            apps = sorted(find_running_apps(self._profiles, builds=self._builds), key=lambda app: not app.supported)
+            apps = sorted(find_running_apps(self._used(), builds=self._builds), key=lambda app: not app.supported)
             if not apps:
-                stop.wait(GAME_CHECK_SECONDS)
+                stop.wait(APP_CHECK_SECONDS)
                 continue
             app = apps[0]
             if not app.supported:
@@ -419,7 +447,7 @@ class Core:
                 logger.warning("%s is running, but its profile has no sources to read yet.", app.profile.app.title)
             else:
                 logger.error("%s is running, but none of its sources could start.", app.profile.app.title)
-            read_app(app, routes, sinks, stop, self._report, self._is_running, languages=self.languages)
+            read_app(app, routes, sinks, stop, self._report, self._watching(app), languages=self.languages)
             logger.info("%s closed", app.profile.app.title)
             self._ducker.watch(None)
             self._leave()
@@ -434,15 +462,49 @@ class Core:
             app.process.name,
             app.build or "unknown",
         )
-        self._set_unsupported(UnsupportedApp(title, app.build))
-        while not stop.is_set() and self._is_running(app.process.pid):
-            stop.wait(GAME_CHECK_SECONDS)
-        self._set_unsupported(None)
+        self._set_unsupported(UnsupportedApp(title, app.build), app.profile.id)
+        watching = self._watching(app)
+        while not stop.is_set() and watching(app.process.pid):
+            stop.wait(APP_CHECK_SECONDS)
+        self._set_unsupported(None, None)
 
     @_serialized
-    def _set_unsupported(self, unsupported: UnsupportedApp | None) -> None:
+    def _set_unsupported(self, unsupported: UnsupportedApp | None, profile_id: str | None) -> None:
         self._unsupported = unsupported
+        self._unsupported_profile = profile_id
         self._publish_status()
+
+    def _used(self) -> list[Profile]:
+        return [
+            choice.entry.profile
+            for choice in self._choices
+            if choice.entry.profile and choice.standing == Standing.USED
+        ]
+
+    def _watching(self, app: RunningApp) -> Callable[[int], bool]:
+        """Whether an app is still to be read: it runs, and its profile was not switched off (or
+        set aside) meanwhile, which ends reading as if the app had closed."""
+
+        def watching(pid: int) -> bool:
+            return self._is_running(pid) and any(profile.id == app.profile.id for profile in self._used())
+
+        return watching
+
+    def _profile_state(self, choice: Choice) -> ProfileState:
+        if choice.standing != Standing.USED:
+            return ProfileState(choice.standing.value)
+        if self._profile is not None and self._profile.id == choice.entry.id:
+            return ProfileState.READING
+        if self._unsupported_profile == choice.entry.id:
+            return ProfileState.UNSUPPORTED
+        return ProfileState.NOT_RUNNING
+
+    def _log_choices(self) -> None:
+        for choice in self._choices:
+            if choice.standing in (Standing.BROKEN, Standing.CLASH, Standing.NOT_USED):
+                logger.error("Not using the profile %s: %s", choice.entry.id, choice.reason)
+        titles = [profile.app.title for profile in self._used()]
+        logger.info("Watching for %s", ", ".join(titles) if titles else "nothing: no profile is used")
 
     def close(self) -> None:
         self._narrator.close()
@@ -577,19 +639,10 @@ class Core:
         return status
 
 
-class NoProfilesError(Exception):
-    """There is no app profile to watch for."""
-
-
 def run(profiles_dir: Path, settings_dir: Path, overlay_dirs: Sequence[Path], stop: threading.Event) -> None:
-    """Starts the core and its API, and runs until stop is set or the process is interrupted."""
-    profiles, errors = load_profiles(profiles_dir) if profiles_dir.is_dir() else ([], [])
-    for error in errors:
-        logger.error("Skipping a profile: %s", error)
-    if not profiles:
-        raise NoProfilesError(f"No profiles in {profiles_dir}. Copy a profile there or pass --profiles.")
-
-    core = Core(profiles, settings_dir, overlay_dirs)
+    """Starts the core and its API, and runs until stop is set or the process is interrupted.
+    profiles_dir holds the user's own profiles, next to the bundled ones."""
+    core = Core(load_catalog(profiles_dir), settings_dir, overlay_dirs)
     server = ApiServer(core)
     try:
         server.start()

@@ -145,16 +145,3 @@ def _check_unique_names(sources: tuple[SourceSettings, ...], name: str) -> None:
         if source.name in seen:
             raise ProfileError(f'{name}: two sources are named "{source.name}"; give each its own name.')
         seen.add(source.name)
-
-
-def load_profiles(directory: Path, schemas: PluginSchemas | None = None) -> tuple[list[Profile], list[ProfileError]]:
-    """Loads every *.json profile in directory; a broken one is reported, not fatal."""
-    schemas = installed_plugin_schemas() if schemas is None else schemas
-    profiles: list[Profile] = []
-    errors: list[ProfileError] = []
-    for path in sorted(directory.glob("*.json")):
-        try:
-            profiles.append(load_profile(path, schemas))
-        except ProfileError as error:
-            errors.append(error)
-    return profiles, errors

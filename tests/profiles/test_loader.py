@@ -6,10 +6,8 @@ import pytest
 from jsonschema import Draft202012Validator
 
 from reflektortts.profiles import loader
-from reflektortts.profiles.loader import PluginSchemas, ProfileError, load_profile, load_profiles
+from reflektortts.profiles.loader import PluginSchemas, ProfileError, load_profile
 from reflektortts.profiles.model import App, Executable, Match, Profile, SourceSettings, StageSettings
-
-REPO_PROFILES = Path(__file__).resolve().parents[2] / "profiles"
 
 VALID: dict[str, Any] = {
     "version": 1,
@@ -48,13 +46,6 @@ def test_builds_are_listed_by_hash_and_the_overlay_is_off_unless_asked_for(tmp_p
 def test_the_overlay_needs_the_builds_it_was_tested_with(tmp_path: Path) -> None:
     with pytest.raises(ProfileError, match='app.json: "overlay" needs the "sha256" of every executable'):
         load_profile(write(tmp_path, "app.json", VALID | {"overlay": True}))
-
-
-def test_profiles_shipped_in_the_repo_are_valid() -> None:
-    profiles, errors = load_profiles(REPO_PROFILES)
-
-    assert errors == []
-    assert "grand-theft-auto-2-1999" in [profile.id for profile in profiles]
 
 
 @pytest.mark.parametrize(
@@ -185,14 +176,3 @@ def test_stage_settings_are_validated_against_the_plugin_schema(tmp_path: Path) 
 
     with pytest.raises(ProfileError, match=r"\$\.sources\[0\]\.stages\[0\]\.limit: '3' is not of type 'integer'"):
         load_profile(write(tmp_path, "app.json", data), SCHEMAS)
-
-
-def test_broken_profile_does_not_stop_the_others(tmp_path: Path) -> None:
-    write(tmp_path, "a-good-1999.json", VALID)
-    write(tmp_path, "b-broken.json", "[]")
-    write(tmp_path, "notes.txt", "not a profile")
-
-    profiles, errors = load_profiles(tmp_path)
-
-    assert [profile.id for profile in profiles] == ["a-good-1999"]
-    assert [str(error) for error in errors] == ["b-broken.json: must contain a JSON object."]

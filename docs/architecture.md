@@ -61,7 +61,7 @@ A failing source, stage or sink is reported once as a `source.error`, `stage.err
 | `desktop/` | The desktop app: runs the core on a background thread, with a tray icon (pystray) and a window (Tkinter) that follow the core through the local API, like the overlay. The window has a Status tab, one tab per kind of download (voices, translations) and a status bar that says what the button under the mouse does |
 | `events.py`, `bus.py` | Event types and the event bus |
 | `pipeline/` | Plugin contracts, the plugin registry and the runner |
-| `profiles/` | Profile schema, loader and migrations |
+| `profiles/` | Profiles: the format (`profile.schema.json`), loading, checking and migrating a file (`loader.py`), which profiles are used, of the bundled ones and the user's own (`catalog.py`), and the bundled profiles (`bundled/`); see [profiles.md](profiles.md) |
 | `apps/` | Finds running apps with a profile, and which build each is (`executable.py`) |
 | `sources/`, `stages/`, `sinks/` | Built-in plugins |
 | `sinks/tts/` | The tts sink: the core's side of speech (the narrator, which pauses and switches voices, and the client that starts the TTS process; the process runs only while an app is read), and the voice preview, which speaks a sample sentence through a TTS process of its own that exits once it is spoken |
@@ -71,11 +71,10 @@ A failing source, stage or sink is reported once as a `source.error`, `stage.err
 | `ducking/` | Lowers the app's sound while lines are spoken; the per-app volume has one implementation per OS (`windows.py`, WASAPI audio sessions) |
 | `languages.py` | Supported languages and their checks |
 | `api/` | The local API (`server.py`), the check that keeps web pages out (`guard.py`) and its error answers (`errors.py`) |
-| `settings.py` | Per-user settings: one file per app, and the voice remembered for each language |
+| `settings.py` | Per-user settings: one file per app, and shared ones (the voice remembered for each language, the profiles switched off) |
 | `user_dirs.py` | The per-user folders (`%LOCALAPPDATA%\ReflektorTTS` on Windows) |
 | `overlay.py` | Loads the overlay into an app |
 | `overlay/` (repository root) | The overlay (C++); see [overlay/README.md](../overlay/README.md) |
-| `profiles/` (repository root) | Profiles; see [profiles/README.md](../profiles/README.md) |
 | `tests/` (repository root) | Tests, mirroring `src/reflektortts/` |
 | `tools/` (repository root) | Developer tools, not part of ReflektorTTS: `draw_icon.py` draws the ReflektorTTS icon |
 

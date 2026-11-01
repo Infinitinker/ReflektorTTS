@@ -62,25 +62,30 @@ def find_running_apps(
     builds: Builds | None = None,
 ) -> list[RunningApp]:
     """Returns every running process that a profile's executables name, in process order; a
-    build the profile does not list is returned as not supported.
+    build no profile lists is returned as not supported.
 
-    Names are compared case-insensitively, since Windows ignores case in file names.
+    Several profiles can name one executable when they list different builds of it (e.g. a
+    retail and a Steam release); the build decides. Names are compared case-insensitively, since
+    Windows ignores case in file names.
     """
     builds = builds or Builds()
-    by_name: dict[str, tuple[Profile, Executable]] = {
-        executable.name.lower(): (profile, executable)
-        for profile in profiles
-        for executable in profile.match.executables
-    }
+    by_name: dict[str, list[tuple[Profile, Executable]]] = {}
+    for profile in profiles:
+        for executable in profile.match.executables:
+            by_name.setdefault(executable.name.lower(), []).append((profile, executable))
     apps = []
     for process in list_processes():
-        found = by_name.get(process.name.lower())
-        if found is None:
+        candidates = by_name.get(process.name.lower())
+        if not candidates:
             continue
-        profile, executable = found
-        if not executable.sha256:
-            apps.append(RunningApp(profile, process))
+        any_build = next((profile for profile, executable in candidates if not executable.sha256), None)
+        if any_build is not None:
+            apps.append(RunningApp(any_build, process))
             continue
         build = builds.of(process)
-        apps.append(RunningApp(profile, process, build, supported=build in executable.sha256))
+        listing = next((profile for profile, executable in candidates if build in executable.sha256), None)
+        if listing is not None:
+            apps.append(RunningApp(listing, process, build))
+        else:
+            apps.append(RunningApp(candidates[0][0], process, build, supported=False))
     return apps

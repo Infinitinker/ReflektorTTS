@@ -129,6 +129,36 @@ Switches a source of the app being read on or off. A switched-off source is not 
 
 Returns the status.
 
+### `GET /v1/profiles`
+
+Lists every profile, bundled and the user's own, in ID order:
+
+```json
+{
+  "profiles": [
+    {
+      "id": "grand-theft-auto-2-1999",
+      "title": "Grand Theft Auto 2",
+      "year": 1999,
+      "origin": "bundled",
+      "state": "reading",
+      "reason": null,
+      "file": "...\\profiles\\bundled\\grand-theft-auto-2-1999.json",
+      "overlay": true,
+      "executables": [{ "name": "gta2.exe", "sha256": ["420af867..."] }],
+      "sources": [{ "name": "messages", "type": "memory", "stages": ["tracker", "replace", "translate", "normalize"] }]
+    }
+  ]
+}
+```
+
+- `origin`: `bundled`, `custom` (the user's own) or `override` (the user's own, replacing the bundled profile with its ID).
+- `state`: `reading`, `not_running`, `unsupported` (its app runs in a build the profile does not list), `switched_off`, `not_used` (another profile, the user's own, matches the same app), `clash` (another of the user's own does) or `broken` (the file cannot be read as a profile; `title`, `year` and `overlay` are then `null`). `reason` says why for `not_used`, `clash` and `broken`.
+
+### `PATCH /v1/profiles`
+
+Switches a profile on or off, saved for the user: `{"id": "mad-max-2015", "enabled": false}`. A switched-off profile's app is not watched, and stops being read at once; which profiles clash is decided again. Returns the status; an unknown ID answers 400.
+
 ### `PATCH /v1/stages`
 
 Switches a stage of the app being read on or off. The choice is saved per app and applies to the next line read:

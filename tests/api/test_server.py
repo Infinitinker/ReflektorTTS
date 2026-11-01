@@ -4,6 +4,7 @@ import time
 import urllib.request
 from collections.abc import Awaitable, Callable
 from dataclasses import replace
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -18,6 +19,7 @@ from reflektortts.api.server import (
     NoAppError,
     SourceError,
     StageError,
+    UnknownProfileError,
     create_app,
 )
 from reflektortts.bus import EventBus, Listener
@@ -34,10 +36,24 @@ from reflektortts.events import (
     TextEvent,
 )
 from reflektortts.languages import LanguageError, check_language
+from reflektortts.profiles.catalog import CatalogEntry, Choice, Origin, ProfileState, ProfileView, Standing
+from reflektortts.profiles.model import App, Executable, Match, Profile, SourceSettings, StageSettings
 from reflektortts.tts.engine import VoiceError, VoiceInfo
 
 ADAM = VoiceInfo(
     id="windows:Microsoft Adam", engine="windows", name="Microsoft Adam", language="pl-PL", engine_title="Windows"
+)
+MAD_MAX = CatalogEntry(
+    "mad-max-2015",
+    Origin.BUNDLED,
+    Path("mad-max-2015.json"),
+    Profile(
+        "mad-max-2015",
+        App("Mad Max", 2015),
+        Match((Executable("MadMax.exe", ("cd71",)),)),
+        (SourceSettings("avalanche", "subtitles", 0.1, {}, (StageSettings("tracker", {}),)),),
+        overlay=True,
+    ),
 )
 GOSIA = Entry(
     "piper:pl_PL-gosia-medium",
@@ -67,6 +83,7 @@ class FakeCore:
         self.started: list[str] = []
         self.removed: list[str] = []
         self.previewed: list[str] = []
+        self.switched: list[tuple[str, bool]] = []
         self.current = Status(
             app=AppInfo("Grand Theft Auto 2", 42),
             voice="piper:a",
@@ -160,6 +177,15 @@ class FakeCore:
         if entry_id != GOSIA.id:
             raise UnknownDownloadError(f'There is no download "{entry_id}".')
         self.removed.append(entry_id)
+
+    def profiles(self) -> list[ProfileView]:
+        return [ProfileView(Choice(MAD_MAX, Standing.USED), ProfileState.NOT_RUNNING)]
+
+    def set_profile_enabled(self, profile_id: str, enabled: bool) -> Status:
+        if profile_id != MAD_MAX.id:
+            raise UnknownProfileError(f'There is no profile "{profile_id}".')
+        self.switched.append((profile_id, enabled))
+        return self.current
 
     def subscribe(self, listener: Listener) -> Callable[[], None]:
         return self.bus.subscribe(listener)
@@ -517,3 +543,33 @@ def test_server_runs_on_its_own_thread_and_reports_a_busy_port() -> None:
 def test_language_errors_are_language_errors() -> None:
     with pytest.raises(LanguageError):
         check_language("auto")
+
+
+def test_profiles_are_listed_and_switched() -> None:
+    core = FakeCore()
+
+    async def test(client: TestClient[Any, Any]) -> None:
+        listed = await (await client.get("/v1/profiles")).json()
+        assert listed == {
+            "profiles": [
+                {
+                    "id": "mad-max-2015",
+                    "title": "Mad Max",
+                    "year": 2015,
+                    "origin": "bundled",
+                    "state": "not_running",
+                    "reason": None,
+                    "file": str(Path("mad-max-2015.json")),
+                    "overlay": True,
+                    "executables": [{"name": "MadMax.exe", "sha256": ["cd71"]}],
+                    "sources": [{"name": "subtitles", "type": "avalanche", "stages": ["tracker"]}],
+                }
+            ]
+        }
+        assert (await client.patch("/v1/profiles", json={"id": "mad-max-2015", "enabled": False})).status == 200
+        unknown = await client.patch("/v1/profiles", json={"id": "nope", "enabled": False})
+        assert (unknown.status, (await unknown.json())["error"]) == (400, 'There is no profile "nope".')
+        assert (await client.patch("/v1/profiles", json={"id": "mad-max-2015"})).status == 400
+
+    with_client(core, test)
+    assert core.switched == [("mad-max-2015", False)]

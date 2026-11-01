@@ -13,7 +13,6 @@ from tkinter import messagebox
 
 from reflektortts.api.server import ApiError
 from reflektortts.arguments import Arguments
-from reflektortts.core import NoProfilesError
 from reflektortts.desktop.api_client import REFRESH_TIMEOUT_SECONDS, ApiClientError, StatusFeed, post, request_json
 from reflektortts.desktop.catalog import DownloadItem, DownloadList, DownloadProgress, other_voices, parse_list
 from reflektortts.desktop.core_thread import CoreThread
@@ -101,8 +100,6 @@ class Application:
             )
             self._quit()
             return
-        if isinstance(error, NoProfilesError):
-            messagebox.showerror("ReflektorTTS", str(error))
         message = "ReflektorTTS stopped: open the logs folder to see why."
         self._window.show_stopped(message)
         self._tray.show_status(message, paused=False, connected=False)

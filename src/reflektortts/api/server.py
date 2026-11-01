@@ -17,6 +17,7 @@ from reflektortts.downloads.manager import Listed, Listing
 from reflektortts.downloads.source import DownloadError, DownloadStateError, UnknownDownloadError
 from reflektortts.events import DownloadEvent, ErrorEvent, PreviewEvent, StageState, Status, SubtitleEvent, TextEvent
 from reflektortts.languages import LANGUAGES, LanguageError, check_language
+from reflektortts.profiles.catalog import ProfileView
 from reflektortts.sinks.subtitles import POSITIONS, SIZES
 from reflektortts.tts.engine import MAX_RATE, MIN_RATE, VoiceError, VoiceInfo, find_voice
 
@@ -37,6 +38,10 @@ class SourceError(Exception):
 
 class StageError(Exception):
     """A stage cannot be switched on or off; the message says why."""
+
+
+class UnknownProfileError(Exception):
+    """There is no profile with that ID."""
 
 
 class NoAppError(Exception):
@@ -80,6 +85,11 @@ class CoreControl(Protocol):
 
     def set_stage_enabled(self, key: str, enabled: bool) -> Status:
         """Raises NoAppError if no app is read, StageError if it has no such stage."""
+
+    def profiles(self) -> list[ProfileView]: ...
+
+    def set_profile_enabled(self, profile_id: str, enabled: bool) -> Status:
+        """Raises UnknownProfileError if there is no such profile."""
 
     def downloads(self, refresh: bool) -> Listing:
         """refresh fetches the lists from the internet, so it can take a while."""
@@ -155,6 +165,30 @@ def event_json(event: Event) -> dict[str, Any]:
     return status_json(event)
 
 
+def profile_json(view: ProfileView) -> dict[str, Any]:
+    entry = view.choice.entry
+    profile = entry.profile
+    return {
+        "id": entry.id,
+        "title": None if profile is None else profile.app.title,
+        "year": None if profile is None else profile.app.year,
+        "origin": entry.origin,
+        "state": view.state,
+        "reason": view.choice.reason,
+        "file": str(entry.path),
+        "overlay": None if profile is None else profile.overlay,
+        "executables": []
+        if profile is None
+        else [{"name": executable.name, "sha256": list(executable.sha256)} for executable in profile.match.executables],
+        "sources": []
+        if profile is None
+        else [
+            {"name": source.name, "type": source.type, "stages": [stage.type for stage in source.stages]}
+            for source in profile.sources
+        ],
+    }
+
+
 def listed_json(listed: Listed) -> dict[str, Any]:
     entry = listed.entry
     return {
@@ -203,6 +237,7 @@ SETTINGS_HELP = (
 )
 SOURCES_HELP = 'Send {"name": "<source name from the status>", "enabled": true or false}.'
 STAGES_HELP = 'Send {"key": "<stage key from the status>", "enabled": true or false}.'
+PROFILES_HELP = 'Send {"id": "<id from GET /v1/profiles>", "enabled": true or false}.'
 
 
 async def read_object(request: web.Request) -> dict[str, Any] | None:
@@ -320,6 +355,22 @@ async def patch_stages(request: web.Request) -> web.Response:
     return web.json_response(status_json(status))
 
 
+async def get_profiles(request: web.Request) -> web.Response:
+    views = request.app[CORE].profiles()
+    return web.json_response({"profiles": [profile_json(view) for view in views]})
+
+
+async def patch_profiles(request: web.Request) -> web.Response:
+    body = await read_object(request)
+    if body is None or not isinstance(body.get("id"), str) or not isinstance(body.get("enabled"), bool):
+        return error_response(PROFILES_HELP)
+    try:
+        status = request.app[CORE].set_profile_enabled(body["id"], body["enabled"])
+    except UnknownProfileError as error:
+        return error_response(str(error))
+    return web.json_response(status_json(status))
+
+
 DOWNLOADS_HELP = 'Send {"id": "<id from GET /v1/downloads>"}.'
 
 
@@ -431,6 +482,8 @@ def create_app(core: CoreControl) -> web.Application:
             web.patch("/v1/settings", patch_settings),
             web.patch("/v1/sources", patch_sources),
             web.patch("/v1/stages", patch_stages),
+            web.get("/v1/profiles", get_profiles),
+            web.patch("/v1/profiles", patch_profiles),
             web.post("/v1/pause", post_pause),
             web.post("/v1/resume", post_resume),
             web.post("/v1/stop", post_stop),

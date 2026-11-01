@@ -26,7 +26,7 @@ Build the overlay as described in [overlay/README.md](overlay/README.md).
 As a desktop app, without a console: double-click `start.bat` in the repository root, or run
 
 ```bash
-.venv\Scripts\reflektortts-desktop --profiles profiles --overlay overlay\build\bin --overlay overlay\build64\bin
+.venv\Scripts\reflektortts-desktop --overlay overlay\build\bin --overlay overlay\build64\bin
 ```
 
 Its icon appears next to the clock: right-click it to open the window, pause reading or quit. The window's Status tab shows what ReflektorTTS is doing and opens its logs and settings folders; its Voices and Translations tabs download voices and translation models. Closing it leaves ReflektorTTS running. Logs are written to `%LOCALAPPDATA%\ReflektorTTS\Logs`.
@@ -34,12 +34,12 @@ Its icon appears next to the clock: right-click it to open the window, pause rea
 Or in a console, with the log shown there:
 
 ```bash
-.venv\Scripts\python -m reflektortts --profiles profiles --overlay overlay\build\bin --overlay overlay\build64\bin
+.venv\Scripts\python -m reflektortts --overlay overlay\build\bin --overlay overlay\build64\bin
 ```
 
 Either way, ReflektorTTS then waits for an app it has a profile for. When you start the app, it reads its text aloud, and loads the overlay into it if its profile asks for that; when the app exits, it waits for the next one. A version of the app its profile does not list is not read, and the Status tab says so. In the console, stop it with Ctrl+C.
 
-- `--profiles DIR`: folder with profiles. Default: `profiles` in your user data folder (`%LOCALAPPDATA%\ReflektorTTS\profiles`).
+- `--profiles DIR`: folder with your own profiles, used next to the bundled ones. Default: `profiles` in your user data folder (`%LOCALAPPDATA%\ReflektorTTS\profiles`).
 - `--overlay DIR`: folder with an overlay build. Repeat it to give both a 32-bit and a 64-bit build; the one matching the app is used. Without it, apps run without the overlay.
 
 An app's voice is loaded when the app starts and unloaded when it closes, so nothing is loaded while ReflektorTTS waits. ReflektorTTS never downloads anything by itself: it uses the voices and translation models that are installed (see [Voices](#voices) and [Translation](#translation)).
@@ -79,14 +79,14 @@ Every UI talks to the core through the same local API on `http://127.0.0.1:47821
 
 ## Profiles
 
-Each app is described by one JSON file in [profiles/](profiles/README.md), which explains the format.
+Each app is described by one JSON file, a profile. ReflektorTTS comes with profiles for the apps above; your own go in `%LOCALAPPDATA%\ReflektorTTS\profiles\`, where one with a bundled profile's name replaces it. [docs/profiles.md](docs/profiles.md) explains where profiles are, how they are chosen, and their format.
 
 ## Documentation
 
 - [docs/architecture.md](docs/architecture.md): how ReflektorTTS is built, and what is planned
 - [docs/plugins.md](docs/plugins.md): writing sources, stages and speech engines
 - [docs/api.md](docs/api.md): the local API
-- [profiles/README.md](profiles/README.md): writing profiles
+- [docs/profiles.md](docs/profiles.md): profiles and their format
 - [overlay/README.md](overlay/README.md): the overlay
 
 ## Development

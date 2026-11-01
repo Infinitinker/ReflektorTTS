@@ -1,6 +1,13 @@
 # Profiles
 
-Each file in this folder is a profile for one app: how to recognize it, where to read its text, and how to process that text before it is spoken (the `stages` of each source). Voices are chosen by the user in the overlay, not in the profile.
+A profile describes one app: how to recognize it, where to read its text, and how to process that text before it is spoken (the `stages` of each source). Voices are chosen by the user in the overlay, not in the profile.
+
+## Where profiles are
+
+- **Bundled** profiles ship with ReflektorTTS (`src/reflektortts/profiles/bundled/` in this repository) and are replaced with each update, so their fixes reach everyone. They are not edited in place.
+- **Your own** profiles go in `%LOCALAPPDATA%\ReflektorTTS\profiles\` (or the folder given with `--profiles`). A file there with a bundled profile's name, e.g. `grand-theft-auto-2-1999.json`, replaces that profile completely, and keeps its settings; it no longer gets the bundled profile's fixes.
+- Of two profiles that match the same build of an app (the same executable name and a build in both, or no builds listed), your own is used and the bundled one is set aside. Two of your own clash: neither is used until one is switched off.
+- Any profile, bundled or your own, can be switched off; its app is then not read. A broken profile file is not used, and the reason is shown.
 
 The profile format is not finalized yet. Its JSON Schema is `src/reflektortts/profiles/profile.schema.json`; a full guide to writing and contributing profiles will be added here once the format settles.
 

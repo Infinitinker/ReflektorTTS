@@ -71,3 +71,16 @@ def test_running_processes_lists_this_process() -> None:
     import os
 
     assert any(process.pid == os.getpid() for process in running_processes())
+
+
+def test_profiles_for_different_builds_of_one_executable_are_told_apart_by_build() -> None:
+    retail = Profile(id="sa-retail", app=App("Retail", 2004), match=Match((Executable("gta-sa.exe", (RETAIL,)),)))
+    builds = Builds(Hashes({1: RETAIL, 2: STEAM, 3: "0" * 64}).sha256)
+
+    apps = find_running_apps(
+        [SA, retail],
+        lambda: [ProcessInfo(1, "gta-sa.exe"), ProcessInfo(2, "gta-sa.exe"), ProcessInfo(3, "gta-sa.exe")],
+        builds,
+    )
+
+    assert [(app.profile.id, app.supported) for app in apps] == [("sa-retail", True), ("sa", True), ("sa", False)]

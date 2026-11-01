@@ -2,7 +2,7 @@ import threading
 from collections.abc import Sequence
 from pathlib import Path
 
-from reflektortts.core import NoProfilesError
+from reflektortts.api.server import ApiError
 from reflektortts.desktop.core_thread import CoreThread
 
 
@@ -28,10 +28,10 @@ def test_the_core_runs_until_stopped(tmp_path: Path) -> None:
 
 def test_why_the_core_stopped_on_its_own_is_kept(tmp_path: Path) -> None:
     def run_core(profiles: Path, settings: Path, overlay: Sequence[Path], stop: threading.Event) -> None:
-        raise NoProfilesError("No app profiles in profiles.")
+        raise ApiError("Cannot open the local API.")
 
     core = CoreThread(tmp_path, tmp_path, [], run_core)
     core.start()
     core.stop()
 
-    assert isinstance(core.error, NoProfilesError)
+    assert isinstance(core.error, ApiError)

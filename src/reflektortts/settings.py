@@ -60,12 +60,16 @@ class SharedSettings:
 
     voices_by_language: dict[str, str] = field(default_factory=dict)
     """The voice last chosen for each output language, e.g. {"pl": "windows:Microsoft Adam"}."""
+    disabled_profiles: tuple[str, ...] = ()
+    """IDs of the profiles the user switched off."""
 
 
 def load_shared(directory: Path) -> SharedSettings:
     """Reads shared.json; missing or invalid settings get defaults."""
+    data = _read(directory / SETTINGS_FOLDER / SHARED_FILE)
     return SharedSettings(
-        voices_by_language=_text_map(_read(directory / SETTINGS_FOLDER / SHARED_FILE).get("voices_by_language"))
+        voices_by_language=_text_map(data.get("voices_by_language")),
+        disabled_profiles=_texts(data.get("disabled_profiles")),
     )
 
 
