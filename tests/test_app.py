@@ -102,6 +102,29 @@ def test_routes_get_their_sources_and_stages_and_broken_sources_are_reported() -
     assert errors == [ErrorEvent("source.error", "broken", "This version of the game is not supported")]
 
 
+def test_a_source_whose_stage_cannot_start_is_reported_closed_and_skipped() -> None:
+    errors: list[ErrorEvent] = []
+    created: list[FixedSource] = []
+
+    def create(settings: SourceSettings, game: RunningGame) -> FixedSource:
+        created.append(FixedSource(settings.name, "hi"))
+        return created[-1]
+
+    def broken_stage(settings: Mapping[str, Any]) -> Suffix:
+        raise RuntimeError("no rules for this language")
+
+    stages = {"broken": StagePlugin("broken", {}, broken_stage)}
+    game = game_with(SourceSettings("fixed", "messages", 0.25, {}, (StageSettings("broken", {}),)))
+
+    routes = build_routes(game, {"fixed": SourcePlugin("fixed", {}, create)}, stages, errors.append)
+
+    assert routes == []
+    assert created[0].closed
+    assert errors == [
+        ErrorEvent("source.error", "messages", "A text processing stage cannot start (no rules for this language).")
+    ]
+
+
 def test_read_game_runs_until_the_game_exits_then_closes_sources() -> None:
     source = FixedSource("messages", "hi")
     sink = RecordingSink()

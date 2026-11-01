@@ -20,7 +20,7 @@ A plugin package declares an entry point whose value is a plugin object, for exa
 ocr = "my_package.ocr_plugin:PLUGIN"
 ```
 
-The entry point's object must be a `SourcePlugin`, `StagePlugin` or `EnginePlugin`; anything else is rejected when plugins are loaded.
+The entry point's object must be a `SourcePlugin`, `StagePlugin`, `EnginePlugin` or `DownloadPlugin`. A plugin that cannot be imported, or is something else, is logged and skipped, so it never stops the app or the other plugins. Likewise, a source or stage that fails while a game is read is reported (`source.error`, `stage.error`) and skipped, and a stage whose `inactive_reason` fails counts as inactive.
 
 ## Settings and profiles
 
@@ -98,7 +98,7 @@ def inactive_reason(languages: Languages) -> str | None: ...
 - Return the event to pass on (use `dataclasses.replace` to change its text), or `None` to drop it.
 - An event with **empty text** means the source has no text right now. Stages that keep state, like the tracker, use it to notice a line disappearing; empty text is never delivered to sinks.
 - `event.game_language` and `event.output_language` are the languages the player chose (ISO 639-1, e.g. `pl`), current when the line was read. Stages that depend on language, like `normalize` (output language) and `translate` (from the game to the output language), use them instead of settings of their own, so the player's choice applies to every game.
-- A stage that does nothing with some languages says so with `inactive_reason`: given the player's languages, it returns why, in a few words for the player ("Game and output language are the same"), or `None` if the stage works with them. Meanwhile the runner skips the stage, so `process` only sees languages it works with, and the overlay greys the stage out with the reason, keeping the player's tick. `translate` uses it for matching languages and pairs without a model, and `normalize` for output languages without rules.
+- A stage that does nothing with some languages says so with `inactive_reason`: given the player's languages, it returns why, in a few words for the player ("Game and output language are the same"), or `None` if the stage works with them. Meanwhile the runner skips the stage, so `process` only sees languages it works with, and the overlay grays the stage out with the reason, keeping the player's tick. `translate` uses it for matching languages and pairs without a model, and `normalize` for output languages without rules.
 - Players can switch each stage on and off in the overlay; a switched-off stage is skipped. Next to its tick they see its `type` and its `summary`, a few words on what it does. Set `warning_when_disabled` if reading breaks without the stage; it replaces the summary while the stage is off. The overlay keeps each stage to one line and cuts longer text, so keep these short.
 - Each source gets its own stage objects, so a stage may keep state per source.
 - Heavy dependencies belong in an optional extra, imported only when the stage first needs them. Models live in the user data folder and are never downloaded by the stage: it uses an installed one, or doesn't apply (`inactive_reason`), as `translate` does (`stages/translate/`).

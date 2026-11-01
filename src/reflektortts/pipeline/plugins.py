@@ -1,16 +1,19 @@
 """Plugin registry: plugins announce themselves through Python entry points."""
 
 import json
+import logging
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from importlib import resources
-from importlib.metadata import entry_points
 from typing import Any
 
+from reflektortts.entry_points import load_plugins
 from reflektortts.games.detector import RunningGame
 from reflektortts.languages import Languages
 from reflektortts.pipeline.protocols import Source, Stage
 from reflektortts.profiles.model import SourceSettings
+
+logger = logging.getLogger(__name__)
 
 SOURCE_GROUP = "reflektortts.sources"
 STAGE_GROUP = "reflektortts.stages"
@@ -45,7 +48,23 @@ class StagePlugin:
     inactive_reason: Callable[[Languages], str | None] = lambda languages: None
     """Why the stage does nothing with the player's languages, written like the summary, e.g.
     "Game and output language are the same"; None if it works with them. Meanwhile the stage is
-    skipped, and the overlay greys it out and shows the reason instead of the summary."""
+    skipped, and the overlay grays it out and shows the reason instead of the summary."""
+
+
+_failed_checks: set[str] = set()
+"""Stage types whose inactive_reason failed, so each failure is logged once, not on every line."""
+
+
+def inactive_reason(plugin: StagePlugin, languages: Languages) -> str | None:
+    """The plugin's inactive_reason, which must not stop reading: if it fails, the stage counts as
+    inactive, with the failure as its reason, and the failure is logged."""
+    try:
+        return plugin.inactive_reason(languages)
+    except Exception as error:
+        if plugin.type not in _failed_checks:
+            _failed_checks.add(plugin.type)
+            logger.exception("The %s stage cannot tell whether it works with %s", plugin.type, languages)
+        return f"Could not check: {error}"
 
 
 def load_schema(package: str, file_name: str) -> Mapping[str, Any]:
@@ -55,13 +74,7 @@ def load_schema(package: str, file_name: str) -> Mapping[str, Any]:
 
 
 def _load[Plugin: (SourcePlugin, StagePlugin)](group: str, kind: type[Plugin]) -> dict[str, Plugin]:
-    plugins: dict[str, Plugin] = {}
-    for entry_point in entry_points(group=group):
-        plugin = entry_point.load()
-        if not isinstance(plugin, kind):
-            raise TypeError(f"Entry point {entry_point.value} in {group} is not a {kind.__name__}")
-        plugins[plugin.type] = plugin
-    return plugins
+    return {plugin.type: plugin for plugin in load_plugins(group, kind)}
 
 
 def source_plugins() -> dict[str, SourcePlugin]:

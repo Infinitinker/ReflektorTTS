@@ -1,14 +1,12 @@
 """The contract every download source follows, so the app shows and handles them all the same way."""
 
-import logging
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import StrEnum
-from importlib.metadata import entry_points
 from pathlib import Path
 from typing import Protocol
 
-logger = logging.getLogger(__name__)
+from reflektortts.entry_points import load_plugins
 
 GROUP = "reflektortts.downloads"
 
@@ -68,10 +66,4 @@ class DownloadPlugin:
 
 
 def download_plugins() -> dict[str, DownloadPlugin]:
-    plugins = {}
-    for entry_point in entry_points(group=GROUP):
-        plugin = entry_point.load()
-        if not isinstance(plugin, DownloadPlugin):
-            raise TypeError(f"Entry point {entry_point.value} in {GROUP} is not a DownloadPlugin")
-        plugins[plugin.name] = plugin
-    return plugins
+    return {plugin.name: plugin for plugin in load_plugins(GROUP, DownloadPlugin)}

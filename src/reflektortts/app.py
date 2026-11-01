@@ -28,7 +28,7 @@ from reflektortts.languages import (
     primary_language,
 )
 from reflektortts.overlay import inject_overlay
-from reflektortts.pipeline.plugins import SourcePlugin, StagePlugin, source_plugins, stage_plugins
+from reflektortts.pipeline.plugins import SourcePlugin, StagePlugin, inactive_reason, source_plugins, stage_plugins
 from reflektortts.pipeline.protocols import Sink
 from reflektortts.pipeline.runner import Route, Runner, log_error
 from reflektortts.profiles.loader import load_profiles
@@ -95,7 +95,7 @@ def _enabled_check(
     player's languages."""
     return lambda position: (
         is_enabled(stage_key(source, position, types[position]))
-        and plugins[types[position]].inactive_reason(languages()) is None
+        and inactive_reason(plugins[types[position]], languages()) is None
     )
 
 
@@ -117,7 +117,8 @@ def build_routes(
     is_source_enabled: Callable[[str], bool] = lambda name: True,
     languages: Callable[[], Languages] = lambda: Languages(DEFAULT_GAME_LANGUAGE, DEFAULT_OUTPUT_LANGUAGE),
 ) -> list[Route]:
-    """Creates the game's sources and their stages; a source that cannot start is reported and skipped.
+    """Creates the game's sources and their stages; a source that cannot start, or one of whose
+    stages cannot, is reported and skipped.
 
     is_enabled tells, by stage key, whether the player has the stage switched on; is_source_enabled
     tells the same for a source, by name. A stage that does nothing with the player's languages is
@@ -130,11 +131,17 @@ def build_routes(
         except Exception as error:
             on_error(ErrorEvent("source.error", settings.name, str(error)))
             continue
+        try:
+            created = [stages[stage.type].create(stage.settings) for stage in settings.stages]
+        except Exception as error:
+            source.close()
+            on_error(ErrorEvent("source.error", settings.name, f"A text processing stage cannot start ({error})."))
+            continue
         types = [stage.type for stage in settings.stages]
         routes.append(
             Route(
                 source,
-                [stages[stage.type].create(stage.settings) for stage in settings.stages],
+                created,
                 _enabled_check(settings.name, types, stages, is_enabled, languages),
                 _source_check(settings.name, is_source_enabled),
             )
@@ -406,7 +413,7 @@ class Core:
             summary=plugin.summary if plugin is not None else "",
             warning=plugin.warning_when_disabled if plugin is not None else None,
             enabled=self.is_stage_enabled(key),
-            inactive=plugin.inactive_reason(self.languages()) if plugin is not None else None,
+            inactive=inactive_reason(plugin, self.languages()) if plugin is not None else None,
         )
 
     def _voice_for(self, language: str, preferred: str) -> str | None:
