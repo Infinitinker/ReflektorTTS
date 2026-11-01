@@ -1,12 +1,13 @@
 """The core: watches for profiled games, reads them aloud, and answers the local API."""
 
+import functools
 import logging
 import threading
 import time
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import replace
 from pathlib import Path
-from typing import Any
+from typing import Any, Concatenate
 
 import psutil
 
@@ -174,6 +175,18 @@ def read_game(
             route.source.close()
 
 
+def _serialized[**P, R](method: Callable[Concatenate["Core", P], R]) -> Callable[Concatenate["Core", P], R]:
+    """Runs a Core method holding the core's lock, so changes from the API, the core thread and
+    downloads are made one at a time, each in full, and a status is never half old, half new."""
+
+    @functools.wraps(method)
+    def serialized(core: "Core", /, *args: P.args, **kwargs: P.kwargs) -> R:
+        with core._lock:
+            return method(core, *args, **kwargs)
+
+    return serialized
+
+
 class Core:
     """Owns the narrator, the settings and the event bus; the API controls it through these methods.
 
@@ -197,6 +210,8 @@ class Core:
         download_sources: Mapping[str, DownloadSource] | None = None,
         preview_factory: Callable[[Callable[[PreviewEvent], None]], VoicePreview] = VoicePreview,
     ) -> None:
+        self._lock = threading.RLock()
+        """Held by every change; reentrant, since changes call each other and status()."""
         self._profiles = profiles
         self._is_running = is_running
         self._exit_grace_seconds = exit_grace_seconds
@@ -222,6 +237,7 @@ class Core:
         self._downloads = Downloads(sources, self._downloaded)
         self._preview = preview_factory(self._bus.publish)
 
+    @_serialized
     def status(self) -> Status:
         return Status(
             game=self._game,
@@ -242,11 +258,13 @@ class Core:
     def languages(self) -> Languages:
         return Languages(game=self._settings.game_language, output=self._settings.output_language)
 
+    @_serialized
     def set_game_language(self, language: str) -> Status:
         check_language(language)
         self._change(game_language=language)
         return self._publish_status()
 
+    @_serialized
     def set_output_language(self, language: str) -> Status:
         """Also switches to a voice for the language, unless the current one speaks it. Any
         language can be chosen: without a voice for it, lines are translated and shown, not spoken."""
@@ -259,6 +277,7 @@ class Core:
     def voices(self) -> list[VoiceInfo]:
         return self._list_voices()
 
+    @_serialized
     def set_voice(self, voice: str) -> Status:
         """Switches the voice and remembers it as the last one used for its language."""
         info = find_voice(voice, self.voices())
@@ -276,24 +295,28 @@ class Core:
             raise VoiceError(f'"{voice}" speaks {language}, a language ReflektorTTS does not support.')
         self._preview.play(voice, SAMPLES[language])
 
+    @_serialized
     def set_ducking(self, enabled: bool, volume: float) -> Status:
         """Whether, and how far, the game's sound is lowered while lines are spoken."""
         self._ducker.configure(enabled, volume)
         self._change(ducking=enabled, duck_volume=volume)
         return self._publish_status()
 
+    @_serialized
     def set_speech(self, rate: float, cut_off: bool) -> Status:
         """How fast lines are spoken, and whether a new line cuts off the one being spoken."""
         self._narrator.configure(rate, cut_off)
         self._change(speech_rate=rate, cut_off_lines=cut_off)
         return self._publish_status()
 
+    @_serialized
     def set_subtitles(self, enabled: bool, size: str, position: str) -> Status:
         """Whether lines are shown as subtitles over the game, how large and where."""
         self._subtitles.configure(enabled)
         self._change(subtitles=enabled, subtitle_size=size, subtitle_position=position)
         return self._publish_status()
 
+    @_serialized
     def set_paused(self, paused: bool) -> Status:
         if paused:
             self._narrator.pause()
@@ -301,6 +324,7 @@ class Core:
             self._narrator.resume()
         return self._publish_status()
 
+    @_serialized
     def stop_line(self) -> Status:
         self._narrator.stop_line()
         return self.status()
@@ -308,6 +332,7 @@ class Core:
     def is_source_enabled(self, name: str) -> bool:
         return name not in self._settings.disabled_sources
 
+    @_serialized
     def set_source_enabled(self, name: str, enabled: bool) -> Status:
         """Switches a source of the game being read on or off; the choice is saved for that game."""
         profile = self._profile
@@ -322,6 +347,7 @@ class Core:
     def is_stage_enabled(self, key: str) -> bool:
         return key not in self._settings.disabled_stages
 
+    @_serialized
     def set_stage_enabled(self, key: str, enabled: bool) -> Status:
         """Switches a stage of the game being read on or off; the choice is saved for that game."""
         profile = self._profile
@@ -437,6 +463,7 @@ class Core:
         else:
             self._narrator.start()
 
+    @_serialized
     def _downloaded(self, event: DownloadEvent) -> None:
         """A download moved on. Once a voice or model is installed or removed, it is used (or no
         longer) right away: a game being read may now be spoken, or need another voice."""
@@ -450,6 +477,7 @@ class Core:
         self._ducker.speaking(active)
         self._subtitles.speaking(active)
 
+    @_serialized
     def _enter(self, game: RunningGame) -> None:
         """A game is being read from now on, with its settings; its voice is loaded only now."""
         self._game = GameInfo(title=game.profile.game.title, pid=game.process.pid)
@@ -458,6 +486,7 @@ class Core:
         self._speak()
         self._publish_status()
 
+    @_serialized
     def _leave(self) -> None:
         """The game is no longer read; its voice is unloaded and the defaults apply again."""
         self._game = None

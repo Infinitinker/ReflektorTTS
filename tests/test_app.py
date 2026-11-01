@@ -588,3 +588,32 @@ def test_source_errors_while_the_game_is_exiting_are_not_reported(tmp_path: Path
     core._report(ErrorEvent("source.error", "messages", "read failed"))
 
     assert events == []
+
+
+def test_changes_made_at_the_same_time_are_all_kept(tmp_path: Path) -> None:
+    core = make_core(tmp_path, Clients())
+    core._enter(playing(GTA2))
+    rounds = 300
+    start = threading.Barrier(2)
+
+    def change_ducking() -> None:
+        start.wait()
+        for step in range(rounds):
+            core.set_ducking(True, step / rounds)
+
+    def change_speech() -> None:
+        start.wait()
+        for step in range(rounds):
+            core.set_speech(1.0 + step / rounds, False)
+
+    threads = [threading.Thread(target=change_ducking), threading.Thread(target=change_speech)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    last_volume, last_rate = (rounds - 1) / rounds, 1.0 + (rounds - 1) / rounds
+    status = core.status()
+    assert (status.duck_volume, status.speech_rate) == (last_volume, last_rate)
+    saved = saved_for(tmp_path, GTA2)
+    assert (saved.duck_volume, saved.speech_rate) == (last_volume, last_rate)

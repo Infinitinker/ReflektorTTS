@@ -56,7 +56,7 @@ A failing source, stage or sink is reported once as a `source.error`, `stage.err
 
 | Path | Job |
 |---|---|
-| `src/reflektortts/__main__.py`, `app.py` | Command line; the core's main loop and its controls for the API |
+| `src/reflektortts/__main__.py`, `app.py` | Command line; the core's main loop and its controls for the API. API requests, the core thread and finished downloads change the core one at a time, under one lock, so each change is made in full |
 | `arguments.py`, `logs.py` | Command line options and where logs go, shared by the command line and the desktop app |
 | `desktop/` | The desktop app: runs the core on a background thread, with a tray icon (pystray) and a window (Tkinter) that follow the core through the local API, like the overlay. The window has a Status tab, one tab per kind of download (voices, translations) and a status bar that says what the button under the mouse does |
 | `events.py`, `bus.py` | Event types and the event bus |
@@ -70,7 +70,7 @@ A failing source, stage or sink is reported once as a `source.error`, `stage.err
 | `process_memory/` | Reading a running game's memory for the sources that need it: the process (one implementation per OS, `windows.py`), pointer chains, and which build of the game it is |
 | `ducking/` | Lowers the game's sound while lines are spoken; the per-app volume has one implementation per OS (`windows.py`, WASAPI audio sessions) |
 | `languages.py` | Supported languages and their checks |
-| `api/server.py` | The local API |
+| `api/` | The local API (`server.py`), the check that keeps web pages out (`guard.py`) and its error answers (`errors.py`) |
 | `settings.py` | Per-user settings: one file per game, and the voice remembered for each language |
 | `user_dirs.py` | The per-user folders (`%LOCALAPPDATA%\ReflektorTTS` on Windows) |
 | `overlay.py` | Loads the overlay into a game |
