@@ -12,7 +12,7 @@ from reflektortts.events import TextEvent
 from reflektortts.languages import Languages
 from reflektortts.pipeline.plugins import StagePlugin, load_schema
 from reflektortts.stages.translate.engine import Engine, MosesBpeEngine
-from reflektortts.stages.translate.model import PACKAGES, ensure_model
+from reflektortts.stages.translate.model import PACKAGES, ModelNotInstalledError, installed_model
 from reflektortts.stages.translate.sentences import split_sentences
 
 logger = logging.getLogger(__name__)
@@ -53,12 +53,18 @@ class Translate:
         return translated
 
 
+NO_MODEL = "No translation model for these languages"
+
+
 @functools.cache
 def open_engine(source: str, target: str) -> Engine:
-    """Downloads the pair's model if needed and loads it, once: every translate stage, of every
-    source and game, shares the loaded model. A failed download or load is tried again next time.
+    """Loads the pair's installed model, once: every translate stage, of every source and game,
+    shares the loaded model. A failed load is tried again next time.
     """
-    model_dir = ensure_model(PACKAGES[(source, target)])
+    package = PACKAGES.get((source, target))
+    model_dir = installed_model(package) if package is not None else None
+    if model_dir is None:
+        raise ModelNotInstalledError(NO_MODEL)
     started = time.perf_counter()
     engine = MosesBpeEngine(model_dir, source, target)
     logger.info("Loaded the %s-%s translation model in %.1f s", source, target, time.perf_counter() - started)
@@ -66,10 +72,12 @@ def open_engine(source: str, target: str) -> Engine:
 
 
 def inactive_reason(languages: Languages) -> str | None:
+    """Models are never downloaded here: only an installed one is used."""
     if languages.game == languages.output:
         return "Game and output language are the same"
-    if (languages.game, languages.output) not in PACKAGES:
-        return "No translation between these languages yet"
+    package = PACKAGES.get((languages.game, languages.output))
+    if package is None or installed_model(package) is None:
+        return NO_MODEL
     return None
 
 

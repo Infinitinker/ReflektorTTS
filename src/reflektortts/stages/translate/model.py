@@ -48,6 +48,10 @@ class ModelDownloadError(Exception):
     """A translation model could not be downloaded or unpacked."""
 
 
+class ModelNotInstalledError(Exception):
+    """No translation model is installed for a pair of languages."""
+
+
 def models_dir() -> Path:
     return data_dir() / "translation"
 
@@ -59,16 +63,28 @@ def download_file(url: str, destination: Path) -> None:
         shutil.copyfileobj(response, file)
 
 
+def installed_model(package: ModelPackage, directory: Path | None = None) -> Path | None:
+    """The folder of a package's model if it is installed, else None."""
+    model_dir = (directory or models_dir()) / package.name
+    if (model_dir / "model" / "model.bin").is_file() and (model_dir / "bpe.model").is_file():
+        return model_dir
+    return None
+
+
 def ensure_model(
     package: ModelPackage,
     directory: Path | None = None,
     download: Callable[[str, Path], None] = download_file,
 ) -> Path:
-    """Returns the folder of a package's model, downloading it first if it is missing."""
+    """Returns the folder of a package's model, downloading it first if it is missing.
+
+    For the desktop app, when the player asks for the model; the translate stage never downloads.
+    """
     directory = directory or models_dir()
+    installed = installed_model(package, directory)
+    if installed is not None:
+        return installed
     model_dir = directory / package.name
-    if (model_dir / "model" / "model.bin").is_file() and (model_dir / "bpe.model").is_file():
-        return model_dir
 
     logger.info("Downloading the %s translation model (%d MB)", package.name, package.size_mb)
     directory.mkdir(parents=True, exist_ok=True)

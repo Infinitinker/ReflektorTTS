@@ -1,4 +1,5 @@
-"""Piper voices in the per-user data folder, downloaded on first use."""
+"""Piper voices in the per-user data folder. ensure_voice downloads one, when the player asks for it;
+nothing downloads a voice by itself."""
 
 import tempfile
 from collections.abc import Callable

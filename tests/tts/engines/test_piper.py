@@ -5,7 +5,29 @@ import numpy as np
 import pytest
 from piper import PiperVoice, SynthesisConfig
 
-from reflektortts.tts.engines.piper import PiperEngine
+from reflektortts.tts.engine import VoiceError
+from reflektortts.tts.engines import piper as piper_engine
+from reflektortts.tts.engines.piper import PiperEngine, create, list_voices
+
+
+@pytest.fixture
+def voices(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """A voices folder with one installed voice."""
+    for file in ("pl_PL-test-medium.onnx", "pl_PL-test-medium.onnx.json"):
+        (tmp_path / file).write_bytes(b"")
+    monkeypatch.setattr(piper_engine, "voices_dir", lambda: tmp_path)
+    monkeypatch.setattr(piper_engine, "downloaded_voices", lambda: ["pl_PL-test-medium"])
+    return tmp_path
+
+
+def test_only_installed_voices_are_listed(voices: Path) -> None:
+    assert [voice.id for voice in list_voices()] == ["piper:pl_PL-test-medium"]
+
+
+def test_a_voice_that_is_not_installed_is_not_downloaded(voices: Path) -> None:
+    with pytest.raises(VoiceError, match="en_US-ljspeech-medium is not installed"):
+        create("en_US-ljspeech-medium")
+    assert sorted(path.name for path in voices.iterdir()) == ["pl_PL-test-medium.onnx", "pl_PL-test-medium.onnx.json"]
 
 
 class FakeVoice:

@@ -3,8 +3,8 @@
 from collections.abc import Iterator
 from pathlib import Path
 
-from reflektortts.tts.engine import DEFAULT_VOICE, AudioChunk, EnginePlugin, VoiceInfo, parse_voice
-from reflektortts.tts.voices import downloaded_voices, ensure_voice
+from reflektortts.tts.engine import AudioChunk, EnginePlugin, VoiceError, VoiceInfo
+from reflektortts.tts.voices import downloaded_voices, voices_dir
 
 
 class PiperEngine:
@@ -26,8 +26,10 @@ class PiperEngine:
 
 
 def create(voice_name: str) -> PiperEngine:
-    """Speaks with a Piper voice such as "en_US-ljspeech-medium", downloading it on first use."""
-    return PiperEngine(ensure_voice(voice_name))
+    """Speaks with an installed Piper voice such as "en_US-ljspeech-medium"; never downloads one."""
+    if voice_name not in downloaded_voices():
+        raise VoiceError(f"The voice {voice_name} is not installed.")
+    return PiperEngine(voices_dir() / f"{voice_name}.onnx")
 
 
 def voice_info(name: str) -> VoiceInfo:
@@ -36,9 +38,8 @@ def voice_info(name: str) -> VoiceInfo:
 
 
 def list_voices() -> list[VoiceInfo]:
-    """Downloaded voices, plus the default voice, which is downloaded on first use."""
-    names = set(downloaded_voices()) | {parse_voice(DEFAULT_VOICE).name}
-    return [voice_info(name) for name in sorted(names)]
+    """The installed (downloaded) voices."""
+    return [voice_info(name) for name in downloaded_voices()]
 
 
 PLUGIN = EnginePlugin(name="piper", create=create, list_voices=list_voices)

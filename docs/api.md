@@ -82,7 +82,7 @@ Returns the voices available now, from every speech engine that works on this sy
 }
 ```
 
-`id` is what `PATCH /v1/settings` takes; `language` is a BCP 47 tag, so a UI can offer only the voices that speak the output language. Piper lists downloaded voices and the default voice, which is downloaded on first use.
+`id` is what `PATCH /v1/settings` takes; `language` is a BCP 47 tag, so a UI can offer only the voices that speak the output language. Only installed voices are listed; ReflektorTTS never downloads one by itself.
 
 ### `GET /v1/languages`
 

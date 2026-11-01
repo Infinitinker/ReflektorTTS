@@ -221,12 +221,12 @@ class Core:
         return self._publish_status()
 
     def set_output_language(self, language: str) -> Status:
-        """Also switches to a voice for the language, unless the current one speaks it."""
+        """Also switches to a voice for the language, unless the current one speaks it. Any
+        language can be chosen: without a voice for it, lines are translated and shown, not spoken."""
         check_language(language)
-        voice = self._voice_for(language)
-        if voice is not None:
-            self._narrator.use_voice(voice)
-        self._change(output_language=language, voice=self._narrator.voice)
+        voice = self._voice_for(language, self._settings.voice)
+        self._change(output_language=language, voice=voice or self._settings.voice)
+        self._speak()
         return self._publish_status()
 
     def voices(self) -> list[VoiceInfo]:
@@ -237,11 +237,11 @@ class Core:
         voices = {info.id: info for info in self.voices()}
         if voice not in voices:
             raise VoiceError(f'There is no voice "{voice}". Available: {", ".join(voices) or "none"}.')
-        self._narrator.use_voice(voice)
         remembered = self._shared.voices_by_language | {primary_language(voices[voice].language): voice}
         self._shared = replace(self._shared, voices_by_language=remembered)
         save_shared(self._shared, self._settings_dir)
         self._change(voice=voice)
+        self._speak()
         return self._publish_status()
 
     def set_ducking(self, enabled: bool, volume: float) -> Status:
@@ -366,21 +366,31 @@ class Core:
             inactive=plugin.inactive_reason(self.languages()) if plugin is not None else None,
         )
 
-    def _voice_for(self, language: str) -> str | None:
-        """The voice to switch to for a output language, or None to keep the current one.
-
-        The current voice stays if it speaks the language; otherwise the one last used for
-        the language, else the first that speaks it. With no voice for it, nothing changes.
+    def _voice_for(self, language: str, preferred: str) -> str | None:
+        """An installed voice for an output language: preferred if it is installed and speaks it,
+        else the one last chosen for the language, else the first that speaks it; None if none does.
         """
-        voices = self.voices()
-        current = next((voice for voice in voices if voice.id == self._narrator.voice), None)
-        if current is not None and primary_language(current.language) == language:
-            return None
-        matching = [voice.id for voice in voices if primary_language(voice.language) == language]
+        matching = [voice.id for voice in self.voices() if primary_language(voice.language) == language]
         remembered = self._shared.voices_by_language.get(language)
-        if remembered in matching:
-            return remembered
+        for voice in (preferred, remembered):
+            if voice in matching:
+                return voice
         return matching[0] if matching else None
+
+    def _speak(self) -> None:
+        """While a game is read, speaks with an installed voice for its output language, or not at
+        all if there is none; voices are never downloaded here. With no game, the voice is only
+        remembered."""
+        voice = self._voice_for(self._settings.output_language, self._settings.voice)
+        if voice is not None:
+            self._narrator.use_voice(voice)
+        if self._game is None:
+            return
+        if voice is None:
+            self._narrator.close()
+            logger.info("No voice for the output language %s: lines are not spoken", self._settings.output_language)
+        else:
+            self._narrator.start()
 
     def _speaking(self, active: bool) -> None:
         """The narrator started speaking or fell silent: the game's sound and the subtitle follow."""
@@ -392,7 +402,7 @@ class Core:
         self._game = GameInfo(title=game.profile.game.title, pid=game.process.pid)
         self._profile = game.profile
         self._use(load_game(self._settings_dir, game.profile.id))
-        self._narrator.start()
+        self._speak()
         self._publish_status()
 
     def _leave(self) -> None:

@@ -177,6 +177,7 @@ def make_core(tmp_path: Path, clients: Clients, voices: list[VoiceInfo] | None =
 def test_a_new_voice_is_saved_for_the_game_and_remembered_for_its_language(tmp_path: Path) -> None:
     core = make_core(tmp_path, Clients())
     core._enter(playing(GTA2))
+    core.set_output_language("pl")
     events: list[Event] = []
     core.subscribe(events.append)
 
@@ -400,6 +401,33 @@ def test_a_voice_is_loaded_only_while_a_game_is_read(tmp_path: Path) -> None:
     assert [client.voice for client in clients.started][-1] == "windows:Microsoft Adam"
     assert len(clients.started) == 3
     assert all(client.closed for client in clients.started[:2])
+
+
+def test_a_game_whose_voice_is_not_installed_speaks_with_another_for_its_language(tmp_path: Path) -> None:
+    (tmp_path / "games").mkdir()
+    (tmp_path / "games" / f"{MAD_MAX.id}.json").write_text(
+        '{"voice": "piper:pl_PL-gone-medium", "output_language": "pl"}', "utf-8"
+    )
+    clients = Clients()
+    core = make_core(tmp_path, clients)
+
+    core._enter(playing(MAD_MAX))
+
+    assert [client.voice for client in clients.started] == ["windows:Microsoft Adam"]
+    assert saved_for(tmp_path, MAD_MAX).voice == "piper:pl_PL-gone-medium"
+
+
+def test_without_a_voice_for_the_output_language_nothing_is_spoken(tmp_path: Path) -> None:
+    clients = Clients()
+    core = make_core(tmp_path, clients, voices=[LJSPEECH])
+    core._enter(playing(GTA2))
+
+    status = core.set_output_language("pl")
+
+    assert status.output_language == "pl"
+    assert [client.closed for client in clients.started] == [True]
+    core.set_output_language("en")
+    assert len(clients.started) == 2 and not clients.started[1].closed
 
 
 def test_no_voice_is_loaded_while_waiting_for_a_game(tmp_path: Path) -> None:

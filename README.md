@@ -42,7 +42,7 @@ Either way, ReflektorTTS then waits for a game it has a profile for. When you st
 - `--profiles DIR`: folder with game profiles. Default: `profiles` in your user data folder (`%LOCALAPPDATA%\ReflektorTTS\profiles`).
 - `--overlay DIR`: folder with an overlay build. Repeat it to give both a 32-bit and a 64-bit build; the one matching the game is used. Without it, games run without the overlay.
 
-A game's voice is loaded when the game starts and unloaded when it closes, so nothing is loaded while ReflektorTTS waits. The first game that uses the default voice downloads it (about 60 MB).
+A game's voice is loaded when the game starts and unloaded when it closes, so nothing is loaded while ReflektorTTS waits. ReflektorTTS never downloads anything by itself: it uses the voices and translation models that are installed (see [Voices](#voices) and [Translation](#translation)).
 
 ## In the game
 
@@ -50,8 +50,16 @@ Press **Ctrl+Shift+R** to open the ReflektorTTS panel. From top to bottom it fol
 
 ## Voices
 
-- **Piper** voices, downloaded on first use into `%LOCALAPPDATA%\ReflektorTTS\voices`. The default, `en_US-ljspeech-medium`, is trained on the public-domain LJ Speech dataset.
-- **Windows** voices installed in Windows Settings > Time & language > Speech, e.g. Microsoft Adam (Polish).
+- **Windows** voices installed in Windows Settings > Time & language > Speech, e.g. Microsoft Adam (Polish). Windows comes with some, so ReflektorTTS can speak without downloading anything.
+- **Piper** voices in `%LOCALAPPDATA%\ReflektorTTS\voices`, used once downloaded. The preferred default, `en_US-ljspeech-medium`, is trained on the public-domain LJ Speech dataset; without it, games use an installed voice for their output language.
+
+Any output language can be chosen. Without a voice for it, the panel's Voice box says so and lines are only translated and shown as subtitles.
+
+Downloading voices and translation models from the desktop app comes next. Until then, during development, a Piper voice downloads with:
+
+```bash
+.venv\Scripts\python -c "from reflektortts.tts.voices import ensure_voice; ensure_voice('en_US-ljspeech-medium')"
+```
 
 Everything chosen in the panel, the voice included, is saved for each game, in `%LOCALAPPDATA%\ReflektorTTS\games\`, one file per game named like its profile (e.g. `mad-max-2015.json`). A game played for the first time starts with the defaults, and deleting its file resets it. `%LOCALAPPDATA%\ReflektorTTS\settings.json` remembers the voice last chosen for each language, so switching a game's output language picks it again.
 
@@ -67,7 +75,13 @@ ReflektorTTS can also show each line as a subtitle over the game, for example th
 
 ReflektorTTS can translate a game into the output language, in the style of a Polish *lektor*. Set the game language (in the panel's Game section) and the output language (in Output); when they differ, profiles with a `translate` stage translate each line before it is spoken. To turn it off, untick `translate` in the panel's Text processing section.
 
-Only English to Polish is available so far. It runs offline on the CPU, at about 0.1 s per line. The model (about 80 MB) is downloaded the first time a line needs it, into `%LOCALAPPDATA%\ReflektorTTS\translation`. It is the English–Polish model of [Argos Translate](https://github.com/argosopentech/argos-translate), derived from an [OPUS-MT](https://github.com/Helsinki-NLP/Opus-MT) model by Jörg Tiedemann and Santhosh Thottingal and licensed CC-BY 4.0.
+Only English to Polish is available so far. It runs offline on the CPU, at about 0.1 s per line, with the model (about 80 MB) in `%LOCALAPPDATA%\ReflektorTTS\translation`. Without it, `translate` is greyed out with "No translation model for these languages" and lines are read untranslated. During development the model downloads with:
+
+```bash
+.venv\Scripts\python -c "from reflektortts.stages.translate.model import PACKAGES, ensure_model; ensure_model(PACKAGES[('en', 'pl')])"
+```
+
+ It is the English–Polish model of [Argos Translate](https://github.com/argosopentech/argos-translate), derived from an [OPUS-MT](https://github.com/Helsinki-NLP/Opus-MT) model by Jörg Tiedemann and Santhosh Thottingal and licensed CC-BY 4.0.
 
 ## Local API
 

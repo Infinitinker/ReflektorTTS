@@ -8,7 +8,7 @@ from reflektortts.languages import Languages
 from reflektortts.pipeline.plugins import stage_plugins
 from reflektortts.stages.translate import stage as translate_stage
 from reflektortts.stages.translate.engine import Engine
-from reflektortts.stages.translate.model import ModelPackage
+from reflektortts.stages.translate.model import ModelNotInstalledError
 from reflektortts.stages.translate.stage import PLUGIN, Translate, open_engine
 
 
@@ -58,17 +58,20 @@ def test_empty_text_passes_without_opening_the_engine() -> None:
 
 
 @pytest.mark.parametrize(
-    ("game", "output", "reason"),
+    ("game", "output", "installed", "reason"),
     [
-        ("en", "pl", None),
-        ("pl", "pl", "Game and output language are the same"),
-        ("en", "en", "Game and output language are the same"),
-        ("pl", "en", "No translation between these languages yet"),
+        ("en", "pl", True, None),
+        ("pl", "pl", True, "Game and output language are the same"),
+        ("en", "en", True, "Game and output language are the same"),
+        ("en", "pl", False, "No translation model for these languages"),
+        ("pl", "en", True, "No translation model for these languages"),
     ],
 )
-def test_it_does_nothing_for_matching_languages_or_pairs_without_a_model(
-    game: str, output: str, reason: str | None
+def test_it_does_nothing_for_matching_languages_or_without_an_installed_model(
+    game: str, output: str, installed: bool, reason: str | None, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    monkeypatch.setattr(translate_stage, "installed_model", lambda package: Path("model") if installed else None)
+
     assert PLUGIN.inactive_reason(Languages(game, output)) == reason
 
 
@@ -86,14 +89,14 @@ def test_the_engine_is_opened_once_and_repeated_lines_are_remembered() -> None:
 
 @pytest.fixture
 def loads(monkeypatch: pytest.MonkeyPatch) -> Iterator[list[str]]:
-    """Replaces downloading and loading the real model; lists each model loaded."""
+    """Replaces the installed model and loading it; lists each model loaded."""
     loaded: list[str] = []
 
     def fake_engine(model_dir: Path, source: str, target: str) -> FakeEngine:
         loaded.append(f"{source}-{target}")
         return FakeEngine()
 
-    monkeypatch.setattr(translate_stage, "ensure_model", lambda package: Path("model"))
+    monkeypatch.setattr(translate_stage, "installed_model", lambda package: Path("model"))
     monkeypatch.setattr(translate_stage, "MosesBpeEngine", fake_engine)
     open_engine.cache_clear()
     yield loaded
@@ -109,14 +112,13 @@ def test_every_translate_stage_shares_one_loaded_model(loads: list[str]) -> None
     assert loads == ["en-pl"]
 
 
-def test_a_failed_model_download_is_tried_again(loads: list[str], monkeypatch: pytest.MonkeyPatch) -> None:
-    def no_network(package: ModelPackage) -> Path:
-        raise OSError("no network")
-
-    monkeypatch.setattr(translate_stage, "ensure_model", no_network)
-    with pytest.raises(OSError):
+def test_a_model_is_never_downloaded_and_one_installed_later_is_used(
+    loads: list[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(translate_stage, "installed_model", lambda package: None)
+    with pytest.raises(ModelNotInstalledError, match="No translation model"):
         open_engine("en", "pl")
-    monkeypatch.setattr(translate_stage, "ensure_model", lambda package: Path("model"))
+    monkeypatch.setattr(translate_stage, "installed_model", lambda package: Path("model"))
 
     open_engine("en", "pl")
 

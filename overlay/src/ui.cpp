@@ -266,15 +266,12 @@ void draw_voice_combo(const CoreState& state) {
         any = any || primary_language(voice.language) == language;
     }
     if (!any) {
+        // The message takes the voice's place, so the panel keeps its height.
         ImGui::BeginDisabled();
-        if (ImGui::BeginCombo("Voice", "No voice for this language")) {
+        if (ImGui::BeginCombo("Voice", state.voices.empty() ? "No voices installed" : "No voice for this language")) {
             ImGui::EndCombo();
         }
         ImGui::EndDisabled();
-        ImGui::PushStyleColor(ImGuiCol_Text, kWarningColor);
-        ImGui::TextWrapped("Add a %s voice in Windows Settings > Time & language > Speech, or download a Piper voice.",
-                           language_name(state, language).c_str());
-        ImGui::PopStyleColor();
         return;
     }
     if (!ImGui::BeginCombo("Voice", state.voice.c_str())) {
