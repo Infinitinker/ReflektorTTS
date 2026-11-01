@@ -12,10 +12,12 @@ import psutil
 
 from reflektortts.api.server import ApiServer, SourceError, StageError
 from reflektortts.bus import EventBus, Listener
+from reflektortts.downloads.manager import Downloads, Listing
+from reflektortts.downloads.source import DownloadSource, download_plugins
 from reflektortts.ducking.ducker import Ducker
 from reflektortts.ducking.records import DuckRecords, records_path
 from reflektortts.ducking.volume import DuckingUnavailableError, OpenAppVolume, system_app_volume
-from reflektortts.events import ErrorEvent, GameInfo, SourceStages, StageState, Status
+from reflektortts.events import DownloadEvent, ErrorEvent, GameInfo, SourceStages, StageState, Status
 from reflektortts.games.detector import RunningGame, find_running_games
 from reflektortts.languages import (
     DEFAULT_GAME_LANGUAGE,
@@ -36,7 +38,7 @@ from reflektortts.sinks.subtitles import Subtitles
 from reflektortts.sinks.tts.narrator import Narrator
 from reflektortts.sinks.tts.sink import TtsSink
 from reflektortts.tts.engine import VoiceError, VoiceInfo, available_voices
-from reflektortts.user_dirs import data_dir
+from reflektortts.user_dirs import cache_dir, data_dir
 
 logger = logging.getLogger(__name__)
 
@@ -49,6 +51,17 @@ EXIT_CHECK_SECONDS = 0.1
 
 def default_profiles_dir() -> Path:
     return data_dir() / "profiles"
+
+
+def load_download_sources() -> dict[str, DownloadSource]:
+    """Every download source plugin, each with a cache folder of its own; a failing one is logged."""
+    sources = {}
+    for name, plugin in download_plugins().items():
+        try:
+            sources[name] = plugin.create(cache_dir() / "downloads" / name)
+        except Exception:
+            logger.exception("Download source %s is not available", name)
+    return sources
 
 
 def start_narrator(voice: str, on_speaking: Callable[[bool], None]) -> Narrator:
@@ -172,6 +185,7 @@ class Core:
         open_app_volume: Callable[[], OpenAppVolume] = app_volume,
         duck_records: DuckRecords | None = None,
         exit_grace_seconds: float = EXIT_GRACE_SECONDS,
+        download_sources: Mapping[str, DownloadSource] | None = None,
     ) -> None:
         self._profiles = profiles
         self._is_running = is_running
@@ -194,6 +208,8 @@ class Core:
         self._narrator.configure(self._settings.speech_rate, self._settings.cut_off_lines)
         self._game: GameInfo | None = None
         self._profile: Profile | None = None
+        sources = load_download_sources() if download_sources is None else download_sources
+        self._downloads = Downloads(sources, self._downloaded)
 
     def status(self) -> Status:
         return Status(
@@ -301,6 +317,18 @@ class Core:
         self._change(disabled_stages=_switched(self._settings.disabled_stages, key, enabled))
         return self._publish_status()
 
+    def downloads(self, refresh: bool) -> Listing:
+        """What can be downloaded, with what is installed or downloading; refresh fetches the lists."""
+        return self._downloads.listing(refresh)
+
+    def start_download(self, entry_id: str) -> None:
+        """Starts downloading an entry; progress comes as DownloadEvents. Raises DownloadError."""
+        self._downloads.start(entry_id)
+
+    def remove_download(self, entry_id: str) -> None:
+        """Removes an installed entry. Raises DownloadError."""
+        self._downloads.remove(entry_id)
+
     def subscribe(self, listener: Listener) -> Callable[[], None]:
         return self._bus.subscribe(listener)
 
@@ -391,6 +419,14 @@ class Core:
             logger.info("No voice for the output language %s: lines are not spoken", self._settings.output_language)
         else:
             self._narrator.start()
+
+    def _downloaded(self, event: DownloadEvent) -> None:
+        """A download moved on. Once a voice or model is installed or removed, it is used (or no
+        longer) right away: a game being read may now be spoken, or need another voice."""
+        self._bus.publish(event)
+        if event.state in ("installed", "removed"):
+            self._speak()
+            self._publish_status()
 
     def _speaking(self, active: bool) -> None:
         """The narrator started speaking or fell silent: the game's sound and the subtitle follow."""

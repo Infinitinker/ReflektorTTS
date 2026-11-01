@@ -1,51 +1,25 @@
-"""Translation models in the per-user data folder, downloaded on first use."""
+"""Translation models in the per-user data folder, one folder per language pair (e.g. "en-pl").
 
-import hashlib
-import logging
+Models are Argos Translate packages; the Argos download source (downloads/argos.py) installs them
+with install_archive. Nothing here downloads.
+"""
+
 import shutil
 import tempfile
-import urllib.request
 import zipfile
-from collections.abc import Callable
-from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 
 from reflektortts.user_dirs import data_dir
 
-logger = logging.getLogger(__name__)
+type Pair = tuple[str, str]
+"""(game language, output language)"""
 
 # What the stage needs from an Argos Translate package; its sentence splitter (stanza) is left out.
 _KEPT = ("model", "bpe.model", "README.md")
 
 
-@dataclass(frozen=True)
-class ModelPackage:
-    """A translation model for one language pair, packaged by Argos Translate."""
-
-    source: str
-    target: str
-    url: str
-    sha256: str
-    size_mb: int
-
-    @property
-    def name(self) -> str:
-        return f"{self.source}-{self.target}"
-
-
-PACKAGES = {
-    ("en", "pl"): ModelPackage(
-        source="en",
-        target="pl",
-        url="https://argos-net.com/v1/translate-en_pl-1_9.argosmodel",
-        sha256="85d865369326b6d8220876fbd7bc552fa5ec8b99e81161fab4a26f78187cedbc",
-        size_mb=64,
-    ),
-}
-
-
-class ModelDownloadError(Exception):
-    """A translation model could not be downloaded or unpacked."""
+class ModelInstallError(Exception):
+    """A downloaded translation model cannot be installed."""
 
 
 class ModelNotInstalledError(Exception):
@@ -56,63 +30,41 @@ def models_dir() -> Path:
     return data_dir() / "translation"
 
 
-def download_file(url: str, destination: Path) -> None:
-    # argos-net.com refuses Python's default User-Agent.
-    request = urllib.request.Request(url, headers={"User-Agent": "ReflektorTTS"})
-    with urllib.request.urlopen(request, timeout=30) as response, destination.open("wb") as file:
-        shutil.copyfileobj(response, file)
+def model_dir(pair: Pair, directory: Path | None = None) -> Path:
+    return (directory or models_dir()) / f"{pair[0]}-{pair[1]}"
 
 
-def installed_model(package: ModelPackage, directory: Path | None = None) -> Path | None:
-    """The folder of a package's model if it is installed, else None."""
-    model_dir = (directory or models_dir()) / package.name
-    if (model_dir / "model" / "model.bin").is_file() and (model_dir / "bpe.model").is_file():
-        return model_dir
-    return None
+def installed_model(pair: Pair, directory: Path | None = None) -> Path | None:
+    """The folder of the pair's model if it is installed, else None."""
+    folder = model_dir(pair, directory)
+    return folder if _is_model(folder) else None
 
 
-def ensure_model(
-    package: ModelPackage,
-    directory: Path | None = None,
-    download: Callable[[str, Path], None] = download_file,
-) -> Path:
-    """Returns the folder of a package's model, downloading it first if it is missing.
+def _is_model(folder: Path) -> bool:
+    return (folder / "model" / "model.bin").is_file() and (folder / "bpe.model").is_file()
 
-    For the desktop app, when the player asks for the model; the translate stage never downloads.
-    """
-    directory = directory or models_dir()
-    installed = installed_model(package, directory)
-    if installed is not None:
-        return installed
-    model_dir = directory / package.name
 
-    logger.info("Downloading the %s translation model (%d MB)", package.name, package.size_mb)
-    directory.mkdir(parents=True, exist_ok=True)
-    # Unpacking into a staging folder means an interrupted download never leaves a broken model behind.
-    with tempfile.TemporaryDirectory(dir=directory) as staging:
-        archive = Path(staging) / "package.zip"
-        try:
-            download(package.url, archive)
-        except OSError as error:
-            raise ModelDownloadError(
-                f"Could not download the {package.name} translation model: {error}. Check your internet connection."
-            ) from error
-        if _sha256(archive) != package.sha256:
-            raise ModelDownloadError(f"The downloaded {package.name} translation model is damaged. Try again later.")
+def install_archive(archive: Path, pair: Pair, directory: Path | None = None) -> Path:
+    """Installs a downloaded Argos package as the pair's model, replacing an older one."""
+    target = model_dir(pair, directory)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    # Unpacking into a staging folder means a broken archive never leaves a broken model behind.
+    with tempfile.TemporaryDirectory(dir=target.parent) as staging:
         unpacked = Path(staging) / "unpacked"
-        _unpack(archive, unpacked)
-        if model_dir.exists():
-            shutil.rmtree(model_dir)
-        unpacked.replace(model_dir)
-    return model_dir
+        try:
+            _unpack(archive, unpacked)
+        except (zipfile.BadZipFile, OSError) as error:
+            raise ModelInstallError(f"The downloaded translation model is damaged: {error}. Try again.") from error
+        if not _is_model(unpacked):
+            raise ModelInstallError("The downloaded file is not a translation model ReflektorTTS can use.")
+        if target.exists():
+            shutil.rmtree(target)
+        unpacked.replace(target)
+    return target
 
 
-def _sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as file:
-        for block in iter(lambda: file.read(1 << 20), b""):
-            digest.update(block)
-    return digest.hexdigest()
+def remove_model(pair: Pair, directory: Path | None = None) -> None:
+    shutil.rmtree(model_dir(pair, directory), ignore_errors=True)
 
 
 def _unpack(archive: Path, destination: Path) -> None:

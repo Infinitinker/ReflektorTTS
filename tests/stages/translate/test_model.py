@@ -1,70 +1,44 @@
-import hashlib
-import io
-import zipfile
 from pathlib import Path
-from urllib.error import URLError
 
 import pytest
 
-from reflektortts.stages.translate.model import ModelDownloadError, ModelPackage, ensure_model
+from reflektortts.stages.translate.model import ModelInstallError, install_archive, installed_model, remove_model
+from tests.stages.translate.fake_package import PACKAGE_BYTES
+
+PAIR = ("en", "pl")
 
 
-def package_bytes() -> bytes:
-    archive = io.BytesIO()
-    with zipfile.ZipFile(archive, "w") as package:
-        package.writestr("translate-en_pl-1_9/model/model.bin", b"weights")
-        package.writestr("translate-en_pl-1_9/model/config.json", "{}")
-        package.writestr("translate-en_pl-1_9/bpe.model", "#version: 0.2\n")
-        package.writestr("translate-en_pl-1_9/README.md", "CC-BY 4.0")
-        package.writestr("translate-en_pl-1_9/metadata.json", "{}")
-        package.writestr("translate-en_pl-1_9/stanza/en/tokenize/default.pt", b"sentences")
-    return archive.getvalue()
+def archive(tmp_path: Path, data: bytes = PACKAGE_BYTES) -> Path:
+    path = tmp_path / "package.argosmodel"
+    path.write_bytes(data)
+    return path
 
 
-PACKAGE_BYTES = package_bytes()
-PACKAGE = ModelPackage(
-    "en", "pl", "https://example.invalid/en_pl.argosmodel", hashlib.sha256(PACKAGE_BYTES).hexdigest(), 1
-)
+def test_a_package_is_installed_without_its_sentence_splitter(tmp_path: Path) -> None:
+    models = tmp_path / "models"
 
+    model_dir = install_archive(archive(tmp_path), PAIR, models)
 
-def fake_download(url: str, destination: Path) -> None:
-    destination.write_bytes(PACKAGE_BYTES)
-
-
-def test_missing_model_is_downloaded_without_the_sentence_splitter(tmp_path: Path) -> None:
-    model_dir = ensure_model(PACKAGE, tmp_path, download=fake_download)
-
-    assert model_dir == tmp_path / "en-pl"
+    assert model_dir == models / "en-pl" == installed_model(PAIR, models)
     files = sorted(path.relative_to(model_dir).as_posix() for path in model_dir.rglob("*") if path.is_file())
     assert files == ["README.md", "bpe.model", "model/config.json", "model/model.bin"]
-    assert list(tmp_path.iterdir()) == [model_dir]
+    assert list(models.iterdir()) == [model_dir]
 
 
-def test_present_model_is_not_downloaded_again(tmp_path: Path) -> None:
-    ensure_model(PACKAGE, tmp_path, download=fake_download)
+def test_a_damaged_package_is_rejected_and_leaves_nothing(tmp_path: Path) -> None:
+    models = tmp_path / "models"
 
-    def must_not_download(url: str, destination: Path) -> None:
-        raise AssertionError("downloaded again")
+    with pytest.raises(ModelInstallError, match="damaged"):
+        install_archive(archive(tmp_path, PACKAGE_BYTES[:-10]), PAIR, models)
 
-    assert ensure_model(PACKAGE, tmp_path, download=must_not_download) == tmp_path / "en-pl"
-
-
-def test_failed_download_raises_and_leaves_no_files(tmp_path: Path) -> None:
-    def failing_download(url: str, destination: Path) -> None:
-        destination.write_bytes(b"partial")
-        raise URLError("no network")
-
-    with pytest.raises(ModelDownloadError, match="internet connection"):
-        ensure_model(PACKAGE, tmp_path, download=failing_download)
-
-    assert list(tmp_path.iterdir()) == []
+    assert installed_model(PAIR, models) is None
+    assert list(models.iterdir()) == []
 
 
-def test_damaged_download_is_rejected(tmp_path: Path) -> None:
-    def damaged_download(url: str, destination: Path) -> None:
-        destination.write_bytes(PACKAGE_BYTES[:-10])
+def test_a_removed_model_is_no_longer_installed(tmp_path: Path) -> None:
+    models = tmp_path / "models"
+    install_archive(archive(tmp_path), PAIR, models)
 
-    with pytest.raises(ModelDownloadError, match="damaged"):
-        ensure_model(PACKAGE, tmp_path, download=damaged_download)
+    remove_model(PAIR, models)
 
-    assert list(tmp_path.iterdir()) == []
+    assert installed_model(PAIR, models) is None

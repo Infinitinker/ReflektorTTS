@@ -55,10 +55,13 @@ Press **Ctrl+Shift+R** to open the ReflektorTTS panel. From top to bottom it fol
 
 Any output language can be chosen. Without a voice for it, the panel's Voice box says so and lines are only translated and shown as subtitles.
 
-Downloading voices and translation models from the desktop app comes next. Until then, during development, a Piper voice downloads with:
+Voices and translation models are downloaded only when you ask for it, from the lists Piper and Argos Translate publish, each shown with its licence as published. The desktop app's section for that comes next; until then, with ReflektorTTS running, the local API lists and downloads them (see [docs/api.md](docs/api.md#downloads)), e.g.:
 
 ```bash
-.venv\Scripts\python -c "from reflektortts.tts.voices import ensure_voice; ensure_voice('en_US-ljspeech-medium')"
+curl "http://127.0.0.1:47821/v1/downloads?refresh=1"
+```
+```bash
+curl -X POST http://127.0.0.1:47821/v1/downloads -H "Content-Type: application/json" -d "{\"id\": \"piper:en_US-ljspeech-medium\"}"
 ```
 
 Everything chosen in the panel, the voice included, is saved for each game, in `%LOCALAPPDATA%\ReflektorTTS\games\`, one file per game named like its profile (e.g. `mad-max-2015.json`). A game played for the first time starts with the defaults, and deleting its file resets it. `%LOCALAPPDATA%\ReflektorTTS\settings.json` remembers the voice last chosen for each language, so switching a game's output language picks it again.
@@ -75,12 +78,7 @@ ReflektorTTS can also show each line as a subtitle over the game, for example th
 
 ReflektorTTS can translate a game into the output language, in the style of a Polish *lektor*. Set the game language (in the panel's Game section) and the output language (in Output); when they differ, profiles with a `translate` stage translate each line before it is spoken. To turn it off, untick `translate` in the panel's Text processing section.
 
-Only English to Polish is available so far. It runs offline on the CPU, at about 0.1 s per line, with the model (about 80 MB) in `%LOCALAPPDATA%\ReflektorTTS\translation`. Without it, `translate` is greyed out with "No translation model for these languages" and lines are read untranslated. During development the model downloads with:
-
-```bash
-.venv\Scripts\python -c "from reflektortts.stages.translate.model import PACKAGES, ensure_model; ensure_model(PACKAGES[('en', 'pl')])"
-```
-
+Only English to Polish is available so far. It runs offline on the CPU, at about 0.1 s per line, with the model (about 80 MB) in `%LOCALAPPDATA%\ReflektorTTS\translation`. Without it, `translate` is greyed out with "No translation model for these languages" and lines are read untranslated. Download it like a voice, with the ID `argos:en-pl`.
  It is the English–Polish model of [Argos Translate](https://github.com/argosopentech/argos-translate), derived from an [OPUS-MT](https://github.com/Helsinki-NLP/Opus-MT) model by Jörg Tiedemann and Santhosh Thottingal and licensed CC-BY 4.0.
 
 ## Local API

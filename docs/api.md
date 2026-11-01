@@ -145,6 +145,48 @@ Resumes reading. Returns the status.
 
 Stops the line being spoken; the next waiting line, or the next line read, is spoken as usual. Returns the status.
 
+## Downloads
+
+Voices and translation models the player can download, from download source plugins (Piper voices, Argos Translate models). Nothing downloads unless a client asks; what is installed is used right away.
+
+### `GET /v1/downloads`
+
+Lists every source's entries in the languages ReflektorTTS supports. With `?refresh=1` the lists are fetched from the internet first (a client does this when its downloads view opens); without it, or offline, the lists saved earlier are used.
+
+```json
+{
+  "entries": [
+    {
+      "id": "piper:pl_PL-gosia-medium",
+      "kind": "voice",
+      "name": "pl_PL-gosia-medium",
+      "languages": ["pl"],
+      "size": 63205000,
+      "licence": "# Model card for gosia (medium) ...",
+      "page": "https://huggingface.co/rhasspy/piper-voices/tree/main/pl/pl_PL/gosia/medium",
+      "state": "available",
+      "done": 0,
+      "total": null
+    }
+  ],
+  "errors": []
+}
+```
+
+- `kind`: `voice` or `translation`; `languages`: a voice's language, or a translation's from and to.
+- `size` in bytes, or `null` if the source does not say.
+- `licence`: as the source publishes it (for Piper voices, the voice's model card), or `null` if the source does not; `page` is where to read more.
+- `state`: `available`, `downloading` (with `done` and `total` bytes) or `installed`.
+- `errors`: why a source's list could not be shown, e.g. without an internet connection and no list saved earlier; the other sources are still listed.
+
+### `POST /v1/downloads`
+
+Starts downloading an entry from the list: `{"id": "piper:pl_PL-gosia-medium"}`. Returns **202** at once; progress comes as `download` events. Several downloads can run at once.
+
+### `DELETE /v1/downloads/<id>`
+
+Removes an installed entry.
+
 ## Errors
 
 A request that cannot be carried out returns **HTTP 400** with a message for the user:
@@ -163,6 +205,7 @@ On connecting, the client receives the current status. After that, every event t
 | `line` | A line has passed all stages and goes to the speech service | `source`: the source's name in the profile; `text`: the line |
 | `subtitle` | The subtitle to show over the game changes, while subtitles are on | `text`: the subtitle, or `""` to hide it. The core decides how long each one stays: while it is spoken plus a moment, and at least as long as it takes to read |
 | `error` | A source, stage or sink fails (reported once until it works again) | `kind`: `source.error`, `stage.error` or `sink.error`; `origin`: which one; `message`: for the user |
+| `download` | A download moves on, a few times a second at most | `id`; `state`: `downloading`, `installed`, `failed` or `removed`; `done` and `total` bytes (`total` may be `null`); `message`: why it failed, for the user |
 
 Example:
 

@@ -32,6 +32,10 @@ reflektortts-app = "reflektortts.desktop.__main__:main"
 memory = "reflektortts.sources.memory.plugin:PLUGIN"
 avalanche = "reflektortts.sources.avalanche.plugin:PLUGIN"
 
+[project.entry-points."reflektortts.downloads"]
+piper = "reflektortts.downloads.piper:PLUGIN"
+argos = "reflektortts.downloads.argos:PLUGIN"
+
 [project.entry-points."reflektortts.tts_engines"]
 piper = "reflektortts.tts.engines.piper:PLUGIN"
 windows = "reflektortts.tts.engines.windows:PLUGIN"

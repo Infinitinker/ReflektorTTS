@@ -12,7 +12,7 @@ from reflektortts.events import TextEvent
 from reflektortts.languages import Languages
 from reflektortts.pipeline.plugins import StagePlugin, load_schema
 from reflektortts.stages.translate.engine import Engine, MosesBpeEngine
-from reflektortts.stages.translate.model import PACKAGES, ModelNotInstalledError, installed_model
+from reflektortts.stages.translate.model import ModelNotInstalledError, installed_model
 from reflektortts.stages.translate.sentences import split_sentences
 
 logger = logging.getLogger(__name__)
@@ -61,8 +61,7 @@ def open_engine(source: str, target: str) -> Engine:
     """Loads the pair's installed model, once: every translate stage, of every source and game,
     shares the loaded model. A failed load is tried again next time.
     """
-    package = PACKAGES.get((source, target))
-    model_dir = installed_model(package) if package is not None else None
+    model_dir = installed_model((source, target))
     if model_dir is None:
         raise ModelNotInstalledError(NO_MODEL)
     started = time.perf_counter()
@@ -75,8 +74,7 @@ def inactive_reason(languages: Languages) -> str | None:
     """Models are never downloaded here: only an installed one is used."""
     if languages.game == languages.output:
         return "Game and output language are the same"
-    package = PACKAGES.get((languages.game, languages.output))
-    if package is None or installed_model(package) is None:
+    if installed_model((languages.game, languages.output)) is None:
         return NO_MODEL
     return None
 

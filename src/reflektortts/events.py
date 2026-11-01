@@ -35,6 +35,18 @@ class ErrorEvent:
 
 
 @dataclass(frozen=True)
+class DownloadEvent:
+    """A download the player started moved on: state is "downloading" (with done and total bytes,
+    total if known), "installed", "failed" (with a message for the user) or "removed"."""
+
+    entry_id: str
+    state: str
+    done: int = 0
+    total: int | None = None
+    message: str = ""
+
+
+@dataclass(frozen=True)
 class GameInfo:
     title: str
     pid: int

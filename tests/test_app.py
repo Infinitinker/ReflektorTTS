@@ -10,7 +10,7 @@ from reflektortts.app import Core, build_routes, read_game
 from reflektortts.bus import Event
 from reflektortts.ducking.records import DuckRecords
 from reflektortts.ducking.volume import OpenAppVolume
-from reflektortts.events import ErrorEvent, GameInfo, Status, TextEvent
+from reflektortts.events import DownloadEvent, ErrorEvent, GameInfo, Status, TextEvent
 from reflektortts.games.detector import ProcessInfo, RunningGame
 from reflektortts.languages import LanguageError, Languages
 from reflektortts.pipeline.plugins import SourcePlugin, StagePlugin
@@ -171,6 +171,7 @@ def make_core(tmp_path: Path, clients: Clients, voices: list[VoiceInfo] | None =
         stages=STAGES,
         open_app_volume=no_sound,
         duck_records=DuckRecords(tmp_path / "lowered-games.json"),
+        download_sources={},
     )
 
 
@@ -430,6 +431,24 @@ def test_without_a_voice_for_the_output_language_nothing_is_spoken(tmp_path: Pat
     assert len(clients.started) == 2 and not clients.started[1].closed
 
 
+def test_a_voice_installed_while_a_game_is_read_is_used_right_away(tmp_path: Path) -> None:
+    clients = Clients()
+    installed = [LJSPEECH]
+    core = make_core(tmp_path, clients, voices=installed)
+    core._enter(playing(GTA2))
+    core.set_output_language("pl")
+    assert not clients.started[-1].said and clients.started[-1].closed
+    events: list[Event] = []
+    core.subscribe(events.append)
+
+    installed.append(ADAM)
+    core._downloaded(DownloadEvent("piper:pl_PL-adam", "installed"))
+
+    assert clients.started[-1].voice == "windows:Microsoft Adam" and not clients.started[-1].closed
+    assert events[0] == DownloadEvent("piper:pl_PL-adam", "installed")
+    assert isinstance(events[-1], Status)
+
+
 def test_no_voice_is_loaded_while_waiting_for_a_game(tmp_path: Path) -> None:
     clients = Clients()
     make_core(tmp_path, clients)
@@ -499,6 +518,7 @@ def core_playing(tmp_path: Path, is_running: Callable[[int], bool], exit_grace_s
         open_app_volume=no_sound,
         duck_records=DuckRecords(tmp_path / "lowered-games.json"),
         exit_grace_seconds=exit_grace_seconds,
+        download_sources={},
     )
     core._game = GameInfo("Game", 42)
     return core

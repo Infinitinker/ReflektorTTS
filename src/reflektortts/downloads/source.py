@@ -1,0 +1,75 @@
+"""The contract every download source follows, so the app shows and handles them all the same way."""
+
+import logging
+from collections.abc import Callable
+from dataclasses import dataclass
+from enum import StrEnum
+from importlib.metadata import entry_points
+from pathlib import Path
+from typing import Protocol
+
+logger = logging.getLogger(__name__)
+
+GROUP = "reflektortts.downloads"
+
+type Progress = Callable[[int, int | None], None]
+"""Called with the bytes downloaded so far and the total, if known."""
+
+
+class Kind(StrEnum):
+    VOICE = "voice"
+    TRANSLATION = "translation"
+
+
+@dataclass(frozen=True)
+class Entry:
+    """Something the player can download."""
+
+    id: str
+    """Unique across sources: the source's name, a colon, and the source's own ID."""
+    kind: Kind
+    name: str
+    languages: tuple[str, ...]
+    """ISO 639-1: a voice's language, or a translation's from and to."""
+    size: int | None
+    """In bytes, if the source knows it."""
+    licence: str | None
+    """As the source publishes it (e.g. a voice's model card), or None if it does not."""
+    page: str
+    """Where the player can read more about it."""
+    installed: bool
+
+
+class DownloadError(Exception):
+    """A list or a download could not be fetched, or a download is damaged; the message says what to do."""
+
+
+class DownloadSource(Protocol):
+    def entries(self, refresh: bool) -> list[Entry]:
+        """Its entries, in the languages ReflektorTTS supports. refresh fetches the list from the
+        internet, falling back to the cached one; otherwise the cached list is used if there is one."""
+
+    def download(self, entry: Entry, progress: Progress) -> None:
+        """Downloads, checks and installs an entry; it can be used right after."""
+
+    def remove(self, entry: Entry) -> None: ...
+
+
+@dataclass(frozen=True)
+class DownloadPlugin:
+    """What a download source plugin registers under the reflektortts.downloads entry-point group."""
+
+    name: str
+    """Starts its entries' IDs, e.g. "piper"."""
+    create: Callable[[Path], DownloadSource]
+    """Creates the source, given a folder of its own for cached lists."""
+
+
+def download_plugins() -> dict[str, DownloadPlugin]:
+    plugins = {}
+    for entry_point in entry_points(group=GROUP):
+        plugin = entry_point.load()
+        if not isinstance(plugin, DownloadPlugin):
+            raise TypeError(f"Entry point {entry_point.value} in {GROUP} is not a DownloadPlugin")
+        plugins[plugin.name] = plugin
+    return plugins

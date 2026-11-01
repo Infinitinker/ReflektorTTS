@@ -11,7 +11,9 @@ from typing import Any, Protocol
 from aiohttp import WSMsgType, web
 
 from reflektortts.bus import Event, Listener
-from reflektortts.events import ErrorEvent, StageState, Status, SubtitleEvent, TextEvent
+from reflektortts.downloads.manager import Listed, Listing
+from reflektortts.downloads.source import DownloadError
+from reflektortts.events import DownloadEvent, ErrorEvent, StageState, Status, SubtitleEvent, TextEvent
 from reflektortts.languages import LANGUAGES, LanguageError
 from reflektortts.sinks.subtitles import POSITIONS, SIZES
 from reflektortts.tts.engine import MAX_RATE, MIN_RATE, VoiceError, VoiceInfo
@@ -70,6 +72,15 @@ class CoreControl(Protocol):
     def set_stage_enabled(self, key: str, enabled: bool) -> Status:
         """Raises StageError if no game is read or it has no such stage."""
 
+    def downloads(self, refresh: bool) -> Listing:
+        """refresh fetches the lists from the internet, so it can take a while."""
+
+    def start_download(self, entry_id: str) -> None:
+        """Raises DownloadError if it cannot start."""
+
+    def remove_download(self, entry_id: str) -> None:
+        """Raises DownloadError if it cannot be removed."""
+
     def subscribe(self, listener: Listener) -> Callable[[], None]: ...
 
 
@@ -119,7 +130,32 @@ def event_json(event: Event) -> dict[str, Any]:
         return {"type": "subtitle", "text": event.text}
     if isinstance(event, ErrorEvent):
         return {"type": "error", "kind": event.kind, "origin": event.origin, "message": event.message}
+    if isinstance(event, DownloadEvent):
+        return {
+            "type": "download",
+            "id": event.entry_id,
+            "state": event.state,
+            "done": event.done,
+            "total": event.total,
+            "message": event.message,
+        }
     return status_json(event)
+
+
+def listed_json(listed: Listed) -> dict[str, Any]:
+    entry = listed.entry
+    return {
+        "id": entry.id,
+        "kind": entry.kind,
+        "name": entry.name,
+        "languages": list(entry.languages),
+        "size": entry.size,
+        "licence": entry.licence,
+        "page": entry.page,
+        "state": listed.state,
+        "done": listed.done,
+        "total": listed.total,
+    }
 
 
 CORE = web.AppKey("core", CoreControl)
@@ -251,6 +287,37 @@ async def patch_stages(request: web.Request) -> web.Response:
     return web.json_response(status_json(status))
 
 
+DOWNLOADS_HELP = 'Send {"id": "<id from GET /v1/downloads>"}.'
+
+
+async def get_downloads(request: web.Request) -> web.Response:
+    refresh = request.query.get("refresh") in ("1", "true")
+    listing: Listing = await asyncio.to_thread(request.app[CORE].downloads, refresh)
+    return web.json_response(
+        {"entries": [listed_json(listed) for listed in listing.entries], "errors": list(listing.errors)}
+    )
+
+
+async def post_downloads(request: web.Request) -> web.Response:
+    body = await read_object(request)
+    if body is None or not isinstance(body.get("id"), str):
+        return error_response(DOWNLOADS_HELP)
+    try:
+        request.app[CORE].start_download(body["id"])
+    except DownloadError as error:
+        return error_response(str(error))
+    return web.json_response({"id": body["id"]}, status=202)
+
+
+async def delete_download(request: web.Request) -> web.Response:
+    entry_id = request.match_info["id"]
+    try:
+        await asyncio.to_thread(request.app[CORE].remove_download, entry_id)
+    except DownloadError as error:
+        return error_response(str(error))
+    return web.json_response({"id": entry_id})
+
+
 async def post_pause(request: web.Request) -> web.Response:
     return web.json_response(status_json(request.app[CORE].set_paused(True)))
 
@@ -316,6 +383,9 @@ def create_app(core: CoreControl) -> web.Application:
             web.post("/v1/pause", post_pause),
             web.post("/v1/resume", post_resume),
             web.post("/v1/stop", post_stop),
+            web.get("/v1/downloads", get_downloads),
+            web.post("/v1/downloads", post_downloads),
+            web.delete("/v1/downloads/{id}", delete_download),
             web.get("/v1/events", events),
         ]
     )

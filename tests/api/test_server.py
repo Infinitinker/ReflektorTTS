@@ -19,11 +19,32 @@ from reflektortts.api.server import (
     create_app,
 )
 from reflektortts.bus import EventBus, Listener
-from reflektortts.events import ErrorEvent, GameInfo, SourceStages, StageState, Status, SubtitleEvent, TextEvent
+from reflektortts.downloads.manager import Listed, Listing, State
+from reflektortts.downloads.source import DownloadError, Entry, Kind
+from reflektortts.events import (
+    DownloadEvent,
+    ErrorEvent,
+    GameInfo,
+    SourceStages,
+    StageState,
+    Status,
+    SubtitleEvent,
+    TextEvent,
+)
 from reflektortts.languages import LanguageError, check_language
 from reflektortts.tts.engine import VoiceError, VoiceInfo
 
 ADAM = VoiceInfo(id="windows:Microsoft Adam", engine="windows", name="Microsoft Adam", language="pl-PL")
+GOSIA = Entry(
+    "piper:pl_PL-gosia-medium",
+    Kind.VOICE,
+    "pl_PL-gosia-medium",
+    ("pl",),
+    63,
+    "Dataset: CC0",
+    "https://x.invalid",
+    False,
+)
 TRACKER = StageState(
     key="messages/0:tracker",
     type="tracker",
@@ -37,6 +58,9 @@ class FakeCore:
     def __init__(self) -> None:
         self.bus = EventBus()
         self.stopped_lines = 0
+        self.refreshed: bool | None = None
+        self.started: list[str] = []
+        self.removed: list[str] = []
         self.current = Status(
             game=GameInfo("Grand Theft Auto 2", 42),
             voice="piper:a",
@@ -108,6 +132,20 @@ class FakeCore:
         self.current = replace(self.current, sources=(replace(self.current.sources[0], stages=(stage,)),))
         return self.current
 
+    def downloads(self, refresh: bool) -> Listing:
+        self.refreshed = refresh
+        return Listing((Listed(GOSIA, State.AVAILABLE),), ("Could not reach the Argos list.",))
+
+    def start_download(self, entry_id: str) -> None:
+        if entry_id != GOSIA.id:
+            raise DownloadError(f'There is no download "{entry_id}".')
+        self.started.append(entry_id)
+
+    def remove_download(self, entry_id: str) -> None:
+        if entry_id != GOSIA.id:
+            raise DownloadError(f'There is no download "{entry_id}".')
+        self.removed.append(entry_id)
+
     def subscribe(self, listener: Listener) -> Callable[[], None]:
         return self.bus.subscribe(listener)
 
@@ -157,6 +195,67 @@ def test_status() -> None:
         }
 
     with_client(FakeCore(), test)
+
+
+def test_downloads_are_listed_with_their_state_and_errors() -> None:
+    core = FakeCore()
+
+    async def test(client: TestClient[Any, Any]) -> None:
+        response = await client.get("/v1/downloads", params={"refresh": "1"})
+        assert await response.json() == {
+            "entries": [
+                {
+                    "id": "piper:pl_PL-gosia-medium",
+                    "kind": "voice",
+                    "name": "pl_PL-gosia-medium",
+                    "languages": ["pl"],
+                    "size": 63,
+                    "licence": "Dataset: CC0",
+                    "page": "https://x.invalid",
+                    "state": "available",
+                    "done": 0,
+                    "total": None,
+                }
+            ],
+            "errors": ["Could not reach the Argos list."],
+        }
+
+    with_client(core, test)
+    assert core.refreshed is True
+
+
+def test_a_download_is_started_and_removed_by_id() -> None:
+    core = FakeCore()
+
+    async def test(client: TestClient[Any, Any]) -> None:
+        started = await client.post("/v1/downloads", json={"id": GOSIA.id})
+        assert started.status == 202
+        assert (await client.delete(f"/v1/downloads/{GOSIA.id}")).status == 200
+        unknown = await client.post("/v1/downloads", json={"id": "piper:x"})
+        assert (unknown.status, (await unknown.json())["error"]) == (400, 'There is no download "piper:x".')
+        assert (await client.post("/v1/downloads", json={})).status == 400
+
+    with_client(core, test)
+    assert core.started == core.removed == [GOSIA.id]
+
+
+def test_download_progress_comes_as_events() -> None:
+    core = FakeCore()
+
+    async def test(client: TestClient[Any, Any]) -> None:
+        async with client.ws_connect("/v1/events") as socket:
+            await socket.receive_json()  # The status first.
+            core.bus.publish(DownloadEvent(GOSIA.id, "downloading", 30, 63))
+            assert await socket.receive_json() == {
+                "type": "download",
+                "id": GOSIA.id,
+                "state": "downloading",
+                "done": 30,
+                "total": 63,
+                "message": "",
+            }
+
+    with_client(core, test)
 
 
 def test_languages() -> None:

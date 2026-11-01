@@ -64,7 +64,7 @@ def test_empty_text_passes_without_opening_the_engine() -> None:
         ("pl", "pl", True, "Game and output language are the same"),
         ("en", "en", True, "Game and output language are the same"),
         ("en", "pl", False, "No translation model for these languages"),
-        ("pl", "en", True, "No translation model for these languages"),
+        ("pl", "en", False, "No translation model for these languages"),
     ],
 )
 def test_it_does_nothing_for_matching_languages_or_without_an_installed_model(

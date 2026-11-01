@@ -1,12 +1,13 @@
 # Writing plugins
 
-ReflektorTTS reads text through **sources**, processes it with **stages**, and speaks it with **TTS engines**. Each is a plugin that registers itself through a Python entry point, so adding one never needs changes in the core or the UI. The built-in plugins register the same way; read them as examples.
+ReflektorTTS reads text through **sources**, processes it with **stages**, and speaks it with **TTS engines**; **download sources** offer the voices and translation models the player can download. Each is a plugin that registers itself through a Python entry point, so adding one never needs changes in the core or the UI. The built-in plugins register the same way; read them as examples.
 
 | Kind | Entry-point group | Contract | Built-in examples |
 |---|---|---|---|
 | Source | `reflektortts.sources` | `Source` in `pipeline/protocols.py` | `memory`, `avalanche` (`sources/`) |
 | Stage | `reflektortts.stages` | `Stage` in `pipeline/protocols.py` | `tracker`, `replace`, `translate`, `normalize` (`stages/`) |
 | TTS engine | `reflektortts.tts_engines` | `TtsEngine` in `tts/engine.py` | `piper`, `windows` (`tts/engines/`) |
+| Download source | `reflektortts.downloads` | `DownloadSource` in `downloads/source.py` | `piper`, `argos` (`downloads/`) |
 
 Sinks (where finished lines go) follow the `Sink` contract but have no plugin group yet: the core uses its built-in `tts`, `subtitles` and `events` sinks, which the player sets up in the overlay rather than per game. A group will be added with the first sink a profile needs to choose.
 
@@ -122,6 +123,25 @@ def list_voices() -> list[VoiceInfo]: ...
 - Yield audio as soon as a part is ready (Piper yields per sentence), so speech starts early. The player plays it in short blocks so a new line can cut it off.
 - Raise `VoiceError` with a helpful message when a voice cannot be used, e.g. listing the installed voices and where to get more.
 - Engines run in the TTS process, but the core imports the plugin module to list voices. **Keep that import cheap**: import heavy libraries (models, runtimes) inside `create` or the engine class, as `tts/engines/piper.py` does.
+- List only installed voices, and never download one in `create`: downloads are a download source's job.
+
+## Download sources
+
+```python
+class DownloadSource(Protocol):
+    def entries(self, refresh: bool) -> list[Entry]: ...
+    def download(self, entry: Entry, progress: Progress) -> None: ...
+    def remove(self, entry: Entry) -> None: ...
+```
+
+```python
+DownloadPlugin(name="piper", create=PiperVoices)  # create gets a cache folder of the source's own
+```
+
+- Every source behaves the same, so the desktop app shows them all alike. An `Entry` has an ID starting with the source's name (`piper:pl_PL-gosia-medium`), a kind (`voice` or `translation`), its languages, size (or `None`), licence as the source publishes it (or `None` if it does not), a page to read more, and whether it is installed.
+- `entries` lists only languages ReflektorTTS supports. With `refresh`, fetch the list from the internet and save it in the cache folder; without a connection, use the saved list; raise `DownloadError` with a message for the player only if there is neither.
+- `download` checks the download (against the source's checksums, if it gives any), installs it where its engine or stage finds it, and reports progress as it goes; it runs on a thread of its own. Use a staging folder, so a failed download never leaves a broken install.
+- Fetch with `downloads/http.py` and keep lists with `downloads/cache.py`, so every source talks to the internet the same way.
 
 ## Testing
 
