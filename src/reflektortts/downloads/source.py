@@ -44,6 +44,14 @@ class DownloadError(Exception):
     """A list or a download could not be fetched, or a download is damaged; the message says what to do."""
 
 
+class UnknownDownloadError(DownloadError):
+    """There is no download with that ID."""
+
+
+class DownloadStateError(DownloadError):
+    """A download cannot be started or removed as things are: it is downloading, or not installed."""
+
+
 class DownloadSource(Protocol):
     def entries(self, refresh: bool) -> list[Entry]:
         """Its entries, in the languages ReflektorTTS supports. refresh fetches the list from the

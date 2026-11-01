@@ -15,13 +15,14 @@ from reflektortts.api.server import (
     STAGES_HELP,
     ApiError,
     ApiServer,
+    NoAppError,
     SourceError,
     StageError,
     create_app,
 )
 from reflektortts.bus import EventBus, Listener
 from reflektortts.downloads.manager import Listed, Listing, State
-from reflektortts.downloads.source import DownloadError, Entry, Kind
+from reflektortts.downloads.source import DownloadError, DownloadStateError, Entry, Kind, UnknownDownloadError
 from reflektortts.events import (
     AppInfo,
     DownloadEvent,
@@ -136,6 +137,8 @@ class FakeCore:
         return self.current
 
     def set_stage_enabled(self, key: str, enabled: bool) -> Status:
+        if self.current.app is None:
+            raise NoAppError("No app is being read.")
         if key != TRACKER.key:
             raise StageError(f'Grand Theft Auto 2 has no stage "{key}".')
         stage = replace(TRACKER, enabled=enabled)
@@ -152,8 +155,10 @@ class FakeCore:
         self.started.append(entry_id)
 
     def remove_download(self, entry_id: str) -> None:
+        if entry_id == "piper:not-installed":
+            raise DownloadStateError("not-installed is not installed.")
         if entry_id != GOSIA.id:
-            raise DownloadError(f'There is no download "{entry_id}".')
+            raise UnknownDownloadError(f'There is no download "{entry_id}".')
         self.removed.append(entry_id)
 
     def subscribe(self, listener: Listener) -> Callable[[], None]:
@@ -246,9 +251,23 @@ def test_a_download_is_started_and_removed_by_id() -> None:
         unknown = await client.post("/v1/downloads", json={"id": "piper:x"})
         assert (unknown.status, (await unknown.json())["error"]) == (400, 'There is no download "piper:x".')
         assert (await client.post("/v1/downloads", json={})).status == 400
+        missing = await client.delete("/v1/downloads/piper:x")
+        assert (missing.status, (await missing.json())["error"]) == (404, 'There is no download "piper:x".')
+        assert (await client.delete("/v1/downloads/piper:not-installed")).status == 409
 
     with_client(core, test)
     assert core.started == core.removed == [GOSIA.id]
+
+
+def test_switching_a_stage_with_no_app_being_read_is_a_conflict() -> None:
+    core = FakeCore()
+    core.current = replace(core.current, app=None)
+
+    async def test(client: TestClient[Any, Any]) -> None:
+        response = await client.patch("/v1/stages", json={"key": TRACKER.key, "enabled": False})
+        assert (response.status, await response.json()) == (409, {"error": "No app is being read."})
+
+    with_client(core, test)
 
 
 def test_a_voice_is_previewed_by_id() -> None:

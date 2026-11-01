@@ -189,21 +189,21 @@ Lists every source's entries in the languages ReflektorTTS supports. With `?refr
 
 ### `POST /v1/downloads`
 
-Starts downloading an entry from the list: `{"id": "piper:pl_PL-gosia-medium"}`. Returns **202** at once; progress comes as `download` events. Several downloads can run at once. An ID can be used without listing the downloads first: the saved lists are read when needed.
+Starts downloading an entry from the list: `{"id": "piper:pl_PL-gosia-medium"}`. Returns **202** at once; progress comes as `download` events. Several downloads can run at once; starting one that is already running answers 409. An ID can be used without listing the downloads first: the saved lists are read when needed.
 
 ### `DELETE /v1/downloads/<id>`
 
-Removes an installed entry and returns `{"id": "..."}`; a `download` event with the state `removed` follows. An unknown ID, an entry still downloading, or files that cannot be deleted (e.g. in use) answer 400 with a message.
+Removes an installed entry and returns `{"id": "..."}`; a `download` event with the state `removed` follows. An unknown ID answers 404; an entry still downloading, or not installed, 409; files that cannot be deleted (e.g. in use) 400. Each with a message.
 
 ## Errors
 
-A request that cannot be carried out returns **HTTP 400** with a message for the user:
+A request that is wrong as sent returns **HTTP 400** with a message for the user, e.g. an unknown voice in a request body:
 
 ```json
 { "error": "There is no voice \"piper:missing\". Available: piper:en_US-ljspeech-medium, windows:Microsoft Adam." }
 ```
 
-Every other failure uses the same format: **404** for a path that does not exist, **405** for a method a path does not take (the message lists the ones it does), and **500** for an unexpected error inside ReflektorTTS, whose details are in its log.
+Every other failure uses the same format: **404** for a path, or a download in the path, that does not exist; **405** for a method a path does not take (the message lists the ones it does); **409** for something that cannot be done as things are now: switching a source or stage while no app is being read, starting a download that is already running, removing one that is downloading or not installed; and **500** for an unexpected error inside ReflektorTTS, whose details are in its log.
 
 ## Requests from web pages
 
@@ -221,7 +221,7 @@ On connecting, the client receives the current status. After that, every event t
 
 | `type` | Sent when | Other fields |
 |---|---|---|
-| `status` | The app, voice, languages, pause state or a stage switch changes | As in the status object |
+| `status` | Anything in the status object changes: the app (also an unsupported one), voice, languages, pause, ducking, speech or subtitle settings, a source or stage switch, or a voice or model installed or removed | As in the status object |
 | `line` | A line has passed all stages and goes to the speech service | `source`: the source's name in the profile; `text`: the line |
 | `subtitle` | The subtitle to show over the app changes, while subtitles are on | `text`: the subtitle, or `""` to hide it. The core decides how long each one stays: while it is spoken plus a moment, and at least as long as it takes to read |
 | `error` | A source, stage or sink fails (reported once until it works again) | `kind`: `source.error`, `stage.error` or `sink.error`; `origin`: which one; `message`: for the user |

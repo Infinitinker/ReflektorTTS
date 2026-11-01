@@ -8,10 +8,16 @@ import logging
 import threading
 import time
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from enum import StrEnum
 
-from reflektortts.downloads.source import DownloadError, DownloadSource, Entry
+from reflektortts.downloads.source import (
+    DownloadError,
+    DownloadSource,
+    DownloadStateError,
+    Entry,
+    UnknownDownloadError,
+)
 from reflektortts.events import DownloadEvent
 
 logger = logging.getLogger(__name__)
@@ -73,7 +79,7 @@ class Downloads:
         entry = self._find(entry_id)
         with self._lock:
             if entry_id in self._running:
-                raise DownloadError(f"{entry.name} is already downloading.")
+                raise DownloadStateError(f"{entry.name} is already downloading.")
             self._running[entry_id] = (0, entry.size)
         threading.Thread(target=self._download, args=(entry,), name=f"download {entry_id}", daemon=True).start()
 
@@ -81,7 +87,9 @@ class Downloads:
         entry = self._find(entry_id)
         with self._lock:
             if entry_id in self._running:
-                raise DownloadError(f"{entry.name} is downloading; wait until it is done.")
+                raise DownloadStateError(f"{entry.name} is downloading; wait until it is done.")
+        if not entry.installed:
+            raise DownloadStateError(f"{entry.name} is not installed.")
         try:
             self._source(entry).remove(entry)
         except OSError as error:
@@ -89,6 +97,7 @@ class Downloads:
                 f"{entry.name} could not be removed ({error.strerror or error}). Close what is using it and try again."
             ) from error
         logger.info("Removed %s", entry.name)
+        self._mark_installed(entry, False)
         self._on_event(DownloadEvent(entry_id, "removed"))
 
     def _find(self, entry_id: str) -> Entry:
@@ -102,8 +111,14 @@ class Downloads:
             with self._lock:
                 entry = self._entries.get(entry_id)
         if entry is None:
-            raise DownloadError(f'There is no download "{entry_id}".')
+            raise UnknownDownloadError(f'There is no download "{entry_id}".')
         return entry
+
+    def _mark_installed(self, entry: Entry, installed: bool) -> None:
+        """Keeps the known entries current between listings."""
+        with self._lock:
+            if entry.id in self._entries:
+                self._entries[entry.id] = replace(entry, installed=installed)
 
     def _listed(self, entry: Entry) -> Listed:
         if entry.id in self._running:
@@ -139,5 +154,6 @@ class Downloads:
             return
         with self._lock:
             done, total = self._running.pop(entry.id, (0, None))
+        self._mark_installed(entry, True)
         logger.info("Installed %s", entry.name)
         self._on_event(DownloadEvent(entry.id, "installed", done, total))

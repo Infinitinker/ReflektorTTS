@@ -4,7 +4,7 @@ import threading
 import pytest
 
 from reflektortts.downloads.manager import Downloads, Listed, State
-from reflektortts.downloads.source import DownloadError, Entry, Kind, Progress
+from reflektortts.downloads.source import DownloadError, DownloadStateError, Entry, Kind, Progress, UnknownDownloadError
 from reflektortts.events import DownloadEvent
 
 TIMEOUT = 5
@@ -137,3 +137,21 @@ def test_downloads_can_start_and_be_removed_without_listing_them_first() -> None
 
     assert until(events, "installed").entry_id == "fake:a"
     assert source.removed == ["fake:b"]
+
+
+def test_what_is_not_installed_cannot_be_removed_and_a_download_counts_as_installed() -> None:
+    events: queue.SimpleQueue[DownloadEvent] = queue.SimpleQueue()
+    source = FakeSource(entry("fake:a"))
+    downloads = Downloads({"fake": source}, events.put)
+    downloads.listing(refresh=True)
+
+    with pytest.raises(DownloadStateError, match="a is not installed"):
+        downloads.remove("fake:a")
+    with pytest.raises(UnknownDownloadError):
+        downloads.remove("fake:x")
+    downloads.start("fake:a")
+    source.release.set()
+    until(events, "installed")
+    downloads.remove("fake:a")
+
+    assert source.removed == ["fake:a"]

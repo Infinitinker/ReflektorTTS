@@ -5,7 +5,7 @@ from typing import Any
 
 import pytest
 
-from reflektortts.api.server import SourceError, StageError
+from reflektortts.api.server import NoAppError, SourceError, StageError
 from reflektortts.apps.detector import ProcessInfo, RunningApp
 from reflektortts.bus import Event
 from reflektortts.core import Core, build_routes, read_app
@@ -375,7 +375,7 @@ def test_stages_of_the_game_being_read_can_be_switched_off_and_stay_off(tmp_path
 def test_switching_stages_needs_a_game_and_a_known_stage(tmp_path: Path) -> None:
     core = make_core(tmp_path, Clients())
 
-    with pytest.raises(StageError, match="No app is being read"):
+    with pytest.raises(NoAppError, match="No app is being read"):
         core.set_stage_enabled("messages/0:suffix", False)
     core._enter(playing(GTA2))
     with pytest.raises(StageError, match='has no stage "messages/9:x"'):

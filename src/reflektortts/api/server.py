@@ -14,7 +14,7 @@ from reflektortts.api.errors import json_errors
 from reflektortts.api.guard import refuse_web_pages
 from reflektortts.bus import Event, Listener
 from reflektortts.downloads.manager import Listed, Listing
-from reflektortts.downloads.source import DownloadError
+from reflektortts.downloads.source import DownloadError, DownloadStateError, UnknownDownloadError
 from reflektortts.events import DownloadEvent, ErrorEvent, PreviewEvent, StageState, Status, SubtitleEvent, TextEvent
 from reflektortts.languages import LANGUAGES, LanguageError, check_language
 from reflektortts.sinks.subtitles import POSITIONS, SIZES
@@ -37,6 +37,10 @@ class SourceError(Exception):
 
 class StageError(Exception):
     """A stage cannot be switched on or off; the message says why."""
+
+
+class NoAppError(Exception):
+    """A source or stage cannot be switched now: no app is being read."""
 
 
 class CoreControl(Protocol):
@@ -72,10 +76,10 @@ class CoreControl(Protocol):
     def stop_line(self) -> Status: ...
 
     def set_source_enabled(self, name: str, enabled: bool) -> Status:
-        """Raises SourceError if no app is read or it has no such source."""
+        """Raises NoAppError if no app is read, SourceError if it has no such source."""
 
     def set_stage_enabled(self, key: str, enabled: bool) -> Status:
-        """Raises StageError if no app is read or it has no such stage."""
+        """Raises NoAppError if no app is read, StageError if it has no such stage."""
 
     def downloads(self, refresh: bool) -> Listing:
         """refresh fetches the lists from the internet, so it can take a while."""
@@ -172,8 +176,10 @@ CORE = web.AppKey("core", CoreControl)
 SOCKETS = web.AppKey("sockets", weakref.WeakSet[web.WebSocketResponse])
 
 
-def error_response(message: str) -> web.Response:
-    return web.json_response({"error": message}, status=400)
+def error_response(message: str, status: int = 400) -> web.Response:
+    """400 for a request that is wrong as sent; 404 for a resource in the path that does not exist;
+    409 for one that cannot be done as things are now, e.g. with no app being read."""
+    return web.json_response({"error": message}, status=status)
 
 
 async def get_status(request: web.Request) -> web.Response:
@@ -294,6 +300,8 @@ async def patch_sources(request: web.Request) -> web.Response:
         return error_response(SOURCES_HELP)
     try:
         status = request.app[CORE].set_source_enabled(body["name"], body["enabled"])
+    except NoAppError as error:
+        return error_response(str(error), 409)
     except SourceError as error:
         return error_response(str(error))
     return web.json_response(status_json(status))
@@ -305,6 +313,8 @@ async def patch_stages(request: web.Request) -> web.Response:
         return error_response(STAGES_HELP)
     try:
         status = request.app[CORE].set_stage_enabled(body["key"], body["enabled"])
+    except NoAppError as error:
+        return error_response(str(error), 409)
     except StageError as error:
         return error_response(str(error))
     return web.json_response(status_json(status))
@@ -327,6 +337,8 @@ async def post_downloads(request: web.Request) -> web.Response:
         return error_response(DOWNLOADS_HELP)
     try:
         request.app[CORE].start_download(body["id"])
+    except DownloadStateError as error:
+        return error_response(str(error), 409)
     except DownloadError as error:
         return error_response(str(error))
     return web.json_response({"id": body["id"]}, status=202)
@@ -336,6 +348,10 @@ async def delete_download(request: web.Request) -> web.Response:
     entry_id = request.match_info["id"]
     try:
         await asyncio.to_thread(request.app[CORE].remove_download, entry_id)
+    except UnknownDownloadError as error:
+        return error_response(str(error), 404)
+    except DownloadStateError as error:
+        return error_response(str(error), 409)
     except DownloadError as error:
         return error_response(str(error))
     return web.json_response({"id": entry_id})

@@ -11,7 +11,7 @@ from typing import Any, Concatenate
 
 import psutil
 
-from reflektortts.api.server import ApiServer, SourceError, StageError
+from reflektortts.api.server import ApiServer, NoAppError, SourceError, StageError
 from reflektortts.apps.detector import Builds, RunningApp, find_running_apps
 from reflektortts.bus import EventBus, Listener
 from reflektortts.downloads.manager import Downloads, Listing
@@ -355,7 +355,7 @@ class Core:
         """Switches a source of the app being read on or off; the choice is saved for that app."""
         profile = self._profile
         if profile is None:
-            raise SourceError("No app is being read.")
+            raise NoAppError("No app is being read.")
         names = [source.name for source in profile.sources]
         if name not in names:
             raise SourceError(f'{profile.app.title} has no source "{name}". Its sources: {", ".join(names)}.')
@@ -370,7 +370,7 @@ class Core:
         """Switches a stage of the app being read on or off; the choice is saved for that app."""
         profile = self._profile
         if profile is None:
-            raise StageError("No app is being read.")
+            raise NoAppError("No app is being read.")
         keys = [stage.key for source in self._source_stages() for stage in source.stages]
         if key not in keys:
             raise StageError(f'{profile.app.title} has no stage "{key}". Its stages: {", ".join(keys)}.')
