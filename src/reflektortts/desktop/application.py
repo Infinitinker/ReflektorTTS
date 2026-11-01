@@ -109,10 +109,16 @@ class Application:
     def _toggle_pause(self) -> None:
         if self._status is None:
             return
-        try:
-            post("/resume" if self._status.paused else "/pause")
-        except ApiClientError as error:
-            logger.warning("%s", error)
+        path = "/resume" if self._status.paused else "/pause"
+
+        def toggle() -> None:
+            try:
+                post(path)
+            except ApiClientError as error:
+                logger.warning("%s", error)
+
+        # In the background, like every request, so the window never waits for the core.
+        self._in_background(toggle)
 
     def _downloads_opened(self) -> None:
         """A downloads tab was opened: the lists are fetched from the internet once per opening

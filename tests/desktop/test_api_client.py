@@ -102,3 +102,14 @@ def test_the_feed_says_when_the_core_does_not_answer() -> None:
         assert statuses.get(timeout=TIMEOUT) is None
     finally:
         feed.stop()
+
+
+def test_an_event_the_window_cannot_read_is_skipped() -> None:
+    previews: list[PreviewState] = []
+    feed = StatusFeed(lambda status: None, on_preview=previews.append)
+
+    unreadable = ["not json", "[]", '{"type": "preview"}']
+    for message in [*unreadable, '{"type": "preview", "voice": "piper:a", "playing": true}']:
+        feed._handle(message)
+
+    assert previews == [PreviewState("piper:a", playing=True)]

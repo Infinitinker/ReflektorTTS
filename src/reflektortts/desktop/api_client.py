@@ -108,21 +108,30 @@ class StatusFeed:
                     except TimeoutError:
                         pass
 
+    def _handle(self, message: str) -> None:
+        """Passes an event on; one the window cannot read is logged and skipped, so it cannot end
+        the feed."""
+        try:
+            event = json.loads(message)
+            status = parse_status(event)
+            progress = parse_progress(event)
+            preview = parse_preview(event)
+        except (ValueError, KeyError, TypeError, AttributeError) as error:
+            logger.warning("Ignoring an event the window cannot read (%s): %s", error, message)
+            return
+        if status is not None:
+            self._on_status(status)
+        if progress is not None:
+            self._on_download(progress)
+        if preview is not None:
+            self._on_preview(preview)
+
     async def _follow_once(self, session: aiohttp.ClientSession) -> None:
         try:
             async with session.ws_connect(self._url, heartbeat=30) as socket:
                 async for message in socket:
                     if message.type != aiohttp.WSMsgType.TEXT:
                         break
-                    event = json.loads(message.data)
-                    status = parse_status(event)
-                    if status is not None:
-                        self._on_status(status)
-                    progress = parse_progress(event)
-                    if progress is not None:
-                        self._on_download(progress)
-                    preview = parse_preview(event)
-                    if preview is not None:
-                        self._on_preview(preview)
+                    self._handle(message.data)
         except (aiohttp.ClientError, OSError) as error:
             logger.debug("Status feed not connected: %s", error)

@@ -46,7 +46,7 @@ class PiperVoices:
 
     def entries(self, refresh: bool) -> list[Entry]:
         voices = self._index(refresh)
-        cards = self._cards(voices)
+        cards = self._cards(voices, fetch_missing=refresh)
         installed = set(downloaded_voices(self._voices))
         return [self._entry(key, info, cards.get(key), key in installed) for key, info in sorted(voices.items())]
 
@@ -89,14 +89,16 @@ class PiperVoices:
             del voices[key]
         return voices
 
-    def _cards(self, voices: dict[str, Any]) -> dict[str, str]:
-        """Each voice's model card; cards are fetched once and kept, since they hardly change."""
+    def _cards(self, voices: dict[str, Any], fetch_missing: bool) -> dict[str, str]:
+        """Each voice's model card; cards are fetched once and kept, since they hardly change. A
+        missing card is fetched only with fetch_missing (a refresh), so listing again, e.g. after
+        each download, never waits on the internet."""
         path = self._cache / "model-cards.json"
         cards: dict[str, str] = json.loads(path.read_text("utf-8")) if path.is_file() else {}
         fetched = False
         for key, info in voices.items():
             card = next((name for name in info["files"] if name.endswith("MODEL_CARD")), None)
-            if key in cards or card is None:
+            if key in cards or card is None or not fetch_missing:
                 continue
             try:
                 cards[key] = self._fetch(FILE_URL + card).decode("utf-8", errors="replace").strip()

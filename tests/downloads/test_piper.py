@@ -127,3 +127,17 @@ def test_a_voice_whose_name_cannot_be_a_file_name_is_skipped(tmp_path: Path, nam
     entries = source(tmp_path, fake).entries(refresh=True)
 
     assert [entry.name for entry in entries] == ["en_US-ljspeech-medium", "pl_PL-gosia-medium"]
+
+
+def test_listing_again_without_a_refresh_never_fetches_missing_cards(tmp_path: Path) -> None:
+    fake = web()
+    voices = source(tmp_path, fake)
+    voices.entries(refresh=True)
+    fake.files = {url: data for url, data in fake.files.items() if not url.endswith("MODEL_CARD")}
+    (tmp_path / "cache" / "model-cards.json").unlink()
+    fake.fetched.clear()
+
+    entries = voices.entries(refresh=False)
+
+    assert fake.fetched == []
+    assert all(entry.license is None for entry in entries)

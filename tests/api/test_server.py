@@ -1,5 +1,6 @@
 import asyncio
 import json
+import time
 import urllib.request
 from collections.abc import Awaitable, Callable
 from dataclasses import replace
@@ -354,18 +355,19 @@ def test_subtitles_can_be_switched_on_and_set_up() -> None:
     ("body", "message"),
     [
         ({"voice": "piper:missing"}, 'There is no voice "piper:missing". Available: windows:Microsoft Adam.'),
-        ({"subtitle_size": "huge"}, SETTINGS_HELP),
-        ({"speech_rate": 3}, SETTINGS_HELP),
-        ({"cut_off_lines": "yes"}, SETTINGS_HELP),
-        ({"subtitle_position": "left"}, SETTINGS_HELP),
-        ({"subtitles": 1}, SETTINGS_HELP),
-        ({"ducking": "yes"}, SETTINGS_HELP),
-        ({"duck_volume": 1.5}, SETTINGS_HELP),
-        ({"duck_volume": True}, SETTINGS_HELP),
+        ({"subtitle_size": "huge"}, f'"subtitle_size" cannot be set to that. {SETTINGS_HELP}'),
+        ({"speech_rate": 3}, f'"speech_rate" cannot be set to that. {SETTINGS_HELP}'),
+        ({"cut_off_lines": "yes"}, f'"cut_off_lines" cannot be set to that. {SETTINGS_HELP}'),
+        ({"subtitle_position": "left"}, f'"subtitle_position" cannot be set to that. {SETTINGS_HELP}'),
+        ({"subtitles": 1}, f'"subtitles" cannot be set to that. {SETTINGS_HELP}'),
+        ({"ducking": "yes"}, f'"ducking" cannot be set to that. {SETTINGS_HELP}'),
+        ({"duck_volume": 1.5}, f'"duck_volume" cannot be set to that. {SETTINGS_HELP}'),
+        ({"duck_volume": True}, f'"duck_volume" cannot be set to that. {SETTINGS_HELP}'),
         ({"output_language": "auto"}, 'There is no language "auto". Available: en, pl.'),
         ({"game_language": "auto"}, 'There is no language "auto". Available: en, pl.'),
-        ({"voice": 5}, SETTINGS_HELP),
-        ({"volume": 5}, SETTINGS_HELP),
+        ({"voice": 5}, f'"voice" cannot be set to that. {SETTINGS_HELP}'),
+        ({"volume": 5, "ducking": True}, f'There is no setting "volume". {SETTINGS_HELP}'),
+        ({}, SETTINGS_HELP),
         ("not json", "The request body must be a JSON object."),
     ],
 )
@@ -486,6 +488,8 @@ def test_server_runs_on_its_own_thread_and_reports_a_busy_port() -> None:
         second = ApiServer(FakeCore(), port=server.port)
         with pytest.raises(ApiError, match="Is ReflektorTTS already running"):
             second.start()
+        time.sleep(0.5)  # Lets the failed server's loop close, as when the app is slow to stop it.
+        second.stop()
     finally:
         server.stop()
 

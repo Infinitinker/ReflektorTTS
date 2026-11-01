@@ -244,9 +244,13 @@ async def patch_settings(request: web.Request) -> web.Response:
     body = await read_object(request)
     if body is None:
         return error_response("The request body must be a JSON object.")
-    values = {field: body[field] for field in SETTING_CHECKS if field in body}
-    if not values or any(not SETTING_CHECKS[field](value) for field, value in values.items()):
-        return error_response(SETTINGS_HELP)
+    unknown = [field for field in body if field not in SETTING_CHECKS]
+    if unknown:
+        return error_response(f'There is no setting "{unknown[0]}". {SETTINGS_HELP}')
+    values = dict(body)
+    wrong = [field for field, value in values.items() if not SETTING_CHECKS[field](value)]
+    if not values or wrong:
+        return error_response(f'"{wrong[0]}" cannot be set to that. {SETTINGS_HELP}' if wrong else SETTINGS_HELP)
     core = request.app[CORE]
     try:
         for field in ("game_language", "output_language"):
@@ -447,7 +451,9 @@ class ApiServer:
         logger.info("Local API listening on http://%s:%d/v1", self._host, self.port)
 
     def stop(self) -> None:
-        if self._loop is not None and self._stopping is not None:
+        """Stops serving; after a failed start, the server has stopped already and its loop may be
+        closed, so there is nothing to tell it."""
+        if self._error is None and self._loop is not None and self._stopping is not None:
             self._loop.call_soon_threadsafe(self._stopping.set)
         self._thread.join()
 

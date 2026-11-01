@@ -120,12 +120,23 @@ def load_profile(path: Path, schemas: PluginSchemas | None = None) -> Profile:
     data = _migrate(data, name)
     _check(_validator(), data, name)
     schemas = installed_plugin_schemas() if schemas is None else schemas
+    sources = tuple(_source(entry, index, schemas, name) for index, entry in enumerate(data.get("sources", [])))
+    _check_unique_names(sources, name)
     return Profile(
         id=path.stem,
         game=Game(title=data["game"]["title"], year=data["game"]["year"]),
         match=Match(processes=tuple(data["match"]["process"])),
-        sources=tuple(_source(entry, index, schemas, name) for index, entry in enumerate(data.get("sources", []))),
+        sources=sources,
     )
+
+
+def _check_unique_names(sources: tuple[SourceSettings, ...], name: str) -> None:
+    """Sources are switched on and off, and their stages found, by name, so two may not share one."""
+    seen: set[str] = set()
+    for source in sources:
+        if source.name in seen:
+            raise ProfileError(f'{name}: two sources are named "{source.name}"; give each its own name.')
+        seen.add(source.name)
 
 
 def load_profiles(directory: Path, schemas: PluginSchemas | None = None) -> tuple[list[Profile], list[ProfileError]]:

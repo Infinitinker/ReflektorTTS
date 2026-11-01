@@ -124,6 +124,15 @@ def test_sources_are_split_into_core_fields_and_plugin_settings(tmp_path: Path) 
     )
 
 
+def test_two_sources_with_one_name_are_refused(tmp_path: Path) -> None:
+    data = with_sources(
+        {"type": "fixed", "name": "subtitles", "text": "a"}, {"type": "fixed", "name": "subtitles", "text": "b"}
+    )
+
+    with pytest.raises(ProfileError, match='game.json: two sources are named "subtitles"; give each its own name.'):
+        load_profile(write(tmp_path, "game.json", data), SCHEMAS)
+
+
 def test_unknown_source_type_lists_the_installed_ones(tmp_path: Path) -> None:
     data = with_sources({"type": "ocr", "name": "subtitles"})
 

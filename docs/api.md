@@ -98,7 +98,7 @@ Returns the languages the pipeline supports, with their names in their own langu
 
 ### `PATCH /v1/settings`
 
-Changes settings and saves them for the game being read (see Status). Send any of the fields:
+Changes settings and saves them for the game being read (see Status). Send any of the fields below. A request is applied in full or not at all: an unknown field or a wrong value answers 400, naming the field, and changes nothing.
 
 ```json
 { "game_language": "en", "output_language": "pl", "voice": "windows:Microsoft Adam" }
