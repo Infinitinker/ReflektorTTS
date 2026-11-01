@@ -141,9 +141,10 @@ Known pitfalls of older games and how the overlay handles them:
 - **Linux** second: apps under Proton/Wine with the same overlay DLL; native apps through a Vulkan layer and `LD_PRELOAD` for OpenGL (as MangoHud does). Sources to port: memory (`process_vm_readv`), OCR (Tesseract), clipboard. Ducking needs a per-app volume through PipeWire/PulseAudio (e.g. `pulsectl`).
 - **macOS** is out of scope: the hardened runtime and SIP block injection, and reading memory (`task_for_pid`) needs extra permissions.
 - The core and its UIs stay portable; platform-specific code lives only in plugins and the overlay.
+- On Windows, ReflektorTTS ships as a portable zip: the desktop app built with PyInstaller (one folder, its own Python), the overlay builds and the notices, built by `tools/build_release.py`. User data stays in the per-user folders, so a release folder can be replaced to update. An installer may follow.
 - The desktop app uses Tkinter, part of Python, and pystray (LGPL-3.0) for the tray icon; Qt or wx would look more modern but add over 100 MB. The overlay works only with what is already downloaded: downloads (voices, translation models) belong in the desktop app. pystray and Tkinter both want the main thread on some Linux setups, so the window is checked there separately.
 
 ## Open questions
 
 - How community profiles are distributed beyond this repository (e.g. a profile browser in ReflektorTTS).
-- Whether the API needs authentication beyond listening only on 127.0.0.1.
+- Whether the API needs authentication beyond listening only on 127.0.0.1 and refusing web pages (other programs on the machine can still use it).

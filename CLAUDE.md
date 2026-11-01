@@ -54,3 +54,4 @@ The goal is clean code, modularity, portability, and that other people can insta
 
 - Python development uses a plain `venv` in `.venv/` at the repo root (Python 3.13) with `pip`. Keep `pyproject.toml` standard (PEP 621, no package-manager-specific sections), so contributors can use any tool.
 - The C++ overlay builds with CMake; see `overlay/README.md`.
+- Releases are a portable zip built by `tools/build_release.py` with PyInstaller (the `release` extra); see "Building a release" in `README.md`. A new runtime dependency may need PyInstaller told about it there (data files, native parts, modules imported by name), and its license text must reach `THIRD_PARTY_NOTICES.txt` (`tools/notices.py`).
