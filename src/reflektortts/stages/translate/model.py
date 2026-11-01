@@ -18,6 +18,9 @@ type Pair = tuple[str, str]
 # tokenizer); its sentence splitter (stanza) is left out.
 _KEPT = ("model", "bpe.model", "sentencepiece.model", "README.md")
 _TOKENIZERS = ("bpe.model", "sentencepiece.model")
+MAX_UNPACKED_BYTES = 1024**3
+"""Real models unpack to a few hundred MB; a bigger package is refused before anything is unpacked."""
+UNSAFE = "The downloaded file is not a translation model ReflektorTTS can use safely."
 
 
 class ModelInstallError(Exception):
@@ -70,13 +73,27 @@ def remove_model(pair: Pair, directory: Path | None = None) -> None:
 
 
 def _unpack(archive: Path, destination: Path) -> None:
-    """Extracts the kept files, dropping the package's top-level folder."""
+    """Extracts the kept files, dropping the package's top-level folder.
+
+    Raises ModelInstallError, before writing anything, for a file that would land outside
+    destination (e.g. "../x" or the drive-relative "D:x" on Windows) or a package that would unpack
+    to more than MAX_UNPACKED_BYTES. Reading a file never yields more than its declared size, so
+    the declared sizes can be trusted.
+    """
+    root = destination.resolve()
     with zipfile.ZipFile(archive) as package:
+        kept = []
         for member in package.infolist():
             parts = PurePosixPath(member.filename).parts[1:]
-            if member.is_dir() or not parts or parts[0] not in _KEPT or ".." in parts:
+            if member.is_dir() or not parts or parts[0] not in _KEPT:
                 continue
             target = destination.joinpath(*parts)
+            if not target.resolve().is_relative_to(root):
+                raise ModelInstallError(UNSAFE)
+            kept.append((member, target))
+        if sum(member.file_size for member, _ in kept) > MAX_UNPACKED_BYTES:
+            raise ModelInstallError(UNSAFE)
+        for member, target in kept:
             target.parent.mkdir(parents=True, exist_ok=True)
             with package.open(member) as source, target.open("wb") as file:
                 shutil.copyfileobj(source, file)

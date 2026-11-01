@@ -7,6 +7,7 @@ voice's model card describes its dataset and training, so the card's text is sho
 import hashlib
 import json
 import logging
+import re
 import tempfile
 from collections.abc import Callable
 from pathlib import Path, PurePosixPath
@@ -26,6 +27,8 @@ REPOSITORY = "https://huggingface.co/rhasspy/piper-voices"
 INDEX_URL = f"{REPOSITORY}/resolve/main/voices.json"
 FILE_URL = f"{REPOSITORY}/resolve/main/"
 PAGE_URL = f"{REPOSITORY}/tree/main/"
+VOICE_NAME = re.compile(r"[A-Za-z0-9_][A-Za-z0-9_.-]*")
+"""A voice's name becomes its file names, so it may not lead out of the voices folder."""
 
 
 class PiperVoices:
@@ -73,13 +76,18 @@ class PiperVoices:
             (self._voices / name).unlink(missing_ok=True)
 
     def _index(self, refresh: bool) -> dict[str, Any]:
-        """The voices in the languages ReflektorTTS supports, by name."""
+        """The voices in the languages ReflektorTTS supports, by name; a name that cannot be a file
+        name is skipped."""
         data = cached(self._cache / "voices.json", lambda: self._fetch(INDEX_URL), refresh)
         try:
             index = json.loads(data)
-            return {key: info for key, info in index.items() if info["language"]["family"] in LANGUAGES}
+            voices = {key: info for key, info in index.items() if info["language"]["family"] in LANGUAGES}
         except (ValueError, KeyError, TypeError, AttributeError) as error:
             raise DownloadError(f"The list of Piper voices is not in the expected format ({error}).") from error
+        for key in [key for key in voices if not VOICE_NAME.fullmatch(key)]:
+            logger.warning("Skipping the Piper voice %r: its name cannot be a file name", key)
+            del voices[key]
+        return voices
 
     def _cards(self, voices: dict[str, Any]) -> dict[str, str]:
         """Each voice's model card; cards are fetched once and kept, since they hardly change."""

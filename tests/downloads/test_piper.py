@@ -114,3 +114,16 @@ def test_without_a_connection_or_a_saved_list_the_list_cannot_be_shown(tmp_path:
 
     with pytest.raises(DownloadError, match="internet connection"):
         source(tmp_path, fake).entries(refresh=True)
+
+
+@pytest.mark.parametrize("name", [r"..\..\x", "../x", ".hidden", "C:x", "a b"])
+def test_a_voice_whose_name_cannot_be_a_file_name_is_skipped(tmp_path: Path, name: str) -> None:
+    fake = web()
+    voices = json.loads(fake.files[INDEX_URL])
+    _, info = voice("pl", "pl_PL", "gosia")
+    voices[name] = info
+    fake.files[INDEX_URL] = json.dumps(voices).encode()
+
+    entries = source(tmp_path, fake).entries(refresh=True)
+
+    assert [entry.name for entry in entries] == ["en_US-ljspeech-medium", "pl_PL-gosia-medium"]
