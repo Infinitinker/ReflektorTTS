@@ -16,10 +16,6 @@ The design is in `docs/architecture.md`; plugin contracts in `docs/plugins.md`, 
 - Voice models have their own licenses (in each voice's model card). Check them before bundling a voice or making it a default; never bundle non-commercial-only voices.
 - Write code, docs and commit history as if strangers will read them: no personal paths, secrets or machine-specific settings in the repo.
 
-## `_old_poc/` is read-only
-
-The original proof of concept. Read it and port proven code and findings from it (e.g. the GTA2 memory pointer, Polish text normalization), but never edit, run or repair anything there. Its venvs are broken on purpose; leave them alone. New code does not import from `_old_poc/`.
-
 ## Principles
 
 The goal is clean code, modularity, portability, and an app other people can install and use without help.

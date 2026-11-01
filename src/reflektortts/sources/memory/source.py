@@ -13,7 +13,7 @@ _CONTROL = re.compile("[\x00-\x1f�]+")
 
 # A pointer can outlive its text, e.g. in the game's menu, and then points at unrelated
 # memory. Below this share of characters that can appear in dialogue, what was read is
-# not text (the threshold the PoC used successfully on GTA2).
+# not text (a threshold proven on GTA2).
 MIN_TEXT_RATIO = 0.9
 
 
