@@ -36,8 +36,16 @@ DWORD find_process_id(const std::wstring& process_name) {
 }
 
 std::filesystem::path default_dll_path() {
-    wchar_t own_path[MAX_PATH];
-    GetModuleFileNameW(nullptr, own_path, MAX_PATH);
+    // Grows the buffer until the path fits, so the injector also works from a long path.
+    std::wstring own_path(MAX_PATH, L'\0');
+    for (;;) {
+        DWORD length = GetModuleFileNameW(nullptr, own_path.data(), static_cast<DWORD>(own_path.size()));
+        if (length < own_path.size()) {
+            own_path.resize(length);
+            break;
+        }
+        own_path.resize(own_path.size() * 2);
+    }
     return std::filesystem::path(own_path).replace_filename(L"reflektortts-overlay.dll");
 }
 

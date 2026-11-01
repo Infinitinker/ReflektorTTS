@@ -4,10 +4,12 @@
 #include <winhttp.h>
 
 #include <condition_variable>
+#include <cstddef>
 #include <deque>
 #include <mutex>
 #include <nlohmann/json.hpp>
 #include <optional>
+#include <string>
 #include <thread>
 
 #include "log.h"
@@ -20,6 +22,8 @@ using nlohmann::json;
 constexpr wchar_t kHost[] = L"127.0.0.1";
 constexpr INTERNET_PORT kPort = 47821;  // Must match reflektortts.api.server.PORT.
 constexpr DWORD kReconnectMs = 2000;
+// The core's events are small; a bigger message is skipped, so a wrong server cannot fill memory.
+constexpr std::size_t kMaxEventBytes = 1 << 20;
 
 struct Request {
     const wchar_t* method;
@@ -259,6 +263,7 @@ void listen_for_events() {
     log_message("Connected to the ReflektorTTS core");
 
     std::string message;
+    bool too_big = false;
     char buffer[4096];
     for (;;) {
         DWORD read = 0;
@@ -267,10 +272,20 @@ void listen_for_events() {
             type == WINHTTP_WEB_SOCKET_CLOSE_BUFFER_TYPE) {
             break;
         }
-        message.append(buffer, read);
-        if (type == WINHTTP_WEB_SOCKET_UTF8_MESSAGE_BUFFER_TYPE) {
-            handle_event(message);
+        if (!too_big && message.size() + read > kMaxEventBytes) {
+            log_message("Skipping an event bigger than " + std::to_string(kMaxEventBytes) + " bytes");
+            too_big = true;
             message.clear();
+        }
+        if (!too_big) {
+            message.append(buffer, read);
+        }
+        if (type == WINHTTP_WEB_SOCKET_UTF8_MESSAGE_BUFFER_TYPE || type == WINHTTP_WEB_SOCKET_BINARY_MESSAGE_BUFFER_TYPE) {
+            if (!too_big) {
+                handle_event(message);
+            }
+            message.clear();
+            too_big = false;
         }
     }
     std::lock_guard lock(g_state_mutex);

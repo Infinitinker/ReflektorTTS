@@ -100,33 +100,62 @@ BOOL WINAPI get_keyboard_state(BYTE* keys) {
     return result;
 }
 
-// NEXTRAWINPUTBLOCK, which MinGW's 64-bit headers cannot expand (they lack its QWORD). Blocks
-// are aligned to a pointer's size: 8 bytes on 64-bit, 4 on 32-bit, as in the Windows SDK.
-RAWINPUT* next_raw_input_block(RAWINPUT* input) {
-    constexpr std::uintptr_t alignment = sizeof(void*);
-    std::uintptr_t next = reinterpret_cast<std::uintptr_t>(input) + input->header.dwSize;
-    return reinterpret_cast<RAWINPUT*>((next + alignment - 1) & ~(alignment - 1));
+// RAWINPUTHEADER as 64-bit Windows lays it out. A 32-bit app on 64-bit Windows (WOW64) gets
+// GetRawInputBuffer's blocks in this layout, 8-byte aligned, not in its own 32-bit one.
+struct RawInputHeader64 {
+    DWORD dwType;
+    DWORD dwSize;
+    std::uint64_t hDevice;
+    std::uint64_t wParam;
+};
+static_assert(sizeof(RawInputHeader64) == 24, "RAWINPUTHEADER is 24 bytes on 64-bit Windows");
+
+bool runs_on_wow64() {
+    static const bool wow64 = [] {
+        BOOL result = FALSE;
+        return IsWow64Process(GetCurrentProcess(), &result) && result;
+    }();
+    return wow64;
 }
 
-// Buffered raw input is read, so it does not pile up, then mouse and keyboard input is handed
-// over as meant for another window: movement zeroed, keys released. Gamepads pass unchanged.
+// Hands each mouse and keyboard block over as meant for another window: movement zeroed, keys
+// released. Gamepads pass unchanged. Blocks follow each other at alignment, as NEXTRAWINPUTBLOCK
+// steps (which MinGW's 64-bit headers cannot expand, lacking its QWORD); a block's data follows
+// its header, and the mouse and keyboard data is laid out the same in 32 and 64 bits.
+template <typename Header>
+void hand_over_raw_input(BYTE* blocks, UINT count, std::uintptr_t alignment) {
+    BYTE* block = blocks;
+    for (UINT i = 0; i < count; ++i) {
+        auto* header = reinterpret_cast<Header*>(block);
+        BYTE* payload = block + sizeof(Header);
+        if (header->dwType == RIM_TYPEMOUSE) {
+            header->hDevice = {};
+            header->wParam = RIM_INPUTSINK;
+            std::memset(payload, 0, sizeof(RAWMOUSE));
+        } else if (header->dwType == RIM_TYPEKEYBOARD) {
+            header->hDevice = {};
+            header->wParam = RIM_INPUTSINK;
+            auto* keyboard = reinterpret_cast<RAWKEYBOARD*>(payload);
+            keyboard->Flags |= RI_KEY_BREAK;
+            keyboard->VKey = 0;
+        }
+        std::uintptr_t next = reinterpret_cast<std::uintptr_t>(block) + header->dwSize;
+        block = reinterpret_cast<BYTE*>((next + alignment - 1) & ~(alignment - 1));
+    }
+}
+
+// Buffered raw input is read, so it does not pile up, then handed over as meant for another
+// window (see hand_over_raw_input).
 UINT WINAPI get_raw_input_buffer(RAWINPUT* data, UINT* size, UINT header_size) {
     UINT count = g_get_raw_input_buffer(data, size, header_size);
     if (count == static_cast<UINT>(-1) || data == nullptr || !app_input_blocked()) {
         return count;
     }
-    RAWINPUT* input = data;
-    for (UINT i = 0; i < count; ++i, input = next_raw_input_block(input)) {
-        if (input->header.dwType == RIM_TYPEMOUSE) {
-            input->header.hDevice = nullptr;
-            input->header.wParam = RIM_INPUTSINK;
-            std::memset(&input->data.mouse, 0, sizeof(input->data.mouse));
-        } else if (input->header.dwType == RIM_TYPEKEYBOARD) {
-            input->header.hDevice = nullptr;
-            input->header.wParam = RIM_INPUTSINK;
-            input->data.keyboard.Flags |= RI_KEY_BREAK;
-            input->data.keyboard.VKey = 0;
-        }
+    auto* blocks = reinterpret_cast<BYTE*>(data);
+    if (sizeof(void*) == 4 && runs_on_wow64()) {
+        hand_over_raw_input<RawInputHeader64>(blocks, count, 8);
+    } else {
+        hand_over_raw_input<RAWINPUTHEADER>(blocks, count, sizeof(void*));
     }
     return count;
 }
