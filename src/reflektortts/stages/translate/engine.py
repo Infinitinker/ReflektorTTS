@@ -28,6 +28,7 @@ class TranslationUnavailableError(Exception):
 UNAVAILABLE = "Translation needs the translate extra: pip install reflektortts[translate]"
 BPE_FILE = "bpe.model"
 SENTENCEPIECE_FILE = "sentencepiece.model"
+MIN_SHOUTED_LETTERS = 2
 
 
 def load_engine(model_dir: Path, source: str, target: str) -> Engine:
@@ -46,6 +47,32 @@ def _translator(model_dir: Path) -> Any:
     return ctranslate2.Translator(str(model_dir / "model"), device="cpu", compute_type="int8")
 
 
+_PRONOUN_I = re.compile(r"\bi\b")
+
+
+def is_shouted(sentence: str) -> bool:
+    """Whether every letter of the sentence is a capital, as in "GOODBYE!"."""
+    letters = [character for character in sentence if character.isalpha()]
+    return len(letters) >= MIN_SHOUTED_LETTERS and all(letter.isupper() for letter in letters)
+
+
+def prepare(sentence: str) -> str:
+    """The sentence as the model translates it best. The model copies some sentences instead of
+    translating them: those in capitals, whose words it splits into fragments it does not know,
+    so they are put in sentence case; and some with no ending, as lines an app splits across
+    subtitles have, so they get a period."""
+    if is_shouted(sentence):
+        sentence = _PRONOUN_I.sub("I", sentence[:1] + sentence[1:].lower())
+    return sentence + "." if sentence[-1:].isalnum() else sentence
+
+
+def restore(sentence: str, translated: str) -> str:
+    """The translation of a prepared sentence, put back the way the sentence was written."""
+    if sentence[-1:].isalnum() and translated.endswith(".") and not translated.endswith(".."):
+        translated = translated[:-1]
+    return translated.upper() if is_shouted(sentence) else translated
+
+
 def _best(translator: Any, batch: list[list[str]]) -> list[list[str]]:
     """Each sentence's best translation, with the decoding settings of Argos Translate."""
     results = translator.translate_batch(batch, beam_size=4, length_penalty=0.2, replace_unknowns=True)
@@ -62,8 +89,9 @@ class SentencePieceEngine:
         self._pieces = sentencepiece.SentencePieceProcessor(model_file=str(model_dir / SENTENCEPIECE_FILE))
 
     def translate(self, sentences: Sequence[str]) -> str:
-        batch = [self._pieces.encode(sentence, out_type=str) for sentence in sentences]
-        return join_name_endings(" ".join(self._pieces.decode(tokens) for tokens in _best(self._translator, batch)))
+        batch = [self._pieces.encode(prepare(sentence), out_type=str) for sentence in sentences]
+        translated = [self._pieces.decode(tokens) for tokens in _best(self._translator, batch)]
+        return join_name_endings(" ".join(map(restore, sentences, translated)))
 
 
 class MosesBpeEngine:
@@ -82,11 +110,13 @@ class MosesBpeEngine:
             self._bpe = BPE(codes)
 
     def translate(self, sentences: Sequence[str]) -> str:
-        batch = [self._encode(sentence) for sentence in sentences]
-        tokens = [token for sentence in _best(self._translator, batch) for token in sentence]
-        words = " ".join(tokens).replace("@@ ", "").split(" ")
-        return join_name_endings(str(self._detokenizer.detokenize(words)))
+        batch = [self._encode(prepare(sentence)) for sentence in sentences]
+        translated = [self._decode(tokens) for tokens in _best(self._translator, batch)]
+        return join_name_endings(" ".join(map(restore, sentences, translated)))
 
     def _encode(self, sentence: str) -> list[str]:
         words = self._tokenizer.tokenize(self._normalizer.normalize(sentence))
         return list(self._bpe.segment_tokens(words))
+
+    def _decode(self, tokens: list[str]) -> str:
+        return str(self._detokenizer.detokenize(" ".join(tokens).replace("@@ ", "").split(" ")))
