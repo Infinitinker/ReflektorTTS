@@ -2,19 +2,21 @@
 
 ## Goal
 
-ReflektorTTS reads an app's text aloud: dialogue, cutscene subtitles and on-screen messages. Optionally it translates the text in the style of a Polish *lektor*: one voice speaking over the app's original sound.
+ReflektorTTS reads an app's text aloud: dialogue, cutscene subtitles and on-screen messages. It translates the text into the user's language on the way, in the style of a Polish *lektor*: one voice speaking over the app's original sound, which is lowered while it speaks.
 
 Its main ideas:
 
-- **A profile per app**: how to recognize the app, where to read its text, and how to process it. One profile is one JSON file, so profiles can be shared.
+- **A profile per app**: how to recognize the app, where to read its text, how to process it, and a glossary for its names and slang. One profile is one JSON file, so profiles can be shared.
+- **A desktop app** next to the clock runs ReflektorTTS, shows what it is doing, manages profiles and downloads voices and translation models.
 - **Configuration without leaving the app**, through an overlay. Older games often crash when they lose focus (Alt+Tab).
-- **Many ways to read text**: app memory today; OCR, the clipboard, speech recognition and app function hooks are planned.
-- **Plugins** for sources, processing stages, outputs and speech engines.
+- **Offline:** voices and translation models run on the user's computer, and nothing is downloaded unless the user asks.
+- **Many ways to read text**: an app's memory and its files today; OCR, the clipboard, speech recognition and app function hooks are planned.
+- **Plugins** for sources, processing stages, speech engines and downloads.
 
 ## Principles
 
 1. **Module ≠ process.** Code is split into modules everywhere, but into separate processes only for isolation, heavy resources (speech models, GPU) or code that must run elsewhere (inside the app).
-2. **The core runs headless.** Every user interface, the overlay included, is a client of the same local API.
+2. **The core runs headless.** Every user interface, the desktop app's window and the overlay alike, is a client of the same local API.
 3. **Logic lives in Python; the overlay only draws.** The C++ code inside the app draws the UI, captures input and will grab frames, nothing more.
 4. **Plugins describe their settings with a JSON Schema**, so profiles can be validated and UIs can build forms without knowing the plugin.
 5. **Contracts come from real cases.** Interfaces are drawn from the plugins that exist and checked on the next one, not designed ahead for imagined ones.
@@ -22,23 +24,28 @@ Its main ideas:
 ## Processes
 
 ```
- App process                        Core process (Python, headless)                 Child process
-┌───────────────────┐  API /v1    ┌─────────────────────────────────────────┐
+ App process                        ReflektorTTS process (Python)                   Child process
+                                  ┌─────────────────────────────────────────┐
+                                  │ Window and tray icon (desktop app)      │
+                                  │        │ commands      ▲ status         │
+┌───────────────────┐  API /v1    │        ▼               │                │
 │ Overlay (C++ DLL) │◄──────────► │ API server (HTTP + WebSocket)           │
 │ draws the panel,  │ 127.0.0.1   │        ▲ commands      │ events         │
-│ captures input    │   :47821    │ Core: profiles, app detection,         │
+│ captures input    │   :47821    │ Core: profiles, app detection,          │
 └───────────────────┘             │ settings, event bus                     │
         ▲ loaded by the core      │                                         │
         │ through the injector    │ Sources ──► Stages ──► Sinks            │
                                   │ memory      tracker    tts ─────────────┼──► TTS service
-                                  │             replace    events (→ API)   │    (Piper or
-                                  └─────────────────────────────────────────┘     Windows voices)
+                                  │ avalanche   translate  subtitles        │    (Piper or
+                                  │             pronounce  events (→ API)   │     Windows voices)
+                                  └─────────────────────────────────────────┘
 ```
 
 | Part | Runs in | Why |
 |---|---|---|
+| Desktop app: window and tray icon | the ReflektorTTS process, on the main thread | it starts the core and stops it on quit; it follows the core through the API, like the overlay |
 | Overlay | the app's process | it draws on the app's frames |
-| Core: profiles, detection, pipeline, API | one process | many small events; calls between processes would only add overhead |
+| Core: profiles, detection, pipeline, API | the ReflektorTTS process, on threads of its own | many small events; calls between processes would only add overhead |
 | TTS service | a child process of the core | speech models are heavy and can fail; the core never loads them |
 
 ## How a line is read
@@ -46,7 +53,7 @@ Its main ideas:
 1. The core watches running processes. When one matches an executable in a profile's `match` (by name, and by SHA-256 where the profile lists builds), it loads the overlay into the app if the profile asks for it (and an overlay build was given), and creates the profile's sources through their plugins. A build the profile does not list is neither read nor given the overlay; the status reports it.
 2. The runner polls each source on its interval. A source returns the text currently shown, or nothing.
 3. Each reading carries the user's **input language** and **output language**. The text passes through that source's stages, e.g. the **tracker**, which passes a line on once it has settled and only once; **replace**, which removes formatting marks; **translate**, which translates the line into the output language when it differs from the input language; **pronounce**, which respells names from the profile's glossary so the voice says them right ("Carl" as "Karl" in Polish); and **normalize**, which spells out numbers, money and percentages in the output language. Each reading passes through the stages twice, in the same order: once for the **text** shown and once for **speech**, each with its own stage objects, so a stage can be on for one and off for the other. The profile says where each stage starts on (`normalize`, for example, only for speech, so subtitles keep the app's own numbers), and the user can switch it on or off for each in the overlay; sources the user switched off are not read.
-4. Finished lines go to their output's sinks: the speech result to the **TTS sink**, which sends the line to the TTS service at the chosen speed, which either queues it after the line being spoken (the default; at most 3 lines wait, the oldest dropped first) or cuts that line off; the text result to the **subtitles sink**, which, when subtitles are on, publishes it as the subtitle to show and later hides it, after the line has been spoken and read, and to the **events sink**, which publishes it to the event bus, from which the API sends lines and subtitles to the overlay, which draws subtitles over the app.
+4. Finished lines go to their output's sinks: the speech result to the **TTS sink**, which sends the line to the TTS service at the chosen speed, which, as the user chose, queues it after the line being spoken (the default; at most 3 lines wait, the oldest dropped first), queues it and speeds up the waiting lines to catch up, or cuts the line being spoken off; the text result to the **subtitles sink**, which, when subtitles are on, publishes it as the subtitle to show and later hides it, after the line has been spoken and read, and to the **events sink**, which publishes it to the event bus, from which the API sends lines and subtitles to the overlay, which draws subtitles over the app.
 5. The TTS service tells the core when it starts speaking and when it falls silent, and the core's **ducker** lowers the app's sound for that time, lektor style: it fades the app's own audio sessions down (to 30% by default) and back up half a second after the voice stops, so the app does not pump between close lines. Windows keeps each app's mixer volume between runs, so while an app is lowered its original volume is also kept in a file, and a later run puts it back if this one stopped first.
 6. When the app exits, the core closes its sources and waits for the next app.
 
@@ -56,9 +63,10 @@ A failing source, stage or sink is reported once as a `source.error`, `stage.err
 
 | Path | Job |
 |---|---|
-| `src/reflektortts/__main__.py`, `core.py` | Command line; the core's main loop and its controls for the API. API requests, the core thread and finished downloads change the core one at a time, under one lock, so each change is made in full |
-| `arguments.py`, `logs.py` | Command line options and where logs go, shared by the command line and the desktop app |
-| `desktop/` | The desktop app: runs the core on a background thread, with a tray icon (pystray) and a window (Tkinter) that follow the core through the local API, like the overlay. The window has a Status tab, a Profiles tab, one tab per kind of download (voices, translations) and a status bar that says what the button under the mouse does |
+| `src/reflektortts/desktop/` | The desktop app, how ReflektorTTS is run (`ReflektorTTS.exe` in a release): runs the core on a background thread, with a tray icon (pystray) and a window (Tkinter) that follow the core through the local API, like the overlay. The window has a Status tab, a Profiles tab, one tab per kind of download (voices, translations) and a status bar that says what the button under the mouse does |
+| `core.py` | The core's main loop and its controls for the API. API requests, the core thread and finished downloads change the core one at a time, under one lock, so each change is made in full |
+| `__main__.py` | Runs the core in a console, without the window, so developers see the log as it happens |
+| `arguments.py`, `logs.py` | Command line options and where logs go, shared by the desktop app and the console |
 | `events.py`, `bus.py` | Event types and the event bus |
 | `pipeline/` | Plugin contracts, the plugin registry and the runner |
 | `profiles/` | Profiles: the format (`profile.schema.json`), loading, checking and migrating a file (`loader.py`), which profiles are used, of the bundled ones and the user's own (`catalog.py`), and the bundled profiles (`bundled/`); see [profiles.md](profiles.md) |
@@ -76,7 +84,7 @@ A failing source, stage or sink is reported once as a `source.error`, `stage.err
 | `overlay.py` | Loads the overlay into an app |
 | `overlay/` (repository root) | The overlay (C++); see [overlay/README.md](../overlay/README.md) |
 | `tests/` (repository root) | Tests, mirroring `src/reflektortts/` |
-| `tools/` (repository root) | Developer tools, not part of ReflektorTTS: `draw_icon.py` draws the ReflektorTTS icon |
+| `tools/` (repository root) | Developer tools, not part of ReflektorTTS: `draw_icon.py` draws the ReflektorTTS icon, `build_release.py` builds the portable zip, and `notices.py` collects the licenses it ships |
 
 How the folders are organized:
 
@@ -86,37 +94,40 @@ How the folders are organized:
 
 Writing plugins: [plugins.md](plugins.md). The local API: [api.md](api.md).
 
-## Planned
+## Text sources
 
-### Text sources
-
-| Source | Works without subtitles | Coverage | Notes |
+| Source | Works without subtitles | Coverage | State |
 |---|---|---|---|
-| Memory: subtitle buffer | no | per app | **Done.** Needs a static pointer; proven on GTA2 |
-| Memory: label of the current line + the app's text table | usually | per app | Text comes from the app's files (e.g. GXT), with exact timing. **Done** for Avalanche's engine (Mad Max, `avalanche` source): the line's ID from memory, its text in the input language from the game's archives, read in a few seconds in the background as soon as the game is detected |
-| OCR | no | any app | Struggles with colored text and textures; works better on frames grabbed by the overlay |
-| Clipboard | depends on the tool | any app with a tool like Textractor | |
-| Speech recognition (Whisper) | yes | any app | Audio of one process (Windows process loopback); about 1–2 s delay. Will check the `Source` contract on a source that pushes text |
-| App function hook | yes | per app | Needs code inside the app (the overlay) |
+| Memory: subtitle buffer (`memory`) | no | per app | Works: GTA2, GTA San Andreas. Needs a static pointer to the text |
+| Memory: label of the current line + the app's text table (`avalanche`) | usually | per app | Works for Avalanche's engine (Mad Max): the line's ID from memory, its text in the input language from the game's archives, read in a few seconds in the background as soon as the game is detected. Exact timing, and the text comes from the app's files rather than the screen |
+| OCR | no | any app | Planned. Struggles with colored text and textures; works better on frames grabbed by the overlay |
+| Clipboard | depends on the tool | any app with a tool like Textractor | Planned |
+| Speech recognition (Whisper) | yes | any app | Planned. Audio of one process (Windows process loopback); about 1–2 s delay. Will check the `Source` contract on a source that pushes text |
+| App function hook | yes | per app | Planned. Needs code inside the app (the overlay) |
 
 Finding a line's label when subtitles can be turned off: turn subtitles on and find the text buffer; in Cheat Engine use "Find out what writes to this address" on it; follow it to where the label (or a pointer into the text table) is stored and find a static pointer to it; turn subtitles off and check the value still changes with each line.
 
-### Lektor mode (translation)
+## Translation (lektor mode)
 
-- **Done:** the `translate` stage translates each line from the input language to the output language it carries, only when they differ, and runs before `normalize`. It splits lines into sentences, because the models are trained on single sentences and drop the rest of longer input, and it remembers recent lines, because apps repeat them. The model copies some sentences instead of translating them, so two kinds are changed for it and changed back after: a sentence in capitals ("GOODBYE!"), whose words it splits into fragments it does not know, is translated in sentence case and its translation put in capitals; one with no ending, as lines an app splits across subtitles have, gets a period, which is taken off its translation. The profile's glossary for the line's input language works around the model: a term with a meaning is rewritten in its plain words, and a kept term is swapped for a stand-in name (Kevin, Brian, or Linda for a woman), which the model leaves untranslated but declines, then swapped back. Putting it back is grammar of the output language, kept in `stages/translate/languages/`: in Polish the term takes the stand-in's ending ("Kevinowi" becomes "Sweetowi", "Kevinem" becomes "Big Smoke'iem"), and "z"/"ze" and "w"/"we" before it are fitted to how it begins ("z Kevinem" becomes "ze Sweetem"); in a language without rules the term is put back as written. The stand-in names are English, for English input. Recent translations are remembered per glossary. The input language is one the user chooses, English by default; it is not detected, because guessing wrong mistranslates every line (e.g. Polish text run through the English model).
+- **How it works:** the `translate` stage translates each line from the input language to the output language it carries, only when they differ, and runs before `pronounce` and `normalize`. It splits lines into sentences, because the models are trained on single sentences and drop the rest of longer input, and it remembers recent lines, because apps repeat them. The input language is one the user chooses, English by default; it is not detected, because guessing wrong mistranslates every line (e.g. Polish text run through the English model).
+- **Helping the model:** the model copies some sentences instead of translating them, so two kinds are changed for it and changed back after: a sentence in capitals ("GOODBYE!"), whose words it splits into fragments it does not know, is translated in sentence case and its translation put in capitals; one with no ending, as lines an app splits across subtitles have, gets a period, which is taken off its translation. The models take no context beyond one sentence; giving them the previous lines was tried and makes them drop or mix up sentences.
+- **The glossary:** the profile's glossary for the line's input language works around the model. A term with a meaning is rewritten in its plain words, and a kept term is swapped for a stand-in name (Kevin, Brian, or Linda for a woman), which the model leaves untranslated but declines, then swapped back. A line of only kept or pronounced terms is not translated. The stand-in names are English, for English input.
+- **Output language rules,** in `stages/translate/languages/`: in Polish, a kept term takes the stand-in's ending ("Kevinowi" becomes "Sweetowi", "Kevinem" becomes "Big Smoke'iem"), "z"/"ze" and "w"/"we" before it are fitted to how it begins ("z Kevinem" becomes "ze Sweetem"), and endings the model sets apart from a foreign name ("Frenzy 'ego") are joined to it. In a language without rules a kept term is put back as written.
 - **Engine:** Argos Translate's English–Polish model (OPUS-MT based, CC-BY 4.0), run directly with CTranslate2 on the CPU (int8) and tokenized as it was trained (Moses tokens split into BPE subwords, or SentencePiece pieces, whichever tokenizer the package comes with), without the `argostranslate` package and its heavy dependencies. It runs in the core process, at about 0.1 s per line and at most 0.4 s, once per settled line. The model is loaded once and shared by every translate stage, of every source and app. Only an installed model is used, never downloaded by the stage (downloads belong in the desktop app).
 - **Why this engine:** an EN→PL benchmark on game lines compared it with Opus-MT `en-zlw` and `tc-bible-big`, Firefox Translations' model (through `fxtranslate`), and Meta's NLLB-200 600M and M2M-100 418M. It gave the most natural translations and was the fastest. Firefox's model needs a Marian-based engine (its SSRU decoder does not run on CTranslate2), and NLLB-200 is licensed for non-commercial use only.
-- Planned: more language pairs; online engines (e.g. DeepL, LLMs) as optional plugins that can use an app's context.
-- For sources with labels: translate the whole text table ahead of time into a label → Polish text dictionary, with no delay and room for manual corrections.
-- Normalization covers, in English and Polish: numbers, money, percentages, units after numbers (km, m, kg, min, s, °C…; one-letter units only after a space, so "the 80s" stays a decade), times of day (Polish hours after "o", "do", "przed"… take their case: "o czternastej"), dates with a year ("12.05.2024", "2024-05-12"; without a year "1.5." would be taken for the first of May), common abbreviations and the symbols & and +. In Polish, 1 and 2 take the gender of a following noun common in games ("dwie minuty", "jedną szansę"). Still to come: other cases (e.g. "po dwóch minutach", "na ulicę" for "na ul."), and timers such as "02:30", which are read as clock times.
-- The translate stage joins the endings Polish gives foreign names ("Frenzy'ego"), which the detokenizer leaves apart.
+- **Normalization** (the `normalize` stage) covers, in English and Polish: numbers, money, percentages, units after numbers (km, m, kg, min, s, °C…; one-letter units only after a space, so "the 80s" stays a decade), times of day (Polish hours after "o", "do", "przed"… take their case: "o czternastej"), dates with a year ("12.05.2024", "2024-05-12"; without a year "1.5." would be taken for the first of May), common abbreviations and the symbols & and +. In Polish, 1 and 2 take the gender of a following noun common in games ("dwie minuty", "jedną szansę").
+- **Planned:** more language pairs; online engines (e.g. DeepL, LLMs) as plugins that can use an app's context; for sources with labels, translating the whole text table ahead of time into a label → translation dictionary, with no delay and room for manual corrections; in normalization, other Polish cases (e.g. "po dwóch minutach", "na ulicę" for "na ul.") and timers such as "02:30", which are read as clock times.
 
-### Overlay
+## Overlay
+
+The overlay hooks Direct3D 9, 11 and 12 (DirectDraw and Direct3D 1–8 games work through a wrapper such as dgVoodoo2), draws the ReflektorTTS panel and the subtitles, and blocks the app's input while the panel is open. See [overlay/README.md](../overlay/README.md).
+
+Planned:
 
 - A profile editor with forms built from the plugins' schemas.
 - Selecting an OCR region and text colors directly on the app's frame, and OCR on frames grabbed from the back buffer (works in fullscreen too).
 - Searching the app's memory for text and pointers from inside the app.
-- More graphics APIs: OpenGL and Vulkan (Direct3D 9, 11 and 12 are done). DirectDraw and Direct3D 1–8 games work through a wrapper such as dgVoodoo2.
+- More graphics APIs: OpenGL and Vulkan.
 
 Known pitfalls of older games and how the overlay handles them:
 
@@ -135,14 +146,13 @@ Known pitfalls of older games and how the overlay handles them:
 | The game hides the cursor | ImGui draws its own |
 | Anti-cheat in online games | The overlay and memory reading are meant for offline and story modes only |
 
-### Platforms
+## Platforms and distribution
 
-- **Windows** is the main platform.
-- **Linux** second: apps under Proton/Wine with the same overlay DLL; native apps through a Vulkan layer and `LD_PRELOAD` for OpenGL (as MangoHud does). Sources to port: memory (`process_vm_readv`), OCR (Tesseract), clipboard. Ducking needs a per-app volume through PipeWire/PulseAudio (e.g. `pulsectl`).
+- **Windows** is the main platform. ReflektorTTS ships as a portable zip: the desktop app built with PyInstaller (one folder, its own Python, every dependency included), the overlay builds and the notices, built by `tools/build_release.py`. User data stays in the per-user folders, so a release folder can be replaced to update. An installer may follow.
+- The desktop app uses Tkinter, part of Python, and pystray (LGPL-3.0) for the tray icon; Qt or wx would look more modern but add over 100 MB. The overlay works only with what is already downloaded: downloads (voices, translation models) belong in the desktop app.
+- **Linux** second: apps under Proton/Wine with the same overlay DLL; native apps through a Vulkan layer and `LD_PRELOAD` for OpenGL (as MangoHud does). Sources to port: memory (`process_vm_readv`), OCR (Tesseract), clipboard. Ducking needs a per-app volume through PipeWire/PulseAudio (e.g. `pulsectl`). pystray and Tkinter both want the main thread on some Linux setups, so the desktop app is checked there separately.
 - **macOS** is out of scope: the hardened runtime and SIP block injection, and reading memory (`task_for_pid`) needs extra permissions.
 - The core and its UIs stay portable; platform-specific code lives only in plugins and the overlay.
-- On Windows, ReflektorTTS ships as a portable zip: the desktop app built with PyInstaller (one folder, its own Python), the overlay builds and the notices, built by `tools/build_release.py`. User data stays in the per-user folders, so a release folder can be replaced to update. An installer may follow.
-- The desktop app uses Tkinter, part of Python, and pystray (LGPL-3.0) for the tray icon; Qt or wx would look more modern but add over 100 MB. The overlay works only with what is already downloaded: downloads (voices, translation models) belong in the desktop app. pystray and Tkinter both want the main thread on some Linux setups, so the window is checked there separately.
 
 ## Open questions
 

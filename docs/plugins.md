@@ -5,7 +5,7 @@ ReflektorTTS reads text through **sources**, processes it with **stages**, and s
 | Kind | Entry-point group | Contract | Built-in examples |
 |---|---|---|---|
 | Source | `reflektortts.sources` | `Source` in `pipeline/protocols.py` | `memory`, `avalanche` (`sources/`) |
-| Stage | `reflektortts.stages` | `Stage` in `pipeline/protocols.py` | `tracker`, `replace`, `translate`, `normalize` (`stages/`) |
+| Stage | `reflektortts.stages` | `Stage` in `pipeline/protocols.py` | `tracker`, `replace`, `translate`, `pronounce`, `normalize` (`stages/`) |
 | TTS engine | `reflektortts.tts_engines` | `TtsEngine` in `tts/engine.py` | `piper`, `windows` (`tts/engines/`) |
 | Download source | `reflektortts.downloads` | `DownloadSource` in `downloads/source.py` | `piper`, `argos` (`downloads/`) |
 

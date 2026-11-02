@@ -1,6 +1,6 @@
 # Local API (v1)
 
-Every ReflektorTTS user interface, the overlay included, controls the core through this API. It is served by the core on **`http://127.0.0.1:47821/v1`**, only on the local machine. The port is fixed so the overlay knows where to connect.
+Every ReflektorTTS user interface, the desktop app's window and the overlay alike, controls the core through this API. It is served by the core on **`http://127.0.0.1:47821/v1`**, only on the local machine. The port is fixed so the overlay knows where to connect.
 
 Requests and responses are JSON (UTF-8). There is no authentication, but web pages are kept out: a page open in the user's browser can also reach 127.0.0.1, so the API refuses what only browsers send (see [Requests from web pages](#requests-from-web-pages)).
 
