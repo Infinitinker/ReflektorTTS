@@ -1,15 +1,6 @@
-import sys
-from pathlib import Path
-
 import pytest
 
-from reflektortts.stages.translate.engine import (
-    MosesBpeEngine,
-    SentencePieceEngine,
-    TranslationUnavailableError,
-    prepare,
-    restore,
-)
+from reflektortts.stages.translate.engine import prepare, restore
 
 
 @pytest.mark.parametrize(
@@ -35,17 +26,3 @@ def test_a_sentence_is_translated_the_way_the_model_does_best_then_put_back(
 ) -> None:
     assert prepare(sentence) == prepared
     assert restore(sentence, translated) == restored
-
-
-def test_missing_translation_packages_are_explained(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setitem(sys.modules, "ctranslate2", None)
-
-    with pytest.raises(TranslationUnavailableError, match=r"pip install reflektortts\[translate\]"):
-        MosesBpeEngine(tmp_path, "en", "pl")
-
-
-def test_missing_sentencepiece_is_explained(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setitem(sys.modules, "sentencepiece", None)
-
-    with pytest.raises(TranslationUnavailableError, match=r"pip install reflektortts\[translate\]"):
-        SentencePieceEngine(tmp_path)

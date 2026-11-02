@@ -9,7 +9,7 @@ found through entry points (the package's metadata) and imported by name, the pr
 and icon are data files, and some libraries bring native parts or data of their own.
 
 Needs the release extra and both overlay builds (see overlay/README.md):
-    pip install -e .[desktop,translate,release]
+    pip install -e .[release]
 Run from the repository root:
     python tools/build_release.py           (a release)
     python tools/build_release.py --draft   (to test: allows missing license texts, marked in the
@@ -28,8 +28,6 @@ ENTRY = Path("src/reflektortts/desktop/__main__.py")
 ICON = Path("src/reflektortts/desktop/icon.ico")
 BUILD = Path("build/release")
 NAME = "ReflektorTTS"
-EXTRAS = ("desktop", "translate")
-"""The extras a release includes; their packages are bundled and their notices collected."""
 OVERLAY_BUILDS = {"x86": Path("overlay/build/bin"), "x64": Path("overlay/build64/bin")}
 OVERLAY_FILES = ("reflektortts-overlay.dll", "reflektortts-inject.exe")
 COLLECT = {
@@ -151,7 +149,7 @@ def main() -> None:
     draft = parser.parse_args().draft
     release = version("reflektortts")
     source = source_address()
-    third_party = notices("reflektortts", EXTRAS, draft)
+    third_party = notices("reflektortts", draft)
 
     folder = build_exe(release)
     copy_overlay(folder)

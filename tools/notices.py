@@ -1,7 +1,7 @@
 """Collects the license notices of everything a release of ReflektorTTS ships: the Python packages
-it needs (followed through their installed metadata, with the extras the release includes),
-Python itself, and the overlay's libraries. Nothing is typed by hand, so the notices follow the
-packages; a package without license text stops the release."""
+it needs (followed through their installed metadata), Python itself, and the overlay's libraries.
+Nothing is typed by hand, so the notices follow the packages; a package without license text stops
+the release."""
 
 import re
 import sys
@@ -24,9 +24,9 @@ class MissingNoticeError(Exception):
     """A shipped package has no license text to include."""
 
 
-def shipped_distributions(root: str, extras: tuple[str, ...]) -> list[Distribution]:
-    """Every installed package root needs, with its extras, sorted by name; root itself is not
-    included."""
+def shipped_distributions(root: str) -> list[Distribution]:
+    """Every installed package root needs, sorted by name; root itself is not included, nor its
+    extras (the tools to develop and build it)."""
     found: dict[str, Distribution] = {}
     visited: set[tuple[str, frozenset[str]]] = set()
 
@@ -44,7 +44,7 @@ def shipped_distributions(root: str, extras: tuple[str, ...]) -> list[Distributi
             if marker is None or any(marker.evaluate(environment) for environment in environments):
                 visit(requirement.name, frozenset(requirement.extras))
 
-    visit(root, frozenset(extras))
+    visit(root, frozenset())
     found.pop(canonicalize_name(root))
     return sorted(found.values(), key=lambda package: canonicalize_name(package.metadata["Name"]))
 
@@ -75,10 +75,10 @@ def license_texts(package: Distribution) -> list[str]:
     return texts
 
 
-def notices(root: str, extras: tuple[str, ...], draft: bool) -> str:
+def notices(root: str, draft: bool) -> str:
     """The text of THIRD_PARTY_NOTICES.txt. Raises MissingNoticeError naming every package without
     license text, unless draft, which marks them in the text instead."""
-    packages = shipped_distributions(root, extras)
+    packages = shipped_distributions(root)
     missing = [package.metadata["Name"] for package in packages if not license_texts(package)]
     if missing and not draft:
         raise MissingNoticeError(

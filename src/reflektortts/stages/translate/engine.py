@@ -13,11 +13,6 @@ class Engine(Protocol):
         """Translates the sentences of one line and joins them back into a line."""
 
 
-class TranslationUnavailableError(Exception):
-    """The optional translation packages are not installed."""
-
-
-UNAVAILABLE = "Translation needs the translate extra: pip install reflektortts[translate]"
 BPE_FILE = "bpe.model"
 SENTENCEPIECE_FILE = "sentencepiece.model"
 MIN_SHOUTED_LETTERS = 2
@@ -32,10 +27,9 @@ def load_engine(model_dir: Path, source: str, target: str) -> Engine:
 
 def _translator(model_dir: Path) -> Any:
     """Translates on the CPU with an int8 model."""
-    try:
-        import ctranslate2
-    except ImportError as error:
-        raise TranslationUnavailableError(UNAVAILABLE) from error
+    # Imported here, so the core starts without loading it until a line is translated.
+    import ctranslate2
+
     return ctranslate2.Translator(str(model_dir / "model"), device="cpu", compute_type="int8")
 
 
@@ -73,10 +67,8 @@ def _best(translator: Any, batch: list[list[str]]) -> list[list[str]]:
 
 class SentencePieceEngine:
     def __init__(self, model_dir: Path) -> None:
-        try:
-            import sentencepiece
-        except ImportError as error:
-            raise TranslationUnavailableError(UNAVAILABLE) from error
+        import sentencepiece
+
         self._translator = _translator(model_dir)
         self._pieces = sentencepiece.SentencePieceProcessor(model_file=str(model_dir / SENTENCEPIECE_FILE))
 
@@ -88,11 +80,8 @@ class SentencePieceEngine:
 
 class MosesBpeEngine:
     def __init__(self, model_dir: Path, source: str, target: str) -> None:
-        try:
-            from sacremoses import MosesDetokenizer, MosesPunctNormalizer, MosesTokenizer
-            from subword_nmt.apply_bpe import BPE
-        except ImportError as error:
-            raise TranslationUnavailableError(UNAVAILABLE) from error
+        from sacremoses import MosesDetokenizer, MosesPunctNormalizer, MosesTokenizer
+        from subword_nmt.apply_bpe import BPE
 
         self._translator = _translator(model_dir)
         self._normalizer = MosesPunctNormalizer(source)

@@ -12,14 +12,20 @@ requires-python = ">=3.13"
 dependencies = [
     "aiohttp>=3.14",
     "comtypes>=1.4; sys_platform == 'win32'",
+    "ctranslate2>=4.8",
     "jsonschema>=4.26",
     "num2words>=0.5.14",
     "numpy>=2.5",
+    "pillow>=13.0",
     "piper-tts>=1.8",
     "platformdirs>=4.14",
     "psutil>=7.2",
     "pycaw>=20260927; sys_platform == 'win32'",
+    "pystray>=0.19.5",
+    "sacremoses>=0.2",
+    "sentencepiece>=0.2.2",
     "sounddevice>=0.5",
+    "subword-nmt>=0.3.8",
     "winrt-runtime>=3.0; sys_platform == 'win32'",
     "winrt-Windows.Foundation>=3.0; sys_platform == 'win32'",
     "winrt-Windows.Foundation.Collections>=3.0; sys_platform == 'win32'",
@@ -53,10 +59,8 @@ tracker = "reflektortts.stages.tracker:PLUGIN"
 translate = "reflektortts.stages.translate.stage:PLUGIN"
 
 [project.optional-dependencies]
-desktop = ["pillow>=13.0", "pystray>=0.19.5"]
 release = ["pyinstaller>=6.22"]
 dev = ["mypy>=2.4", "pytest>=9.2", "ruff>=0.17", "types-jsonschema", "types-psutil"]
-translate = ["ctranslate2>=4.8", "sacremoses>=0.2", "subword-nmt>=0.3.8", "sentencepiece>=0.2.2"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

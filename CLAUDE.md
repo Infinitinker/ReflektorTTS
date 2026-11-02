@@ -40,7 +40,7 @@ The goal is clean code, modularity, portability, and that other people can insta
 - Windows is the main platform, Linux the second one; macOS is out of scope. The core and the UIs must not depend on any OS.
 - Platform-specific code (window capture, OCR engine, process memory, audio loopback) lives only inside plugins or behind a small interface with one implementation per OS. No `win32` imports in core modules.
 - Use `pathlib` and never hardcode paths. User data (profiles, settings, logs, model cache) goes in the per-user directories (e.g. via `platformdirs`), never next to the code or in the repo.
-- Keep dependencies few and justified. Heavy or optional ones (Whisper, GPU stacks, translation models) are optional extras, loaded only when a profile uses them.
+- Keep dependencies few and justified. Every runtime dependency is required, so all of ReflektorTTS works after one install; heavy ones are imported only when first needed. Extras are only for tools that are not part of the app (`dev`, `release`). Models (voices, translation) are data, downloaded only when the user asks.
 
 ### Ease of use
 - A new user should get from download to hearing an app read aloud without editing files or using a terminal. Sensible defaults: a working voice, a ready profile for at least one known app.
