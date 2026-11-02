@@ -80,7 +80,7 @@
       "type": "boolean"
     },
     "glossary": {
-      "description": "Words and phrases of the app that translation and speech treat specially. Each entry uses \"keep\", \"means\" or \"say\", or several of them.",
+      "description": "Words and phrases of the app that translation and speech treat specially. Each entry uses \"keep\", \"means\" or \"pronounce\", or several of them.",
       "type": "array",
       "items": {
         "type": "object",
@@ -107,8 +107,8 @@
             "type": "string",
             "minLength": 1
           },
-          "say": {
-            "description": "How the term is spoken, by output language (two-letter code), e.g. {\"pl\": \"Karl\"} for \"Carl\".",
+          "pronounce": {
+            "description": "How the term is pronounced, by output language (two-letter code), e.g. {\"pl\": \"Karl\"} for \"Carl\".",
             "type": "object",
             "minProperties": 1,
             "propertyNames": {

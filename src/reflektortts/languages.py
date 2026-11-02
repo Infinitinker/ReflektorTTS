@@ -18,6 +18,13 @@ SAMPLES = {
 }
 
 
+# Endings a language adds to a foreign name as it declines it, e.g. Polish "Carla", "Carlowi",
+# "Smoke'a"; a language without them does not decline names.
+NAME_ENDINGS = {
+    "pl": ("ego", "go", "emu", "mu", "iem", "em", "m", "a", "u", "ie", "owi", "y", "ów", "om", "ami", "ach"),
+}
+
+
 class LanguageError(Exception):
     """A language is not supported; the message lists the supported ones."""
 

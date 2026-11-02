@@ -158,11 +158,11 @@ def _glossary(entries: list[dict[str, Any]], name: str) -> Glossary:
             keep=entry.get("keep", False),
             female=entry.get("female", False),
             means=entry.get("means"),
-            say=entry.get("say", {}),
+            pronounce=entry.get("pronounce", {}),
         )
         where = f'{name}: $.glossary[{index}] ("{term.term}")'
-        if not (term.keep or term.means or term.say):
-            raise ProfileError(f'{where}: says nothing to do with the term; give it "keep", "means" or "say".')
+        if not (term.keep or term.means or term.pronounce):
+            raise ProfileError(f'{where}: says nothing to do with the term; give it "keep", "means" or "pronounce".')
         if term.keep and term.means:
             raise ProfileError(f'{where}: a term is either kept or given a meaning; remove "keep" or "means".')
         if term.female and not term.keep:

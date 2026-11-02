@@ -7,9 +7,11 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Any, Protocol
 
+from reflektortts.languages import NAME_ENDINGS
+
 # Polish declines foreign names with an apostrophe ("Frenzy'ego", "Joe'go"); the Moses
-# detokenizer leaves a space before it. Only these endings are joined, so quotes stay apart.
-_NAME_ENDING = re.compile(r"(?<=\w) '(?=(?:ego|go|emu|mu|em|m|a|u|ie|owi|y|ów|om|ami|ach)\b)")
+# detokenizer leaves a space before it. Only name endings are joined, so quotes stay apart.
+_NAME_ENDING = re.compile(r"(?<=\w) '(?=(?:" + "|".join(NAME_ENDINGS["pl"]) + r")\b)")
 
 
 def join_name_endings(text: str) -> str:

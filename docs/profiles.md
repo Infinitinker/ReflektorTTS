@@ -22,7 +22,7 @@ The profile format is not finalized yet. Its JSON Schema is `src/reflektortts/pr
 - `glossary` (optional): words and phrases of the app that translation and speech treat specially, one entry per `term` (as the app writes it, e.g. `"Big Smoke"`), with one or more of:
   - `keep`: `true` if the term is never translated, e.g. a name that is also a word, like `"Sweet"`, which would otherwise become "Słodki". Matched with the same capitals, so "sweet" is still translated. Add `"female": true` for a woman's name, so it is declined as one.
   - `means`: plain words in the input language the term is translated as, for slang the translation gets wrong, e.g. `{"term": "hood", "means": "neighborhood"}`, so "hood" becomes "okolica", not "kaptur". Matched in any capitals. A term is either kept or given a meaning, not both.
-  - `say`: how the term is spoken, by output language, e.g. `{"term": "Carl", "say": {"pl": "Karl"}}`, so a Polish voice does not read it "Tsarl"; subtitles keep "Carl".
+  - `pronounce`: how the term is pronounced, by output language, for the `pronounce` stage, e.g. `{"term": "Carl", "pronounce": {"pl": "Karl"}}`, so a Polish voice does not read it "Tsarl" while subtitles keep "Carl".
 
   For example:
 
@@ -30,7 +30,7 @@ The profile format is not finalized yet. Its JSON Schema is `src/reflektortts/pr
   "glossary": [
     { "term": "Sweet", "keep": true },
     { "term": "hood", "means": "neighborhood" },
-    { "term": "Carl", "say": { "pl": "Karl" } }
+    { "term": "Carl", "pronounce": { "pl": "Karl" } }
   ]
   ```
 - `sources` (optional): where to read the app's text. Each entry has a `type` (the source plugin), a `name`, optionally `poll_interval_ms` (default 250) and `stages`. Its other fields are defined by the plugin's own schema.
@@ -39,7 +39,8 @@ The profile format is not finalized yet. Its JSON Schema is `src/reflektortts/pr
   - `replace`: `rules`, a list of replacements applied in order, e.g. to remove an app's formatting marks. Each rule is either:
     - `{"find": "#", "replace": ""}`: plain text, matched literally;
     - `{"pattern": "#([^#]*)#", "replace": "\\1"}`: a regular expression (Python syntax), where `\1`, `\2`... in `replace` insert the pattern's groups. In JSON a backslash is written twice. GTA2 marks colored words like `#TEST#`; this rule keeps the word and drops the marks. Invalid patterns are reported when the profile loads.
-  - `translate`: translates lines from the input language into the output language the user chose in the overlay (lektor mode), when the two differ and a translation model for them is installed (otherwise lines pass untranslated). Only English to Polish is available so far. The input language is English unless the user chooses another. Place it after the stages that clean up the text and before `normalize`. It follows the profile's `glossary`, and leaves a line as written if it has fewer than `min_letters` letters (default 1) besides its kept terms and those with `say`, so a line of only names, like "Carl, Zero, Zero, Carl.", is not translated.
+  - `translate`: translates lines from the input language into the output language the user chose in the overlay (lektor mode), when the two differ and a translation model for them is installed (otherwise lines pass untranslated). Only English to Polish is available so far. The input language is English unless the user chooses another. Place it after the stages that clean up the text and before `normalize`. It follows the profile's `glossary`, and leaves a line as written if it has fewer than `min_letters` letters (default 1) besides its kept terms and those with `pronounce`, so a line of only names, like "Carl, Zero, Zero, Carl.", is not translated.
+  - `pronounce`: respells the `glossary` terms that have a `pronounce` for the output language, so the voice pronounces them right, e.g. "Carl" as "Karl" for a Polish voice. It keeps the ending a term was declined with ("Carlowi" becomes "Karlowi", "Big Smoke'a" becomes "Big Smołka"), and matches terms as written or in capitals, so "Carlos" and "carl" stay. Place it after `translate` and before `normalize`, usually only for speech: `{"type": "pronounce", "text": false}`. It has no settings.
   - `normalize`: spells out numbers, money, percentages, units, times, dates, common abbreviations and the symbols & and + in the output language the user chose in the overlay, e.g. `$50,000` becomes "fifty thousand dollars" in English and "pięćdziesiąt tysięcy dolarów" in Polish, "2 min" becomes "dwie minuty", and "o 14:30" becomes "o czternastej trzydzieści". Place it after the stages that clean up the text. It has no settings.
 
 ### Memory source (`"type": "memory"`)

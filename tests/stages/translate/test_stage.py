@@ -101,7 +101,9 @@ def test_stages_sharing_recent_translations_translate_a_line_once() -> None:
 
 def test_a_line_of_only_glossary_names_is_left_as_written() -> None:
     engines = Engines()
-    glossary = GlossaryRules((GlossaryTerm("Carl", say={"pl": "Karl"}), GlossaryTerm("Zero", say={"pl": "Zirou"})))
+    glossary = GlossaryRules(
+        (GlossaryTerm("Carl", pronounce={"pl": "Karl"}), GlossaryTerm("Zero", pronounce={"pl": "Zirou"}))
+    )
     stage = Translate(engines.open, glossary=glossary)
 
     assert translate(stage, "Carl, Zero, Zero, Carl.") == "Carl, Zero, Zero, Carl."

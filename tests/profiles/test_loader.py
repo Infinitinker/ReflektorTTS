@@ -202,18 +202,18 @@ def test_where_a_stage_starts_on_must_be_true_or_false(tmp_path: Path) -> None:
 def test_the_glossary_says_what_to_do_with_each_term(tmp_path: Path) -> None:
     glossary = [
         {"term": "Sweet", "keep": True},
-        {"term": "Kendl", "keep": True, "female": True, "say": {"pl": "Kendal"}},
+        {"term": "Kendl", "keep": True, "female": True, "pronounce": {"pl": "Kendal"}},
         {"term": "hood", "means": "neighborhood"},
-        {"term": "Carl", "say": {"pl": "Karl"}},
+        {"term": "Carl", "pronounce": {"pl": "Karl"}},
     ]
 
     profile = load_profile(write(tmp_path, "app.json", VALID | {"glossary": glossary}))
 
     assert profile.glossary == (
         GlossaryTerm("Sweet", keep=True),
-        GlossaryTerm("Kendl", keep=True, female=True, say={"pl": "Kendal"}),
+        GlossaryTerm("Kendl", keep=True, female=True, pronounce={"pl": "Kendal"}),
         GlossaryTerm("hood", means="neighborhood"),
-        GlossaryTerm("Carl", say={"pl": "Karl"}),
+        GlossaryTerm("Carl", pronounce={"pl": "Karl"}),
     )
 
 
@@ -223,12 +223,12 @@ def test_the_glossary_says_what_to_do_with_each_term(tmp_path: Path) -> None:
         ([{"term": "Sweet"}], 'glossary[0] ("Sweet"): says nothing to do with the term'),
         ([{"term": "Sweet", "keep": False}], 'glossary[0] ("Sweet"): says nothing to do with the term'),
         ([{"term": "hood", "keep": True, "means": "area"}], "a term is either kept or given a meaning"),
-        ([{"term": "Kendl", "female": True, "say": {"pl": "Kendal"}}], '"female" applies only to a kept term'),
+        ([{"term": "Kendl", "female": True, "pronounce": {"pl": "Kendal"}}], '"female" applies only to a kept term'),
         (
-            [{"term": "CJ", "keep": True}, {"term": "CJ", "say": {"pl": "Sidżej"}}],
+            [{"term": "CJ", "keep": True}, {"term": "CJ", "pronounce": {"pl": "Sidżej"}}],
             'glossary[1] ("CJ"): the term is in the glossary twice',
         ),
-        ([{"term": "Carl", "say": {"polish": "Karl"}}], "$.glossary[0].say"),
+        ([{"term": "Carl", "pronounce": {"polish": "Karl"}}], "$.glossary[0].pronounce"),
         ([{"term": "", "keep": True}], "$.glossary[0].term"),
     ],
 )

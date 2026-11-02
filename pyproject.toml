@@ -49,6 +49,7 @@ windows = "reflektortts.tts.engines.windows:PLUGIN"
 
 [project.entry-points."reflektortts.stages"]
 normalize = "reflektortts.stages.normalize.stage:PLUGIN"
+pronounce = "reflektortts.stages.pronounce:PLUGIN"
 replace = "reflektortts.stages.replace:PLUGIN"
 tracker = "reflektortts.stages.tracker:PLUGIN"
 translate = "reflektortts.stages.translate.stage:PLUGIN"

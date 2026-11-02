@@ -79,15 +79,15 @@ class GlossaryRules:
             if term.means is not None:
                 self._meanings[term.term.lower()] = term.means
         self._means = _whole_words(list(self._meanings), re.IGNORECASE)
-        # The skip count sets aside kept terms and those only spoken differently, such as names.
+        # The skip count sets aside kept terms and those only pronounced differently, such as names.
         self._set_aside = _whole_words(
-            [written for term in glossary if term.keep or term.say for written in _as_written(term)]
+            [written for term in glossary if term.keep or term.pronounce for written in _as_written(term)]
         )
         self.key = tuple((term.term, term.keep, term.female, term.means) for term in glossary)
         """Tells glossaries apart in a cache of translations."""
 
     def letters_besides_terms(self, text: str) -> int:
-        """Letters of the line outside its kept and spoken terms."""
+        """Letters of the line outside its kept and pronounced terms."""
         if self._set_aside is not None:
             text = self._set_aside.sub("", text)
         return sum(character.isalpha() for character in text)

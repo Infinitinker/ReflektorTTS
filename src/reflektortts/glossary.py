@@ -14,8 +14,8 @@ class GlossaryTerm:
     """A kept term is a woman's name, so translation declines it as one."""
     means: str | None = None
     """Plain words in the input language the term is translated as, e.g. "neighborhood" for "hood"."""
-    say: Mapping[str, str] = field(default_factory=dict)
-    """How the term is spoken, by output language (ISO 639-1), e.g. {"pl": "Karl"} for "Carl"."""
+    pronounce: Mapping[str, str] = field(default_factory=dict)
+    """How the term is pronounced, by output language (ISO 639-1), e.g. {"pl": "Karl"} for "Carl"."""
 
 
 type Glossary = tuple[GlossaryTerm, ...]

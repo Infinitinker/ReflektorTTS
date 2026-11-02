@@ -9,8 +9,8 @@ RULES = GlossaryRules(
         GlossaryTerm("Big Smoke", keep=True),
         GlossaryTerm("Kendl", keep=True, female=True),
         GlossaryTerm("hood", means="neighborhood"),
-        GlossaryTerm("Carl", say={"pl": "Karl"}),
-        GlossaryTerm("Zero", say={"pl": "Zirou"}),
+        GlossaryTerm("Carl", pronounce={"pl": "Karl"}),
+        GlossaryTerm("Zero", pronounce={"pl": "Zirou"}),
     )
 )
 
@@ -58,7 +58,7 @@ def test_stand_ins_are_put_back_with_their_polish_endings(line: str, translated:
         ("Carlos?", 6),
     ],
 )
-def test_the_skip_count_sets_aside_kept_and_spoken_terms(line: str, letters: int) -> None:
+def test_the_skip_count_sets_aside_kept_and_pronounced_terms(line: str, letters: int) -> None:
     assert RULES.letters_besides_terms(line) == letters
 
 

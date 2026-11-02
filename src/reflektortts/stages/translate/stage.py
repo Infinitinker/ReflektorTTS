@@ -32,7 +32,7 @@ class Translate:
 
     It runs only for pairs inactive_reason accepts. A pair's engine is opened the first time a line
     needs it. The profile's glossary keeps terms untranslated or gives them a meaning, and a line
-    with fewer than min_letters letters besides its kept and spoken terms (e.g. only names) is left
+    with fewer than min_letters letters besides its kept and pronounced terms (e.g. only names) is left
     as written. Recent translations are remembered, since apps repeat lines and each line is
     processed once for the text shown and once for speech.
     """
