@@ -7,28 +7,31 @@ from dataclasses import replace
 from typing import Any
 
 from reflektortts.events import TextEvent
-from reflektortts.glossary import Glossary
+from reflektortts.glossary import Glossary, TermFinder
 from reflektortts.languages import NAME_ENDINGS
 from reflektortts.pipeline.plugins import StagePlugin, load_schema
 
 
 class _Respelling:
-    """A language's respelled terms, as written and in capitals, and how to find them."""
+    """A language's respelled terms, and how to find them."""
 
-    def __init__(self, spoken: Mapping[str, str], endings: tuple[str, ...]) -> None:
-        self._spoken = spoken
-        terms = "|".join(map(re.escape, sorted(spoken, key=len, reverse=True)))
+    def __init__(self, terms: TermFinder, language: str) -> None:
+        self._terms = terms
+        self._language = language
+        endings = NAME_ENDINGS.get(language, ())
         # An ending may follow an apostrophe ("Smoke'a"); it is spoken without it.
         declined = (
             r"(?:'?(?P<ending>(?i:" + "|".join(sorted(endings, key=len, reverse=True)) + ")))?" if endings else ""
         )
-        self._pattern = re.compile(rf"(?<!\w)(?P<term>{terms}){declined}(?!\w)")
+        self._pattern = re.compile(rf"(?<!\w)(?P<term>{terms.alternation}){declined}(?!\w)")
 
     def apply(self, text: str) -> str:
         return self._pattern.sub(self._respell, text)
 
     def _respell(self, match: re.Match[str]) -> str:
-        return self._spoken[match.group("term")] + (match.groupdict().get("ending") or "")
+        term, shouted = self._terms.found(match.group("term"))
+        spoken = term.pronounce[self._language]
+        return (spoken.upper() if shouted else spoken) + (match.groupdict().get("ending") or "")
 
 
 class Pronounce:
@@ -46,13 +49,8 @@ class Pronounce:
 
     def _respelling(self, language: str) -> _Respelling | None:
         if language not in self._languages:
-            spoken = {}
-            for term in self._glossary:
-                if language in term.pronounce:
-                    # A term written in capitals in the glossary ("CJ") is not shouted.
-                    spoken[term.term] = term.pronounce[language]
-                    spoken.setdefault(term.term.upper(), term.pronounce[language].upper())
-            self._languages[language] = _Respelling(spoken, NAME_ENDINGS.get(language, ())) if spoken else None
+            terms = TermFinder(term for term in self._glossary if language in term.pronounce)
+            self._languages[language] = _Respelling(terms, language) if terms else None
         return self._languages[language]
 
 

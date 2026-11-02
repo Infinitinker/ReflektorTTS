@@ -217,6 +217,17 @@ def test_the_glossary_says_what_to_do_with_each_term(tmp_path: Path) -> None:
     )
 
 
+def test_a_term_can_be_spelled_several_ways(tmp_path: Path) -> None:
+    glossary = [{"term": ["Big Smoke", "Big smoke"], "keep": True}, {"term": ["hood"], "means": "turf"}]
+
+    profile = load_profile(write(tmp_path, "app.json", VALID | {"glossary": glossary}))
+
+    assert profile.glossary == (
+        GlossaryTerm("Big Smoke", keep=True, other_spellings=("Big smoke",)),
+        GlossaryTerm("hood", means="turf"),
+    )
+
+
 @pytest.mark.parametrize(
     ("entries", "message"),
     [
@@ -226,9 +237,18 @@ def test_the_glossary_says_what_to_do_with_each_term(tmp_path: Path) -> None:
         ([{"term": "Kendl", "female": True, "pronounce": {"pl": "Kendal"}}], '"female" applies only to a kept term'),
         (
             [{"term": "CJ", "keep": True}, {"term": "CJ", "pronounce": {"pl": "Sidżej"}}],
-            'glossary[1] ("CJ"): the term is in the glossary twice',
+            'glossary[1] ("CJ"): "CJ" is in the glossary twice',
         ),
         ([{"term": "Carl", "pronounce": {"polish": "Karl"}}], "$.glossary[0].pronounce"),
+        (
+            [{"term": ["hood", "'hood", "hood"], "means": "turf"}],
+            """glossary[0] ("hood"): "hood" is in the glossary twice""",
+        ),
+        (
+            [{"term": "Big Smoke", "keep": True}, {"term": ["Smoke", "Big Smoke"], "keep": True}],
+            '"Big Smoke" is in the glossary twice',
+        ),
+        ([{"term": [], "keep": True}], "$.glossary[0].term"),
         ([{"term": "", "keep": True}], "$.glossary[0].term"),
     ],
 )

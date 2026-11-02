@@ -11,7 +11,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from functools import partial
 
-from reflektortts.glossary import Glossary, GlossaryTerm
+from reflektortts.glossary import Glossary, GlossaryTerm, TermFinder
 from reflektortts.stages.translate.languages import OutputLanguage
 
 # English names, for English input: the English-Polish model keeps them and declines them with an
@@ -33,11 +33,6 @@ def _whole_words(terms: Sequence[str], flags: re.RegexFlag = re.NOFLAG) -> re.Pa
         return None
     longest_first = sorted(set(terms), key=len, reverse=True)
     return re.compile(r"(?<!\w)(?:" + "|".join(map(re.escape, longest_first)) + r")(?!\w)", flags)
-
-
-def _as_written(term: GlossaryTerm) -> tuple[str, str]:
-    """A term as an app writes it: as in the glossary, and in capitals in shouted lines."""
-    return term.term, term.term.upper()
 
 
 def _in_case_of(text: str, matched: str) -> str:
@@ -82,18 +77,16 @@ class GlossaryRules:
     """What translation does with a profile's glossary terms."""
 
     def __init__(self, glossary: Glossary) -> None:
-        self._kept = {written: term for term in glossary if term.keep for written in _as_written(term)}
-        self._keep = _whole_words(list(self._kept))
+        self._kept = TermFinder(term for term in glossary if term.keep)
+        self._keep = self._kept.whole_words()
         self._meanings: dict[str, str] = {}
         for term in glossary:
             if term.means is not None:
-                self._meanings[term.term.lower()] = term.means
+                self._meanings.update(dict.fromkeys((spelling.lower() for spelling in term.spellings), term.means))
         self._means = _whole_words(list(self._meanings), re.IGNORECASE)
         # The skip count sets aside kept terms and those only pronounced differently, such as names.
-        self._set_aside = _whole_words(
-            [written for term in glossary if term.keep or term.pronounce for written in _as_written(term)]
-        )
-        self.key = tuple((term.term, term.keep, term.female, term.means) for term in glossary)
+        self._set_aside = TermFinder(term for term in glossary if term.keep or term.pronounce).whole_words()
+        self.key = tuple((term.spellings, term.keep, term.female, term.means) for term in glossary)
         """Tells glossaries apart in a cache of translations."""
 
     def letters_besides_terms(self, text: str) -> int:
@@ -116,22 +109,22 @@ class GlossaryRules:
             female: [name for name in candidates if _stem(name, female).lower() not in in_line]
             for female, candidates in ((False, MALE_STAND_INS), (True, FEMALE_STAND_INS))
         }
-        names: dict[str, str] = {}
-        """Kept terms of this line, by term, and their stand-ins."""
+        names: dict[frozenset[str], str] = {}
+        """Kept terms of this line, by their spellings, and their stand-ins."""
         stand_ins: list[_StandIn] = []
 
         def stand_in(match: re.Match[str]) -> str:
-            term = self._kept[match.group(0)]
-            if term.term not in names:
+            # The term is put back as this line first spells it.
+            term, shouted = self._kept.found(match.group(0))
+            spellings = frozenset(term.spellings)
+            if spellings not in names:
                 if not free[term.female]:
                     return match.group(0)  # More kept terms in one line than stand-ins: left as is.
                 name = free[term.female].pop(0)
-                names[term.term] = name
+                names[spellings] = name
                 stem = _stem(name, term.female)
                 pattern = rf"(?:(?<!\w)(?P<before>\w+)(?P<gap>\s+))?(?<!\w)(?P<stand_in>{stem}(?P<ending>\w*))"
                 stand_ins.append(_StandIn(term, re.compile(pattern, re.IGNORECASE)))
-            # A term matched in capitals is shouted, unless the glossary writes it that way ("CJ").
-            name = names[term.term]
-            return name.upper() if match.group(0) != term.term else name
+            return names[spellings].upper() if shouted else names[spellings]
 
         return Prepared(self._keep.sub(stand_in, text), tuple(stand_ins))

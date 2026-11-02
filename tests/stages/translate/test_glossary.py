@@ -7,7 +7,7 @@ from reflektortts.stages.translate.languages import output_language
 RULES = GlossaryRules(
     (
         GlossaryTerm("Sweet", keep=True),
-        GlossaryTerm("Big Smoke", keep=True),
+        GlossaryTerm("Big Smoke", keep=True, other_spellings=("Big smoke",)),
         GlossaryTerm("Kendl", keep=True, female=True),
         GlossaryTerm("OG", keep=True),
         GlossaryTerm("hood", means="neighborhood"),
@@ -23,6 +23,8 @@ RULES = GlossaryRules(
         ("Tell Sweet I'm coming.", "Tell Kevin I'm coming."),
         ("Sweet and Big Smoke are here.", "Kevin and Brian are here."),
         ("Sweet, sweet Sweet.", "Kevin, sweet Kevin."),
+        ("Big smoke! It's me!", "Kevin! It's me!"),
+        ("A big smoke over Big Smoke's house.", "A big smoke over Kevin's house."),
         ("Go get Kendl!", "Go get Linda!"),
         ("GET IN, SWEET!", "GET IN, KEVIN!"),
         ("Some Grove Street OG started it.", "Some Grove Street Kevin started it."),
@@ -41,6 +43,7 @@ def test_kept_terms_get_stand_ins_and_terms_with_a_meaning_are_rewritten(line: s
     [
         ("Tell Sweet I'm coming.", "Powiedz Kevinowi, że idę.", "Powiedz Sweetowi, że idę."),
         ("Where is Big Smoke's car?", "Gdzie jest samochód Kevina?", "Gdzie jest samochód Big Smoke'a?"),
+        ("Big smoke! It's me!", "Kevin! To ja!", "Big smoke! To ja!"),
         ("I was with Kendl.", "Byłem z Lindą.", "Byłem z Kendl."),
         ("Go get Kendl!", "Idź po Lindę!", "Idź po Kendl!"),
         ("GET IN, SWEET!", "WSIADAJ, KEVIN!", "WSIADAJ, SWEET!"),

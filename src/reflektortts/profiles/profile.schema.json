@@ -90,9 +90,21 @@
         "additionalProperties": false,
         "properties": {
           "term": {
-            "description": "The word or phrase as the app writes it, e.g. \"Big Smoke\".",
-            "type": "string",
-            "minLength": 1
+            "description": "The word or phrase as the app writes it, e.g. \"Big Smoke\", or a list of the ways it writes it, e.g. [\"Big Smoke\", \"Big smoke\"]. Each is matched as written, and in capitals in shouted lines.",
+            "oneOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            ]
           },
           "keep": {
             "description": "Never translated, e.g. a name that is also a word (\"Sweet\"). Matched with the same capitals.",

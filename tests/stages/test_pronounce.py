@@ -7,7 +7,7 @@ from reflektortts.stages.pronounce import PLUGIN
 
 GLOSSARY = (
     GlossaryTerm("Carl", pronounce={"pl": "Karl"}),
-    GlossaryTerm("Big Smoke", keep=True, pronounce={"pl": "Big Smołk"}),
+    GlossaryTerm("Big Smoke", keep=True, pronounce={"pl": "Big Smołk"}, other_spellings=("Big smoke",)),
     GlossaryTerm("Sweet", keep=True),
     GlossaryTerm("CJ", pronounce={"pl": "Si Dżej"}),
 )
@@ -31,6 +31,8 @@ def pronounced(text: str, language: str = "pl") -> str:
         ("Carlos i carl zostają.", "Carlos i carl zostają."),
         ("Sweet żyje.", "Sweet żyje."),
         ("Uważaj, CJ!", "Uważaj, Si Dżej!"),
+        ("Big smoke, to ja!", "Big Smołk, to ja!"),
+        ("Wielki dym nad big smoke.", "Wielki dym nad big smoke."),
     ],
 )
 def test_terms_are_respelled_for_the_output_language_with_their_endings(text: str, spoken: str) -> None:

@@ -153,8 +153,10 @@ def _glossary(entries: list[dict[str, Any]], name: str) -> Glossary:
     """The glossary's terms, each of which must say what to do with it, and only once."""
     terms: list[GlossaryTerm] = []
     for index, entry in enumerate(entries):
+        spellings = [entry["term"]] if isinstance(entry["term"], str) else entry["term"]
         term = GlossaryTerm(
-            term=entry["term"],
+            term=spellings[0],
+            other_spellings=tuple(spellings[1:]),
             keep=entry.get("keep", False),
             female=entry.get("female", False),
             means=entry.get("means"),
@@ -167,8 +169,11 @@ def _glossary(entries: list[dict[str, Any]], name: str) -> Glossary:
             raise ProfileError(f'{where}: a term is either kept or given a meaning; remove "keep" or "means".')
         if term.female and not term.keep:
             raise ProfileError(f'{where}: "female" applies only to a kept term; add "keep": true or remove it.')
-        if any(term.term == other.term for other in terms):
-            raise ProfileError(f"{where}: the term is in the glossary twice; merge the two entries.")
+        seen = [spelling for other in terms for spelling in other.spellings]
+        for spelling in term.spellings:
+            if spelling in seen:
+                raise ProfileError(f'{where}: "{spelling}" is in the glossary twice; keep it in one entry.')
+            seen.append(spelling)
         terms.append(term)
     return tuple(terms)
 
