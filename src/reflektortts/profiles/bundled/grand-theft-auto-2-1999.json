@@ -30,7 +30,7 @@
         { "type": "tracker", "stable_ms": 400, "min_letters": 4 },
         { "type": "replace", "rules": [{ "pattern": "#([^#]*)#", "replace": "\\1" }] },
         { "type": "translate" },
-        { "type": "normalize" }
+        { "type": "normalize", "text": false }
       ]
     }
   ]

@@ -28,7 +28,7 @@
       "stages": [
         { "type": "tracker", "stable_ms": 200, "min_letters": 4 },
         { "type": "translate" },
-        { "type": "normalize" }
+        { "type": "normalize", "text": false }
       ]
     }
   ]

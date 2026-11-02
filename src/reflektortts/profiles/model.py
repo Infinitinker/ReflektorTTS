@@ -33,6 +33,10 @@ class StageSettings:
 
     type: str
     settings: Mapping[str, Any]
+    text: bool = True
+    """Whether the stage starts on for the text shown (subtitles, the API's events)."""
+    speech: bool = True
+    """Whether the stage starts on for what is spoken."""
 
 
 @dataclass(frozen=True)

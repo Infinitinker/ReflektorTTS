@@ -22,7 +22,7 @@ MIGRATIONS: dict[int, Callable[[dict[str, Any]], dict[str, Any]]] = {}
 
 # Fields of source and stage entries the core reads; the rest belong to the plugin.
 SOURCE_FIELDS = {"type", "name", "poll_interval_ms", "stages"}
-STAGE_FIELDS = {"type"}
+STAGE_FIELDS = {"type", "text", "speech"}
 DEFAULT_POLL_INTERVAL_MS = 250
 
 
@@ -97,6 +97,8 @@ def _source(entry: Mapping[str, Any], index: int, schemas: PluginSchemas, name: 
             StageSettings(
                 type=stage["type"],
                 settings=_plugin_settings(stage, STAGE_FIELDS, schemas.stages, "stage", f"{path}.stages[{position}]"),
+                text=stage.get("text", True),
+                speech=stage.get("speech", True),
             )
             for position, stage in enumerate(entry.get("stages", []))
         ),

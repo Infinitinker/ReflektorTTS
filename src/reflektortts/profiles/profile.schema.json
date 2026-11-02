@@ -118,6 +118,14 @@
                   "description": "Stage plugin, e.g. \"tracker\".",
                   "type": "string",
                   "minLength": 1
+                },
+                "text": {
+                  "description": "Whether the stage starts on for the text shown (subtitles). Default: true.",
+                  "type": "boolean"
+                },
+                "speech": {
+                  "description": "Whether the stage starts on for what is spoken. Default: true.",
+                  "type": "boolean"
                 }
               }
             }

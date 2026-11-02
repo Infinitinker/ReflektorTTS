@@ -36,7 +36,7 @@
           ]
         },
         { "type": "translate" },
-        { "type": "normalize" }
+        { "type": "normalize", "text": false }
       ]
     },
     {
@@ -61,7 +61,7 @@
           ]
         },
         { "type": "translate" },
-        { "type": "normalize" }
+        { "type": "normalize", "text": false }
       ]
     }
   ]

@@ -176,3 +176,23 @@ def test_stage_settings_are_validated_against_the_plugin_schema(tmp_path: Path) 
 
     with pytest.raises(ProfileError, match=r"\$\.sources\[0\]\.stages\[0\]\.limit: '3' is not of type 'integer'"):
         load_profile(write(tmp_path, "app.json", data), SCHEMAS)
+
+
+def test_a_stage_says_where_it_starts_on(tmp_path: Path) -> None:
+    data = with_sources(
+        {"type": "fixed", "name": "first", "text": "hi", "stages": [{"type": "cut", "text": False}, {"type": "cut"}]}
+    )
+
+    [source] = load_profile(write(tmp_path, "game.json", data), SCHEMAS).sources
+
+    assert [(stage.text, stage.speech, stage.settings) for stage in source.stages] == [
+        (False, True, {}),
+        (True, True, {}),
+    ]
+
+
+def test_where_a_stage_starts_on_must_be_true_or_false(tmp_path: Path) -> None:
+    data = with_sources({"type": "fixed", "name": "first", "text": "hi", "stages": [{"type": "cut", "speech": "no"}]})
+
+    with pytest.raises(ProfileError, match=r"stages\[0\]\.speech"):
+        load_profile(write(tmp_path, "game.json", data), SCHEMAS)
