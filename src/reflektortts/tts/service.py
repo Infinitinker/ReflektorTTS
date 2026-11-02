@@ -12,6 +12,7 @@ from typing import Protocol
 
 from reflektortts.logs import log_to_file
 from reflektortts.tts.engine import MAX_RATE, AudioChunk, TtsEngine, load_engine_plugin, parse_voice
+from reflektortts.tts.playback import without_trailing_silence
 
 logger = logging.getLogger(__name__)
 
@@ -145,7 +146,7 @@ class Speaker:
                 speaking = True
                 self._on_speaking(True)
             try:
-                self._player.play(self._engine.synthesize(line.text, rate), cancel)
+                self._player.play(without_trailing_silence(self._engine.synthesize(line.text, rate)), cancel)
             except Exception:
                 # A broken line or audio device must not end the service; the next line may work.
                 logger.exception("Could not speak %r", line.text)

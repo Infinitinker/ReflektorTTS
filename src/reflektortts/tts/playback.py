@@ -1,7 +1,7 @@
 """Plays synthesized speech on the default audio output, and lets it be cut off."""
 
 import threading
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Iterator
 from typing import Protocol
 
 import numpy as np
@@ -11,6 +11,17 @@ from reflektortts.tts.engine import AudioChunk
 
 # Audio is written in short blocks so a cancel takes effect within one block.
 BLOCK_SECONDS = 0.05
+SILENCE_LEVEL = 328
+"""Samples quieter than this (1% of full scale) count as silence."""
+
+
+def without_trailing_silence(chunks: Iterable[AudioChunk]) -> Iterator[AudioChunk]:
+    """The chunks with the silence after their speech cut off, so the next line, and the app's
+    sound coming back up, are not kept waiting: Windows voices end a line with about 0.75 s of it."""
+    for chunk in chunks:
+        loud = np.flatnonzero(np.abs(chunk.samples.astype(np.int32)) > SILENCE_LEVEL)
+        if loud.size:
+            yield AudioChunk(samples=chunk.samples[: loud[-1] + 1], sample_rate=chunk.sample_rate)
 
 
 class OutputStream(Protocol):

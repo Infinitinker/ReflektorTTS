@@ -5,7 +5,7 @@ import numpy as np
 import numpy.typing as npt
 
 from reflektortts.tts.engine import AudioChunk
-from reflektortts.tts.playback import Player
+from reflektortts.tts.playback import Player, without_trailing_silence
 
 
 class FakeStream:
@@ -80,3 +80,13 @@ def test_play_without_audio_opens_nothing() -> None:
 
     assert Player(outputs.open).play([], threading.Event()) is True
     assert outputs.streams == []
+
+
+def test_the_silence_after_speech_is_cut_off() -> None:
+    speech = np.array([0, 5, 9000, -12000, 400, 100, 0, -50, 0], dtype=np.int16)
+    quiet = np.array([0, 10, -20], dtype=np.int16)
+
+    chunks = list(without_trailing_silence([AudioChunk(speech, 22050), AudioChunk(quiet, 22050)]))
+
+    assert [chunk.samples.tolist() for chunk in chunks] == [[0, 5, 9000, -12000, 400]]
+    assert chunks[0].sample_rate == 22050
