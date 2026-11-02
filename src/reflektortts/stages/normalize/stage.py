@@ -8,8 +8,8 @@ from reflektortts.events import TextEvent
 from reflektortts.glossary import Glossary
 from reflektortts.languages import Languages
 from reflektortts.pipeline.plugins import StagePlugin, load_schema
-from reflektortts.stages.normalize.english import EnglishWords
-from reflektortts.stages.normalize.polish import PolishWords
+from reflektortts.stages.normalize.languages.english import EnglishWords
+from reflektortts.stages.normalize.languages.polish import PolishWords
 from reflektortts.stages.normalize.text import Words, normalize
 
 WORDS: dict[str, Words] = {"en": EnglishWords(), "pl": PolishWords()}

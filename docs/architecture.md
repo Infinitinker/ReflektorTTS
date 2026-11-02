@@ -80,7 +80,7 @@ A failing source, stage or sink is reported once as a `source.error`, `stage.err
 
 How the folders are organized:
 
-- **Plugin folders** (`sources/`, `stages/`, `sinks/`) hold one plugin each. A plugin is a single module while it is small (`stages/tracker.py`) and becomes a package when it needs several files (`stages/normalize/`, `sources/memory/`, `sinks/tts/`).
+- **Plugin folders** (`sources/`, `stages/`, `sinks/`) hold one plugin each. A plugin is a single module while it is small (`stages/tracker.py`) and becomes a package when it needs several files (`stages/normalize/`, `sources/memory/`, `sinks/tts/`). A plugin with rules for each language keeps them in a `languages/` folder, one module per language named after it (`stages/normalize/languages/polish.py`), so adding a language means adding a file, without changing the plugin's mechanism; the plugin maps language codes to them in one place.
 - **Subsystems** that are not plugins sit at the top level: `pipeline/`, `profiles/`, `apps/`, `api/`, `tts/`, `ducking/`, `desktop/`, and `process_memory/`, which several sources share.
 - **A folder's code runs in one process.** Code for a separate process gets its own folder, so the layout shows what runs where: `tts/` is the TTS process, and its client in the core lives with the sink in `sinks/tts/`.
 
