@@ -10,7 +10,7 @@ from reflektortts.stages.replace import PLUGIN
 
 
 def run(rules: list[dict[str, str]], text: str) -> str:
-    event = PLUGIN.create({"rules": rules}, ()).process(TextEvent("memory", text, 1.0))
+    event = PLUGIN.create({"rules": rules}, {}).process(TextEvent("memory", text, 1.0))
     assert event is not None
     return event.text
 

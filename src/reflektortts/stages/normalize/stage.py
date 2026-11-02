@@ -5,7 +5,7 @@ from dataclasses import replace
 from typing import Any
 
 from reflektortts.events import TextEvent
-from reflektortts.glossary import Glossary
+from reflektortts.glossary import Glossaries
 from reflektortts.languages import Languages
 from reflektortts.pipeline.plugins import StagePlugin, load_schema
 from reflektortts.stages.normalize.languages.english import EnglishWords
@@ -30,7 +30,7 @@ def inactive_reason(languages: Languages) -> str | None:
     return None if languages.output in WORDS else "No rules for the output language yet"
 
 
-def create(settings: Mapping[str, Any], glossary: Glossary) -> Normalize:
+def create(settings: Mapping[str, Any], glossaries: Glossaries) -> Normalize:
     return Normalize(WORDS)
 
 

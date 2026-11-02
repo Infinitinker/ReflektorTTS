@@ -7,7 +7,7 @@ from dataclasses import replace
 from typing import Any
 
 from reflektortts.events import TextEvent
-from reflektortts.glossary import Glossary, TermFinder
+from reflektortts.glossary import Glossaries, TermFinder
 from reflektortts.languages import NAME_ENDINGS
 from reflektortts.pipeline.plugins import StagePlugin, load_schema
 
@@ -35,27 +35,30 @@ class _Respelling:
 
 
 class Pronounce:
-    """Respells the glossary's terms that have a pronunciation for the line's output language."""
+    """Respells the terms of the glossary for the line's input language that have a pronunciation
+    for its output language."""
 
-    def __init__(self, glossary: Glossary) -> None:
-        self._glossary = glossary
-        self._languages: dict[str, _Respelling | None] = {}
+    def __init__(self, glossaries: Glossaries) -> None:
+        self._glossaries = glossaries
+        self._respellings: dict[tuple[str, str], _Respelling | None] = {}
 
     def process(self, event: TextEvent) -> TextEvent | None:
-        respelling = self._respelling(event.output_language)
+        respelling = self._respelling(event.input_language, event.output_language)
         if respelling is None or not event.text:
             return event
         return replace(event, text=respelling.apply(event.text))
 
-    def _respelling(self, language: str) -> _Respelling | None:
-        if language not in self._languages:
-            terms = TermFinder(term for term in self._glossary if language in term.pronounce)
-            self._languages[language] = _Respelling(terms, language) if terms else None
-        return self._languages[language]
+    def _respelling(self, read_in: str, spoken_in: str) -> _Respelling | None:
+        languages = (read_in, spoken_in)
+        if languages not in self._respellings:
+            glossary = self._glossaries.get(read_in, ())
+            terms = TermFinder(term for term in glossary if spoken_in in term.pronounce)
+            self._respellings[languages] = _Respelling(terms, spoken_in) if terms else None
+        return self._respellings[languages]
 
 
-def create(settings: Mapping[str, Any], glossary: Glossary) -> Pronounce:
-    return Pronounce(glossary)
+def create(settings: Mapping[str, Any], glossaries: Glossaries) -> Pronounce:
+    return Pronounce(glossaries)
 
 
 PLUGIN = StagePlugin(

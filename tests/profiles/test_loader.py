@@ -207,53 +207,70 @@ def test_the_glossary_says_what_to_do_with_each_term(tmp_path: Path) -> None:
         {"term": "Carl", "pronounce": {"pl": "Karl"}},
     ]
 
-    profile = load_profile(write(tmp_path, "app.json", VALID | {"glossary": glossary}))
+    profile = load_profile(write(tmp_path, "app.json", VALID | {"glossary": {"en": glossary}}))
 
-    assert profile.glossary == (
-        GlossaryTerm("Sweet", keep=True),
-        GlossaryTerm("Kendl", keep=True, female=True, pronounce={"pl": "Kendal"}),
-        GlossaryTerm("hood", means="neighborhood"),
-        GlossaryTerm("Carl", pronounce={"pl": "Karl"}),
-    )
+    assert profile.glossary == {
+        "en": (
+            GlossaryTerm("Sweet", keep=True),
+            GlossaryTerm("Kendl", keep=True, female=True, pronounce={"pl": "Kendal"}),
+            GlossaryTerm("hood", means="neighborhood"),
+            GlossaryTerm("Carl", pronounce={"pl": "Karl"}),
+        )
+    }
 
 
 def test_a_term_can_be_spelled_several_ways(tmp_path: Path) -> None:
     glossary = [{"term": ["Big Smoke", "Big smoke"], "keep": True}, {"term": ["hood"], "means": "turf"}]
 
+    profile = load_profile(write(tmp_path, "app.json", VALID | {"glossary": {"en": glossary}}))
+
+    assert profile.glossary == {
+        "en": (
+            GlossaryTerm("Big Smoke", keep=True, other_spellings=("Big smoke",)),
+            GlossaryTerm("hood", means="turf"),
+        )
+    }
+
+
+def test_glossaries_are_by_input_language(tmp_path: Path) -> None:
+    glossary = {"en": [{"term": "hood", "means": "turf"}], "de": [{"term": "Kiez", "means": "Viertel"}]}
+
     profile = load_profile(write(tmp_path, "app.json", VALID | {"glossary": glossary}))
 
-    assert profile.glossary == (
-        GlossaryTerm("Big Smoke", keep=True, other_spellings=("Big smoke",)),
-        GlossaryTerm("hood", means="turf"),
-    )
+    assert profile.glossary == {
+        "en": (GlossaryTerm("hood", means="turf"),),
+        "de": (GlossaryTerm("Kiez", means="Viertel"),),
+    }
+    with pytest.raises(ProfileError, match=r"\$\.glossary"):
+        load_profile(write(tmp_path, "app.json", VALID | {"glossary": {"english": []}}))
 
 
 @pytest.mark.parametrize(
     ("entries", "message"),
     [
-        ([{"term": "Sweet"}], 'glossary[0] ("Sweet"): says nothing to do with the term'),
-        ([{"term": "Sweet", "keep": False}], 'glossary[0] ("Sweet"): says nothing to do with the term'),
+        ([{"term": "Sweet"}], 'glossary.en[0] ("Sweet"): says nothing to do with the term'),
+        ([{"term": "Sweet", "keep": False}], 'glossary.en[0] ("Sweet"): says nothing to do with the term'),
         ([{"term": "hood", "keep": True, "means": "area"}], "a term is either kept or given a meaning"),
         ([{"term": "Kendl", "female": True, "pronounce": {"pl": "Kendal"}}], '"female" applies only to a kept term'),
         (
             [{"term": "CJ", "keep": True}, {"term": "CJ", "pronounce": {"pl": "Sidżej"}}],
-            'glossary[1] ("CJ"): "CJ" is in the glossary twice',
+            'glossary.en[1] ("CJ"): "CJ" is in the glossary twice',
         ),
-        ([{"term": "Carl", "pronounce": {"polish": "Karl"}}], "$.glossary[0].pronounce"),
+        ([{"term": "Carl", "pronounce": {"polish": "Karl"}}], "$.glossary.en[0].pronounce"),
         (
             [{"term": ["hood", "'hood", "hood"], "means": "turf"}],
-            """glossary[0] ("hood"): "hood" is in the glossary twice""",
+            """glossary.en[0] ("hood"): "hood" is in the glossary twice""",
         ),
         (
             [{"term": "Big Smoke", "keep": True}, {"term": ["Smoke", "Big Smoke"], "keep": True}],
             '"Big Smoke" is in the glossary twice',
         ),
-        ([{"term": [], "keep": True}], "$.glossary[0].term"),
-        ([{"term": "", "keep": True}], "$.glossary[0].term"),
+        ([{"term": [], "keep": True}], "$.glossary.en[0].term"),
+        ([{"term": "", "keep": True}], "$.glossary.en[0].term"),
     ],
 )
 def test_a_glossary_entry_that_cannot_be_used_is_refused(tmp_path: Path, entries: list[Any], message: str) -> None:
     with pytest.raises(ProfileError) as raised:
-        load_profile(write(tmp_path, "app.json", VALID | {"glossary": entries}))
+        load_profile(write(tmp_path, "app.json", VALID | {"glossary": {"en": entries}}))
 
     assert message in str(raised.value)

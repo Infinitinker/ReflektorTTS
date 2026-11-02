@@ -80,55 +80,61 @@
       "type": "boolean"
     },
     "glossary": {
-      "description": "Words and phrases of the app that translation and speech treat specially. Each entry uses \"keep\", \"means\" or \"pronounce\", or several of them.",
-      "type": "array",
-      "items": {
-        "type": "object",
-        "required": [
-          "term"
-        ],
-        "additionalProperties": false,
-        "properties": {
-          "term": {
-            "description": "The word or phrase as the app writes it, e.g. \"Big Smoke\", or a list of the ways it writes it, e.g. [\"Big Smoke\", \"Big smoke\"]. Each is matched as written, and in capitals in shouted lines.",
-            "oneOf": [
-              {
-                "type": "string",
-                "minLength": 1
-              },
-              {
-                "type": "array",
-                "minItems": 1,
-                "items": {
+      "description": "Words and phrases of the app that translation and speech treat specially, by the input language (two-letter code) their terms are written in, e.g. {\"en\": [...]}. A line read in another language gets none. Each entry uses \"keep\", \"means\" or \"pronounce\", or several of them.",
+      "type": "object",
+      "propertyNames": {
+        "pattern": "^[a-z]{2}$"
+      },
+      "additionalProperties": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": [
+            "term"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "term": {
+              "description": "The word or phrase as the app writes it, e.g. \"Big Smoke\", or a list of the ways it writes it, e.g. [\"Big Smoke\", \"Big smoke\"]. Each is matched as written, and in capitals in shouted lines.",
+              "oneOf": [
+                {
                   "type": "string",
                   "minLength": 1
+                },
+                {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  }
                 }
-              }
-            ]
-          },
-          "keep": {
-            "description": "Never translated, e.g. a name that is also a word (\"Sweet\"). Matched with the same capitals.",
-            "type": "boolean"
-          },
-          "female": {
-            "description": "A kept term is a woman's name, so translation declines it as one. Default: false.",
-            "type": "boolean"
-          },
-          "means": {
-            "description": "Plain words in the input language the term is translated as, e.g. \"neighborhood\" for \"hood\". Matched in any capitals.",
-            "type": "string",
-            "minLength": 1
-          },
-          "pronounce": {
-            "description": "How the term is pronounced, by output language (two-letter code), e.g. {\"pl\": \"Karl\"} for \"Carl\".",
-            "type": "object",
-            "minProperties": 1,
-            "propertyNames": {
-              "pattern": "^[a-z]{2}$"
+              ]
             },
-            "additionalProperties": {
+            "keep": {
+              "description": "Never translated, e.g. a name that is also a word (\"Sweet\"). Matched with the same capitals.",
+              "type": "boolean"
+            },
+            "female": {
+              "description": "A kept term is a woman's name, so translation declines it as one. Default: false.",
+              "type": "boolean"
+            },
+            "means": {
+              "description": "Plain words in the input language the term is translated as, e.g. \"neighborhood\" for \"hood\". Matched in any capitals.",
               "type": "string",
               "minLength": 1
+            },
+            "pronounce": {
+              "description": "How the term is pronounced, by output language (two-letter code), e.g. {\"pl\": \"Karl\"} for \"Carl\".",
+              "type": "object",
+              "minProperties": 1,
+              "propertyNames": {
+                "pattern": "^[a-z]{2}$"
+              },
+              "additionalProperties": {
+                "type": "string",
+                "minLength": 1
+              }
             }
           }
         }

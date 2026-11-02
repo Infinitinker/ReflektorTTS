@@ -4,7 +4,7 @@ from collections.abc import Mapping
 from typing import Any
 
 from reflektortts.events import TextEvent
-from reflektortts.glossary import Glossary
+from reflektortts.glossary import Glossaries
 from reflektortts.pipeline.plugins import StagePlugin, load_schema
 
 # Lines that are mostly symbols or digits are garbage or HUD readouts, not dialogue.
@@ -46,7 +46,7 @@ class Tracker:
         return letters >= self._min_letters and letters >= MIN_LETTER_SHARE * visible
 
 
-def create(settings: Mapping[str, Any], glossary: Glossary) -> Tracker:
+def create(settings: Mapping[str, Any], glossaries: Glossaries) -> Tracker:
     return Tracker(stable_seconds=settings.get("stable_ms", 500) / 1000, min_letters=settings.get("min_letters", 4))
 
 

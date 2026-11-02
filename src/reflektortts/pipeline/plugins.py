@@ -9,7 +9,7 @@ from typing import Any
 
 from reflektortts.apps.detector import RunningApp
 from reflektortts.entry_points import load_plugins
-from reflektortts.glossary import Glossary
+from reflektortts.glossary import Glossaries
 from reflektortts.languages import Languages
 from reflektortts.pipeline.protocols import Source, Stage
 from reflektortts.profiles.model import SourceSettings
@@ -38,8 +38,8 @@ class StagePlugin:
     type: str
     settings_schema: Mapping[str, Any]
     """JSON Schema for the plugin's own fields in a profile's stage entry."""
-    create: Callable[[Mapping[str, Any], Glossary], Stage]
-    """Creates a stage from its schema-validated settings and its profile's glossary."""
+    create: Callable[[Mapping[str, Any], Glossaries], Stage]
+    """Creates a stage from its schema-validated settings and its profile's glossaries."""
     summary: str = ""
     """A few words on what the stage does, capitalized like a sentence without a full stop,
     e.g. "Waits until a line settles"; shown next to its name in the overlay."""

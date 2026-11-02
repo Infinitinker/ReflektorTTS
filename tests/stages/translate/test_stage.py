@@ -10,7 +10,6 @@ from reflektortts.languages import Languages
 from reflektortts.pipeline.plugins import stage_plugins
 from reflektortts.stages.translate import stage as translate_stage
 from reflektortts.stages.translate.engine import Engine
-from reflektortts.stages.translate.glossary import GlossaryRules
 from reflektortts.stages.translate.model import ModelNotInstalledError
 from reflektortts.stages.translate.stage import PLUGIN, Translate, open_engine
 
@@ -101,10 +100,8 @@ def test_stages_sharing_recent_translations_translate_a_line_once() -> None:
 
 def test_a_line_of_only_glossary_names_is_left_as_written() -> None:
     engines = Engines()
-    glossary = GlossaryRules(
-        (GlossaryTerm("Carl", pronounce={"pl": "Karl"}), GlossaryTerm("Zero", pronounce={"pl": "Zirou"}))
-    )
-    stage = Translate(engines.open, glossary=glossary)
+    names = (GlossaryTerm("Carl", pronounce={"pl": "Karl"}), GlossaryTerm("Zero", pronounce={"pl": "Zirou"}))
+    stage = Translate(engines.open, glossaries={"en": names})
 
     assert translate(stage, "Carl, Zero, Zero, Carl.") == "Carl, Zero, Zero, Carl."
     assert translate(stage, "Hey, Carl.") == "<Hey, Carl.>"
@@ -113,17 +110,25 @@ def test_a_line_of_only_glossary_names_is_left_as_written() -> None:
 
 def test_kept_terms_reach_the_model_as_stand_ins_and_come_back() -> None:
     engines = Engines()
-    stage = Translate(engines.open, glossary=GlossaryRules((GlossaryTerm("Sweet", keep=True),)))
+    stage = Translate(engines.open, glossaries={"en": (GlossaryTerm("Sweet", keep=True),)})
 
     assert translate(stage, "Sweet is alive.") == "<Sweet is alive.>"
     assert engines.engine.calls == [["Kevin is alive."]]
+
+
+def test_a_line_in_another_input_language_gets_none_of_the_glossary() -> None:
+    engines = Engines()
+    stage = Translate(engines.open, glossaries={"en": (GlossaryTerm("hood", means="turf"),)})
+
+    assert translate(stage, "Ein hood.", app="de") == "<Ein hood.>"
+    assert translate(stage, "The hood.") == "<The turf.>"
 
 
 def test_stages_with_different_glossaries_do_not_share_translations() -> None:
     engines = Engines()
     recent: translate_stage.Recent = OrderedDict()
     plain = Translate(engines.open, recent)
-    with_meaning = Translate(engines.open, recent, GlossaryRules((GlossaryTerm("hood", means="neighborhood"),)))
+    with_meaning = Translate(engines.open, recent, {"en": (GlossaryTerm("hood", means="neighborhood"),)})
 
     assert translate(plain, "The hood.") == "<The hood.>"
     assert translate(with_meaning, "The hood.") == "<The neighborhood.>"
@@ -148,7 +153,7 @@ def loads(monkeypatch: pytest.MonkeyPatch) -> Iterator[list[str]]:
 
 
 def test_every_translate_stage_shares_one_loaded_model(loads: list[str]) -> None:
-    subtitles, help_box = PLUGIN.create({}, ()), PLUGIN.create({}, ())
+    subtitles, help_box = PLUGIN.create({}, {}), PLUGIN.create({}, {})
 
     assert isinstance(subtitles, Translate) and isinstance(help_box, Translate)
     assert translate(subtitles, "Kill Frenzy!") == "<Kill Frenzy!>"

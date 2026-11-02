@@ -56,6 +56,6 @@ def test_lines_that_are_mostly_symbols_are_ignored() -> None:
 
 def test_plugin_defaults_and_registration() -> None:
     assert stage_plugins()["tracker"] is PLUGIN
-    tracker = PLUGIN.create({}, ())
+    tracker = PLUGIN.create({}, {})
     assert isinstance(tracker, Tracker)
     assert feed(tracker, [(0.0, "Hello"), (0.4, "Hello"), (0.5, "Hello")]) == ["Hello"]

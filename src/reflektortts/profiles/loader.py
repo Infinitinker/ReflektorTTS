@@ -11,7 +11,7 @@ from typing import Any
 import jsonschema
 from jsonschema.protocols import Validator
 
-from reflektortts.glossary import Glossary, GlossaryTerm
+from reflektortts.glossary import Glossaries, Glossary, GlossaryTerm
 from reflektortts.pipeline.plugins import source_plugins, stage_plugins
 from reflektortts.profiles.model import App, Executable, Match, Profile, SourceSettings, StageSettings
 
@@ -145,12 +145,16 @@ def parse_profile(data: Any, profile_id: str, schemas: PluginSchemas | None = No
         match=Match(executables),
         sources=sources,
         overlay=overlay,
-        glossary=_glossary(data.get("glossary", []), name),
+        glossary=_glossaries(data.get("glossary", {}), name),
     )
 
 
-def _glossary(entries: list[dict[str, Any]], name: str) -> Glossary:
-    """The glossary's terms, each of which must say what to do with it, and only once."""
+def _glossaries(glossaries: dict[str, list[dict[str, Any]]], name: str) -> Glossaries:
+    return {language: _glossary(entries, f"{name}: $.glossary.{language}") for language, entries in glossaries.items()}
+
+
+def _glossary(entries: list[dict[str, Any]], path: str) -> Glossary:
+    """A glossary's terms, each of which must say what to do with it, and only once."""
     terms: list[GlossaryTerm] = []
     for index, entry in enumerate(entries):
         spellings = [entry["term"]] if isinstance(entry["term"], str) else entry["term"]
@@ -162,7 +166,7 @@ def _glossary(entries: list[dict[str, Any]], name: str) -> Glossary:
             means=entry.get("means"),
             pronounce=entry.get("pronounce", {}),
         )
-        where = f'{name}: $.glossary[{index}] ("{term.term}")'
+        where = f'{path}[{index}] ("{term.term}")'
         if not (term.keep or term.means or term.pronounce):
             raise ProfileError(f'{where}: says nothing to do with the term; give it "keep", "means" or "pronounce".')
         if term.keep and term.means:

@@ -9,7 +9,7 @@ from dataclasses import replace
 from typing import Any
 
 from reflektortts.events import TextEvent
-from reflektortts.glossary import Glossary
+from reflektortts.glossary import Glossaries
 from reflektortts.languages import Languages
 from reflektortts.pipeline.plugins import StagePlugin, load_schema
 from reflektortts.stages.translate.engine import Engine, load_engine
@@ -32,38 +32,46 @@ class Translate:
     """Translates each line from the input language into its output language, sentence by sentence.
 
     It runs only for pairs inactive_reason accepts. A pair's engine is opened the first time a line
-    needs it. The profile's glossary keeps terms untranslated or gives them a meaning, and a line
-    with fewer than min_letters letters besides its kept and pronounced terms (e.g. only names) is left
-    as written. Recent translations are remembered, since apps repeat lines and each line is
-    processed once for the text shown and once for speech.
+    needs it. The profile's glossary for the line's input language keeps terms untranslated or gives
+    them a meaning, and a line with fewer than min_letters letters besides its kept and pronounced
+    terms (e.g. only names) is left as written. Recent translations are remembered, since apps
+    repeat lines and each line is processed once for the text shown and once for speech.
     """
 
     def __init__(
         self,
         open_engine: Callable[[str, str], Engine],
         cache: Recent | None = None,
-        glossary: GlossaryRules | None = None,
+        glossaries: Glossaries | None = None,
         min_letters: int = DEFAULT_MIN_LETTERS,
     ) -> None:
         self._open_engine = open_engine
         self._engines: dict[Pair, Engine] = {}
         self._cache: Recent = OrderedDict() if cache is None else cache
-        self._glossary = GlossaryRules(()) if glossary is None else glossary
+        self._glossaries = {} if glossaries is None else glossaries
+        self._rules: dict[str, GlossaryRules] = {}
         self._min_letters = min_letters
 
     def process(self, event: TextEvent) -> TextEvent | None:
-        if not event.text or self._glossary.letters_besides_terms(event.text) < self._min_letters:
+        rules = self._rules_for(event.input_language)
+        if not event.text or rules.letters_besides_terms(event.text) < self._min_letters:
             return event
-        return replace(event, text=self._translate((event.input_language, event.output_language), event.text))
+        return replace(event, text=self._translate((event.input_language, event.output_language), event.text, rules))
 
-    def _translate(self, pair: Pair, text: str) -> str:
-        key = (pair, self._glossary.key, text)
+    def _rules_for(self, language: str) -> GlossaryRules:
+        """The glossary rules for lines in an input language, made the first time they are needed."""
+        if language not in self._rules:
+            self._rules[language] = GlossaryRules(self._glossaries.get(language, ()))
+        return self._rules[language]
+
+    def _translate(self, pair: Pair, text: str, rules: GlossaryRules) -> str:
+        key = (pair, rules.key, text)
         if key in self._cache:
             self._cache.move_to_end(key)
             return self._cache[key]
         if pair not in self._engines:
             self._engines[pair] = self._open_engine(*pair)
-        prepared = self._glossary.prepare(text)
+        prepared = rules.prepare(text)
         language = output_language(pair[1])
         translated = self._engines[pair].translate(split_sentences(prepared.text))
         translated = prepared.put_back(language.tidy(translated), language)
@@ -103,8 +111,8 @@ RECENT: Recent = OrderedDict()
 """Recent translations shared by every translate stage; they all run on the one runner thread."""
 
 
-def create(settings: Mapping[str, Any], glossary: Glossary) -> Translate:
-    return Translate(open_engine, RECENT, GlossaryRules(glossary), settings.get("min_letters", DEFAULT_MIN_LETTERS))
+def create(settings: Mapping[str, Any], glossaries: Glossaries) -> Translate:
+    return Translate(open_engine, RECENT, glossaries, settings.get("min_letters", DEFAULT_MIN_LETTERS))
 
 
 PLUGIN = StagePlugin(

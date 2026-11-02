@@ -26,6 +26,9 @@ class GlossaryTerm:
 
 
 type Glossary = tuple[GlossaryTerm, ...]
+type Glossaries = Mapping[str, Glossary]
+"""A profile's glossaries, by the input language (ISO 639-1) their terms are written in: a line
+read in another language gets none, as terms of one language turn another into gibberish."""
 
 
 class TermFinder:

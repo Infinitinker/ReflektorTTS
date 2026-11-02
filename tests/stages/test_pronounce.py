@@ -14,7 +14,7 @@ GLOSSARY = (
 
 
 def pronounced(text: str, language: str = "pl") -> str:
-    event = PLUGIN.create({}, GLOSSARY).process(TextEvent("subtitles", text, 0.0, output_language=language))
+    event = PLUGIN.create({}, {"en": GLOSSARY}).process(TextEvent("subtitles", text, 0.0, output_language=language))
     assert event is not None
     return event.text
 
@@ -37,6 +37,14 @@ def pronounced(text: str, language: str = "pl") -> str:
 )
 def test_terms_are_respelled_for_the_output_language_with_their_endings(text: str, spoken: str) -> None:
     assert pronounced(text) == spoken
+
+
+def test_a_line_in_another_input_language_gets_none_of_the_glossary() -> None:
+    event = TextEvent("subtitles", "Hej, Carl.", 0.0, output_language="pl", input_language="de")
+
+    processed = PLUGIN.create({}, {"en": GLOSSARY}).process(event)
+
+    assert processed is not None and processed.text == "Hej, Carl."
 
 
 def test_a_language_without_pronunciations_is_left_as_is() -> None:

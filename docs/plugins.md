@@ -89,13 +89,13 @@ StagePlugin(
 )
 
 
-def create(settings: Mapping[str, Any], glossary: Glossary) -> Stage: ...
+def create(settings: Mapping[str, Any], glossaries: Glossaries) -> Stage: ...
 
 
 def inactive_reason(languages: Languages) -> str | None: ...
 ```
 
-- `create` gets the stage's own, already validated fields from the profile, and the profile's glossary (`reflektortts.glossary`): terms of the app to keep untranslated, translate with a given meaning, or speak another way. Use it if your stage translates or speaks; otherwise ignore it.
+- `create` gets the stage's own, already validated fields from the profile, and the profile's glossaries (`reflektortts.glossary`), by input language: terms of the app to keep untranslated, translate with a given meaning, or speak another way. Use the one for each line's `input_language`, which the user can change while the app runs, if your stage translates or speaks; otherwise ignore them.
 - Return the event to pass on (use `dataclasses.replace` to change its text), or `None` to drop it.
 - An event with **empty text** means the source has no text right now. Stages that keep state, like the tracker, use it to notice a line disappearing; empty text is never delivered to sinks.
 - `event.input_language` and `event.output_language` are the languages the user chose (ISO 639-1, e.g. `pl`), current when the line was read. Stages that depend on language, like `normalize` (output language) and `translate` (from the input to the output language), use them instead of settings of their own, so the user's choice applies to every app.

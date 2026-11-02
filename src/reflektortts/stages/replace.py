@@ -6,7 +6,7 @@ from dataclasses import dataclass, replace
 from typing import Any
 
 from reflektortts.events import TextEvent
-from reflektortts.glossary import Glossary
+from reflektortts.glossary import Glossaries
 from reflektortts.pipeline.plugins import StagePlugin, load_schema
 
 
@@ -42,7 +42,7 @@ class Replace:
         return replace(event, text=text.strip())
 
 
-def create(settings: Mapping[str, Any], glossary: Glossary) -> Replace:
+def create(settings: Mapping[str, Any], glossaries: Glossaries) -> Replace:
     return Replace([rule_from_settings(rule) for rule in settings["rules"]])
 
 

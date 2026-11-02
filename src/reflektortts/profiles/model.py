@@ -4,7 +4,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
-from reflektortts.glossary import Glossary
+from reflektortts.glossary import Glossaries
 
 
 @dataclass(frozen=True)
@@ -64,5 +64,6 @@ class Profile:
     sources: tuple[SourceSettings, ...] = field(default=())
     overlay: bool = False
     """Whether the overlay is loaded into the program; only into builds listed by hash."""
-    glossary: Glossary = ()
-    """Terms of the app that translation and speech treat specially; given to every stage."""
+    glossary: Glossaries = field(default_factory=dict)
+    """Terms of the app that translation and speech treat specially, by input language; given to
+    every stage."""
