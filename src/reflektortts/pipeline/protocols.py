@@ -1,9 +1,20 @@
 """Contracts for source, stage and sink plugins."""
 
+from enum import StrEnum
 from typing import Protocol
 
 from reflektortts.events import TextEvent
 from reflektortts.languages import Languages
+
+
+class Output(StrEnum):
+    """What a line is prepared for. Each source's stages run once for each, so a stage can be on
+    for one and off for the other."""
+
+    TEXT = "text"
+    """The text shown: subtitles, and the lines the API reports."""
+    SPEECH = "speech"
+    """What is spoken."""
 
 
 class Source(Protocol):

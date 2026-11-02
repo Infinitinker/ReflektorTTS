@@ -39,8 +39,8 @@ from reflektortts.languages import (
 )
 from reflektortts.overlay import inject_overlay
 from reflektortts.pipeline.plugins import SourcePlugin, StagePlugin, inactive_reason, source_plugins, stage_plugins
-from reflektortts.pipeline.protocols import Sink
-from reflektortts.pipeline.runner import Route, Runner, log_error
+from reflektortts.pipeline.protocols import Output, Sink
+from reflektortts.pipeline.runner import Chain, Route, Runner, log_error
 from reflektortts.profiles.catalog import (
     Choice,
     ProfileFiles,
@@ -50,7 +50,7 @@ from reflektortts.profiles.catalog import (
     Standing,
     choose,
 )
-from reflektortts.profiles.model import Profile
+from reflektortts.profiles.model import Profile, SourceSettings
 from reflektortts.settings import (
     ProfileSettings,
     load_profile_settings,
@@ -109,17 +109,20 @@ def stage_key(source: str, position: int, stage_type: str) -> str:
 
 
 def _enabled_check(
-    source: str,
-    types: Sequence[str],
+    source: SourceSettings,
+    output: Output,
     plugins: Mapping[str, StagePlugin],
     is_enabled: Callable[[str], bool],
     languages: Callable[[], Languages],
 ) -> Callable[[int], bool]:
-    """Whether the stage at a position runs: the user has it switched on, and it works with the
-    user's languages."""
+    """Whether the stage at a position runs for an output: the profile starts it on there, the
+    user has it switched on, and it works with the user's languages."""
+    stages = source.stages
+    starts_on = [stage.text if output is Output.TEXT else stage.speech for stage in stages]
     return lambda position: (
-        is_enabled(stage_key(source, position, types[position]))
-        and inactive_reason(plugins[types[position]], languages()) is None
+        starts_on[position]
+        and is_enabled(stage_key(source.name, position, stages[position].type))
+        and inactive_reason(plugins[stages[position].type], languages()) is None
     )
 
 
@@ -141,8 +144,8 @@ def build_routes(
     is_source_enabled: Callable[[str], bool] = lambda name: True,
     languages: Callable[[], Languages] = lambda: Languages(DEFAULT_INPUT_LANGUAGE, DEFAULT_OUTPUT_LANGUAGE),
 ) -> list[Route]:
-    """Creates the app's sources and their stages; a source that cannot start, or one of whose
-    stages cannot, is reported and skipped.
+    """Creates the app's sources and, for each output, their stages; a source that cannot start,
+    or one of whose stages cannot, is reported and skipped.
 
     is_enabled tells, by stage key, whether the user has the stage switched on; is_source_enabled
     tells the same for a source, by name. A stage that does nothing with the user's languages is
@@ -156,27 +159,25 @@ def build_routes(
             on_error(ErrorEvent("source.error", settings.name, str(error)))
             continue
         try:
-            created = [stages[stage.type].create(stage.settings) for stage in settings.stages]
+            chains = {
+                output: Chain(
+                    [stages[stage.type].create(stage.settings) for stage in settings.stages],
+                    _enabled_check(settings, output, stages, is_enabled, languages),
+                )
+                for output in Output
+            }
         except Exception as error:
             source.close()
             on_error(ErrorEvent("source.error", settings.name, f"A text processing stage cannot start ({error})."))
             continue
-        types = [stage.type for stage in settings.stages]
-        routes.append(
-            Route(
-                source,
-                created,
-                _enabled_check(settings.name, types, stages, is_enabled, languages),
-                _source_check(settings.name, is_source_enabled),
-            )
-        )
+        routes.append(Route(source, chains, _source_check(settings.name, is_source_enabled)))
     return routes
 
 
 def read_app(
     app: RunningApp,
     routes: Sequence[Route],
-    sinks: Sequence[Sink],
+    sinks: Mapping[Output, Sequence[Sink]],
     stop: threading.Event,
     on_error: Callable[[ErrorEvent], None] = log_error,
     is_running: Callable[[int], bool] = psutil.pid_exists,
@@ -452,7 +453,10 @@ class Core:
     def run(self, stop: threading.Event) -> None:
         """Reads every profiled app that starts, one at a time, until stop is set."""
         sources = source_plugins()
-        sinks: list[Sink] = [TtsSink(self._narrator), self._subtitles, BusSink(self._bus)]
+        sinks: dict[Output, list[Sink]] = {
+            Output.TEXT: [self._subtitles, BusSink(self._bus)],
+            Output.SPEECH: [TtsSink(self._narrator)],
+        }
         self._log_choices()
         while not stop.is_set():
             apps = sorted(find_running_apps(self._used(), builds=self._builds), key=lambda app: not app.supported)

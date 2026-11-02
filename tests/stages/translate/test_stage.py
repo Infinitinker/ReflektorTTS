@@ -1,3 +1,4 @@
+from collections import OrderedDict
 from collections.abc import Iterator, Sequence
 from pathlib import Path
 
@@ -87,6 +88,15 @@ def test_the_engine_is_opened_once_and_repeated_lines_are_remembered() -> None:
     assert engines.engine.calls == [["Kill Frenzy!"], ["Mission complete!"]]
 
 
+def test_stages_sharing_recent_translations_translate_a_line_once() -> None:
+    engines = Engines()
+    recent: translate_stage.Recent = OrderedDict()
+    text, speech = Translate(engines.open, recent), Translate(engines.open, recent)
+
+    assert translate(text, "Kill Frenzy!") == translate(speech, "Kill Frenzy!") == "<Kill Frenzy!>"
+    assert engines.engine.calls == [["Kill Frenzy!"]]
+
+
 @pytest.fixture
 def loads(monkeypatch: pytest.MonkeyPatch) -> Iterator[list[str]]:
     """Replaces the installed model and loading it; lists each model loaded."""
@@ -99,8 +109,10 @@ def loads(monkeypatch: pytest.MonkeyPatch) -> Iterator[list[str]]:
     monkeypatch.setattr(translate_stage, "installed_model", lambda package: Path("model"))
     monkeypatch.setattr(translate_stage, "load_engine", fake_engine)
     open_engine.cache_clear()
+    translate_stage.RECENT.clear()
     yield loaded
     open_engine.cache_clear()
+    translate_stage.RECENT.clear()
 
 
 def test_every_translate_stage_shares_one_loaded_model(loads: list[str]) -> None:

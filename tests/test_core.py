@@ -15,7 +15,8 @@ from reflektortts.ducking.volume import OpenAppVolume
 from reflektortts.events import AppInfo, DownloadEvent, ErrorEvent, Status, TextEvent, UnsupportedApp
 from reflektortts.languages import LanguageError, Languages
 from reflektortts.pipeline.plugins import SourcePlugin, StagePlugin
-from reflektortts.pipeline.runner import Route
+from reflektortts.pipeline.protocols import Output
+from reflektortts.pipeline.runner import Chain, Route
 from reflektortts.profiles.catalog import CatalogEntry, Origin, ProfileFiles, ProfileState, ProfileStore
 from reflektortts.profiles.loader import PluginSchemas
 from reflektortts.profiles.model import App, Executable, Match, Profile, SourceSettings, StageSettings
@@ -101,7 +102,10 @@ def test_routes_get_their_sources_and_stages_and_broken_sources_are_reported() -
 
     assert len(routes) == 1
     assert routes[0].source.name == "messages"
-    assert [type(stage) for stage in routes[0].stages] == [Suffix]
+    [text_stage] = routes[0].chains[Output.TEXT].stages
+    [speech_stage] = routes[0].chains[Output.SPEECH].stages
+    assert isinstance(text_stage, Suffix) and isinstance(speech_stage, Suffix)
+    assert text_stage is not speech_stage
     assert errors == [ErrorEvent("source.error", "broken", "This version of the app is not supported")]
 
 
@@ -141,8 +145,8 @@ def test_read_game_runs_until_the_game_exits_then_closes_sources() -> None:
 
     read_app(
         app_with(),
-        [Route(source, [Suffix("!")])],
-        [sink],
+        [Route(source, {Output.SPEECH: Chain([Suffix("!")])})],
+        {Output.SPEECH: [sink]},
         threading.Event(),
         is_running=is_running,
         check_seconds=0.01,
@@ -157,7 +161,7 @@ def test_read_game_returns_when_stopped() -> None:
     stop = threading.Event()
     stop.set()
 
-    read_app(app_with(), [Route(source)], [], stop, is_running=lambda pid: True, check_seconds=0.01)
+    read_app(app_with(), [Route(source)], {}, stop, is_running=lambda pid: True, check_seconds=0.01)
 
     assert source.closed
 
@@ -547,9 +551,19 @@ def test_build_routes_asks_whether_each_source_and_stage_is_enabled() -> None:
 
     routes = build_routes(app, SOURCES, STAGES, lambda error: None, is_enabled, is_enabled)
 
-    assert routes[0].is_enabled(0) is False
+    assert routes[0].chains[Output.TEXT].is_enabled(0) is False
     assert routes[0].is_source_enabled() is False
     assert asked == ["messages/0:suffix", "messages"]
+
+
+def test_each_output_starts_with_the_stages_its_profile_starts_on_there() -> None:
+    stage = StageSettings("suffix", {"suffix": "!"}, text=False)
+    app = app_with(SourceSettings("fixed", "messages", 0.25, {"text": "hi"}, (stage,)))
+
+    [route] = build_routes(app, SOURCES, STAGES, lambda error: None)
+
+    assert route.chains[Output.TEXT].is_enabled(0) is False
+    assert route.chains[Output.SPEECH].is_enabled(0) is True
 
 
 def test_a_stage_that_does_nothing_with_the_languages_is_skipped() -> None:
@@ -560,9 +574,9 @@ def test_a_stage_that_does_nothing_with_the_languages_is_skipped() -> None:
 
     routes = build_routes(app, SOURCES, STAGES, lambda error: None, languages=lambda: current[0])
 
-    assert routes[0].is_enabled(0) is False
+    assert routes[0].chains[Output.SPEECH].is_enabled(0) is False
     current[0] = Languages("en", "pl")
-    assert routes[0].is_enabled(0) is True
+    assert routes[0].chains[Output.SPEECH].is_enabled(0) is True
 
 
 def test_the_status_says_why_a_stage_does_nothing_and_keeps_its_tick(tmp_path: Path) -> None:

@@ -3,12 +3,12 @@
 import logging
 import threading
 import time
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 
 from reflektortts.events import ErrorEvent, TextEvent
 from reflektortts.languages import DEFAULT_INPUT_LANGUAGE, DEFAULT_OUTPUT_LANGUAGE, Languages
-from reflektortts.pipeline.protocols import Sink, Source, Stage
+from reflektortts.pipeline.protocols import Output, Sink, Source, Stage
 
 logger = logging.getLogger(__name__)
 
@@ -26,20 +26,30 @@ def always_on() -> bool:
 
 
 @dataclass
-class Route:
-    """One source and the stages its text passes through. Stages keep state per route."""
+class Chain:
+    """The stages a source's text passes through for one output, in order. Stages keep state per
+    chain, so each output has its own."""
 
-    source: Source
     stages: Sequence[Stage] = ()
     is_enabled: Callable[[int], bool] = always_enabled
     """Whether the stage at a position runs; the user can switch stages off while the app runs."""
+
+
+@dataclass
+class Route:
+    """One source and, per output, the stages its text passes through; an output without a chain
+    gets the text as read."""
+
+    source: Source
+    chains: Mapping[Output, Chain] = field(default_factory=dict)
     is_source_enabled: Callable[[], bool] = always_on
     """Whether the source is read; the user can switch sources off while the app runs."""
     next_poll: float = field(default=0.0, init=False)
 
 
 class Runner:
-    """Polls each route's source on its interval and delivers the results to every sink.
+    """Polls each route's source on its interval and delivers the results to the sinks: each
+    output's to its own sinks, after that output's chain of stages.
 
     When a source has no text, its stages get an event with empty text, so they can tell
     a line disappeared; empty text is never delivered to sinks. Every event carries the
@@ -53,7 +63,7 @@ class Runner:
     def __init__(
         self,
         routes: Sequence[Route],
-        sinks: Sequence[Sink],
+        sinks: Mapping[Output, Sequence[Sink]],
         on_error: Callable[[ErrorEvent], None] = log_error,
         clock: Callable[[], float] = time.monotonic,
         languages: Callable[[], Languages] = lambda: Languages(DEFAULT_INPUT_LANGUAGE, DEFAULT_OUTPUT_LANGUAGE),
@@ -99,24 +109,30 @@ class Runner:
             output_language=languages.output,
             input_language=languages.input,
         )
-        for position, stage in enumerate(route.stages):
-            if not route.is_enabled(position):
+        for output, sinks in self._sinks.items():
+            result = self._process(source.name, route.chains.get(output, Chain()), event)
+            if result is not None and result.text:
+                self._deliver(result, sinks)
+
+    def _process(self, source: str, chain: Chain, event: TextEvent) -> TextEvent | None:
+        """The event after the chain's switched-on stages, or None if one held it back or failed."""
+        for position, stage in enumerate(chain.stages):
+            if not chain.is_enabled(position):
                 continue
-            stage_name = f"{source.name}/{type(stage).__name__}"
+            stage_name = f"{source}/{type(stage).__name__}"
             try:
                 result = stage.process(event)
             except Exception as error:
                 self._failed("stage.error", stage_name, error)
-                return
+                return None
             self._worked("stage.error", stage_name)
             if result is None:
-                return
+                return None
             event = result
-        if event.text:
-            self._deliver(event)
+        return event
 
-    def _deliver(self, event: TextEvent) -> None:
-        for sink in self._sinks:
+    def _deliver(self, event: TextEvent, sinks: Sequence[Sink]) -> None:
+        for sink in sinks:
             try:
                 sink.deliver(event)
             except Exception as error:

@@ -1,10 +1,12 @@
 import threading
+from collections.abc import Callable
 
 import pytest
 
 from reflektortts.events import ErrorEvent, TextEvent
 from reflektortts.languages import Languages
-from reflektortts.pipeline.runner import Route, Runner
+from reflektortts.pipeline.protocols import Output, Sink, Stage
+from reflektortts.pipeline.runner import Chain, Route, Runner, always_enabled
 
 
 class ScriptedSource:
@@ -64,10 +66,19 @@ def texts(sink: RecordingSink) -> list[str]:
     return [event.text for event in sink.events]
 
 
+def shown(*stages: Stage, is_enabled: Callable[[int], bool] = always_enabled) -> dict[Output, Chain]:
+    """Chains with these stages for the text shown."""
+    return {Output.TEXT: Chain(stages, is_enabled)}
+
+
+def to_text(*sinks: Sink) -> dict[Output, list[Sink]]:
+    return {Output.TEXT: list(sinks)}
+
+
 def test_text_passes_through_stages_in_order_to_every_sink() -> None:
     first, second = RecordingSink("a"), RecordingSink("b")
     source = ScriptedSource("memory", ["hi", "hello"])
-    runner = Runner([Route(source, [DropShort(), Upper()])], [first, second])
+    runner = Runner([Route(source, shown(DropShort(), Upper()))], to_text(first, second))
 
     runner.poll(0.0)
     runner.poll(1.0)
@@ -76,10 +87,32 @@ def test_text_passes_through_stages_in_order_to_every_sink() -> None:
     assert first.events[0] == TextEvent("memory", "HELLO", 1.0)
 
 
+def test_each_output_has_its_own_chain_and_sinks() -> None:
+    text, speech = RecordingSink("subtitles"), RecordingSink("tts")
+    chains = {Output.TEXT: Chain([DropShort()]), Output.SPEECH: Chain([Upper()])}
+    source = ScriptedSource("memory", ["hi", "hello"])
+    runner = Runner([Route(source, chains)], {Output.TEXT: [text], Output.SPEECH: [speech]})
+
+    runner.poll(0.0)
+    runner.poll(1.0)
+
+    assert texts(text) == ["hello"]
+    assert texts(speech) == ["HI", "HELLO"]
+
+
+def test_an_output_without_a_chain_gets_the_text_as_read() -> None:
+    speech = RecordingSink("tts")
+    runner = Runner([Route(ScriptedSource("memory", ["hi"]), shown(Upper()))], {Output.SPEECH: [speech]})
+
+    runner.poll(0.0)
+
+    assert texts(speech) == ["hi"]
+
+
 def test_events_carry_the_languages_current_when_read() -> None:
     sink = RecordingSink()
     current = [Languages(input="pl", output="en")]
-    runner = Runner([Route(ScriptedSource("memory", ["one", "two"]))], [sink], languages=lambda: current[0])
+    runner = Runner([Route(ScriptedSource("memory", ["one", "two"]))], to_text(sink), languages=lambda: current[0])
 
     runner.poll(0.0)
     current[0] = Languages(input="en", output="pl")
@@ -90,7 +123,7 @@ def test_events_carry_the_languages_current_when_read() -> None:
 
 def test_sources_read_with_the_players_languages() -> None:
     source = ScriptedSource("subtitles", ["one"])
-    Runner([Route(source)], [], languages=lambda: Languages(input="pl", output="en")).poll(0.0)
+    Runner([Route(source)], {}, languages=lambda: Languages(input="pl", output="en")).poll(0.0)
 
     assert source.languages == [Languages(input="pl", output="en")]
 
@@ -98,8 +131,10 @@ def test_sources_read_with_the_players_languages() -> None:
 def test_switched_off_stages_are_skipped() -> None:
     sink = RecordingSink()
     enabled = {0: True, 1: False}
-    route = Route(ScriptedSource("memory", ["hello", "hello"]), [Upper(), DropShort()], lambda i: enabled[i])
-    runner = Runner([route], [sink])
+    route = Route(
+        ScriptedSource("memory", ["hello", "hello"]), shown(Upper(), DropShort(), is_enabled=enabled.__getitem__)
+    )
+    runner = Runner([route], to_text(sink))
 
     runner.poll(0.0)
     enabled[0] = False
@@ -112,7 +147,7 @@ def test_switched_off_sources_are_not_read() -> None:
     sink = RecordingSink()
     source = ScriptedSource("memory", ["one", "two"])
     on = [False]
-    runner = Runner([Route(source, is_source_enabled=lambda: on[0])], [sink])
+    runner = Runner([Route(source, is_source_enabled=lambda: on[0])], to_text(sink))
 
     runner.poll(0.0)
     on[0] = True
@@ -125,7 +160,7 @@ def test_switched_off_sources_are_not_read() -> None:
 def test_sources_are_read_only_when_due() -> None:
     fast = ScriptedSource("fast", [], poll_interval=0.25)
     slow = ScriptedSource("slow", [], poll_interval=1.0)
-    runner = Runner([Route(fast), Route(slow)], [])
+    runner = Runner([Route(fast), Route(slow)], {})
 
     for tick in range(4):
         runner.poll(tick * 0.25)
@@ -145,7 +180,7 @@ class Recording:
 
 def test_no_text_reaches_stages_as_empty_text_but_never_sinks() -> None:
     sink, stage = RecordingSink(), Recording()
-    Runner([Route(ScriptedSource("memory", [None]), [stage])], [sink]).poll(0.0)
+    Runner([Route(ScriptedSource("memory", [None]), shown(stage))], to_text(sink)).poll(0.0)
 
     assert stage.texts == [""]
     assert sink.events == []
@@ -156,7 +191,7 @@ def test_failing_source_is_reported_once_and_others_keep_working() -> None:
     sink = RecordingSink()
     broken = ScriptedSource("memory", [OSError("app closed"), OSError("app closed"), "back"])
     healthy = ScriptedSource("clipboard", ["a", "b", "c"])
-    runner = Runner([Route(broken), Route(healthy)], [sink], on_error=errors.append)
+    runner = Runner([Route(broken), Route(healthy)], to_text(sink), on_error=errors.append)
 
     for tick in range(3):
         runner.poll(float(tick))
@@ -168,7 +203,7 @@ def test_failing_source_is_reported_once_and_others_keep_working() -> None:
 def test_failing_stage_drops_the_event_and_is_reported() -> None:
     errors: list[ErrorEvent] = []
     sink = RecordingSink()
-    runner = Runner([Route(ScriptedSource("memory", ["x"]), [Exploding()])], [sink], on_error=errors.append)
+    runner = Runner([Route(ScriptedSource("memory", ["x"]), shown(Exploding()))], to_text(sink), on_error=errors.append)
 
     runner.poll(0.0)
 
@@ -179,7 +214,7 @@ def test_failing_stage_drops_the_event_and_is_reported() -> None:
 def test_failing_sink_does_not_block_other_sinks(caplog: pytest.LogCaptureFixture) -> None:
     errors: list[ErrorEvent] = []
     flaky, steady = RecordingSink("tts", fail_times=2), RecordingSink("log")
-    runner = Runner([Route(ScriptedSource("memory", ["one", "two", "three"]))], [flaky, steady], errors.append)
+    runner = Runner([Route(ScriptedSource("memory", ["one", "two", "three"]))], to_text(flaky, steady), errors.append)
 
     caplog.set_level("INFO")
     for tick in range(3):
@@ -207,7 +242,7 @@ class StoppingSource(ScriptedSource):
 def test_run_polls_until_stopped() -> None:
     stop = threading.Event()
     source = StoppingSource(stop)
-    worker = threading.Thread(target=Runner([Route(source)], []).run, args=(stop,))
+    worker = threading.Thread(target=Runner([Route(source)], {}).run, args=(stop,))
     worker.start()
     worker.join(timeout=2.0)
 

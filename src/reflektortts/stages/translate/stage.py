@@ -20,19 +20,21 @@ logger = logging.getLogger(__name__)
 CACHE_SIZE = 256
 
 type Pair = tuple[str, str]
+type Recent = OrderedDict[tuple[Pair, str], str]
 
 
 class Translate:
     """Translates each line from the input language into its output language, sentence by sentence.
 
     It runs only for pairs inactive_reason accepts. A pair's engine is opened the first time a line
-    needs it. Recent translations are remembered, since apps repeat lines.
+    needs it. Recent translations are remembered, since apps repeat lines and each line is
+    processed once for the text shown and once for speech.
     """
 
-    def __init__(self, open_engine: Callable[[str, str], Engine]) -> None:
+    def __init__(self, open_engine: Callable[[str, str], Engine], cache: Recent | None = None) -> None:
         self._open_engine = open_engine
         self._engines: dict[Pair, Engine] = {}
-        self._cache: OrderedDict[tuple[Pair, str], str] = OrderedDict()
+        self._cache: Recent = OrderedDict() if cache is None else cache
 
     def process(self, event: TextEvent) -> TextEvent | None:
         if not event.text:
@@ -79,8 +81,12 @@ def inactive_reason(languages: Languages) -> str | None:
     return None
 
 
+RECENT: Recent = OrderedDict()
+"""Recent translations shared by every translate stage; they all run on the one runner thread."""
+
+
 def create(settings: Mapping[str, Any]) -> Translate:
-    return Translate(open_engine)
+    return Translate(open_engine, RECENT)
 
 
 PLUGIN = StagePlugin(
