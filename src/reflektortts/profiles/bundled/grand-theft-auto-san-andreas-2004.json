@@ -28,7 +28,7 @@
       { "term": "Cesar", "pronounce": { "pl": "Sesar" } },
       { "term": "Grove Street", "pronounce": { "pl": "Grołw Strit" } },
       { "term": "Tenpenny", "pronounce": { "pl": "Tenpeny" } },
-      { "term": "City", "pronounce": { "pl": "Siti" } },
+      { "term": "City", "pronounce": { "pl": "Syty" } },
       { "term": ["hood", "'hood"], "means": "turf" },
       { "term": "crib", "means": "place" },
       { "term": "strapped", "means": "armed" },
