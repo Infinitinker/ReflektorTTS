@@ -12,8 +12,8 @@ Needs the release extra and both overlay builds (see overlay/README.md):
     pip install -e .[desktop,translate,release]
 Run from the repository root:
     python tools/build_release.py           (a release)
-    python tools/build_release.py --draft   (to test: allows a placeholder source address and
-                                             missing license texts, marked in the zip's name)
+    python tools/build_release.py --draft   (to test: allows missing license texts, marked in the
+                                             zip's name)
 """
 
 import argparse
@@ -32,9 +32,6 @@ EXTRAS = ("desktop", "translate")
 """The extras a release includes; their packages are bundled and their notices collected."""
 OVERLAY_BUILDS = {"x86": Path("overlay/build/bin"), "x64": Path("overlay/build64/bin")}
 OVERLAY_FILES = ("reflektortts-overlay.dll", "reflektortts-inject.exe")
-PLACEHOLDER = "OWNER"
-"""In the source address until the repository is published (pyproject.toml, [project.urls])."""
-
 COLLECT = {
     "--copy-metadata": ["reflektortts"],
     "--collect-submodules": ["reflektortts", "num2words", "winrt"],
@@ -154,8 +151,6 @@ def main() -> None:
     draft = parser.parse_args().draft
     release = version("reflektortts")
     source = source_address()
-    if PLACEHOLDER in source and not draft:
-        raise SystemExit(f"The source address is still a placeholder ({source}): set it in pyproject.toml.")
     third_party = notices("reflektortts", EXTRAS, draft)
 
     folder = build_exe(release)

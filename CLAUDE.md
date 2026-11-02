@@ -7,7 +7,7 @@ The design is in `docs/architecture.md`; plugin contracts in `docs/plugins.md`, 
 ## Language and naming
 
 - Everything is written in English: code, comments, docs, commit messages, UI strings.
-- The name is **ReflektorTTS** in prose, UI and the per-user folders (`%LOCALAPPDATA%\ReflektorTTS`, set in `user_dirs.py`), and `reflektortts` with no dash or underscore everywhere else: repo, PyPI package, import name, plugin entry-point groups (`reflektortts.sources`).
+- The name is **ReflektorTTS** in prose, UI and the per-user folders (`%LOCALAPPDATA%\ReflektorTTS`, set in `user_dirs.py`), and `reflektortts` with no dash or underscore everywhere else: PyPI package, import name, plugin entry-point groups (`reflektortts.sources`). The GitHub repository is `Infinitinker/ReflektorTTS`, written like the app's name.
 
 ## Open source
 

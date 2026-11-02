@@ -124,7 +124,7 @@ The icon of ReflektorTTS, `src/reflektortts/desktop/icon.ico`, is drawn in code 
 .venv\Scripts\python tools\build_release.py
 ```
 
-A release is refused until the source address in `pyproject.toml` (`[project.urls]`) is set, and while a shipped package has no license text: add one that installs none to `tools/licenses/<package>.txt`, from the project's source at the shipped version. `--draft` builds anyway, to test, marking what is missing and the zip's name.
+A release is refused while a shipped package has no license text: add one that installs none to `tools/licenses/<package>.txt`, from the project's source at the shipped version. `--draft` builds anyway, to test, marking what is missing and the zip's name.
 
 ## License
 

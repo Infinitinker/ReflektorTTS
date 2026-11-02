@@ -28,9 +28,7 @@ dependencies = [
 ]
 
 [project.urls]
-# Replace OWNER with the GitHub account before the first release; tools/build_release.py
-# refuses to build a release until then.
-Source = "https://github.com/OWNER/reflektortts"
+Source = "https://github.com/Infinitinker/ReflektorTTS"
 
 [project.gui-scripts]
 reflektortts-desktop = "reflektortts.desktop.__main__:main"
