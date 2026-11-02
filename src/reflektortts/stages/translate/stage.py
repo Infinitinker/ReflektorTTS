@@ -9,6 +9,7 @@ from dataclasses import replace
 from typing import Any
 
 from reflektortts.events import TextEvent
+from reflektortts.glossary import Glossary
 from reflektortts.languages import Languages
 from reflektortts.pipeline.plugins import StagePlugin, load_schema
 from reflektortts.stages.translate.engine import Engine, load_engine
@@ -85,7 +86,7 @@ RECENT: Recent = OrderedDict()
 """Recent translations shared by every translate stage; they all run on the one runner thread."""
 
 
-def create(settings: Mapping[str, Any]) -> Translate:
+def create(settings: Mapping[str, Any], glossary: Glossary) -> Translate:
     return Translate(open_engine, RECENT)
 
 

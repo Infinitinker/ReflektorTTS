@@ -19,6 +19,20 @@ The profile format is not finalized yet. Its JSON Schema is `src/reflektortts/pr
 - `app`: the app's `title` and original release `year`, for display.
 - `match`: how the app is recognized. `executables` lists its executables, because one app can ship several. Each has a `name` (the file name, e.g. `"gta2.exe"`) and, optionally, `sha256`: the SHA-256 of each build of that file the profile supports, in lowercase hex. With `sha256`, only those builds are read, and another build is reported as not supported yet, with its SHA-256, in the Status tab of the desktop app. Without it, any build with that name is read, which suits programs that update often.
 - `overlay` (optional, default `false`): whether the overlay is loaded into the app. It needs `sha256` for every executable, so the overlay is only ever loaded into builds it was tested with.
+- `glossary` (optional): words and phrases of the app that translation and speech treat specially, one entry per `term` (as the app writes it, e.g. `"Big Smoke"`), with one or more of:
+  - `keep`: `true` if the term is never translated, e.g. a name that is also a word, like `"Sweet"`, which would otherwise become "Słodki". Matched with the same capitals, so "sweet" is still translated. Add `"female": true` for a woman's name, so it is declined as one.
+  - `means`: plain words in the input language the term is translated as, for slang the translation gets wrong, e.g. `{"term": "hood", "means": "neighborhood"}`, so "hood" becomes "okolica", not "kaptur". Matched in any capitals. A term is either kept or given a meaning, not both.
+  - `say`: how the term is spoken, by output language, e.g. `{"term": "Carl", "say": {"pl": "Karl"}}`, so a Polish voice does not read it "Tsarl"; subtitles keep "Carl".
+
+  For example:
+
+  ```json
+  "glossary": [
+    { "term": "Sweet", "keep": true },
+    { "term": "hood", "means": "neighborhood" },
+    { "term": "Carl", "say": { "pl": "Karl" } }
+  ]
+  ```
 - `sources` (optional): where to read the app's text. Each entry has a `type` (the source plugin), a `name`, optionally `poll_interval_ms` (default 250) and `stages`. Its other fields are defined by the plugin's own schema.
 - `stages` (optional, per source): processing applied in order to that source's text, each with a `type`, the plugin's own fields, and optionally where it starts on: `text` (the text shown, e.g. subtitles) and `speech` (what is spoken), both `true` by default. For example, `{"type": "normalize", "text": false}` spells out numbers for the voice while subtitles keep "$50,000". The stages are:
   - `tracker`: passes a line on once it has stayed unchanged for `stable_ms` (default 500; the text is checked on every read of the source, so the wait is rounded up to whole `poll_interval_ms`: with 250 ms polling, 300 waits 500, so set a multiple), has at least `min_letters` letters (default 4), and letters make up at least half of its visible characters; the same line is passed on again only after it disappears or changes. Nearly every source needs it, because sources report the current text on every read.

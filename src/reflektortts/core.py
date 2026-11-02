@@ -169,7 +169,7 @@ def build_routes(
         try:
             chains = {
                 output: Chain(
-                    [stages[stage.type].create(stage.settings) for stage in settings.stages],
+                    [stages[stage.type].create(stage.settings, app.profile.glossary) for stage in settings.stages],
                     _enabled_check(settings, output, stages, stage_switch, languages),
                 )
                 for output in Output

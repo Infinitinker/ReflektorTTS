@@ -79,6 +79,49 @@
       "description": "Whether the overlay is loaded into the app. Default: false. Needs the executables' sha256, so the overlay only goes into builds it was tested with.",
       "type": "boolean"
     },
+    "glossary": {
+      "description": "Words and phrases of the app that translation and speech treat specially. Each entry uses \"keep\", \"means\" or \"say\", or several of them.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "term"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "term": {
+            "description": "The word or phrase as the app writes it, e.g. \"Big Smoke\".",
+            "type": "string",
+            "minLength": 1
+          },
+          "keep": {
+            "description": "Never translated, e.g. a name that is also a word (\"Sweet\"). Matched with the same capitals.",
+            "type": "boolean"
+          },
+          "female": {
+            "description": "A kept term is a woman's name, so translation declines it as one. Default: false.",
+            "type": "boolean"
+          },
+          "means": {
+            "description": "Plain words in the input language the term is translated as, e.g. \"neighborhood\" for \"hood\". Matched in any capitals.",
+            "type": "string",
+            "minLength": 1
+          },
+          "say": {
+            "description": "How the term is spoken, by output language (two-letter code), e.g. {\"pl\": \"Karl\"} for \"Carl\".",
+            "type": "object",
+            "minProperties": 1,
+            "propertyNames": {
+              "pattern": "^[a-z]{2}$"
+            },
+            "additionalProperties": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      }
+    },
     "sources": {
       "description": "Where to read the app's text. Each source's other fields are defined by its plugin's own schema.",
       "type": "array",

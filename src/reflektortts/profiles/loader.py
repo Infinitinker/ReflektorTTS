@@ -11,6 +11,7 @@ from typing import Any
 import jsonschema
 from jsonschema.protocols import Validator
 
+from reflektortts.glossary import Glossary, GlossaryTerm
 from reflektortts.pipeline.plugins import source_plugins, stage_plugins
 from reflektortts.profiles.model import App, Executable, Match, Profile, SourceSettings, StageSettings
 
@@ -144,7 +145,32 @@ def parse_profile(data: Any, profile_id: str, schemas: PluginSchemas | None = No
         match=Match(executables),
         sources=sources,
         overlay=overlay,
+        glossary=_glossary(data.get("glossary", []), name),
     )
+
+
+def _glossary(entries: list[dict[str, Any]], name: str) -> Glossary:
+    """The glossary's terms, each of which must say what to do with it, and only once."""
+    terms: list[GlossaryTerm] = []
+    for index, entry in enumerate(entries):
+        term = GlossaryTerm(
+            term=entry["term"],
+            keep=entry.get("keep", False),
+            female=entry.get("female", False),
+            means=entry.get("means"),
+            say=entry.get("say", {}),
+        )
+        where = f'{name}: $.glossary[{index}] ("{term.term}")'
+        if not (term.keep or term.means or term.say):
+            raise ProfileError(f'{where}: says nothing to do with the term; give it "keep", "means" or "say".')
+        if term.keep and term.means:
+            raise ProfileError(f'{where}: a term is either kept or given a meaning; remove "keep" or "means".')
+        if term.female and not term.keep:
+            raise ProfileError(f'{where}: "female" applies only to a kept term; add "keep": true or remove it.')
+        if any(term.term == other.term for other in terms):
+            raise ProfileError(f"{where}: the term is in the glossary twice; merge the two entries.")
+        terms.append(term)
+    return tuple(terms)
 
 
 def _check_unique_names(sources: tuple[SourceSettings, ...], name: str) -> None:

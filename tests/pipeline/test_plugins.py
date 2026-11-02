@@ -1,12 +1,13 @@
 from collections.abc import Mapping
 from typing import Any
 
+from reflektortts.glossary import Glossary
 from reflektortts.languages import Languages
 from reflektortts.pipeline.plugins import StagePlugin, inactive_reason
 from reflektortts.pipeline.protocols import Stage
 
 
-def create(settings: Mapping[str, Any]) -> Stage:
+def create(settings: Mapping[str, Any], glossary: Glossary) -> Stage:
     raise AssertionError("not created in these tests")
 
 

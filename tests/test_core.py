@@ -14,6 +14,7 @@ from reflektortts.core import Core, build_routes, read_app
 from reflektortts.ducking.records import DuckRecords
 from reflektortts.ducking.volume import OpenAppVolume
 from reflektortts.events import AppInfo, DownloadEvent, ErrorEvent, Output, Status, TextEvent, UnsupportedApp
+from reflektortts.glossary import Glossary, GlossaryTerm
 from reflektortts.languages import LanguageError, Languages
 from reflektortts.pipeline.plugins import SourcePlugin, StagePlugin
 from reflektortts.pipeline.runner import Chain, Route
@@ -70,7 +71,7 @@ def create_source(settings: SourceSettings, app: RunningApp) -> FixedSource:
     return FixedSource(settings.name, settings.settings["text"])
 
 
-def create_stage(settings: Mapping[str, Any]) -> Suffix:
+def create_stage(settings: Mapping[str, Any], glossary: Glossary) -> Suffix:
     return Suffix(settings["suffix"])
 
 
@@ -109,6 +110,22 @@ def test_routes_get_their_sources_and_stages_and_broken_sources_are_reported() -
     assert errors == [ErrorEvent("source.error", "broken", "This version of the app is not supported")]
 
 
+def test_stages_are_given_the_profiles_glossary() -> None:
+    given: list[Glossary] = []
+
+    def create(settings: Mapping[str, Any], glossary: Glossary) -> Suffix:
+        given.append(glossary)
+        return Suffix("")
+
+    glossary = (GlossaryTerm("Sweet", keep=True),)
+    app = app_with(SourceSettings("fixed", "messages", 0.25, {"text": "hi"}, (StageSettings("suffix", {}),)))
+    app = RunningApp(replace(app.profile, glossary=glossary), app.process)
+
+    build_routes(app, SOURCES, {"suffix": StagePlugin("suffix", {}, create)}, lambda error: None)
+
+    assert given == [glossary, glossary]
+
+
 def test_a_source_whose_stage_cannot_start_is_reported_closed_and_skipped() -> None:
     errors: list[ErrorEvent] = []
     created: list[FixedSource] = []
@@ -117,7 +134,7 @@ def test_a_source_whose_stage_cannot_start_is_reported_closed_and_skipped() -> N
         created.append(FixedSource(settings.name, "hi"))
         return created[-1]
 
-    def broken_stage(settings: Mapping[str, Any]) -> Suffix:
+    def broken_stage(settings: Mapping[str, Any], glossary: Glossary) -> Suffix:
         raise RuntimeError("no rules for this language")
 
     stages = {"broken": StagePlugin("broken", {}, broken_stage)}

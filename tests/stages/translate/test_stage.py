@@ -116,7 +116,7 @@ def loads(monkeypatch: pytest.MonkeyPatch) -> Iterator[list[str]]:
 
 
 def test_every_translate_stage_shares_one_loaded_model(loads: list[str]) -> None:
-    subtitles, help_box = PLUGIN.create({}), PLUGIN.create({})
+    subtitles, help_box = PLUGIN.create({}, ()), PLUGIN.create({}, ())
 
     assert isinstance(subtitles, Translate) and isinstance(help_box, Translate)
     assert translate(subtitles, "Kill Frenzy!") == "<Kill Frenzy!>"
