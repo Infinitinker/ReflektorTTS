@@ -1,8 +1,19 @@
 """Events the core produces: text on its way to sinks, plugin errors, and status changes."""
 
 from dataclasses import dataclass
+from enum import StrEnum
 
 from reflektortts.languages import DEFAULT_INPUT_LANGUAGE, DEFAULT_OUTPUT_LANGUAGE
+
+
+class Output(StrEnum):
+    """What a line is prepared for. Each source's stages run once for each, so a stage can be on
+    for one and off for the other."""
+
+    TEXT = "text"
+    """The text shown: subtitles, and the lines the API reports."""
+    SPEECH = "speech"
+    """What is spoken."""
 
 
 @dataclass(frozen=True)
@@ -80,8 +91,9 @@ class StageState:
     summary: str
     warning: str | None
     """Shown while the stage is switched off, if switching it off breaks reading."""
-    enabled: bool
-    """Whether the user has the stage switched on."""
+    enabled: dict[Output, bool]
+    """Whether the stage is on, for the text shown and for speech: as the user switched it, else
+    as its profile starts it."""
     inactive: str | None = None
     """Why the stage does nothing with the user's languages, or None if it works with them."""
 

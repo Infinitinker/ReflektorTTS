@@ -405,15 +405,43 @@ std::string fit_width(const std::string& text, float width) {
     return cut + "...";
 }
 
-// The words after a stage's name: why it does nothing, else its warning while it is switched off,
-// else its summary. Always on the stage's own line, so the panel keeps its height; text too long
-// for the panel is cut and shown whole on hover.
+// The tick columns at the right of the Processing box: one for the text shown, one for speech.
+// Each is as wide as its heading, which sits on the box's title line.
+constexpr const char* kTextHeading = "Text";
+constexpr const char* kSpeechHeading = "Speech";
+
+float tick_column_width(const char* heading) {
+    return std::max(ImGui::CalcTextSize(heading).x, ImGui::GetFrameHeight());
+}
+
+float tick_columns_width() {
+    return tick_column_width(kTextHeading) + ImGui::GetStyle().ItemSpacing.x + tick_column_width(kSpeechHeading);
+}
+
+// Where the tick columns start, from the window's left edge.
+float tick_columns_x() {
+    return ImGui::GetContentRegionMax().x - tick_columns_width();
+}
+
+void draw_tick_headings() {
+    float x = tick_columns_x();
+    for (const char* heading : {kTextHeading, kSpeechHeading}) {
+        float width = tick_column_width(heading);
+        ImGui::SameLine(x + (width - ImGui::CalcTextSize(heading).x) * 0.5f);
+        ImGui::TextDisabled("%s", heading);
+        x += width + ImGui::GetStyle().ItemSpacing.x;
+    }
+}
+
+// The words after a stage's name: why it does nothing, else its warning while it is off for
+// either output, else its summary. Always on the stage's own line, so the panel keeps its height;
+// text too long to fit before the ticks is cut and shown whole on hover.
 void draw_stage_note(const StageOption& stage) {
     const std::string* note = &stage.summary;
     ImVec4 color = ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled);
     if (stage.inactive) {
         note = &*stage.inactive;
-    } else if (!stage.enabled && stage.warning) {
+    } else if ((!stage.text || !stage.speech) && stage.warning) {
         note = &*stage.warning;
         color = kWarningColor;
     }
@@ -421,27 +449,52 @@ void draw_stage_note(const StageOption& stage) {
         return;
     }
     ImGui::SameLine();
-    std::string shown = fit_width(*note, ImGui::GetContentRegionAvail().x);
+    float width = tick_columns_x() - ImGui::GetCursorPosX() - ImGui::GetStyle().ItemSpacing.x;
+    std::string shown = fit_width(*note, width);
     ImGui::TextColored(color, "%s", shown.c_str());
     if (shown != *note && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
         ImGui::SetTooltip("%s", note->c_str());
     }
 }
 
-void draw_stage(const StageOption& stage) {
-    // A stage that does nothing with the user's languages is grayed out but keeps its tick, so
-    // it works again as soon as the languages allow. Its reason is not faded, to stay readable.
-    ImGui::BeginDisabled(stage.inactive.has_value());
-    bool enabled = stage.enabled;
-    if (ImGui::Checkbox((stage.type + "##" + stage.key).c_str(), &enabled)) {
-        request_stage_enabled(stage.key, enabled);
+// A stage's ticks, each centered under its column's heading.
+void draw_stage_ticks(const StageOption& stage) {
+    struct Tick {
+        const char* heading;
+        StageOutput output;
+        bool on;
+    };
+    const Tick ticks[] = {{kTextHeading, StageOutput::Text, stage.text},
+                          {kSpeechHeading, StageOutput::Speech, stage.speech}};
+    float x = tick_columns_x();
+    for (const Tick& tick : ticks) {
+        float width = tick_column_width(tick.heading);
+        ImGui::SameLine(x + (width - ImGui::GetFrameHeight()) * 0.5f);
+        bool on = tick.on;
+        if (ImGui::Checkbox(("##" + std::string(tick.heading) + ":" + stage.key).c_str(), &on)) {
+            request_stage_enabled(stage.key, tick.output, on);
+        }
+        x += width + ImGui::GetStyle().ItemSpacing.x;
     }
-    ImGui::EndDisabled();
-    draw_stage_note(stage);
 }
 
-void draw_text_processing(const CoreState& state) {
-    begin_box("Text processing");
+void draw_stage(const StageOption& stage) {
+    // A stage that does nothing with the user's languages is grayed out but keeps its ticks, so
+    // it works again as soon as the languages allow. Its reason is not faded, to stay readable.
+    ImGui::BeginDisabled(stage.inactive.has_value());
+    ImGui::AlignTextToFramePadding();
+    ImGui::TextUnformatted(stage.type.c_str());
+    ImGui::EndDisabled();
+    draw_stage_note(stage);
+    ImGui::BeginDisabled(stage.inactive.has_value());
+    draw_stage_ticks(stage);
+    ImGui::EndDisabled();
+}
+
+// The stages each line passes through, switched on and off for the text shown and for speech.
+void draw_processing(const CoreState& state) {
+    begin_box("Processing");
+    draw_tick_headings();
     // Source names matter only when an app has more than one source.
     bool headings = state.sources.size() > 1;
     for (const SourceStages& source : state.sources) {
@@ -501,7 +554,7 @@ void draw_panel(const CoreState& state) {
         draw_status(state);
         draw_input(state);
         draw_flow_arrow();
-        draw_text_processing(state);
+        draw_processing(state);
         draw_flow_arrow();
         draw_output(state);
         draw_last_line(state);

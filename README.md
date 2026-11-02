@@ -52,7 +52,7 @@ An app's voice is loaded when the app starts and unloaded when it closes, so not
 
 ## In the app
 
-In an app with the overlay, press **Ctrl+Shift+R** to open the ReflektorTTS panel. From top to bottom it follows a line through ReflektorTTS: the input (its language and the app's sources), the text processing stages, and the output (language, voice, app sound, pause, subtitles). It also shows the last line read. See [overlay/README.md](overlay/README.md).
+In an app with the overlay, press **Ctrl+Shift+R** to open the ReflektorTTS panel. From top to bottom it follows a line through ReflektorTTS: the input (its language and the app's sources), the processing stages, each switched on and off for the text shown and for speech, and the output (language, voice, app sound, pause, subtitles). It also shows the last line read. See [overlay/README.md](overlay/README.md).
 
 ## Voices
 
@@ -75,7 +75,7 @@ ReflektorTTS can also show each line as a subtitle over the app, for example the
 
 ## Translation
 
-ReflektorTTS can translate an app into the output language, in the style of a Polish *lektor*. Set the input language (in the panel's Input section) and the output language (in Output); when they differ, profiles with a `translate` stage translate each line before it is spoken. To turn it off, untick `translate` in the panel's Text processing section.
+ReflektorTTS can translate an app into the output language, in the style of a Polish *lektor*. Set the input language (in the panel's Input section) and the output language (in Output); when they differ, profiles with a `translate` stage translate each line before it is spoken. To turn it off, untick `translate` in the panel's Processing section, under Text, Speech or both.
 
 It uses the translation models of [Argos Translate](https://github.com/argosopentech/argos-translate), one per pair of languages, downloaded in the desktop app's Translations tab into `%LOCALAPPDATA%\ReflektorTTS\translation`. They run offline on the CPU, at about 0.1 s per line. Without a model for the input and output languages, `translate` is grayed out with "No translation model for these languages" and lines are read untranslated. The English–Polish model (about 80 MB), for example, is derived from an [OPUS-MT](https://github.com/Helsinki-NLP/Opus-MT) model by Jörg Tiedemann and Santhosh Thottingal and licensed CC-BY 4.0.
 

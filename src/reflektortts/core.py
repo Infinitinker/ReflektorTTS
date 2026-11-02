@@ -23,6 +23,7 @@ from reflektortts.events import (
     AppInfo,
     DownloadEvent,
     ErrorEvent,
+    Output,
     PreviewEvent,
     SourceStages,
     StageState,
@@ -39,7 +40,7 @@ from reflektortts.languages import (
 )
 from reflektortts.overlay import inject_overlay
 from reflektortts.pipeline.plugins import SourcePlugin, StagePlugin, inactive_reason, source_plugins, stage_plugins
-from reflektortts.pipeline.protocols import Output, Sink
+from reflektortts.pipeline.protocols import Sink
 from reflektortts.pipeline.runner import Chain, Route, Runner, log_error
 from reflektortts.profiles.catalog import (
     Choice,
@@ -50,7 +51,7 @@ from reflektortts.profiles.catalog import (
     Standing,
     choose,
 )
-from reflektortts.profiles.model import Profile, SourceSettings
+from reflektortts.profiles.model import Profile, SourceSettings, StageSettings
 from reflektortts.settings import (
     ProfileSettings,
     load_profile_settings,
@@ -108,20 +109,27 @@ def stage_key(source: str, position: int, stage_type: str) -> str:
     return f"{source}/{position}:{stage_type}"
 
 
+def stage_on(stage: StageSettings, output: Output, switch: bool | None) -> bool:
+    """Whether a stage is on for an output: as the user switched it, else as its profile starts it."""
+    if switch is not None:
+        return switch
+    return stage.text if output is Output.TEXT else stage.speech
+
+
 def _enabled_check(
     source: SourceSettings,
     output: Output,
     plugins: Mapping[str, StagePlugin],
-    is_enabled: Callable[[str], bool],
+    stage_switch: Callable[[str, Output], bool | None],
     languages: Callable[[], Languages],
 ) -> Callable[[int], bool]:
-    """Whether the stage at a position runs for an output: the profile starts it on there, the
-    user has it switched on, and it works with the user's languages."""
+    """Whether the stage at a position runs for an output: it is on there, and it works with the
+    user's languages."""
     stages = source.stages
-    starts_on = [stage.text if output is Output.TEXT else stage.speech for stage in stages]
     return lambda position: (
-        starts_on[position]
-        and is_enabled(stage_key(source.name, position, stages[position].type))
+        stage_on(
+            stages[position], output, stage_switch(stage_key(source.name, position, stages[position].type), output)
+        )
         and inactive_reason(plugins[stages[position].type], languages()) is None
     )
 
@@ -140,16 +148,16 @@ def build_routes(
     sources: Mapping[str, SourcePlugin],
     stages: Mapping[str, StagePlugin],
     on_error: Callable[[ErrorEvent], None],
-    is_enabled: Callable[[str], bool] = lambda key: True,
+    stage_switch: Callable[[str, Output], bool | None] = lambda key, output: None,
     is_source_enabled: Callable[[str], bool] = lambda name: True,
     languages: Callable[[], Languages] = lambda: Languages(DEFAULT_INPUT_LANGUAGE, DEFAULT_OUTPUT_LANGUAGE),
 ) -> list[Route]:
     """Creates the app's sources and, for each output, their stages; a source that cannot start,
     or one of whose stages cannot, is reported and skipped.
 
-    is_enabled tells, by stage key, whether the user has the stage switched on; is_source_enabled
-    tells the same for a source, by name. A stage that does nothing with the user's languages is
-    skipped too.
+    stage_switch tells, by stage key and output, how the user switched the stage, or None if they
+    have not; is_source_enabled tells whether the user has a source, by name, switched on. A stage
+    that does nothing with the user's languages is skipped too.
     """
     routes = []
     for settings in app.profile.sources:
@@ -162,13 +170,13 @@ def build_routes(
             chains = {
                 output: Chain(
                     [stages[stage.type].create(stage.settings) for stage in settings.stages],
-                    _enabled_check(settings, output, stages, is_enabled, languages),
+                    _enabled_check(settings, output, stages, stage_switch, languages),
                 )
                 for output in Output
             }
         except Exception as error:
             source.close()
-            on_error(ErrorEvent("source.error", settings.name, f"A text processing stage cannot start ({error})."))
+            on_error(ErrorEvent("source.error", settings.name, f"A processing stage cannot start ({error})."))
             continue
         routes.append(Route(source, chains, _source_check(settings.name, is_source_enabled)))
     return routes
@@ -374,19 +382,23 @@ class Core:
         self._change(disabled_sources=_switched(self._settings.disabled_sources, name, enabled))
         return self._publish_status()
 
-    def is_stage_enabled(self, key: str) -> bool:
-        return key not in self._settings.disabled_stages
+    def stage_switch(self, key: str, output: Output) -> bool | None:
+        """How the user switched a stage for an output, or None if they have not."""
+        return self._settings.stage_switches.get(key, {}).get(output)
 
     @_serialized
-    def set_stage_enabled(self, key: str, enabled: bool) -> Status:
-        """Switches a stage of the app being read on or off; the choice is saved for that app."""
+    def set_stage_enabled(self, key: str, output: Output, enabled: bool) -> Status:
+        """Switches a stage of the app being read on or off for an output; the choice is saved for
+        that app, and from then on the profile no longer decides it."""
         profile = self._profile
         if profile is None:
             raise NoAppError("No app is being read.")
         keys = [stage.key for source in self._source_stages() for stage in source.stages]
         if key not in keys:
             raise StageError(f'{profile.app.title} has no stage "{key}". Its stages: {", ".join(keys)}.')
-        self._change(disabled_stages=_switched(self._settings.disabled_stages, key, enabled))
+        switches = dict(self._settings.stage_switches)
+        switches[key] = switches.get(key, {}) | {output: enabled}
+        self._change(stage_switches=switches)
         return self._publish_status()
 
     @_serialized
@@ -472,7 +484,7 @@ class Core:
             if app.profile.overlay and self._overlay_dirs:
                 inject_overlay(app.process.pid, self._overlay_dirs)
             routes = build_routes(
-                app, sources, self._stages, self._report, self.is_stage_enabled, self.is_source_enabled, self.languages
+                app, sources, self._stages, self._report, self.stage_switch, self.is_source_enabled, self.languages
             )
             if routes:
                 logger.info("Reading %s aloud", app.profile.app.title)
@@ -568,21 +580,21 @@ class Core:
                 type=source.type,
                 enabled=self.is_source_enabled(source.name),
                 stages=tuple(
-                    self._stage_state(stage_key(source.name, position, stage.type), stage.type)
+                    self._stage_state(stage_key(source.name, position, stage.type), stage)
                     for position, stage in enumerate(source.stages)
                 ),
             )
             for source in profile.sources
         )
 
-    def _stage_state(self, key: str, stage_type: str) -> StageState:
-        plugin = self._stages.get(stage_type)
+    def _stage_state(self, key: str, stage: StageSettings) -> StageState:
+        plugin = self._stages.get(stage.type)
         return StageState(
             key=key,
-            type=stage_type,
+            type=stage.type,
             summary=plugin.summary if plugin is not None else "",
             warning=plugin.warning_when_disabled if plugin is not None else None,
-            enabled=self.is_stage_enabled(key),
+            enabled={output: stage_on(stage, output, self.stage_switch(key, output)) for output in Output},
             inactive=inactive_reason(plugin, self.languages()) if plugin is not None else None,
         )
 

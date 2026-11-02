@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from reflektortts.ducking.ducker import DEFAULT_LEVEL
+from reflektortts.events import Output
 from reflektortts.languages import DEFAULT_INPUT_LANGUAGE, DEFAULT_OUTPUT_LANGUAGE, LANGUAGES
 from reflektortts.sinks.subtitles import DEFAULT_POSITION, DEFAULT_SIZE, POSITIONS, SIZES
 from reflektortts.tts.engine import DEFAULT_VOICE, MAX_RATE, MIN_RATE
@@ -50,8 +51,9 @@ class ProfileSettings:
     """One of POSITIONS: where on the screen subtitles are shown."""
     disabled_sources: tuple[str, ...] = ()
     """Names of the sources the user switched off."""
-    disabled_stages: tuple[str, ...] = ()
-    """Keys of the stages the user switched off, e.g. "subtitles/3:normalize"."""
+    stage_switches: dict[str, dict[Output, bool]] = field(default_factory=dict)
+    """How the user switched stages, by key and output, e.g. {"subtitles/3:normalize": {"text": True}};
+    a stage is otherwise on where its profile starts it."""
 
 
 @dataclass(frozen=True)
@@ -128,7 +130,7 @@ def _profile_settings(data: dict[str, Any]) -> ProfileSettings:
         subtitle_size=_choice(data, "subtitle_size", SIZES, defaults.subtitle_size),
         subtitle_position=_choice(data, "subtitle_position", POSITIONS, defaults.subtitle_position),
         disabled_sources=_texts(data.get("disabled_sources")),
-        disabled_stages=_texts(data.get("disabled_stages")),
+        stage_switches=_stage_switches(data.get("stage_switches")),
     )
 
 
@@ -152,6 +154,18 @@ def _number(data: dict[str, Any], key: str, default: float, low: float, high: fl
 def _choice(data: dict[str, Any], key: str, choices: tuple[str, ...], default: str) -> str:
     value = data.get(key)
     return value if value in choices else default
+
+
+def _stage_switches(value: object) -> dict[str, dict[Output, bool]]:
+    if not isinstance(value, dict):
+        return {}
+    switches = {}
+    for key, outputs in value.items():
+        if isinstance(outputs, dict):
+            chosen = {Output(output): on for output, on in outputs.items() if output in Output and isinstance(on, bool)}
+            if chosen:
+                switches[key] = chosen
+    return switches
 
 
 def _texts(value: object) -> tuple[str, ...]:

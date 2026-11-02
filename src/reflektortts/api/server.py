@@ -16,7 +16,16 @@ from reflektortts.api.guard import refuse_web_pages
 from reflektortts.bus import Event, Listener
 from reflektortts.downloads.manager import Listed, Listing
 from reflektortts.downloads.source import DownloadError, DownloadStateError, UnknownDownloadError
-from reflektortts.events import DownloadEvent, ErrorEvent, PreviewEvent, StageState, Status, SubtitleEvent, TextEvent
+from reflektortts.events import (
+    DownloadEvent,
+    ErrorEvent,
+    Output,
+    PreviewEvent,
+    StageState,
+    Status,
+    SubtitleEvent,
+    TextEvent,
+)
 from reflektortts.languages import LANGUAGES, LanguageError, check_language
 from reflektortts.profiles.catalog import ProfileChangeError, ProfileExistsError, ProfileView
 from reflektortts.profiles.loader import ProfileError
@@ -85,7 +94,7 @@ class CoreControl(Protocol):
     def set_source_enabled(self, name: str, enabled: bool) -> Status:
         """Raises NoAppError if no app is read, SourceError if it has no such source."""
 
-    def set_stage_enabled(self, key: str, enabled: bool) -> Status:
+    def set_stage_enabled(self, key: str, output: Output, enabled: bool) -> Status:
         """Raises NoAppError if no app is read, StageError if it has no such stage."""
 
     def profiles(self) -> list[ProfileView]: ...
@@ -122,7 +131,7 @@ def stage_json(stage: StageState) -> dict[str, Any]:
         "type": stage.type,
         "summary": stage.summary,
         "warning": stage.warning,
-        "enabled": stage.enabled,
+        "enabled": {output.value: on for output, on in stage.enabled.items()},
         "inactive": stage.inactive,
     }
 
@@ -249,7 +258,8 @@ SETTINGS_HELP = (
     'e.g. {"output_language": "pl"}.'
 )
 SOURCES_HELP = 'Send {"name": "<source name from the status>", "enabled": true or false}.'
-STAGES_HELP = 'Send {"key": "<stage key from the status>", "enabled": true or false}.'
+OUTPUTS = tuple(output.value for output in Output)
+STAGES_HELP = 'Send {"key": "<stage key from the status>", "output": "text" or "speech", "enabled": true or false}.'
 PROFILES_HELP = 'Send {"id": "<id from GET /v1/profiles>", "enabled": true or false}.'
 IMPORT_HELP = 'Send {"id": "<the file name without .json>", "profile": {<the profile>}, "replace": true or false}.'
 
@@ -358,10 +368,15 @@ async def patch_sources(request: web.Request) -> web.Response:
 
 async def patch_stages(request: web.Request) -> web.Response:
     body = await read_object(request)
-    if body is None or not isinstance(body.get("key"), str) or not isinstance(body.get("enabled"), bool):
+    if (
+        body is None
+        or not isinstance(body.get("key"), str)
+        or body.get("output") not in OUTPUTS
+        or not isinstance(body.get("enabled"), bool)
+    ):
         return error_response(STAGES_HELP)
     try:
-        status = request.app[CORE].set_stage_enabled(body["key"], body["enabled"])
+        status = request.app[CORE].set_stage_enabled(body["key"], Output(body["output"]), body["enabled"])
     except NoAppError as error:
         return error_response(str(error), 409)
     except StageError as error:

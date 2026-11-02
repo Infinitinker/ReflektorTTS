@@ -37,7 +37,7 @@ The status object, returned by several requests and sent as an event:
           "type": "tracker",
           "summary": "Waits until a line settles",
           "warning": "Needed: or the voice restarts on every reading",
-          "enabled": true,
+          "enabled": { "text": true, "speech": true },
           "inactive": null
         }
       ]
@@ -61,9 +61,9 @@ The status object, returned by several requests and sent as an event:
 | `subtitles` | Whether lines are shown as subtitles over the app |
 | `subtitle_size` | `small`, `medium` or `large` |
 | `subtitle_position` | `top` or `bottom` of the screen |
-| `sources` | The stages of the app being read, per source in the app's profile, with whether the user has each switched on; empty while waiting for an app |
+| `sources` | The stages of the app being read, per source in the app's profile, with whether each is on; empty while waiting for an app |
 
-A source's `name` is its name in the profile, `type` its plugin, and `enabled` whether the user has it switched on; `name` identifies it for `PATCH /v1/sources`. A stage's `type` is its name in the profile and `summary` says in a few words what it does; `warning` (or `null`) is shown while the stage is switched off, if reading breaks without it. `inactive` says why the stage does nothing with the current languages (e.g. "Input and output language are the same" for `translate`), or is `null` if it works with them; such a stage is skipped whatever its `enabled`, which keeps the user's choice for when the languages change. `key` identifies the stage for `PATCH /v1/stages`.
+A source's `name` is its name in the profile, `type` its plugin, and `enabled` whether the user has it switched on; `name` identifies it for `PATCH /v1/sources`. A stage's `type` is its name in the profile and `summary` says in a few words what it does; `enabled` says whether the stage is on for the `text` shown (subtitles, `line` events) and for `speech`: as the user switched it, else as the app's profile starts it. `warning` (or `null`) is shown while the stage is off for either, if reading breaks without it. `inactive` says why the stage does nothing with the current languages (e.g. "Input and output language are the same" for `translate`), or is `null` if it works with them; such a stage is skipped whatever its `enabled`, which keeps the user's choice for when the languages change. `key` identifies the stage for `PATCH /v1/stages`.
 
 ## Requests
 
@@ -177,10 +177,10 @@ Reads the profile files again, e.g. after the user edited one, and returns the s
 
 ### `PATCH /v1/stages`
 
-Switches a stage of the app being read on or off. The choice is saved per app and applies to the next line read:
+Switches a stage of the app being read on or off, for the text shown (`"output": "text"`) or for speech (`"output": "speech"`). The choice is saved per app, applies to the next line read, and from then on replaces where the profile starts the stage:
 
 ```json
-{ "key": "subtitles/3:normalize", "enabled": false }
+{ "key": "subtitles/3:normalize", "output": "text", "enabled": false }
 ```
 
 Returns the status.
@@ -268,7 +268,7 @@ On connecting, the client receives the current status. After that, every event t
 | `type` | Sent when | Other fields |
 |---|---|---|
 | `status` | Anything in the status object changes: the app (also an unsupported one), voice, languages, pause, ducking, speech or subtitle settings, a source or stage switch, or a voice or model installed or removed | As in the status object |
-| `line` | A line has passed all stages and goes to the speech service | `source`: the source's name in the profile; `text`: the line |
+| `line` | A line has passed the stages for the text shown | `source`: the source's name in the profile; `text`: the line |
 | `subtitle` | The subtitle to show over the app changes, while subtitles are on | `text`: the subtitle, or `""` to hide it. The core decides how long each one stays: while it is spoken plus a moment, and at least as long as it takes to read |
 | `error` | A source, stage or sink fails (reported once until it works again) | `kind`: `source.error`, `stage.error` or `sink.error`; `origin`: which one; `message`: for the user |
 | `download` | A download moves on, a few times a second at most | `id`; `state`: `downloading`, `installed`, `failed` or `removed`; `done` and `total` bytes (`total` may be `null`); `message`: why it failed, for the user |

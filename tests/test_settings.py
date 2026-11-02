@@ -3,6 +3,7 @@ from pathlib import Path
 
 import pytest
 
+from reflektortts.events import Output
 from reflektortts.settings import (
     ProfileSettings,
     SharedSettings,
@@ -28,7 +29,7 @@ def test_a_games_settings_load_back_from_its_own_file(tmp_path: Path) -> None:
         voice="windows:Microsoft Adam",
         input_language="pl",
         output_language="pl",
-        disabled_stages=("messages/2:normalize",),
+        stage_switches={"messages/2:normalize": {Output.TEXT: True, Output.SPEECH: False}},
     )
 
     save_profile_settings(settings, tmp_path / "config", GTA2)
@@ -64,8 +65,14 @@ def test_a_broken_file_is_reported_and_defaults_are_used(tmp_path: Path, caplog:
 
 def test_unknown_or_wrongly_typed_fields_are_ignored(tmp_path: Path) -> None:
     (tmp_path / "settings" / "profiles").mkdir(parents=True)
-    (tmp_path / "settings" / "profiles" / f"{GTA2}.json").write_text(
-        '{"voice": 5, "future_option": true, "disabled_stages": {"a": 1}, "disabled_sources": ["ok", 2]}', "utf-8"
-    )
+    data = {
+        "voice": 5,
+        "future_option": True,
+        "stage_switches": {"a": {"text": 1, "sound": True, "speech": False}, "b": []},
+        "disabled_sources": ["ok", 2],
+    }
+    (tmp_path / "settings" / "profiles" / f"{GTA2}.json").write_text(json.dumps(data), "utf-8")
 
-    assert load_profile_settings(tmp_path, GTA2) == ProfileSettings(disabled_sources=("ok",))
+    assert load_profile_settings(tmp_path, GTA2) == ProfileSettings(
+        disabled_sources=("ok",), stage_switches={"a": {Output.SPEECH: False}}
+    )

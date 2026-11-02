@@ -3,9 +3,9 @@ from collections.abc import Callable
 
 import pytest
 
-from reflektortts.events import ErrorEvent, TextEvent
+from reflektortts.events import ErrorEvent, Output, TextEvent
 from reflektortts.languages import Languages
-from reflektortts.pipeline.protocols import Output, Sink, Stage
+from reflektortts.pipeline.protocols import Sink, Stage
 from reflektortts.pipeline.runner import Chain, Route, Runner, always_enabled
 
 

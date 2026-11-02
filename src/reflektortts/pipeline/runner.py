@@ -6,9 +6,9 @@ import time
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 
-from reflektortts.events import ErrorEvent, TextEvent
+from reflektortts.events import ErrorEvent, Output, TextEvent
 from reflektortts.languages import DEFAULT_INPUT_LANGUAGE, DEFAULT_OUTPUT_LANGUAGE, Languages
-from reflektortts.pipeline.protocols import Output, Sink, Source, Stage
+from reflektortts.pipeline.protocols import Sink, Source, Stage
 
 logger = logging.getLogger(__name__)
 

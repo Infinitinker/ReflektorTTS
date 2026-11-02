@@ -1,6 +1,7 @@
 import json
 import threading
 from collections.abc import Callable, Mapping
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -12,10 +13,9 @@ from reflektortts.bus import Event
 from reflektortts.core import Core, build_routes, read_app
 from reflektortts.ducking.records import DuckRecords
 from reflektortts.ducking.volume import OpenAppVolume
-from reflektortts.events import AppInfo, DownloadEvent, ErrorEvent, Status, TextEvent, UnsupportedApp
+from reflektortts.events import AppInfo, DownloadEvent, ErrorEvent, Output, Status, TextEvent, UnsupportedApp
 from reflektortts.languages import LanguageError, Languages
 from reflektortts.pipeline.plugins import SourcePlugin, StagePlugin
-from reflektortts.pipeline.protocols import Output
 from reflektortts.pipeline.runner import Chain, Route
 from reflektortts.profiles.catalog import CatalogEntry, Origin, ProfileFiles, ProfileState, ProfileStore
 from reflektortts.profiles.loader import PluginSchemas
@@ -128,7 +128,7 @@ def test_a_source_whose_stage_cannot_start_is_reported_closed_and_skipped() -> N
     assert routes == []
     assert created[0].closed
     assert errors == [
-        ErrorEvent("source.error", "messages", "A text processing stage cannot start (no rules for this language).")
+        ErrorEvent("source.error", "messages", "A processing stage cannot start (no rules for this language).")
     ]
 
 
@@ -390,28 +390,41 @@ def test_pause_resume_and_stop_line(tmp_path: Path) -> None:
     assert core.set_paused(False).paused is False
 
 
-def test_stages_of_the_game_being_read_can_be_switched_off_and_stay_off(tmp_path: Path) -> None:
+BOTH_ON = {Output.TEXT: True, Output.SPEECH: True}
+
+
+def test_stages_of_the_app_being_read_are_switched_per_output_and_stay_switched(tmp_path: Path) -> None:
     core = make_core(tmp_path, Clients())
     core._enter(playing(GTA2))
 
-    status = core.set_stage_enabled("messages/1:suffix", False)
+    status = core.set_stage_enabled("messages/1:suffix", Output.SPEECH, False)
 
-    assert [stage.enabled for stage in status.sources[0].stages] == [True, False]
+    assert [stage.enabled for stage in status.sources[0].stages] == [BOTH_ON, {Output.TEXT: True, Output.SPEECH: False}]
     assert (status.sources[0].stages[0].type, status.sources[0].stages[0].summary) == ("suffix", "adds a suffix")
-    assert not core.is_stage_enabled("messages/1:suffix")
-    assert saved_for(tmp_path, GTA2).disabled_stages == ("messages/1:suffix",)
-    core.set_stage_enabled("messages/1:suffix", True)
-    assert saved_for(tmp_path, GTA2).disabled_stages == ()
+    assert core.stage_switch("messages/1:suffix", Output.SPEECH) is False
+    assert core.stage_switch("messages/1:suffix", Output.TEXT) is None
+    core.set_stage_enabled("messages/1:suffix", Output.TEXT, True)
+    assert saved_for(tmp_path, GTA2).stage_switches == {"messages/1:suffix": {Output.SPEECH: False, Output.TEXT: True}}
+
+
+def test_the_user_can_switch_on_a_stage_its_profile_starts_off(tmp_path: Path) -> None:
+    core = make_core(tmp_path, Clients())
+    speech_only = StageSettings("suffix", {}, text=False)
+    core._enter(playing(replace(GTA2, sources=(replace(GTA2.sources[0], stages=(speech_only,)),))))
+
+    assert core.status().sources[0].stages[0].enabled == {Output.TEXT: False, Output.SPEECH: True}
+    status = core.set_stage_enabled("messages/0:suffix", Output.TEXT, True)
+    assert status.sources[0].stages[0].enabled == BOTH_ON
 
 
 def test_switching_stages_needs_a_game_and_a_known_stage(tmp_path: Path) -> None:
     core = make_core(tmp_path, Clients())
 
     with pytest.raises(NoAppError, match="No app is being read"):
-        core.set_stage_enabled("messages/0:suffix", False)
+        core.set_stage_enabled("messages/0:suffix", Output.TEXT, False)
     core._enter(playing(GTA2))
     with pytest.raises(StageError, match='has no stage "messages/9:x"'):
-        core.set_stage_enabled("messages/9:x", False)
+        core.set_stage_enabled("messages/9:x", Output.TEXT, False)
 
 
 def test_sources_of_the_game_being_read_can_be_switched_off_and_stay_off(tmp_path: Path) -> None:
@@ -545,15 +558,19 @@ def test_build_routes_asks_whether_each_source_and_stage_is_enabled() -> None:
     )
     asked: list[str] = []
 
-    def is_enabled(key: str) -> bool:
-        asked.append(key)
+    def stage_switch(key: str, output: Output) -> bool:
+        asked.append(f"{key} {output}")
         return False
 
-    routes = build_routes(app, SOURCES, STAGES, lambda error: None, is_enabled, is_enabled)
+    def is_source_enabled(name: str) -> bool:
+        asked.append(name)
+        return False
+
+    routes = build_routes(app, SOURCES, STAGES, lambda error: None, stage_switch, is_source_enabled)
 
     assert routes[0].chains[Output.TEXT].is_enabled(0) is False
     assert routes[0].is_source_enabled() is False
-    assert asked == ["messages/0:suffix", "messages"]
+    assert asked == ["messages/0:suffix text", "messages"]
 
 
 def test_each_output_starts_with_the_stages_its_profile_starts_on_there() -> None:
@@ -584,10 +601,10 @@ def test_the_status_says_why_a_stage_does_nothing_and_keeps_its_tick(tmp_path: P
     core._enter(app_with(SourceSettings("fixed", "messages", 0.25, {}, (StageSettings("polish", {}),))))
 
     stage = core.status().sources[0].stages[0]
-    assert (stage.enabled, stage.inactive) == (True, "Only Polish")
+    assert (stage.enabled, stage.inactive) == (BOTH_ON, "Only Polish")
 
     stage = core.set_output_language("pl").sources[0].stages[0]
-    assert (stage.enabled, stage.inactive) == (True, None)
+    assert (stage.enabled, stage.inactive) == (BOTH_ON, None)
 
 
 def core_playing(tmp_path: Path, is_running: Callable[[int], bool], exit_grace_seconds: float) -> Core:

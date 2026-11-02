@@ -29,6 +29,7 @@ from reflektortts.events import (
     AppInfo,
     DownloadEvent,
     ErrorEvent,
+    Output,
     SourceStages,
     StageState,
     Status,
@@ -81,7 +82,7 @@ TRACKER = StageState(
     type="tracker",
     summary="waits until a line settles",
     warning="Needed.",
-    enabled=True,
+    enabled={Output.TEXT: True, Output.SPEECH: True},
 )
 
 
@@ -166,12 +167,12 @@ class FakeCore:
         self.current = replace(self.current, sources=(replace(self.current.sources[0], enabled=enabled),))
         return self.current
 
-    def set_stage_enabled(self, key: str, enabled: bool) -> Status:
+    def set_stage_enabled(self, key: str, output: Output, enabled: bool) -> Status:
         if self.current.app is None:
             raise NoAppError("No app is being read.")
         if key != TRACKER.key:
             raise StageError(f'Grand Theft Auto 2 has no stage "{key}".')
-        stage = replace(TRACKER, enabled=enabled)
+        stage = replace(TRACKER, enabled=TRACKER.enabled | {output: enabled})
         self.current = replace(self.current, sources=(replace(self.current.sources[0], stages=(stage,)),))
         return self.current
 
@@ -266,7 +267,7 @@ def test_status() -> None:
                             "type": "tracker",
                             "summary": "waits until a line settles",
                             "warning": "Needed.",
-                            "enabled": True,
+                            "enabled": {"text": True, "speech": True},
                             "inactive": None,
                         }
                     ],
@@ -328,7 +329,7 @@ def test_switching_a_stage_with_no_app_being_read_is_a_conflict() -> None:
     core.current = replace(core.current, app=None)
 
     async def test(client: TestClient[Any, Any]) -> None:
-        response = await client.patch("/v1/stages", json={"key": TRACKER.key, "enabled": False})
+        response = await client.patch("/v1/stages", json={"key": TRACKER.key, "output": "text", "enabled": False})
         assert (response.status, await response.json()) == (409, {"error": "No app is being read."})
 
     with_client(core, test)
@@ -503,10 +504,11 @@ def test_bad_source_requests_are_rejected_with_a_message(body: dict[str, Any], m
     with_client(FakeCore(), test)
 
 
-def test_switching_a_stage_off() -> None:
+def test_switching_a_stage_off_for_speech() -> None:
     async def test(client: TestClient[Any, Any]) -> None:
-        response = await client.patch("/v1/stages", json={"key": "messages/0:tracker", "enabled": False})
-        assert (await response.json())["sources"][0]["stages"][0]["enabled"] is False
+        body = {"key": "messages/0:tracker", "output": "speech", "enabled": False}
+        response = await client.patch("/v1/stages", json=body)
+        assert (await response.json())["sources"][0]["stages"][0]["enabled"] == {"text": True, "speech": False}
 
     with_client(FakeCore(), test)
 
@@ -514,9 +516,14 @@ def test_switching_a_stage_off() -> None:
 @pytest.mark.parametrize(
     ("body", "message"),
     [
-        ({"key": "messages/9:x", "enabled": False}, 'Grand Theft Auto 2 has no stage "messages/9:x".'),
-        ({"key": "messages/0:tracker", "enabled": "no"}, STAGES_HELP),
-        ({"enabled": True}, STAGES_HELP),
+        (
+            {"key": "messages/9:x", "output": "text", "enabled": False},
+            'Grand Theft Auto 2 has no stage "messages/9:x".',
+        ),
+        ({"key": "messages/0:tracker", "output": "text", "enabled": "no"}, STAGES_HELP),
+        ({"key": "messages/0:tracker", "output": "sound", "enabled": False}, STAGES_HELP),
+        ({"key": "messages/0:tracker", "enabled": False}, STAGES_HELP),
+        ({"output": "text", "enabled": True}, STAGES_HELP),
     ],
 )
 def test_bad_stage_requests_are_rejected_with_a_message(body: dict[str, Any], message: str) -> None:

@@ -115,7 +115,8 @@ std::vector<SourceStages> read_sources(const json& sources) {
         for (const json& stage : source.at("stages")) {
             entry.stages.push_back({stage.at("key").get<std::string>(), stage.at("type").get<std::string>(),
                                     stage.at("summary").get<std::string>(), optional_text(stage.at("warning")),
-                                    stage.at("enabled").get<bool>(), optional_text(stage.at("inactive"))});
+                                    stage.at("enabled").at("text").get<bool>(),
+                                    stage.at("enabled").at("speech").get<bool>(), optional_text(stage.at("inactive"))});
         }
         result.push_back(std::move(entry));
     }
@@ -378,8 +379,9 @@ void request_source_enabled(const std::string& name, bool enabled) {
     enqueue({L"PATCH", L"/v1/sources", json{{"name", name}, {"enabled", enabled}}.dump()});
 }
 
-void request_stage_enabled(const std::string& key, bool enabled) {
-    enqueue({L"PATCH", L"/v1/stages", json{{"key", key}, {"enabled", enabled}}.dump()});
+void request_stage_enabled(const std::string& key, StageOutput output, bool enabled) {
+    const char* name = output == StageOutput::Text ? "text" : "speech";
+    enqueue({L"PATCH", L"/v1/stages", json{{"key", key}, {"output", name}, {"enabled", enabled}}.dump()});
 }
 
 void request_ducking(bool enabled) {

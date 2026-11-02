@@ -18,12 +18,16 @@ struct LanguageOption {
     std::string name;
 };
 
+// What a line is prepared for; each stage is switched on and off for each.
+enum class StageOutput { Text, Speech };
+
 struct StageOption {
     std::string key;
     std::string type;  // The stage's name in the profile, e.g. "tracker".
     std::string summary;
-    std::optional<std::string> warning;  // Shown while the stage is switched off.
-    bool enabled = true;
+    std::optional<std::string> warning;  // Shown while the stage is off for either output.
+    bool text = true;                     // On for the text shown (subtitles).
+    bool speech = true;                   // On for what is spoken.
     std::optional<std::string> inactive;  // Why it does nothing with the user's languages.
 };
 
@@ -69,7 +73,7 @@ void request_voice(const std::string& voice_id);
 void request_input_language(const std::string& code);
 void request_output_language(const std::string& code);
 void request_source_enabled(const std::string& name, bool enabled);
-void request_stage_enabled(const std::string& key, bool enabled);
+void request_stage_enabled(const std::string& key, StageOutput output, bool enabled);
 void request_ducking(bool enabled);
 void request_duck_volume(float volume);
 void request_speech_rate(float rate);
