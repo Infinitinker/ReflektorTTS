@@ -31,6 +31,9 @@ struct Choice {
 };
 constexpr Choice kSubtitleSizes[] = {{"small", "Small"}, {"medium", "Medium"}, {"large", "Large"}};
 constexpr Choice kSubtitlePositions[] = {{"top", "Top"}, {"bottom", "Bottom"}};
+// What a new line does while another is spoken.
+constexpr Choice kNewLines[] = {
+    {"wait", "Wait their turn"}, {"cut_off", "Cut off the current one"}, {"speed_up", "Speed up to catch up"}};
 constexpr ImVec4 kErrorColor(1.0f, 0.45f, 0.4f, 1.0f);
 constexpr ImVec4 kWarningColor(1.0f, 0.75f, 0.3f, 1.0f);
 const ImU32 kGreen = IM_COL32(90, 200, 110, 255);
@@ -309,10 +312,7 @@ void draw_speech_pace(const CoreState& state) {
     if (!ImGui::IsItemActive()) {
         dragged_rate = 0.0f;
     }
-    bool cut_off = state.cut_off_lines;
-    if (ImGui::Checkbox("Cut off the current line for a new one", &cut_off)) {
-        request_cut_off_lines(cut_off);
-    }
+    draw_choice_combo("New lines", state.new_line, kNewLines, request_new_line);
 }
 
 void draw_ducking(const CoreState& state) {

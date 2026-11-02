@@ -65,6 +65,7 @@ from reflektortts.sinks.tts.narrator import Narrator
 from reflektortts.sinks.tts.preview import VoicePreview
 from reflektortts.sinks.tts.sink import TtsSink
 from reflektortts.tts.engine import VoiceError, VoiceInfo, available_voices, find_voice
+from reflektortts.tts.service import NewLine
 from reflektortts.user_dirs import cache_dir, data_dir
 
 logger = logging.getLogger(__name__)
@@ -264,7 +265,7 @@ class Core:
         self._bus = EventBus()
         self._subtitles = Subtitles(self._bus.publish, self._settings.subtitles)
         self._narrator = narrator_factory(self._settings.voice, self._speaking)
-        self._narrator.configure(self._settings.speech_rate, self._settings.cut_off_lines)
+        self._narrator.configure(self._settings.speech_rate, self._settings.new_line)
         self._app: AppInfo | None = None
         self._profile: Profile | None = None
         self._unsupported: UnsupportedApp | None = None
@@ -285,7 +286,7 @@ class Core:
             ducking=self._settings.ducking,
             duck_volume=self._settings.duck_volume,
             speech_rate=self._settings.speech_rate,
-            cut_off_lines=self._settings.cut_off_lines,
+            new_line=self._settings.new_line,
             subtitles=self._settings.subtitles,
             subtitle_size=self._settings.subtitle_size,
             subtitle_position=self._settings.subtitle_position,
@@ -341,10 +342,10 @@ class Core:
         return self._publish_status()
 
     @_serialized
-    def set_speech(self, rate: float, cut_off: bool) -> Status:
-        """How fast lines are spoken, and whether a new line cuts off the one being spoken."""
-        self._narrator.configure(rate, cut_off)
-        self._change(speech_rate=rate, cut_off_lines=cut_off)
+    def set_speech(self, rate: float, new_line: NewLine) -> Status:
+        """How fast lines are spoken, and what a new line does while another is spoken."""
+        self._narrator.configure(rate, new_line)
+        self._change(speech_rate=rate, new_line=new_line)
         return self._publish_status()
 
     @_serialized
@@ -661,7 +662,7 @@ class Core:
         self._settings = settings
         if settings.voice != self._narrator.voice:
             self._narrator.use_voice(settings.voice)
-        self._narrator.configure(settings.speech_rate, settings.cut_off_lines)
+        self._narrator.configure(settings.speech_rate, settings.new_line)
         self._ducker.configure(settings.ducking, settings.duck_volume)
         self._subtitles.configure(settings.subtitles)
 

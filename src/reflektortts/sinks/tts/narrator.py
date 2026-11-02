@@ -7,6 +7,7 @@ from collections.abc import Callable
 from typing import Protocol
 
 from reflektortts.sinks.tts.client import TtsClient, TtsServiceError
+from reflektortts.tts.service import NewLine
 
 logger = logging.getLogger(__name__)
 
@@ -14,7 +15,7 @@ logger = logging.getLogger(__name__)
 class SpeechClient(Protocol):
     """The part of TtsClient the narrator uses."""
 
-    def say(self, text: str, rate: float, cut_off: bool) -> None: ...
+    def say(self, text: str, rate: float, new_line: NewLine) -> None: ...
 
     def stop(self, drop_waiting: bool) -> None: ...
 
@@ -48,7 +49,7 @@ class Narrator:
         self._voice = voice
         self._paused = False
         self._rate = 1.0
-        self._cut_off = False
+        self._new_line = NewLine.WAIT
         self._client: SpeechClient | None = None
 
     @property
@@ -59,11 +60,11 @@ class Narrator:
     def paused(self) -> bool:
         return self._paused
 
-    def configure(self, rate: float, cut_off: bool) -> None:
+    def configure(self, rate: float, new_line: NewLine) -> None:
         """Applies from the next line on."""
         with self._lock:
             self._rate = rate
-            self._cut_off = cut_off
+            self._new_line = new_line
 
     def start(self) -> None:
         """Starts the TTS process with the voice, unless it runs already."""
@@ -74,7 +75,7 @@ class Narrator:
     def say(self, text: str) -> None:
         with self._lock:
             if self._client is not None and not self._paused:
-                self._client.say(text, self._rate, self._cut_off)
+                self._client.say(text, self._rate, self._new_line)
 
     def stop_line(self) -> None:
         """Cuts off the line being spoken; the next waiting line, or the next line read, follows."""

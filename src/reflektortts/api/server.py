@@ -31,6 +31,7 @@ from reflektortts.profiles.catalog import ProfileChangeError, ProfileExistsError
 from reflektortts.profiles.loader import ProfileError
 from reflektortts.sinks.subtitles import POSITIONS, SIZES
 from reflektortts.tts.engine import MAX_RATE, MIN_RATE, VoiceError, VoiceInfo, find_voice
+from reflektortts.tts.service import NewLine
 
 logger = logging.getLogger(__name__)
 
@@ -81,7 +82,7 @@ class CoreControl(Protocol):
     def set_ducking(self, enabled: bool, volume: float) -> Status:
         """volume is the app's volume while speaking, from 0.0 to 1.0 of its own."""
 
-    def set_speech(self, rate: float, cut_off: bool) -> Status:
+    def set_speech(self, rate: float, new_line: NewLine) -> Status:
         """rate is from MIN_RATE to MAX_RATE."""
 
     def set_subtitles(self, enabled: bool, size: str, position: str) -> Status:
@@ -150,7 +151,7 @@ def status_json(status: Status) -> dict[str, Any]:
         "ducking": status.ducking,
         "duck_volume": status.duck_volume,
         "speech_rate": status.speech_rate,
-        "cut_off_lines": status.cut_off_lines,
+        "new_line": status.new_line,
         "subtitles": status.subtitles,
         "subtitle_size": status.subtitle_size,
         "subtitle_position": status.subtitle_position,
@@ -252,10 +253,10 @@ async def get_languages(request: web.Request) -> web.Response:
 
 
 SETTINGS_HELP = (
-    'Send any of "input_language", "output_language" and "voice" (text), "ducking", "cut_off_lines" and '
-    '"subtitles" (true or false), "duck_volume" (a number from 0 to 1), "speech_rate" (a number from 0.5 to 2), '
-    '"subtitle_size" ("small", "medium" or "large") and "subtitle_position" ("top" or "bottom"), '
-    'e.g. {"output_language": "pl"}.'
+    'Send any of "input_language", "output_language" and "voice" (text), "ducking" and "subtitles" (true or '
+    'false), "duck_volume" (a number from 0 to 1), "speech_rate" (a number from 0.5 to 2), "new_line" ("wait", '
+    '"cut_off" or "speed_up"), "subtitle_size" ("small", "medium" or "large") and "subtitle_position" ("top" or '
+    '"bottom"), e.g. {"output_language": "pl"}.'
 )
 SOURCES_HELP = 'Send {"name": "<source name from the status>", "enabled": true or false}.'
 OUTPUTS = tuple(output.value for output in Output)
@@ -295,7 +296,7 @@ SETTING_CHECKS: dict[str, Callable[[object], bool]] = {
     "ducking": is_flag,
     "duck_volume": is_fraction,
     "speech_rate": is_rate,
-    "cut_off_lines": is_flag,
+    "new_line": lambda value: value in tuple(NewLine),
     "subtitles": is_flag,
     "subtitle_size": lambda value: value in SIZES,
     "subtitle_position": lambda value: value in POSITIONS,
@@ -332,9 +333,9 @@ async def patch_settings(request: web.Request) -> web.Response:
         if values.keys() & {"ducking", "duck_volume"}:
             enabled = values.get("ducking", status.ducking)
             status = core.set_ducking(enabled, float(values.get("duck_volume", status.duck_volume)))
-        if values.keys() & {"speech_rate", "cut_off_lines"}:
+        if values.keys() & {"speech_rate", "new_line"}:
             status = core.set_speech(
-                float(values.get("speech_rate", status.speech_rate)), values.get("cut_off_lines", status.cut_off_lines)
+                float(values.get("speech_rate", status.speech_rate)), NewLine(values.get("new_line", status.new_line))
             )
         if values.keys() & {"subtitles", "subtitle_size", "subtitle_position"}:
             status = core.set_subtitles(

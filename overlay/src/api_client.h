@@ -49,7 +49,7 @@ struct CoreState {
     bool ducking = true;       // Whether the app's sound is lowered while speaking.
     float duck_volume = 0.3f;  // The app's volume while speaking, as a fraction of its own.
     float speech_rate = 1.0f;  // How fast lines are spoken, as a multiple of the voice's own pace.
-    bool cut_off_lines = false;  // Whether a new line cuts off the one being spoken.
+    std::string new_line = "wait";  // What a new line does while another is spoken: "wait", "cut_off", "speed_up".
     bool subtitles = false;    // Whether lines are shown as subtitles over the app.
     std::string subtitle_size = "medium";   // "small", "medium" or "large".
     std::string subtitle_position = "top";  // "top" or "bottom".
@@ -77,7 +77,7 @@ void request_stage_enabled(const std::string& key, StageOutput output, bool enab
 void request_ducking(bool enabled);
 void request_duck_volume(float volume);
 void request_speech_rate(float rate);
-void request_cut_off_lines(bool cut_off);
+void request_new_line(const std::string& new_line);
 void request_subtitles(bool enabled);
 void request_subtitle_size(const std::string& size);
 void request_subtitle_position(const std::string& position);

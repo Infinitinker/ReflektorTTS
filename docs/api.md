@@ -22,7 +22,7 @@ The status object, returned by several requests and sent as an event:
   "ducking": true,
   "duck_volume": 0.3,
   "speech_rate": 1.0,
-  "cut_off_lines": false,
+  "new_line": "wait",
   "subtitles": true,
   "subtitle_size": "medium",
   "subtitle_position": "top",
@@ -57,7 +57,7 @@ The status object, returned by several requests and sent as an event:
 | `ducking` | Whether the app's sound is lowered while lines are spoken |
 | `duck_volume` | The app's volume while lines are spoken, as a fraction of its own volume (0 to 1) |
 | `speech_rate` | How fast lines are spoken, as a multiple of the voice's own pace (0.5 to 2) |
-| `cut_off_lines` | Whether a new line cuts off the one being spoken; if not, lines wait their turn |
+| `new_line` | What a new line does while another is spoken: `wait`, `cut_off` or `speed_up` |
 | `subtitles` | Whether lines are shown as subtitles over the app |
 | `subtitle_size` | `small`, `medium` or `large` |
 | `subtitle_position` | `top` or `bottom` of the screen |
@@ -112,7 +112,7 @@ Changes settings and saves them for the app being read (see Status). Send any of
 - `ducking`: `true` or `false`, whether the app's sound is lowered while lines are spoken.
 - `duck_volume`: a number from 0 to 1, the app's volume while lines are spoken as a fraction of its own; applies at once, also while lowered.
 - `speech_rate`: a number from 0.5 to 2, how fast lines are spoken relative to the voice's own pace; applies from the next line.
-- `cut_off_lines`: `true` makes a new line cut off the one being spoken (and drop any waiting); `false`, the default, queues it, with at most 3 lines waiting and the oldest dropped first. `POST /v1/stop` then moves on to the next waiting line, and pausing drops the waiting ones.
+- `new_line`: what a new line does while another is spoken. `wait`, the default, queues it, with at most 3 lines waiting and the oldest dropped first; `cut_off` makes it cut off the one being spoken (and drop any waiting); `speed_up` queues it too, and a line that waited starts 25% faster, and 25% more for every line still waiting after it, up to 2×, so the voice catches up. `POST /v1/stop` then moves on to the next waiting line, and pausing drops the waiting ones.
 - `subtitles`: `true` or `false`, whether lines are shown as subtitles over the app. Switching them off hides the one shown.
 - `subtitle_size`: `small`, `medium` or `large`.
 - `subtitle_position`: `top` or `bottom`. Games usually show their own text at the bottom, so the default is `top`.

@@ -50,6 +50,7 @@ from reflektortts.profiles.catalog import (
 from reflektortts.profiles.loader import ProfileError
 from reflektortts.profiles.model import App, Executable, Match, Profile, SourceSettings, StageSettings
 from reflektortts.tts.engine import VoiceError, VoiceInfo
+from reflektortts.tts.service import NewLine
 
 ADAM = VoiceInfo(
     id="windows:Microsoft Adam", engine="windows", name="Microsoft Adam", language="pl-PL", engine_title="Windows"
@@ -107,7 +108,7 @@ class FakeCore:
             ducking=True,
             duck_volume=0.3,
             speech_rate=1.0,
-            cut_off_lines=False,
+            new_line="wait",
             subtitles=False,
             subtitle_size="medium",
             subtitle_position="top",
@@ -145,8 +146,8 @@ class FakeCore:
         self.current = replace(self.current, ducking=enabled, duck_volume=volume)
         return self.current
 
-    def set_speech(self, rate: float, cut_off: bool) -> Status:
-        self.current = replace(self.current, speech_rate=rate, cut_off_lines=cut_off)
+    def set_speech(self, rate: float, new_line: NewLine) -> Status:
+        self.current = replace(self.current, speech_rate=rate, new_line=new_line)
         return self.current
 
     def set_subtitles(self, enabled: bool, size: str, position: str) -> Status:
@@ -252,7 +253,7 @@ def test_status() -> None:
             "ducking": True,
             "duck_volume": 0.3,
             "speech_rate": 1.0,
-            "cut_off_lines": False,
+            "new_line": "wait",
             "subtitles": False,
             "subtitle_size": "medium",
             "subtitle_position": "top",
@@ -421,9 +422,9 @@ def test_ducking_can_be_changed_alone_or_with_its_level() -> None:
 def test_speech_rate_and_cutting_off_can_be_changed() -> None:
     async def test(client: TestClient[Any, Any]) -> None:
         body = await (await client.patch("/v1/settings", json={"speech_rate": 1.5})).json()
-        assert (body["speech_rate"], body["cut_off_lines"]) == (1.5, False)
-        body = await (await client.patch("/v1/settings", json={"cut_off_lines": True})).json()
-        assert (body["speech_rate"], body["cut_off_lines"]) == (1.5, True)
+        assert (body["speech_rate"], body["new_line"]) == (1.5, "wait")
+        body = await (await client.patch("/v1/settings", json={"new_line": "speed_up"})).json()
+        assert (body["speech_rate"], body["new_line"]) == (1.5, "speed_up")
 
     with_client(FakeCore(), test)
 
@@ -442,7 +443,7 @@ def test_subtitles_can_be_switched_on_and_set_up() -> None:
         ({"voice": "piper:missing"}, 'There is no voice "piper:missing". Available: windows:Microsoft Adam.'),
         ({"subtitle_size": "huge"}, f'"subtitle_size" cannot be set to that. {SETTINGS_HELP}'),
         ({"speech_rate": 3}, f'"speech_rate" cannot be set to that. {SETTINGS_HELP}'),
-        ({"cut_off_lines": "yes"}, f'"cut_off_lines" cannot be set to that. {SETTINGS_HELP}'),
+        ({"new_line": "skip"}, f'"new_line" cannot be set to that. {SETTINGS_HELP}'),
         ({"subtitle_position": "left"}, f'"subtitle_position" cannot be set to that. {SETTINGS_HELP}'),
         ({"subtitles": 1}, f'"subtitles" cannot be set to that. {SETTINGS_HELP}'),
         ({"ducking": "yes"}, f'"ducking" cannot be set to that. {SETTINGS_HELP}'),

@@ -1,5 +1,6 @@
 from reflektortts.events import PreviewEvent
 from reflektortts.sinks.tts.preview import VoicePreview
+from reflektortts.tts.service import NewLine
 from tests.sinks.tts.test_narrator import Clients
 
 
@@ -13,7 +14,7 @@ def test_a_sample_is_spoken_once_cutting_off_any_line() -> None:
     preview(clients, []).play("piper:a", "Hello.")
 
     assert [(client.voice, client.said, client.how) for client in clients.started] == [
-        ("piper:a", ["Hello."], [(1.0, True)])
+        ("piper:a", ["Hello."], [(1.0, NewLine.CUT_OFF)])
     ]
 
 

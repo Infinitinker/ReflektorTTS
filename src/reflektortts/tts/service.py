@@ -5,12 +5,13 @@ import threading
 from collections import deque
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
+from enum import StrEnum
 from multiprocessing.connection import Connection
 from pathlib import Path
 from typing import Protocol
 
 from reflektortts.logs import log_to_file
-from reflektortts.tts.engine import AudioChunk, TtsEngine, load_engine_plugin, parse_voice
+from reflektortts.tts.engine import MAX_RATE, AudioChunk, TtsEngine, load_engine_plugin, parse_voice
 
 logger = logging.getLogger(__name__)
 
@@ -19,16 +20,32 @@ LOG_FILE = "reflektortts-tts.log"
 MAX_WAITING = 3
 """Lines that may wait their turn; past that the oldest waiting is dropped, so the voice never
 falls far behind the app."""
+SPEED_UP_STEP = 0.25
+"""How much faster a line is spoken, with NewLine.SPEED_UP, if it waited, and for each line
+waiting after it."""
+
+
+class NewLine(StrEnum):
+    """What a new line does while another is spoken."""
+
+    WAIT = "wait"
+    """Waits its turn."""
+    CUT_OFF = "cut_off"
+    """Cuts off the line being spoken and drops those waiting, when a line replaced on screen is
+    not worth finishing."""
+    SPEED_UP = "speed_up"
+    """Waits its turn, and a line that waited is spoken faster, the more so the more wait after
+    it, up to MAX_RATE."""
 
 
 @dataclass(frozen=True)
 class Say:
-    """Speak this line at rate (see TtsEngine), either cutting off the line being spoken and any
-    waiting, or after them."""
+    """Speak this line at rate (see TtsEngine), doing with the lines spoken and waiting as
+    new_line says."""
 
     text: str
     rate: float = 1.0
-    cut_off: bool = True
+    new_line: NewLine = NewLine.CUT_OFF
 
 
 @dataclass(frozen=True)
@@ -53,13 +70,14 @@ class AudioPlayer(Protocol):
 class _Line:
     text: str
     rate: float
+    speed_up: bool = False
 
 
 class Speaker:
     """Speaks on a background thread, one line at a time.
 
-    A new line either cuts off the one being spoken, when a line replaced on screen is not worth
-    finishing, or waits its turn (at most MAX_WAITING lines wait). on_speaking is called with True
+    A new line cuts off the one being spoken or waits its turn, as NewLine says; at most
+    MAX_WAITING lines wait, the oldest dropped first. on_speaking is called with True
     when a line starts after silence and with False once nothing is playing or waiting; a line
     cutting off or following another does not count as silence.
     """
@@ -80,14 +98,14 @@ class Speaker:
         self._thread = threading.Thread(target=self._run, name="speaker", daemon=True)
         self._thread.start()
 
-    def say(self, text: str, rate: float = 1.0, cut_off: bool = True) -> None:
+    def say(self, text: str, rate: float = 1.0, new_line: NewLine = NewLine.CUT_OFF) -> None:
         with self._changed:
-            if cut_off:
+            if new_line is NewLine.CUT_OFF:
                 self._waiting.clear()
                 self._cancel.set()
             elif len(self._waiting) == MAX_WAITING:
                 self._waiting.popleft()
-            self._waiting.append(_Line(text, rate))
+            self._waiting.append(_Line(text, rate, speed_up=new_line is NewLine.SPEED_UP))
             self._changed.notify()
 
     def stop(self, drop_waiting: bool = True) -> None:
@@ -119,19 +137,28 @@ class Speaker:
                 if self._closed:
                     return
                 line = self._waiting.popleft()
+                # Still speaking means the previous line just ended, so this one waited its turn.
+                late = len(self._waiting) + (1 if speaking else 0)
+                rate = _catching_up(line.rate, late) if line.speed_up else line.rate
                 cancel = self._cancel = threading.Event()
             if not speaking:
                 speaking = True
                 self._on_speaking(True)
             try:
-                self._player.play(self._engine.synthesize(line.text, line.rate), cancel)
+                self._player.play(self._engine.synthesize(line.text, rate), cancel)
             except Exception:
                 # A broken line or audio device must not end the service; the next line may work.
                 logger.exception("Could not speak %r", line.text)
 
 
+def _catching_up(rate: float, late: int) -> float:
+    """The rate for a line that is late by that many lines (itself, if it waited, and those waiting
+    after it): SPEED_UP_STEP faster for each, at most MAX_RATE."""
+    return max(rate, min(MAX_RATE, rate * (1 + SPEED_UP_STEP * late)))
+
+
 class SpeakerControl(Protocol):
-    def say(self, text: str, rate: float = 1.0, cut_off: bool = True) -> None: ...
+    def say(self, text: str, rate: float = 1.0, new_line: NewLine = NewLine.CUT_OFF) -> None: ...
 
     def stop(self, drop_waiting: bool = True) -> None: ...
 
@@ -147,7 +174,7 @@ def serve(connection: Connection, speaker: SpeakerControl) -> None:
             except EOFError:
                 return
             if isinstance(message, Say):
-                speaker.say(message.text, message.rate, message.cut_off)
+                speaker.say(message.text, message.rate, message.new_line)
             elif isinstance(message, Stop):
                 speaker.stop(message.drop_waiting)
             else:

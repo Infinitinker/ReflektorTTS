@@ -2,6 +2,7 @@ from collections.abc import Callable
 
 from reflektortts.sinks.tts.client import TtsServiceError
 from reflektortts.sinks.tts.narrator import Narrator
+from reflektortts.tts.service import NewLine
 
 
 class FakeClient:
@@ -12,15 +13,15 @@ class FakeClient:
         self.on_speaking = on_speaking
         self.on_exit = on_exit
         self.said: list[str] = []
-        self.how: list[tuple[float, bool]] = []
+        self.how: list[tuple[float, NewLine]] = []
         """Rate and cut-off of each line said."""
         self.stopped = 0
         self.dropped_waiting: list[bool] = []
         self.closed = False
 
-    def say(self, text: str, rate: float, cut_off: bool) -> None:
+    def say(self, text: str, rate: float, new_line: NewLine) -> None:
         self.said.append(text)
-        self.how.append((rate, cut_off))
+        self.how.append((rate, new_line))
 
     def stop(self, drop_waiting: bool) -> None:
         self.stopped += 1
@@ -126,10 +127,10 @@ def test_lines_wait_their_turn_at_normal_speed_until_configured() -> None:
     narrator = started(clients)
 
     narrator.say("one")
-    narrator.configure(1.5, True)
+    narrator.configure(1.5, NewLine.SPEED_UP)
     narrator.say("two")
 
-    assert clients.started[0].how == [(1.0, False), (1.5, True)]
+    assert clients.started[0].how == [(1.0, NewLine.WAIT), (1.5, NewLine.SPEED_UP)]
 
 
 def test_stopping_a_line_keeps_the_waiting_ones_and_pausing_drops_them() -> None:

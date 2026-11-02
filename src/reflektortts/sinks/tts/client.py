@@ -8,7 +8,7 @@ from multiprocessing.connection import Connection
 from types import TracebackType
 
 from reflektortts.logs import file_log_dir
-from reflektortts.tts.service import Say, Speaking, Stop, run
+from reflektortts.tts.service import NewLine, Say, Speaking, Stop, run
 
 logger = logging.getLogger(__name__)
 
@@ -72,9 +72,9 @@ class TtsClient:
         )
         self._events.start()
 
-    def say(self, text: str, rate: float, cut_off: bool) -> None:
-        """Speaks text at rate, cutting off the line being spoken or after the lines waiting."""
-        self._send(Say(text, rate, cut_off))
+    def say(self, text: str, rate: float, new_line: NewLine) -> None:
+        """Speaks text at rate, doing with the lines spoken and waiting as new_line says."""
+        self._send(Say(text, rate, new_line))
 
     def stop(self, drop_waiting: bool) -> None:
         """Stops the line being spoken, and with drop_waiting the lines waiting their turn."""

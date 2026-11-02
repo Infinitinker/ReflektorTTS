@@ -6,6 +6,7 @@ from collections.abc import Callable
 from reflektortts.events import PreviewEvent
 from reflektortts.sinks.tts.client import TtsClient
 from reflektortts.sinks.tts.narrator import SpeechClient
+from reflektortts.tts.service import NewLine
 
 
 def _in_background(work: Callable[[], None]) -> None:
@@ -55,7 +56,7 @@ class VoicePreview:
             self._on_change(PreviewEvent(voice, playing=True))
         if old is not None:
             self._in_background(old.close)
-        client.say(text, 1.0, True)
+        client.say(text, 1.0, NewLine.CUT_OFF)
 
     def close(self) -> None:
         with self._lock:

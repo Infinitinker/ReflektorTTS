@@ -25,6 +25,7 @@ from reflektortts.settings import ProfileSettings, load_profile_settings, load_s
 from reflektortts.sinks.tts.narrator import Narrator
 from reflektortts.sinks.tts.preview import VoicePreview
 from reflektortts.tts.engine import DEFAULT_VOICE, VoiceError, VoiceInfo
+from reflektortts.tts.service import NewLine
 from tests.sinks.tts.test_narrator import Clients
 
 
@@ -269,7 +270,7 @@ def test_a_new_voice_is_saved_for_the_game_and_remembered_for_its_language(tmp_p
 def test_without_a_game_the_defaults_apply_and_changes_are_not_saved(tmp_path: Path) -> None:
     core = make_core(tmp_path, Clients())
 
-    status = core.set_speech(1.5, False)
+    status = core.set_speech(1.5, NewLine.WAIT)
 
     assert status == Status(
         app=None,
@@ -280,7 +281,7 @@ def test_without_a_game_the_defaults_apply_and_changes_are_not_saved(tmp_path: P
         ducking=True,
         duck_volume=0.3,
         speech_rate=1.5,
-        cut_off_lines=False,
+        new_line="wait",
         subtitles=False,
         subtitle_size="medium",
         subtitle_position="top",
@@ -374,13 +375,13 @@ def test_speech_settings_are_saved_and_used_for_the_next_line(tmp_path: Path) ->
     core = make_core(tmp_path, clients)
     core._enter(playing(GTA2))
 
-    status = core.set_speech(1.5, True)
+    status = core.set_speech(1.5, NewLine.CUT_OFF)
     core._narrator.say("hi")
 
-    assert (status.speech_rate, status.cut_off_lines) == (1.5, True)
+    assert (status.speech_rate, status.new_line) == (1.5, "cut_off")
     saved = saved_for(tmp_path, GTA2)
-    assert (saved.speech_rate, saved.cut_off_lines) == (1.5, True)
-    assert clients.started[0].how == [(1.5, True)]
+    assert (saved.speech_rate, saved.new_line) == (1.5, NewLine.CUT_OFF)
+    assert clients.started[0].how == [(1.5, NewLine.CUT_OFF)]
     core.close()
 
 
@@ -463,10 +464,10 @@ def test_each_game_keeps_its_own_settings(tmp_path: Path) -> None:
     core = make_core(tmp_path, Clients())
     core._enter(playing(MAD_MAX))
     core.set_output_language("pl")
-    core.set_speech(1.5, False)
+    core.set_speech(1.5, NewLine.WAIT)
     core._leave()
     core._enter(playing(GTA2))
-    core.set_speech(0.8, False)
+    core.set_speech(0.8, NewLine.WAIT)
     core._leave()
 
     core._enter(playing(MAD_MAX))
@@ -680,7 +681,7 @@ def test_changes_made_at_the_same_time_are_all_kept(tmp_path: Path) -> None:
     def change_speech() -> None:
         start.wait()
         for step in range(rounds):
-            core.set_speech(1.0 + step / rounds, False)
+            core.set_speech(1.0 + step / rounds, NewLine.WAIT)
 
     threads = [threading.Thread(target=change_ducking), threading.Thread(target=change_speech)]
     for thread in threads:

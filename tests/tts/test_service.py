@@ -7,7 +7,7 @@ import numpy as np
 import pytest
 
 from reflektortts.tts.engine import AudioChunk
-from reflektortts.tts.service import Say, Speaker, Stop, serve
+from reflektortts.tts.service import NewLine, Say, Speaker, Stop, serve
 
 TIMEOUT = 2.0
 
@@ -101,10 +101,10 @@ def test_waiting_lines_are_spoken_in_order_at_their_rate() -> None:
     engine, player = RecordingEngine(), BlockingPlayer()
     speaker = Speaker(engine, player)
     try:
-        speaker.say("first", 1.0, cut_off=False)
+        speaker.say("first", 1.0, new_line=NewLine.WAIT)
         assert player.started.acquire(timeout=TIMEOUT)
-        speaker.say("second", 1.5, cut_off=False)
-        speaker.say("third", 2.0, cut_off=False)
+        speaker.say("second", 1.5, new_line=NewLine.WAIT)
+        speaker.say("third", 2.0, new_line=NewLine.WAIT)
         finish_lines(player, 3)
     finally:
         speaker.close()
@@ -114,14 +114,62 @@ def test_waiting_lines_are_spoken_in_order_at_their_rate() -> None:
     assert player.outcomes == [True, True, True]
 
 
+def test_lines_that_waited_catch_up_faster_the_more_wait_after_them() -> None:
+    engine, player = RecordingEngine(), BlockingPlayer()
+    speaker = Speaker(engine, player)
+    try:
+        speaker.say("speaking", 1.0, new_line=NewLine.SPEED_UP)
+        assert player.started.acquire(timeout=TIMEOUT)
+        for text in ("a", "b", "c"):
+            speaker.say(text, 1.0, new_line=NewLine.SPEED_UP)
+        finish_lines(player, 4)
+    finally:
+        speaker.close()
+
+    assert engine.texts == ["speaking", "a", "b", "c"]
+    assert engine.rates == [1.0, 1.75, 1.5, 1.25]
+
+
+def test_catching_up_stops_at_the_fastest_reading_speed() -> None:
+    engine, player = RecordingEngine(), BlockingPlayer()
+    speaker = Speaker(engine, player)
+    try:
+        speaker.say("speaking", 1.5, new_line=NewLine.SPEED_UP)
+        assert player.started.acquire(timeout=TIMEOUT)
+        for text in ("a", "b", "c"):
+            speaker.say(text, 1.5, new_line=NewLine.SPEED_UP)
+        finish_lines(player, 4)
+    finally:
+        speaker.close()
+
+    assert engine.rates == [1.5, 2.0, 2.0, 1.875]
+
+
+def test_one_line_that_waited_is_spoken_faster_and_one_in_silence_is_not() -> None:
+    engine, player = RecordingEngine(), BlockingPlayer()
+    speaker = Speaker(engine, player)
+    try:
+        speaker.say("speaking", 1.0, new_line=NewLine.SPEED_UP)
+        assert player.started.acquire(timeout=TIMEOUT)
+        speaker.say("waited", 1.0, new_line=NewLine.SPEED_UP)
+        finish_lines(player, 2)
+        speaker.say("in silence", 1.0, new_line=NewLine.SPEED_UP)
+        assert player.started.acquire(timeout=TIMEOUT)
+        finish_lines(player, 1)
+    finally:
+        speaker.close()
+
+    assert engine.rates == [1.0, 1.25, 1.0]
+
+
 def test_past_the_limit_the_oldest_waiting_line_is_dropped() -> None:
     engine, player = RecordingEngine(), BlockingPlayer()
     speaker = Speaker(engine, player)
     try:
-        speaker.say("speaking", cut_off=False)
+        speaker.say("speaking", new_line=NewLine.WAIT)
         assert player.started.acquire(timeout=TIMEOUT)
         for text in ("a", "b", "c", "d"):
-            speaker.say(text, cut_off=False)
+            speaker.say(text, new_line=NewLine.WAIT)
         finish_lines(player, 4)
     finally:
         speaker.close()
@@ -133,9 +181,9 @@ def test_stopping_a_line_moves_on_to_the_next_waiting_one() -> None:
     engine, player = RecordingEngine(), BlockingPlayer()
     speaker = Speaker(engine, player)
     try:
-        speaker.say("long", cut_off=False)
+        speaker.say("long", new_line=NewLine.WAIT)
         assert player.started.acquire(timeout=TIMEOUT)
-        speaker.say("next", cut_off=False)
+        speaker.say("next", new_line=NewLine.WAIT)
         speaker.stop(drop_waiting=False)
         assert player.done.acquire(timeout=TIMEOUT)
         assert player.started.acquire(timeout=TIMEOUT)
@@ -152,10 +200,10 @@ def test_a_cutting_line_drops_the_waiting_ones() -> None:
     engine, player = RecordingEngine(), BlockingPlayer()
     speaker = Speaker(engine, player)
     try:
-        speaker.say("first", cut_off=False)
+        speaker.say("first", new_line=NewLine.WAIT)
         assert player.started.acquire(timeout=TIMEOUT)
-        speaker.say("waiting", cut_off=False)
-        speaker.say("urgent", cut_off=True)
+        speaker.say("waiting", new_line=NewLine.WAIT)
+        speaker.say("urgent", new_line=NewLine.CUT_OFF)
         assert player.started.acquire(timeout=TIMEOUT)
         player.finish()
         assert player.done.acquire(timeout=TIMEOUT) and player.done.acquire(timeout=TIMEOUT)
@@ -224,8 +272,8 @@ class RecordingSpeaker:
     def __init__(self) -> None:
         self.calls: list[tuple[object, ...]] = []
 
-    def say(self, text: str, rate: float = 1.0, cut_off: bool = True) -> None:
-        self.calls.append(("say", text, rate, cut_off))
+    def say(self, text: str, rate: float = 1.0, new_line: NewLine = NewLine.CUT_OFF) -> None:
+        self.calls.append(("say", text, rate, new_line))
 
     def stop(self, drop_waiting: bool = True) -> None:
         self.calls.append(("stop", drop_waiting))
@@ -236,8 +284,8 @@ class RecordingSpeaker:
 
 def test_serve_passes_messages_on_and_closes_when_the_core_hangs_up() -> None:
     speaker = RecordingSpeaker()
-    connection = FakeConnection([Say("hello", 1.5, False), Stop(drop_waiting=False), "garbage"])
+    connection = FakeConnection([Say("hello", 1.5, NewLine.WAIT), Stop(drop_waiting=False), "garbage"])
 
     serve(cast(Connection, connection), speaker)
 
-    assert speaker.calls == [("say", "hello", 1.5, False), ("stop", False), ("close",)]
+    assert speaker.calls == [("say", "hello", 1.5, NewLine.WAIT), ("stop", False), ("close",)]

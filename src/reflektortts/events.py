@@ -125,8 +125,8 @@ class Status:
     """The app's volume while lines are spoken, as a fraction of its own volume."""
     speech_rate: float
     """How fast lines are spoken, as a multiple of the voice's own pace."""
-    cut_off_lines: bool
-    """Whether a new line cuts off the one being spoken; otherwise lines wait their turn."""
+    new_line: str
+    """What a new line does while another is spoken: "wait", "cut_off" or "speed_up"."""
     subtitles: bool
     """Whether lines are shown as subtitles over the app."""
     subtitle_size: str

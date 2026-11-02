@@ -17,6 +17,7 @@ from reflektortts.events import Output
 from reflektortts.languages import DEFAULT_INPUT_LANGUAGE, DEFAULT_OUTPUT_LANGUAGE, LANGUAGES
 from reflektortts.sinks.subtitles import DEFAULT_POSITION, DEFAULT_SIZE, POSITIONS, SIZES
 from reflektortts.tts.engine import DEFAULT_VOICE, MAX_RATE, MIN_RATE
+from reflektortts.tts.service import NewLine
 
 logger = logging.getLogger(__name__)
 
@@ -41,8 +42,8 @@ class ProfileSettings:
     """The app's volume while lines are spoken, as a fraction of its own volume (0.0 to 1.0)."""
     speech_rate: float = 1.0
     """How fast lines are spoken, as a multiple of the voice's own pace (MIN_RATE to MAX_RATE)."""
-    cut_off_lines: bool = False
-    """Whether a new line cuts off the one being spoken; otherwise lines wait their turn."""
+    new_line: NewLine = NewLine.WAIT
+    """What a new line does while another is spoken."""
     subtitles: bool = False
     """Whether lines are shown as subtitles over the app."""
     subtitle_size: str = DEFAULT_SIZE
@@ -125,7 +126,7 @@ def _profile_settings(data: dict[str, Any]) -> ProfileSettings:
         ducking=_flag(data, "ducking", defaults.ducking),
         duck_volume=_number(data, "duck_volume", defaults.duck_volume, 0.0, 1.0),
         speech_rate=_number(data, "speech_rate", defaults.speech_rate, MIN_RATE, MAX_RATE),
-        cut_off_lines=_flag(data, "cut_off_lines", defaults.cut_off_lines),
+        new_line=NewLine(_choice(data, "new_line", tuple(NewLine), defaults.new_line)),
         subtitles=_flag(data, "subtitles", defaults.subtitles),
         subtitle_size=_choice(data, "subtitle_size", SIZES, defaults.subtitle_size),
         subtitle_position=_choice(data, "subtitle_position", POSITIONS, defaults.subtitle_position),
