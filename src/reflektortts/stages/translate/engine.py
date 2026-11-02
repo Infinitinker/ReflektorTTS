@@ -7,16 +7,6 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Any, Protocol
 
-from reflektortts.languages import NAME_ENDINGS
-
-# Polish declines foreign names with an apostrophe ("Frenzy'ego", "Joe'go"); the Moses
-# detokenizer leaves a space before it. Only name endings are joined, so quotes stay apart.
-_NAME_ENDING = re.compile(r"(?<=\w) '(?=(?:" + "|".join(NAME_ENDINGS["pl"]) + r")\b)")
-
-
-def join_name_endings(text: str) -> str:
-    return _NAME_ENDING.sub("'", text)
-
 
 class Engine(Protocol):
     def translate(self, sentences: Sequence[str]) -> str:
@@ -93,7 +83,7 @@ class SentencePieceEngine:
     def translate(self, sentences: Sequence[str]) -> str:
         batch = [self._pieces.encode(prepare(sentence), out_type=str) for sentence in sentences]
         translated = [self._pieces.decode(tokens) for tokens in _best(self._translator, batch)]
-        return join_name_endings(" ".join(map(restore, sentences, translated)))
+        return " ".join(map(restore, sentences, translated))
 
 
 class MosesBpeEngine:
@@ -114,7 +104,7 @@ class MosesBpeEngine:
     def translate(self, sentences: Sequence[str]) -> str:
         batch = [self._encode(prepare(sentence)) for sentence in sentences]
         translated = [self._decode(tokens) for tokens in _best(self._translator, batch)]
-        return join_name_endings(" ".join(map(restore, sentences, translated)))
+        return " ".join(map(restore, sentences, translated))
 
     def _encode(self, sentence: str) -> list[str]:
         words = self._tokenizer.tokenize(self._normalizer.normalize(sentence))

@@ -14,6 +14,7 @@ from reflektortts.languages import Languages
 from reflektortts.pipeline.plugins import StagePlugin, load_schema
 from reflektortts.stages.translate.engine import Engine, load_engine
 from reflektortts.stages.translate.glossary import GlossaryRules
+from reflektortts.stages.translate.languages import output_language
 from reflektortts.stages.translate.model import ModelNotInstalledError, installed_model
 from reflektortts.stages.translate.sentences import split_sentences
 
@@ -63,7 +64,9 @@ class Translate:
         if pair not in self._engines:
             self._engines[pair] = self._open_engine(*pair)
         prepared = self._glossary.prepare(text)
-        translated = prepared.put_back(self._engines[pair].translate(split_sentences(prepared.text)))
+        language = output_language(pair[1])
+        translated = self._engines[pair].translate(split_sentences(prepared.text))
+        translated = prepared.put_back(language.tidy(translated), language)
         self._cache[key] = translated
         if len(self._cache) > CACHE_SIZE:
             self._cache.popitem(last=False)

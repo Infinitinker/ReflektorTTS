@@ -7,23 +7,9 @@ from reflektortts.stages.translate.engine import (
     MosesBpeEngine,
     SentencePieceEngine,
     TranslationUnavailableError,
-    join_name_endings,
     prepare,
     restore,
 )
-
-
-@pytest.mark.parametrize(
-    ("detokenized", "joined"),
-    [
-        ("Zabij Frenzy 'ego!", "Zabij Frenzy'ego!"),
-        ("Daj to Joe 'mu.", "Daj to Joe'mu."),
-        ("Powiedział 'tak' i wyszedł.", "Powiedział 'tak' i wyszedł."),
-        ("Misja zakończona!", "Misja zakończona!"),
-    ],
-)
-def test_polish_name_endings_are_joined_to_the_name(detokenized: str, joined: str) -> None:
-    assert join_name_endings(detokenized) == joined
 
 
 @pytest.mark.parametrize(

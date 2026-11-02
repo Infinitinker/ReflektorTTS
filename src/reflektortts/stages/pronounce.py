@@ -28,11 +28,7 @@ class _Respelling:
         return self._pattern.sub(self._respell, text)
 
     def _respell(self, match: re.Match[str]) -> str:
-        term = match.group("term")
-        spoken = self._spoken[term]
-        if len(term) > 1 and term.isupper():
-            spoken = spoken.upper()
-        return spoken + (match.groupdict().get("ending") or "")
+        return self._spoken[match.group("term")] + (match.groupdict().get("ending") or "")
 
 
 class Pronounce:
@@ -53,8 +49,9 @@ class Pronounce:
             spoken = {}
             for term in self._glossary:
                 if language in term.pronounce:
+                    # A term written in capitals in the glossary ("CJ") is not shouted.
                     spoken[term.term] = term.pronounce[language]
-                    spoken.setdefault(term.term.upper(), term.pronounce[language])
+                    spoken.setdefault(term.term.upper(), term.pronounce[language].upper())
             self._languages[language] = _Respelling(spoken, NAME_ENDINGS.get(language, ())) if spoken else None
         return self._languages[language]
 

@@ -9,6 +9,7 @@ GLOSSARY = (
     GlossaryTerm("Carl", pronounce={"pl": "Karl"}),
     GlossaryTerm("Big Smoke", keep=True, pronounce={"pl": "Big Smołk"}),
     GlossaryTerm("Sweet", keep=True),
+    GlossaryTerm("CJ", pronounce={"pl": "Si Dżej"}),
 )
 
 
@@ -29,6 +30,7 @@ def pronounced(text: str, language: str = "pl") -> str:
         ("SAMOCHÓD CARLA!", "SAMOCHÓD KARLA!"),
         ("Carlos i carl zostają.", "Carlos i carl zostają."),
         ("Sweet żyje.", "Sweet żyje."),
+        ("Uważaj, CJ!", "Uważaj, Si Dżej!"),
     ],
 )
 def test_terms_are_respelled_for_the_output_language_with_their_endings(text: str, spoken: str) -> None:
