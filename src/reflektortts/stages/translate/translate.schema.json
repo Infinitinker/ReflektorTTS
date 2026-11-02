@@ -1,8 +1,14 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Translate stage settings",
-  "description": "Translates lines from the input language into the output language chosen by the user (lektor mode). Place it after stages that clean up the text and before normalize. Needs the translate extra; the model is downloaded the first time a line needs it. It has no settings.",
+  "description": "Translates lines from the input language into the output language chosen by the user (lektor mode), with an installed translation model. Place it after stages that clean up the text and before normalize. Uses the profile's glossary.",
   "type": "object",
   "additionalProperties": false,
-  "properties": {}
+  "properties": {
+    "min_letters": {
+      "description": "Lines with fewer letters besides their kept and spoken glossary terms are left as written, e.g. a line of only names. Default: 1.",
+      "type": "integer",
+      "minimum": 0
+    }
+  }
 }
