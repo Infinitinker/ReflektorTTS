@@ -139,6 +139,17 @@ Further documentation:
 - [docs/plugins.md](docs/plugins.md): writing sources, stages, speech engines and download sources
 - [docs/api.md](docs/api.md): the local API, through which the desktop app and the overlay control ReflektorTTS
 
+## Support
+
+ReflektorTTS is free, with no ads and no tracking. If it makes your games better, you can buy me a coffee:
+
+<p>
+  <a href="https://ko-fi.com/infinitinker"><img src="https://img.shields.io/badge/Ko--fi-support-FF5E5B?logo=kofi&logoColor=white" alt="Support on Ko-fi"></a>
+  <a href="https://buycoffee.to/infinitinker"><img src="https://img.shields.io/badge/buycoffee.to-support-FFB400" alt="Support on buycoffee.to"></a>
+</p>
+
+Ko-fi takes cards and PayPal; buycoffee.to suits Polish supporters, with BLIK and Polish bank transfers.
+
 ## License
 
 Copyright (C) 2026 Infinitinker. ReflektorTTS is free software under the GPL-3.0-or-later; see [LICENSE](LICENSE). [COPYRIGHT](COPYRIGHT) adds a permission to combine it with the Intel and NVIDIA libraries that CTranslate2, the translation engine, is built with. The overlay includes Dear ImGui, nlohmann/json, MinHook and the MinGW-w64 runtime, whose licenses are in [THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES).
