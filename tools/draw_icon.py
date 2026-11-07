@@ -1,4 +1,5 @@
-"""Draws ReflektorTTS's icon into src/reflektortts/desktop/icon.ico.
+"""Draws ReflektorTTS's icon into src/reflektortts/desktop/icon.ico, and the README's copy into
+docs/images/icon.png.
 
 A studio microphone in a shock mount with a pop filter, lit from behind by a round spotlight in
 the overlay's warning orange; transparent outside the light. At 32 px and less the details would
@@ -12,6 +13,8 @@ from pathlib import Path
 from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageOps
 
 OUTPUT = Path("src/reflektortts/desktop/icon.ico")
+README_ICON = Path("docs/images/icon.png")
+README_SIZE = 256
 SIZES = (16, 24, 32, 48, 64, 128, 256)
 SMALL = 32
 """Sizes up to this one get the simple drawing."""
@@ -156,7 +159,9 @@ def main() -> None:
     images = [(simple if size <= SMALL else detailed).resize((size, size), Image.Resampling.LANCZOS) for size in SIZES]
     largest = images[-1]
     largest.save(OUTPUT, sizes=[(size, size) for size in SIZES], append_images=images[:-1])
-    print(f"Wrote {OUTPUT}")
+    README_ICON.parent.mkdir(parents=True, exist_ok=True)
+    detailed.resize((README_SIZE, README_SIZE), Image.Resampling.LANCZOS).save(README_ICON, optimize=True)
+    print(f"Wrote {OUTPUT} and {README_ICON}")
 
 
 if __name__ == "__main__":

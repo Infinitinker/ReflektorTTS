@@ -1,0 +1,38 @@
+name: Bug report
+description: Something in ReflektorTTS doesn't work as it should.
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: ReflektorTTS version
+      description: From the README.txt in the ReflektorTTS folder, or the commit if you run it from source.
+      placeholder: "0.1.0"
+    validations:
+      required: true
+  - type: input
+    id: app
+    attributes:
+      label: Game or app
+      description: Which one, and which edition (e.g. Steam, GOG, a disc).
+      placeholder: "Grand Theft Auto: San Andreas, Steam"
+  - type: input
+    id: windows
+    attributes:
+      label: Windows version
+      placeholder: "Windows 11 24H2"
+  - type: textarea
+    id: log
+    attributes:
+      label: Log
+      description: >
+        The end of reflektortts.log, from the Status tab's Open logs folder button
+        (%LOCALAPPDATA%\ReflektorTTS\Logs). Check it for anything you'd rather not share first.
+      render: text

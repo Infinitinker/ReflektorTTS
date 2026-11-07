@@ -12,7 +12,16 @@ dist/
 .ruff_cache/
 .mypy_cache/
 
-# Editors and logs
+# Editors, tools and logs
 .vscode/
 .idea/
+.vs/
+.claude/settings.local.json
+CMakeUserPresets.json
+.coverage
+htmlcov/
 *.log
+
+# Never committed: secrets, and crash dumps, which can hold an app's memory
+.env
+*.dmp

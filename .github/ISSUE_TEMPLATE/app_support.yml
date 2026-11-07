@@ -1,0 +1,32 @@
+name: App support
+description: Ask for a game or app to be read, or share a profile you wrote.
+labels: [profile]
+body:
+  - type: input
+    id: app
+    attributes:
+      label: Game or app
+      description: Its name and release year.
+      placeholder: "Grand Theft Auto: Vice City (2002)"
+    validations:
+      required: true
+  - type: input
+    id: edition
+    attributes:
+      label: Edition
+      description: Where it comes from (Steam, GOG, a disc, a patch version), since a profile can depend on the build.
+    validations:
+      required: true
+  - type: textarea
+    id: text
+    attributes:
+      label: What should be read
+      description: Subtitles, dialogue, messages, menus? A screenshot helps.
+    validations:
+      required: true
+  - type: textarea
+    id: profile
+    attributes:
+      label: Your profile
+      description: If you wrote a profile, attach the file or paste it here (see CONTRIBUTING.md).
+      render: json

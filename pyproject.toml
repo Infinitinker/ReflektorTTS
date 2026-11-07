@@ -5,10 +5,25 @@ build-backend = "hatchling.build"
 [project]
 name = "reflektortts"
 version = "0.1.0"
-description = "Your apps, read aloud."
+description = "Your apps, read aloud: game dialogue and subtitles spoken and translated, lektor style."
+readme = "README.md"
+authors = [{ name = "Infinitinker" }]
 license = "GPL-3.0-or-later"
 license-files = ["LICENSE", "COPYRIGHT"]
 requires-python = ">=3.13"
+keywords = ["text-to-speech", "tts", "translation", "games", "subtitles", "accessibility", "lektor", "overlay"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Win32 (MS Windows)",
+    "Intended Audience :: End Users/Desktop",
+    "Natural Language :: English",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Games/Entertainment",
+    "Topic :: Multimedia :: Sound/Audio :: Speech",
+    "Topic :: Text Processing :: Linguistic",
+]
 dependencies = [
     "aiohttp>=3.14",
     "comtypes>=1.4; sys_platform == 'win32'",
@@ -35,6 +50,7 @@ dependencies = [
 
 [project.urls]
 Source = "https://github.com/Infinitinker/ReflektorTTS"
+Issues = "https://github.com/Infinitinker/ReflektorTTS/issues"
 
 [project.gui-scripts]
 reflektortts-desktop = "reflektortts.desktop.__main__:main"
