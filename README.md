@@ -45,12 +45,14 @@ Each app is described by a profile, so more apps can be added without changing R
 
 ## Getting started
 
-1. **Download** `ReflektorTTS-<version>-windows-x64.zip` from the [Releases page](https://github.com/Infinitinker/ReflektorTTS/releases) and unpack it anywhere. Nothing is installed.
-2. **Run** `ReflektorTTS.exe`. Its icon appears next to the clock; click it to open the window.
+1. **Download** `ReflektorTTS-<version>-windows-x64-setup.exe` from the [latest release](https://github.com/Infinitinker/ReflektorTTS/releases/latest) and run it. It installs ReflektorTTS for you alone, without asking for administrator rights.
+2. **Start ReflektorTTS** from the installer's last page or the Start menu. Its icon appears next to the clock; click it to open the window.
 3. **Start a supported game.** ReflektorTTS notices it and reads its text aloud, with a voice Windows already has.
 4. **Press Ctrl+Shift+R** in the game to choose the voice, the languages, the reading speed and more.
 
 For better voices, or to translate, download them in the window's **Voices** and **Translations** tabs.
+
+Rather not install anything? Download `ReflektorTTS-<version>-windows-x64.zip` instead, unpack it anywhere and run `ReflektorTTS.exe`.
 
 <table>
   <tr>
@@ -127,7 +129,10 @@ No. The overlay and reading a game's memory are meant for single-player and offl
 Look at the Status tab. It says when a game's version is not supported by its profile yet. The logs, opened from there, say more.
 
 **Where are my settings?**
-Settings, downloaded voices and models, your own profiles and the logs are all in `%LOCALAPPDATA%\ReflektorTTS`. To update ReflektorTTS, replace its folder with a newer release; to remove it, delete both folders.
+Settings, downloaded voices and models, your own profiles and the logs are all in `%LOCALAPPDATA%\ReflektorTTS`. They stay when you update ReflektorTTS.
+
+**How do I update or remove it?**
+Run the newer installer. If ReflektorTTS is running, it asks you to quit it first (right-click its icon next to the clock > Quit); quit games that use the overlay too. It then updates ReflektorTTS and keeps your settings. To remove it, use Windows Settings > Apps; it asks whether to delete your settings and downloads too. With the zip, replace its folder to update, and delete it and `%LOCALAPPDATA%\ReflektorTTS` to remove it.
 
 ## Contributing
 

@@ -7,6 +7,7 @@ there: the status feed and the tray menu hand their work over through a queue.
 import json
 import logging
 import queue
+import sys
 import threading
 import tkinter as tk
 from collections.abc import Callable
@@ -86,6 +87,11 @@ class Application:
         )
 
     def start(self) -> None:
+        if sys.platform == "win32":
+            # Windows asks before logging off or shutting down (Tk calls that saving yourself):
+            # quitting then puts a lowered app's volume back. Tk tells nothing more, so if the user
+            # cancels the shutdown, ReflektorTTS has quit all the same.
+            self._root.protocol("WM_SAVE_YOURSELF", self._quit)
         self._core.start()
         self._feed.start()
         self._tray.start()
@@ -357,6 +363,8 @@ class Application:
             )
 
     def _quit(self) -> None:
+        if self._quitting:
+            return
         self._quitting = True
         self._window.hide()
         self._tray.stop()
