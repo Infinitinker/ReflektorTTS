@@ -16,7 +16,7 @@
   "glossary": {
     "en": [
       { "term": "Carl", "pronounce": { "pl": "Karl" } },
-      { "term": "CJ", "pronounce": { "pl": "Sidżej" } },
+      { "term": "CJ", "pronounce": { "pl": "Sydżej" } },
       { "term": "Brian", "pronounce": { "pl": "Brajan" } },
       { "term": "Sweet", "keep": true, "pronounce": { "pl": "Słit" } },
       { "term": ["Big Smoke", "Big smoke"], "keep": true, "pronounce": { "pl": "Big Smołk" } },
@@ -34,6 +34,7 @@
       { "term": "strapped", "means": "armed" },
       { "term": ["busta", "buster"], "means": "coward" },
       { "term": "busters", "means": "cowards" },
+      { "term": "paper", "means": "money" },
       { "term": "whip", "means": "car" }
     ]
   },
