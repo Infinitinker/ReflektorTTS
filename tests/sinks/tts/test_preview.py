@@ -1,7 +1,12 @@
+from collections.abc import Callable
+
+import pytest
+
 from reflektortts.events import PreviewEvent
+from reflektortts.sinks.tts import preview as preview_module
 from reflektortts.sinks.tts.preview import VoicePreview
 from reflektortts.tts.service import NewLine
-from tests.sinks.tts.test_narrator import Clients
+from tests.sinks.tts.test_narrator import Clients, FakeClient
 
 
 def preview(clients: Clients, events: list[PreviewEvent]) -> VoicePreview:
@@ -52,3 +57,19 @@ def test_a_new_preview_cuts_off_the_one_playing() -> None:
     previews.close()
     assert clients.started[1].closed
     assert events[-1] == PreviewEvent("piper:b", playing=False)
+
+
+def test_a_preview_logs_apart_from_the_narrator(monkeypatch: pytest.MonkeyPatch) -> None:
+    log_names: list[str] = []
+
+    def start(
+        voice: str, on_speaking: Callable[[bool], None], on_exit: Callable[[], None], log_name: str
+    ) -> FakeClient:
+        log_names.append(log_name)
+        return FakeClient(voice, on_speaking, on_exit)
+
+    monkeypatch.setattr(preview_module, "TtsClient", start)
+
+    VoicePreview().play("piper:a", "Hello.")
+
+    assert log_names == ["reflektortts-preview.log"]

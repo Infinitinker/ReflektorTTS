@@ -7,18 +7,18 @@ from pathlib import Path
 
 from reflektortts.logs import log_to_file
 
-LOG_FILE = "reflektortts-tts.log"
-
 logger = logging.getLogger(__name__)
 
 
-def run(connection: Connection, events: Connection, voice: str, log_level: int, log_dir: Path | None) -> None:
-    """Runs the TTS service (see reflektortts.tts.service.run). Logs go to a file in log_dir when
-    the core logs to files (it has no console), otherwise to the console."""
-    if log_dir is None:
+def run(connection: Connection, events: Connection, voice: str, log_level: int, log_file: Path | None) -> None:
+    """Runs the TTS service (see reflektortts.tts.service.run). Logs go to log_file when the core
+    logs to files (it has no console), otherwise to the console. Processes that may run at the
+    same time need files of their own: on Windows a file another process has open cannot be
+    rotated, and the lines that would go to it are lost."""
+    if log_file is None:
         logging.basicConfig(level=log_level, format="%(asctime)s %(processName)s %(name)s: %(message)s")
     else:
-        log_to_file(log_dir / LOG_FILE)
+        log_to_file(log_file)
     try:
         from reflektortts.tts import service
     except Exception:

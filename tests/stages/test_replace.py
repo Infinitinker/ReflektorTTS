@@ -6,7 +6,7 @@ import pytest
 from reflektortts.events import TextEvent
 from reflektortts.pipeline.plugins import stage_plugins
 from reflektortts.profiles.loader import PluginSchemas, ProfileError, load_profile
-from reflektortts.stages.replace import PLUGIN
+from reflektortts.stages.replace import PLUGIN, RuleTimeoutError
 
 
 def run(rules: list[dict[str, str]], text: str) -> str:
@@ -29,6 +29,13 @@ def test_pattern_rules_use_groups() -> None:
     rules = [{"pattern": "#([^#]*)#", "replace": "\\1"}]
 
     assert run(rules, "Hello #TEST# and #MORE#") == "Hello TEST and MORE"
+
+
+def test_a_pattern_that_takes_too_long_on_a_line_stops_with_an_error_instead_of_freezing() -> None:
+    stage = PLUGIN.create({"rules": [{"pattern": r"((a+)\2)+b", "replace": ""}]}, {})
+
+    with pytest.raises(RuleTimeoutError, match="took too long"):
+        stage.process(TextEvent("memory", "a" * 60, 1.0))
 
 
 def test_plugin_is_registered() -> None:

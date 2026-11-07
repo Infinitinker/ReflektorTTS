@@ -2,6 +2,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import numpy as np
+import onnxruntime
 import pytest
 from piper import PiperVoice, SynthesisConfig
 
@@ -58,6 +59,21 @@ def test_synthesize_yields_one_chunk_per_piper_chunk(monkeypatch: pytest.MonkeyP
     assert loaded == [Path("voice.onnx")]
     assert [chunk.samples.tolist() for chunk in chunks] == [[1, 2], [3]]
     assert all(chunk.sample_rate == 22050 for chunk in chunks)
+
+
+def test_onnxruntime_telemetry_is_turned_off_before_the_voice_loads(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[str] = []
+
+    def fake_load(path: Path) -> FakeVoice:
+        calls.append("load")
+        return FakeVoice()
+
+    monkeypatch.setattr(onnxruntime, "disable_telemetry_events", lambda: calls.append("telemetry off"))
+    monkeypatch.setattr(PiperVoice, "load", fake_load)
+
+    PiperEngine(Path("voice.onnx"))
+
+    assert calls == ["telemetry off", "load"]
 
 
 def test_rate_shortens_the_voice_s_own_sound_length(monkeypatch: pytest.MonkeyPatch) -> None:

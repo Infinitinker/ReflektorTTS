@@ -13,6 +13,8 @@ from reflektortts.tts.service import NewLine, Say, Speaking, Stop
 
 logger = logging.getLogger(__name__)
 
+LOG_FILE = "reflektortts-tts.log"
+
 
 class TtsServiceError(Exception):
     """The TTS process is not running."""
@@ -47,7 +49,7 @@ class TtsClient:
 
     on_speaking is called, on a thread of its own, when the service starts speaking and when it falls silent;
     on_exit, on the same thread, once the process has exited, e.g. after close() or when the voice could not be
-    loaded.
+    loaded. log_name is the process's log file, when the core logs to files (see reflektortts.tts.process.run).
     """
 
     def __init__(
@@ -55,13 +57,16 @@ class TtsClient:
         voice: str,
         on_speaking: Callable[[bool], None] = lambda active: None,
         on_exit: Callable[[], None] = lambda: None,
+        log_name: str = LOG_FILE,
     ) -> None:
+        log_dir = file_log_dir()
+        log_file = None if log_dir is None else log_dir / log_name
         context = multiprocessing.get_context("spawn")
         self._connection, service_end = context.Pipe()
         events, service_events = context.Pipe(duplex=False)
         self._process = context.Process(
             target=run,
-            args=(service_end, service_events, voice, logging.getLogger().getEffectiveLevel(), file_log_dir()),
+            args=(service_end, service_events, voice, logging.getLogger().getEffectiveLevel(), log_file),
             name="reflektortts-tts",
             daemon=True,
         )

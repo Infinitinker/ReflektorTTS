@@ -1,7 +1,12 @@
+import multiprocessing
 from multiprocessing.connection import Connection
-from typing import cast
+from pathlib import Path
+from typing import Any, cast
 
-from reflektortts.sinks.tts.client import receive_events
+import pytest
+
+from reflektortts.sinks.tts import client
+from reflektortts.sinks.tts.client import TtsClient, receive_events
 from reflektortts.tts.service import Speaking
 
 
@@ -43,3 +48,43 @@ def test_the_exit_is_reported_after_the_last_event() -> None:
     receive_events(cast(Connection, FakeEvents([Speaking(True)])), reported.append, lambda: reported.append("exited"))
 
     assert reported == [True, False, "exited"]
+
+
+class FakeProcess:
+    def __init__(self, target: object, args: tuple[Any, ...], name: str, daemon: bool) -> None:
+        self.args = args
+
+    def start(self) -> None:
+        """Nothing runs; the client's ends of the pipes see the service's ends closed."""
+
+
+class FakeContext:
+    def __init__(self) -> None:
+        self.processes: list[FakeProcess] = []
+
+    def Pipe(self, duplex: bool = True) -> tuple[Connection, Connection]:
+        return cast(tuple[Connection, Connection], multiprocessing.Pipe(duplex))
+
+    def Process(self, target: object, args: tuple[Any, ...], name: str, daemon: bool) -> FakeProcess:
+        self.processes.append(FakeProcess(target, args, name, daemon))
+        return self.processes[-1]
+
+
+@pytest.mark.parametrize(
+    ("log_dir", "names", "log_file"),
+    [
+        (Path("logs"), {}, Path("logs/reflektortts-tts.log")),
+        (Path("logs"), {"log_name": "reflektortts-preview.log"}, Path("logs/reflektortts-preview.log")),
+        (None, {}, None),
+    ],
+)
+def test_the_process_logs_to_its_own_file_when_the_core_logs_to_files(
+    monkeypatch: pytest.MonkeyPatch, log_dir: Path | None, names: dict[str, Any], log_file: Path | None
+) -> None:
+    context = FakeContext()
+    monkeypatch.setattr(multiprocessing, "get_context", lambda method: context)
+    monkeypatch.setattr(client, "file_log_dir", lambda: log_dir)
+
+    TtsClient("piper:a", **names)
+
+    assert context.processes[0].args[-1] == log_file

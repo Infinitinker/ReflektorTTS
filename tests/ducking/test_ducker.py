@@ -125,7 +125,8 @@ def test_a_game_left_lowered_by_an_earlier_run_is_restored(
     ducker.watch(GTA2)
 
     wait_until(lambda: volume.level == 0.9)
-    assert records.get("gta2.exe") is None
+    # The ducker's thread restores the volume, then removes the record.
+    wait_until(lambda: records.get("gta2.exe") is None)
 
 
 def test_a_leftover_record_is_used_when_the_game_has_no_sound_yet(

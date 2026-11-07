@@ -8,6 +8,13 @@ from reflektortts.sinks.tts.client import TtsClient
 from reflektortts.sinks.tts.narrator import SpeechClient
 from reflektortts.tts.service import NewLine
 
+LOG_FILE = "reflektortts-preview.log"
+"""Apart from the narrator's, which may be running at the same time."""
+
+
+def _start_client(voice: str, on_speaking: Callable[[bool], None], on_exit: Callable[[], None]) -> SpeechClient:
+    return TtsClient(voice, on_speaking, on_exit, log_name=LOG_FILE)
+
 
 def _in_background(work: Callable[[], None]) -> None:
     threading.Thread(target=work, name="voice preview", daemon=True).start()
@@ -28,7 +35,7 @@ class VoicePreview:
     def __init__(
         self,
         on_change: Callable[[PreviewEvent], None] = lambda event: None,
-        start_client: Callable[[str, Callable[[bool], None], Callable[[], None]], SpeechClient] = TtsClient,
+        start_client: Callable[[str, Callable[[bool], None], Callable[[], None]], SpeechClient] = _start_client,
         in_background: Callable[[Callable[[], None]], None] = _in_background,
     ) -> None:
         self._on_change = on_change

@@ -12,8 +12,11 @@ class PiperEngine:
 
     def __init__(self, model_path: Path) -> None:
         # Piper pulls in onnxruntime; importing it here keeps it out of the core process.
+        import onnxruntime
         from piper import PiperVoice
 
+        # Its official builds send usage events to Windows' diagnostic data unless told not to.
+        onnxruntime.disable_telemetry_events()
         self._voice = PiperVoice.load(model_path)
 
     def synthesize(self, text: str, rate: float) -> Iterator[AudioChunk]:

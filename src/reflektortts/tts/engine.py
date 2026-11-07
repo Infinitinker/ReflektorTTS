@@ -44,7 +44,7 @@ class VoiceError(Exception):
 @dataclass(frozen=True)
 class VoiceInfo:
     id: str
-    """What settings and --voice use: "engine:name"."""
+    """What settings and the API's voice field use: "engine:name"."""
     engine: str
     name: str
     language: str
