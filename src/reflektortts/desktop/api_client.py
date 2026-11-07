@@ -1,6 +1,7 @@
 """The desktop app's side of the local API: follows the core's status and sends it commands."""
 
 import asyncio
+import http.client
 import json
 import logging
 import threading
@@ -62,9 +63,17 @@ def request_json(
         except (ValueError, KeyError, TypeError):
             message = str(error)
         raise ApiClientError(message, error.code) from error
-    except (urllib.error.URLError, OSError) as error:
+    except (urllib.error.URLError, OSError, http.client.HTTPException) as error:
         raise ApiClientError(f"ReflektorTTS did not respond: {error}") from error
     return json.loads(text) if text else None
+
+
+def reflektortts_answers(base_url: str = BASE_URL) -> bool:
+    """Whether a ReflektorTTS core answers at base_url, rather than another program or nothing."""
+    try:
+        return parse_status(request_json("GET", "/status", base_url=base_url, timeout=2.0)) is not None
+    except (ApiClientError, ValueError, KeyError, TypeError, AttributeError):
+        return False
 
 
 class StatusFeed:

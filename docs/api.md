@@ -146,7 +146,7 @@ Lists every profile, bundled and the user's own, in ID order:
       "file": "...\\profiles\\bundled\\grand-theft-auto-2-1999.json",
       "overlay": true,
       "executables": [{ "name": "gta2.exe", "sha256": ["420af867..."] }],
-      "sources": [{ "name": "messages", "type": "memory", "stages": ["tracker", "replace", "translate", "normalize"] }]
+      "sources": [{ "name": "subtitles", "type": "memory", "stages": ["tracker", "replace", "translate", "normalize"] }]
     }
   ]
 }
@@ -203,7 +203,7 @@ Voices and translation models the user can download, from download source plugin
 
 ### `GET /v1/downloads`
 
-Lists every source's entries in the languages ReflektorTTS supports. With `?refresh=1` the lists are fetched from the internet first (a client does this when its downloads view opens); without it, or offline, the lists saved earlier are used.
+Lists every source's entries in the languages ReflektorTTS supports, from the lists saved earlier; see `POST /v1/downloads/refresh` for fetching them again.
 
 ```json
 {
@@ -233,6 +233,10 @@ Lists every source's entries in the languages ReflektorTTS supports. With `?refr
 - `state`: `available`, `downloading` (with `done` and `total` bytes) or `installed`.
 - `errors`: why a source's list could not be shown, e.g. without an internet connection and no list saved earlier; the other sources are still listed.
 
+### `POST /v1/downloads/refresh`
+
+Fetches every source's list from the internet, saves it, and returns the entries as `GET /v1/downloads` does; a client does this when its downloads view opens. It can take a while. Offline, the lists saved earlier are used. It is a POST because it reaches the internet: a web page can send GETs, but not this (see [Requests from web pages](#requests-from-web-pages)).
+
 ### `POST /v1/downloads`
 
 Starts downloading an entry from the list: `{"id": "piper:pl_PL-gosia-medium"}`. Returns **202** at once; progress comes as `download` events. Several downloads can run at once; starting one that is already running answers 409. An ID can be used without listing the downloads first: the saved lists are read when needed.
@@ -249,7 +253,7 @@ A request that is wrong as sent returns **HTTP 400** with a message for the user
 { "error": "There is no voice \"piper:missing\". Available: piper:en_US-ljspeech-medium, windows:Microsoft Adam." }
 ```
 
-Every other failure uses the same format: **404** for a path, or a download in the path, that does not exist; **405** for a method a path does not take (the message lists the ones it does); **409** for something that cannot be done as things are now: switching a source or stage while no app is being read, starting a download that is already running, removing one that is downloading or not installed; and **500** for an unexpected error inside ReflektorTTS, whose details are in its log.
+Every other failure uses the same format: **404** for a path, or a profile or download in the path, that does not exist; **405** for a method a path does not take (the message lists the ones it does); **409** for something that cannot be done as things are now: switching a source or stage while no app is being read, importing a profile with an ID the user already has, copying a profile that is not bundled or already copied, removing a bundled profile, starting a download that is already running, removing one that is downloading or not installed; and **500** for an unexpected error inside ReflektorTTS, whose details are in its log.
 
 ## Requests from web pages
 

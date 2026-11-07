@@ -14,9 +14,16 @@ from pathlib import Path
 from tkinter import filedialog, messagebox
 from typing import Any
 
-from reflektortts.api.server import ApiError
+from reflektortts.api.server import PORT, ApiError
 from reflektortts.arguments import Arguments
-from reflektortts.desktop.api_client import REFRESH_TIMEOUT_SECONDS, ApiClientError, StatusFeed, post, request_json
+from reflektortts.desktop.api_client import (
+    REFRESH_TIMEOUT_SECONDS,
+    ApiClientError,
+    StatusFeed,
+    post,
+    reflektortts_answers,
+    request_json,
+)
 from reflektortts.desktop.catalog import DownloadItem, DownloadList, DownloadProgress, other_voices, parse_list
 from reflektortts.desktop.core_thread import CoreThread
 from reflektortts.desktop.folders import open_folder, show_file
@@ -117,14 +124,30 @@ class Application:
         self._stopped = True
         error = self._core.error
         if isinstance(error, ApiError):
-            messagebox.showerror(
-                "ReflektorTTS", "ReflektorTTS is already running: look for its icon next to the clock."
-            )
-            self._quit()
+            # Whatever holds the port may not be ReflektorTTS; asking it takes a moment.
+            self._in_background(self._check_port)
             return
         message = "ReflektorTTS stopped: open the logs folder to see why."
         self._window.show_stopped(message)
         self._tray.show_status(message, paused=False, connected=False)
+
+    def _check_port(self) -> None:
+        """Runs in the background: asks whatever holds the port, then hands the answer to Tkinter."""
+        by_reflektortts = reflektortts_answers()
+        self._later(lambda: self._port_taken(by_reflektortts))
+
+    def _port_taken(self, by_reflektortts: bool) -> None:
+        """The local API could not open its port: tells the user why, then quits."""
+        if by_reflektortts:
+            message = "ReflektorTTS is already running: look for its icon next to the clock."
+        else:
+            message = (
+                f"ReflektorTTS cannot start: port {PORT} on this computer is used by another program, "
+                "or reserved by the system. Close the other program, or restart the computer, and start "
+                "ReflektorTTS again."
+            )
+        messagebox.showerror("ReflektorTTS", message)
+        self._quit()
 
     def _toggle_pause(self) -> None:
         if self._status is None:
@@ -242,9 +265,11 @@ class Application:
             if not self._language_names:
                 languages = request_json("GET", "/languages")["languages"]
                 self._language_names = {language["code"]: language["name"] for language in languages}
-            path = "/downloads?refresh=1" if refresh else "/downloads"
-            timeout = REFRESH_TIMEOUT_SECONDS if refresh else 5.0
-            downloads = parse_list(request_json("GET", path, timeout=timeout))
+            if refresh:
+                answer = request_json("POST", "/downloads/refresh", timeout=REFRESH_TIMEOUT_SECONDS)
+            else:
+                answer = request_json("GET", "/downloads")
+            downloads = parse_list(answer)
             others = other_voices(request_json("GET", "/voices"), downloads.items, self._language_names)
         except ApiClientError as error:
             message = str(error)

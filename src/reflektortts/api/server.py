@@ -231,6 +231,8 @@ def listed_json(listed: Listed) -> dict[str, Any]:
 
 CORE = web.AppKey("core", CoreControl)
 SOCKETS = web.AppKey("sockets", weakref.WeakSet[web.WebSocketResponse])
+# Keeps each PATCH /v1/settings atomic: it fills the fields not sent from the status it reads first.
+SETTINGS_LOCK = web.AppKey("settings_lock", threading.Lock)
 
 
 def error_response(message: str, status: int = 400) -> web.Response:
@@ -240,7 +242,7 @@ def error_response(message: str, status: int = 400) -> web.Response:
 
 
 async def get_status(request: web.Request) -> web.Response:
-    return web.json_response(status_json(request.app[CORE].status()))
+    return web.json_response(status_json(await asyncio.to_thread(request.app[CORE].status)))
 
 
 async def get_voices(request: web.Request) -> web.Response:
@@ -329,6 +331,17 @@ async def patch_settings(request: web.Request) -> web.Response:
     except (VoiceError, LanguageError) as error:
         return error_response(str(error))
     try:
+        status = await asyncio.to_thread(apply_settings, core, values, request.app[SETTINGS_LOCK])
+    except (VoiceError, LanguageError) as error:
+        return error_response(str(error))
+    return web.json_response(status_json(status))
+
+
+def apply_settings(core: CoreControl, values: dict[str, Any], lock: threading.Lock) -> Status:
+    """Applies checked settings in patch_settings' order, holding the lock so that a concurrent
+    request cannot change a field between the status read here and the writes. Runs off the event
+    loop: the core may wait for a speech process while it holds its lock."""
+    with lock:
         status = core.status()
         if values.keys() & {"ducking", "duck_volume"}:
             enabled = values.get("ducking", status.ducking)
@@ -346,12 +359,10 @@ async def patch_settings(request: web.Request) -> web.Response:
         if "input_language" in values:
             status = core.set_input_language(values["input_language"])
         if "output_language" in values:
-            status = await asyncio.to_thread(core.set_output_language, values["output_language"])
+            status = core.set_output_language(values["output_language"])
         if "voice" in values:
-            status = await asyncio.to_thread(core.set_voice, values["voice"])
-    except (VoiceError, LanguageError) as error:
-        return error_response(str(error))
-    return web.json_response(status_json(status))
+            status = core.set_voice(values["voice"])
+        return status
 
 
 async def patch_sources(request: web.Request) -> web.Response:
@@ -359,7 +370,7 @@ async def patch_sources(request: web.Request) -> web.Response:
     if body is None or not isinstance(body.get("name"), str) or not isinstance(body.get("enabled"), bool):
         return error_response(SOURCES_HELP)
     try:
-        status = request.app[CORE].set_source_enabled(body["name"], body["enabled"])
+        status = await asyncio.to_thread(request.app[CORE].set_source_enabled, body["name"], body["enabled"])
     except NoAppError as error:
         return error_response(str(error), 409)
     except SourceError as error:
@@ -377,7 +388,9 @@ async def patch_stages(request: web.Request) -> web.Response:
     ):
         return error_response(STAGES_HELP)
     try:
-        status = request.app[CORE].set_stage_enabled(body["key"], Output(body["output"]), body["enabled"])
+        status = await asyncio.to_thread(
+            request.app[CORE].set_stage_enabled, body["key"], Output(body["output"]), body["enabled"]
+        )
     except NoAppError as error:
         return error_response(str(error), 409)
     except StageError as error:
@@ -386,7 +399,7 @@ async def patch_stages(request: web.Request) -> web.Response:
 
 
 async def get_profiles(request: web.Request) -> web.Response:
-    views = request.app[CORE].profiles()
+    views = await asyncio.to_thread(request.app[CORE].profiles)
     return web.json_response({"profiles": [profile_json(view) for view in views]})
 
 
@@ -395,7 +408,7 @@ async def patch_profiles(request: web.Request) -> web.Response:
     if body is None or not isinstance(body.get("id"), str) or not isinstance(body.get("enabled"), bool):
         return error_response(PROFILES_HELP)
     try:
-        status = request.app[CORE].set_profile_enabled(body["id"], body["enabled"])
+        status = await asyncio.to_thread(request.app[CORE].set_profile_enabled, body["id"], body["enabled"])
     except UnknownProfileError as error:
         return error_response(str(error))
     return web.json_response(status_json(status))
@@ -443,12 +456,21 @@ async def post_profiles_reload(request: web.Request) -> web.Response:
 DOWNLOADS_HELP = 'Send {"id": "<id from GET /v1/downloads>"}.'
 
 
-async def get_downloads(request: web.Request) -> web.Response:
-    refresh = request.query.get("refresh") in ("1", "true")
+async def downloads_response(request: web.Request, refresh: bool) -> web.Response:
     listing: Listing = await asyncio.to_thread(request.app[CORE].downloads, refresh)
     return web.json_response(
         {"entries": [listed_json(listed) for listed in listing.entries], "errors": list(listing.errors)}
     )
+
+
+async def get_downloads(request: web.Request) -> web.Response:
+    return await downloads_response(request, refresh=False)
+
+
+async def post_downloads_refresh(request: web.Request) -> web.Response:
+    """A POST, not a GET: fetching the lists reaches the internet, and a web page can send GETs
+    that the guard cannot tell from ReflektorTTS's own."""
+    return await downloads_response(request, refresh=True)
 
 
 async def post_downloads(request: web.Request) -> web.Response:
@@ -456,7 +478,7 @@ async def post_downloads(request: web.Request) -> web.Response:
     if body is None or not isinstance(body.get("id"), str):
         return error_response(DOWNLOADS_HELP)
     try:
-        request.app[CORE].start_download(body["id"])
+        await asyncio.to_thread(request.app[CORE].start_download, body["id"])
     except DownloadStateError as error:
         return error_response(str(error), 409)
     except DownloadError as error:
@@ -478,15 +500,15 @@ async def delete_download(request: web.Request) -> web.Response:
 
 
 async def post_pause(request: web.Request) -> web.Response:
-    return web.json_response(status_json(request.app[CORE].set_paused(True)))
+    return web.json_response(status_json(await asyncio.to_thread(request.app[CORE].set_paused, True)))
 
 
 async def post_resume(request: web.Request) -> web.Response:
-    return web.json_response(status_json(request.app[CORE].set_paused(False)))
+    return web.json_response(status_json(await asyncio.to_thread(request.app[CORE].set_paused, False)))
 
 
 async def post_stop(request: web.Request) -> web.Response:
-    return web.json_response(status_json(request.app[CORE].stop_line()))
+    return web.json_response(status_json(await asyncio.to_thread(request.app[CORE].stop_line)))
 
 
 async def post_voice_preview(request: web.Request) -> web.Response:
@@ -516,7 +538,7 @@ async def events(request: web.Request) -> web.WebSocketResponse:
     request.app[SOCKETS].add(socket)
 
     async def send_events() -> None:
-        await socket.send_json(status_json(core.status()))
+        await socket.send_json(status_json(await asyncio.to_thread(core.status)))
         while True:
             await socket.send_json(event_json(await queue.get()))
 
@@ -542,6 +564,7 @@ def create_app(core: CoreControl) -> web.Application:
     app = web.Application(middlewares=[json_errors, refuse_web_pages])
     app[CORE] = core
     app[SOCKETS] = weakref.WeakSet()
+    app[SETTINGS_LOCK] = threading.Lock()
     app.add_routes(
         [
             web.get("/v1/status", get_status),
@@ -562,6 +585,7 @@ def create_app(core: CoreControl) -> web.Application:
             web.post("/v1/stop", post_stop),
             web.get("/v1/downloads", get_downloads),
             web.post("/v1/downloads", post_downloads),
+            web.post("/v1/downloads/refresh", post_downloads_refresh),
             web.delete("/v1/downloads/{id}", delete_download),
             web.get("/v1/events", events),
         ]

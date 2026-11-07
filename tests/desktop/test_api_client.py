@@ -1,11 +1,15 @@
+import http.server
 import queue
+import socket
+import threading
 from collections.abc import Iterator
 from dataclasses import replace
+from typing import Any
 
 import pytest
 
 from reflektortts.api.server import ApiServer
-from reflektortts.desktop.api_client import ApiClientError, StatusFeed, post, request_json
+from reflektortts.desktop.api_client import ApiClientError, StatusFeed, post, reflektortts_answers, request_json
 from reflektortts.desktop.catalog import DownloadProgress, PreviewState, parse_list
 from reflektortts.desktop.status import CoreStatus
 from reflektortts.events import DownloadEvent, PreviewEvent
@@ -45,13 +49,51 @@ def test_a_core_that_does_not_answer_is_an_error() -> None:
 
 
 def test_requests_return_the_answer_or_the_cores_message(server: ApiServer, core: FakeCore) -> None:
-    listing = parse_list(request_json("GET", "/downloads?refresh=1", base_url=url(server)))
+    listing = parse_list(request_json("POST", "/downloads/refresh", base_url=url(server)))
     request_json("POST", "/downloads", {"id": GOSIA.id}, base_url=url(server))
 
     assert [item.id for item in listing.items] == [GOSIA.id]
     assert core.refreshed is True and core.started == [GOSIA.id]
     with pytest.raises(ApiClientError, match='There is no download "piper:x".'):
         request_json("POST", "/downloads", {"id": "piper:x"}, base_url=url(server))
+
+
+def test_reflektortts_answers_only_where_its_core_runs(server: ApiServer) -> None:
+    assert reflektortts_answers(url(server))
+    assert not reflektortts_answers("http://127.0.0.1:9/v1")
+
+
+@pytest.mark.parametrize("answer", [b"<html>Another program</html>", b"[]", b'{"type": "other"}'])
+def test_another_program_on_the_port_is_not_reflektortts(answer: bytes) -> None:
+    class Other(http.server.BaseHTTPRequestHandler):
+        def do_GET(self) -> None:
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(answer)
+
+        def log_message(self, format: str, *args: Any) -> None:
+            pass
+
+    with http.server.HTTPServer(("127.0.0.1", 0), Other) as other:
+        thread = threading.Thread(target=other.serve_forever, daemon=True)
+        thread.start()
+        try:
+            assert not reflektortts_answers(f"http://127.0.0.1:{other.server_port}/v1")
+        finally:
+            other.shutdown()
+
+
+def test_a_program_that_does_not_speak_http_is_not_reflektortts() -> None:
+    with socket.create_server(("127.0.0.1", 0)) as listener:
+
+        def answer_garbage() -> None:
+            connection, _ = listener.accept()
+            with connection:
+                connection.recv(1024)
+                connection.sendall(b"garbage\r\n\r\n")
+
+        threading.Thread(target=answer_garbage, daemon=True).start()
+        assert not reflektortts_answers(f"http://127.0.0.1:{listener.getsockname()[1]}/v1")
 
 
 def test_the_feed_passes_on_the_status_and_its_changes(server: ApiServer, core: FakeCore) -> None:

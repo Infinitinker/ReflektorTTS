@@ -1,5 +1,6 @@
 import asyncio
 import json
+import threading
 import time
 import urllib.request
 from collections.abc import Awaitable, Callable
@@ -283,7 +284,7 @@ def test_downloads_are_listed_with_their_state_and_errors() -> None:
     core = FakeCore()
 
     async def test(client: TestClient[Any, Any]) -> None:
-        response = await client.get("/v1/downloads", params={"refresh": "1"})
+        response = await client.post("/v1/downloads/refresh")
         assert await response.json() == {
             "entries": [
                 {
@@ -305,6 +306,37 @@ def test_downloads_are_listed_with_their_state_and_errors() -> None:
 
     with_client(core, test)
     assert core.refreshed is True
+
+
+def test_listing_downloads_with_a_get_never_fetches_the_lists() -> None:
+    core = FakeCore()
+
+    async def test(client: TestClient[Any, Any]) -> None:
+        assert (await client.get("/v1/downloads", params={"refresh": "1"})).status == 200
+
+    with_client(core, test)
+    assert core.refreshed is False
+
+
+def test_a_core_that_holds_its_lock_does_not_stall_other_requests() -> None:
+    core = FakeCore()
+    release = threading.Event()
+
+    def slow_stop_line() -> Status:
+        release.wait(timeout=5)
+        return core.current
+
+    core.stop_line = slow_stop_line  # type: ignore[method-assign]
+
+    async def test(client: TestClient[Any, Any]) -> None:
+        stopping = asyncio.create_task(client.post("/v1/stop"))
+        await asyncio.sleep(0.1)
+        assert (await client.get("/v1/languages")).status == 200
+        assert not stopping.done()
+        release.set()
+        assert (await stopping).status == 200
+
+    with_client(core, test)
 
 
 def test_a_download_is_started_and_removed_by_id() -> None:
@@ -417,6 +449,26 @@ def test_ducking_can_be_changed_alone_or_with_its_level() -> None:
         assert (body["ducking"], body["duck_volume"]) == (False, 0.5)
 
     with_client(FakeCore(), test)
+
+
+def test_settings_changed_at_the_same_time_are_both_kept() -> None:
+    core = FakeCore()
+    set_ducking = core.set_ducking
+
+    def slow_set_ducking(enabled: bool, volume: float) -> Status:
+        time.sleep(0.2)
+        return set_ducking(enabled, volume)
+
+    core.set_ducking = slow_set_ducking  # type: ignore[method-assign]
+
+    async def test(client: TestClient[Any, Any]) -> None:
+        await asyncio.gather(
+            client.patch("/v1/settings", json={"ducking": False}),
+            client.patch("/v1/settings", json={"duck_volume": 0.5}),
+        )
+        assert (core.current.ducking, core.current.duck_volume) == (False, 0.5)
+
+    with_client(core, test)
 
 
 def test_speech_rate_and_cutting_off_can_be_changed() -> None:
