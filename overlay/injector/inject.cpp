@@ -1,6 +1,8 @@
 // Loads the overlay DLL into a running game.
 // Usage: reflektortts-inject (<process.exe> | --pid <id>) [path\to\reflektortts-overlay.dll]
 
+#include <fcntl.h>
+#include <io.h>
 #include <windows.h>
 #include <tlhelp32.h>
 
@@ -109,6 +111,11 @@ bool load_library_in(HANDLE process, DWORD process_id, const std::filesystem::pa
 }  // namespace
 
 int wmain(int argc, wchar_t** argv) {
+    // Messages are written as UTF-8, the encoding the core reads them in: paths and process
+    // names can hold any character, and the default C locale cuts a message off at the first
+    // one outside Latin-1.
+    _setmode(_fileno(stdout), _O_U8TEXT);
+    _setmode(_fileno(stderr), _O_U8TEXT);
     bool by_pid = argc > 1 && std::wcscmp(argv[1], L"--pid") == 0;
     int first_path = by_pid ? 3 : 2;
     if (argc < first_path || argc > first_path + 1) {

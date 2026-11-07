@@ -40,6 +40,8 @@ ID3D12Fence* g_fence = nullptr;
 HANDLE g_fence_event = nullptr;
 UINT64 g_last_fence_value = 0;
 FrameSlot g_slots[kMaxBackBuffers];
+// The back buffer format ImGui's pipeline draws to.
+DXGI_FORMAT g_format = DXGI_FORMAT_UNKNOWN;
 
 UINT srv_descriptor_size() {
     return g_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
@@ -78,6 +80,20 @@ bool create_heap(D3D12_DESCRIPTOR_HEAP_TYPE type, UINT count, D3D12_DESCRIPTOR_H
                                                     reinterpret_cast<void**>(heap)));
 }
 
+bool init_imgui(DXGI_FORMAT format) {
+    ImGui_ImplDX12_InitInfo info;
+    info.Device = g_device;
+    info.CommandQueue = g_queue;
+    info.NumFramesInFlight = static_cast<int>(kMaxBackBuffers);
+    info.RTVFormat = format;
+    info.DSVFormat = DXGI_FORMAT_UNKNOWN;
+    info.SrvDescriptorHeap = g_srv_heap;
+    info.SrvDescriptorAllocFn = allocate_srv;
+    info.SrvDescriptorFreeFn = free_srv;
+    g_format = format;
+    return ImGui_ImplDX12_Init(&info);
+}
+
 bool create_device_objects(DXGI_FORMAT format) {
     if (!create_heap(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, kSrvDescriptorCount,
                      D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE, &g_srv_heap) ||
@@ -102,20 +118,19 @@ bool create_device_objects(DXGI_FORMAT format) {
     }
     g_command_list->Close();
     g_fence_event = CreateEventW(nullptr, FALSE, FALSE, nullptr);
-    if (g_fence_event == nullptr) {
-        return false;
-    }
+    return g_fence_event != nullptr && init_imgui(format);
+}
 
-    ImGui_ImplDX12_InitInfo info;
-    info.Device = g_device;
-    info.CommandQueue = g_queue;
-    info.NumFramesInFlight = static_cast<int>(kMaxBackBuffers);
-    info.RTVFormat = format;
-    info.DSVFormat = DXGI_FORMAT_UNKNOWN;
-    info.SrvDescriptorHeap = g_srv_heap;
-    info.SrvDescriptorAllocFn = allocate_srv;
-    info.SrvDescriptorFreeFn = free_srv;
-    return ImGui_ImplDX12_Init(&info);
+// Apps change the back buffer format, e.g. when HDR is turned on, and ImGui's pipeline draws
+// to one format only, so it is made again for the new one once the GPU is done with the old.
+bool follow_format(DXGI_FORMAT format) {
+    if (format == g_format) {
+        return true;
+    }
+    log_message("The app changed its Direct3D 12 back buffer format; recreating the overlay's pipeline");
+    wait_for_fence(g_last_fence_value);
+    ImGui_ImplDX12_Shutdown();
+    return init_imgui(format);
 }
 
 void start(IDXGISwapChain* swap_chain) {
@@ -125,7 +140,7 @@ void start(IDXGISwapChain* swap_chain) {
     }
     // The overlay's drawing goes through the app's queue, which is known only once
     // the app has submitted work to it.
-    ID3D12CommandQueue* queue = app_command_queue();
+    ID3D12CommandQueue* queue = app_command_queue(device);
     if (queue == nullptr) {
         device->Release();
         return;
@@ -212,6 +227,13 @@ void render_d3d12_frame(IDXGISwapChain* swap_chain) {
     if (back_buffer == nullptr) {
         return;
     }
+    D3D12_RESOURCE_DESC desc = back_buffer->GetDesc();
+    if (!follow_format(desc.Format)) {
+        log_message("Direct3D 12 overlay setup failed; overlay disabled");
+        g_state = State::Disabled;
+        back_buffer->Release();
+        return;
+    }
     FrameSlot& slot = g_slots[index];
     wait_for_fence(slot.fence_value);
     slot.allocator->Reset();
@@ -221,7 +243,6 @@ void render_d3d12_frame(IDXGISwapChain* swap_chain) {
     target.ptr += index * g_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
     g_device->CreateRenderTargetView(back_buffer, nullptr, target);
 
-    D3D12_RESOURCE_DESC desc = back_buffer->GetDesc();
     ImGui_ImplDX12_NewFrame();
     build_overlay_frame(static_cast<UINT>(desc.Width), desc.Height);
 

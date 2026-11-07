@@ -1,4 +1,5 @@
 import subprocess
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -39,6 +40,22 @@ def test_a_real_failure_stops_and_is_reported(
     assert inject_overlay(42, [build(tmp_path / "x86"), build(tmp_path / "x64")]) is False
     assert len(calls) == 1
     assert "bad things" in caplog.text
+
+
+def test_injector_messages_are_read_as_utf8(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    message = "Overlay DLL not found: C:\\Users\\Łukasz\\reflektortts-overlay.dll"
+    real_run = subprocess.run
+
+    def injector(command: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        script = f"import sys; sys.stderr.buffer.write({message.encode('utf-8')!r}); sys.exit(1)"
+        return real_run([sys.executable, "-c", script], **kwargs)
+
+    monkeypatch.setattr(subprocess, "run", injector)
+
+    assert inject_overlay(42, [build(tmp_path / "x86")]) is False
+    assert message in caplog.text
 
 
 def test_an_injector_blocked_by_antivirus_is_reported(

@@ -1,6 +1,6 @@
 # Overlay
 
-A DLL loaded into the app's process. It hooks the point where the app shows each frame and draws a Dear ImGui control panel on top. All logic stays in the Python core: the overlay is a client of the core's [local API](../docs/api.md) (`http://127.0.0.1:47821/v1`), so it only draws, captures input and grabs frames. See also [docs/architecture.md](../docs/architecture.md).
+A DLL loaded into the app's process. It hooks the point where the app shows each frame and draws a Dear ImGui control panel on top. All logic stays in the Python core: the overlay is a client of the core's [local API](../docs/api.md) (`http://127.0.0.1:47821/v1`), so it only draws and captures input (grabbing frames for OCR is planned). See also [docs/architecture.md](../docs/architecture.md).
 
 ## Using it
 
@@ -20,7 +20,7 @@ The core loads the overlay into an app when it detects it (see the main README, 
 
 ## How it works
 
-Supported graphics APIs: **Direct3D 9, 11 and 12**. The overlay hooks only the APIs whose DLLs the app uses, each as soon as its DLL is loaded, however late (after a launcher, say): Windows tells it about every DLL the app loads, as ReShade has it told. The first API to show a frame gets the overlay. Older APIs (DirectDraw, Direct3D 1–8) and OpenGL/Vulkan are not supported yet.
+Supported graphics APIs: **Direct3D 9, 11 and 12**. The overlay hooks only the APIs whose DLLs the app uses, each as soon as its DLL is loaded, however late (after a launcher, say): Windows tells it about every DLL the app loads, as ReShade has it told. It never loads a Direct3D or DirectInput DLL the app does not use, except `dxgi.dll` and `d3dcompiler_47.dll`, which ImGui's Direct3D 11 and 12 backends link, so they come with the overlay into every app. The first API to show a frame gets the overlay. Older APIs (DirectDraw, Direct3D 1–8) and OpenGL/Vulkan are not supported yet.
 
 The overlay follows whichever swap chain or device the app presented with last, since games often replace them, e.g. between the menu and gameplay. It never holds the app's back buffers between frames, and it never releases a device the app has replaced: some games and wrappers destroy their device regardless of other references, so touching it again would crash the app.
 
@@ -36,7 +36,7 @@ Blocking the app's input works like ReShade's default "block all input while the
 | `src/dll_load_watch.cpp` | Wakes the overlay when the app loads a DLL |
 | `src/vtable_hook.h` | Hooks a COM method found through a vtable: in its code, or by replacing the vtable entry |
 | `src/dxgi_hook.cpp` | Hooks `IDXGISwapChain::Present` and `Present1`, shared by Direct3D 11 and 12 |
-| `src/d3d12_queue_hook.cpp` | Finds the app's Direct3D 12 command queue, which the D3D12 renderer submits to |
+| `src/d3d12_queue_hook.cpp` | Finds the app's Direct3D 12 command queue on the swap chain's device, which the D3D12 renderer submits to |
 | `src/d3d9_hook.cpp` | Hooks `IDirect3DDevice9::Present` and `Reset` |
 | `src/d3d11_renderer.cpp`, `src/d3d12_renderer.cpp`, `src/d3d9_renderer.cpp` | Set up ImGui on the app's device and draw each frame, one file per API |
 | `src/overlay_frame.cpp` | Gives the overlay to one API, loads the font and builds each ImGui frame |
@@ -59,8 +59,8 @@ The overlay must match the app's bitness: older games, including GTA2 and GTA Sa
 Install the toolchains once from an MSYS2 shell:
 
 ```bash
-pacman -S --needed mingw-w64-i686-toolchain mingw-w64-i686-cmake mingw-w64-i686-ninja
-pacman -S --needed mingw-w64-x86_64-toolchain mingw-w64-x86_64-cmake mingw-w64-x86_64-ninja
+pacman -S --needed git mingw-w64-i686-toolchain mingw-w64-i686-cmake mingw-w64-i686-ninja
+pacman -S --needed git mingw-w64-x86_64-toolchain mingw-w64-x86_64-cmake mingw-w64-x86_64-ninja
 ```
 
 The 32-bit build, from the **MSYS2 MINGW32** shell in the repository root:

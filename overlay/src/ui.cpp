@@ -38,7 +38,7 @@ constexpr ImVec4 kErrorColor(1.0f, 0.45f, 0.4f, 1.0f);
 constexpr ImVec4 kWarningColor(1.0f, 0.75f, 0.3f, 1.0f);
 const ImU32 kGreen = IM_COL32(90, 200, 110, 255);
 const ImU32 kAmber = IM_COL32(240, 180, 60, 255);
-const ImU32 kGrey = IM_COL32(140, 140, 140, 255);
+const ImU32 kGray = IM_COL32(140, 140, 140, 255);
 
 void draw_hint() {
     ImGui::SetNextWindowPos(ImVec2(10.0f, 10.0f));
@@ -225,7 +225,7 @@ void draw_header(const CoreState& state) {
     ImGui::PopFont();
     const char* connection = state.connected ? "Connected" : "Not connected";
     align_right(dot_label_width(connection));
-    dot_label(state.connected ? kGreen : kGrey, connection);
+    dot_label(state.connected ? kGreen : kGray, connection);
     ImGui::Separator();
 }
 

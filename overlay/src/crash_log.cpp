@@ -14,12 +14,13 @@ namespace {
 constexpr int kMaxLoggedCrashes = 5;
 std::atomic<int> g_logged = 0;
 
+// A stack overflow is left out: the handler would run on the few KB of stack left, and
+// overflowing it again would end the process before the app's own handler sees it.
 bool is_crash(DWORD code) {
     switch (code) {
         case EXCEPTION_ACCESS_VIOLATION:
         case EXCEPTION_ILLEGAL_INSTRUCTION:
         case EXCEPTION_PRIV_INSTRUCTION:
-        case EXCEPTION_STACK_OVERFLOW:
         case EXCEPTION_INT_DIVIDE_BY_ZERO:
             return true;
         default:

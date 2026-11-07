@@ -38,17 +38,18 @@ bool app_just_started() {
     return ticks(now) - ticks(created) < kJustStartedSeconds * 10'000'000;
 }
 
-// Hooks only the APIs whose DLLs the app has loaded, so the overlay never pulls in a graphics
-// DLL (or a wrapper from the app folder) the app does not use. The core loads the overlay as
-// soon as it sees the app's process, often before the app has set up its graphics, and apps
-// may load another API later (after a launcher, or for a video), so each API is hooked when its
-// DLL arrives, however late. Each is tried once.
+// Hooks only the APIs whose DLLs the app has loaded, so the overlay never pulls in a Direct3D
+// or DirectInput DLL (or a wrapper of one from the app folder) the app does not use; only
+// dxgi.dll and d3dcompiler_47.dll, linked by ImGui's backends, always come with it. The core
+// loads the overlay as soon as it sees the app's process, often before the app has set up its
+// graphics, and apps may load another API later (after a launcher, or for a video), so each API
+// is hooked when its DLL arrives, however late. Each is tried once.
 DWORD WINAPI start_overlay(LPVOID) {
     install_crash_log();
     // A Direct3D 9 device may already exist only if its DLL was loaded before the overlay arrived
     // and the app was not just started.
     bool d3d9_device_may_exist = is_loaded(L"d3d9.dll") && !app_just_started();
-    // Never closed: the loader keeps signalling it for as long as the app runs.
+    // Never closed: the loader keeps signaling it for as long as the app runs.
     HANDLE dll_loaded = CreateEventW(nullptr, FALSE, FALSE, nullptr);
     bool notified = dll_loaded != nullptr && signal_on_dll_load(dll_loaded);
 

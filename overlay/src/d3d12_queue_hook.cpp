@@ -14,13 +14,32 @@ using ExecuteCommandListsFn = void(STDMETHODCALLTYPE*)(ID3D12CommandQueue*, UINT
 constexpr int kExecuteCommandListsIndex = 10;
 
 ExecuteCommandListsFn g_original_execute_command_lists = nullptr;
+// The device of the swap chain the overlay draws on, once the renderer has asked for a queue;
+// only compared, never called.
+std::atomic<ID3D12Device*> g_device = nullptr;
 std::atomic<ID3D12CommandQueue*> g_queue = nullptr;
 
+bool on_device(ID3D12CommandQueue* queue, ID3D12Device* device) {
+    ID3D12Device* queue_device = nullptr;
+    if (FAILED(queue->GetDevice(__uuidof(ID3D12Device), reinterpret_cast<void**>(&queue_device)))) {
+        return false;
+    }
+    queue_device->Release();
+    return queue_device == device;
+}
+
+// The hook sees the queues of every device in the process, e.g. a launcher's or a library's.
 void STDMETHODCALLTYPE execute_command_lists_detour(ID3D12CommandQueue* queue, UINT count,
                                                     ID3D12CommandList* const* lists) {
     if (g_queue.load() == nullptr && queue->GetDesc().Type == D3D12_COMMAND_LIST_TYPE_DIRECT) {
-        queue->AddRef();
-        g_queue.store(queue);
+        ID3D12Device* device = g_device.load();
+        if (device == nullptr || on_device(queue, device)) {
+            queue->AddRef();
+            ID3D12CommandQueue* none = nullptr;
+            if (!g_queue.compare_exchange_strong(none, queue)) {
+                queue->Release();
+            }
+        }
     }
     g_original_execute_command_lists(queue, count, lists);
 }
@@ -71,8 +90,18 @@ bool install_d3d12_queue_hook() {
     return true;
 }
 
-ID3D12CommandQueue* app_command_queue() {
-    return g_queue.load();
+ID3D12CommandQueue* app_command_queue(ID3D12Device* device) {
+    g_device.store(device);
+    ID3D12CommandQueue* queue = g_queue.load();
+    if (queue != nullptr && !on_device(queue, device)) {
+        // Found before the device was known: let the hook look for one on the right device.
+        log_message("The first Direct3D 12 command queue found belongs to another device; looking further");
+        if (g_queue.compare_exchange_strong(queue, nullptr)) {
+            queue->Release();
+        }
+        return nullptr;
+    }
+    return queue;
 }
 
 }  // namespace reflektortts

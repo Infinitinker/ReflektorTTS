@@ -31,7 +31,8 @@ def inject_overlay(pid: int, overlay_dirs: Sequence[Path]) -> bool:
             result = subprocess.run(
                 [str(injector), "--pid", str(pid)],
                 capture_output=True,
-                text=True,
+                encoding="utf-8",
+                errors="replace",
                 timeout=TIMEOUT_S,
                 check=False,
                 # Without a console of its own (the desktop app), Windows would open one for the injector.
