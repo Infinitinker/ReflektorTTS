@@ -69,7 +69,7 @@ ReflektorTTS runs next to the clock: its icon there opens the window, pauses rea
 - **Profiles** lists the profiles, bundled and your own, says which are used and why others are not, enables or disables them, and copies, removes or imports profile files.
 - **Voices** and **Translations** download voices and translation models; see [Voices](#voices) and [Translation](#translation).
 
-An app's voice is loaded when the app starts and unloaded when it closes, so nothing is loaded while ReflektorTTS waits.
+An app's voice is loaded when the app starts and unloaded when it closes. A translation model, once used, stays loaded until ReflektorTTS quits, so the next app translates right away.
 
 ## In the game
 
@@ -119,7 +119,7 @@ The overlay works by loading into the game, as in-game overlays do, which antivi
 ReflektorTTS is not code-signed yet, so Windows SmartScreen doesn't know it. Choose **More info**, then **Run anyway**.
 
 **Can I use it in online games?**
-No. The overlay and reading a game's memory are meant for single-player and offline modes. Anti-cheat software may treat them as cheating.
+No. The overlay and reading a game's memory are meant for single-player and offline modes. Anti-cheat software may treat them as cheating, which can get your account banned.
 
 **A game runs, but nothing is read.**
 Look at the Status tab. It says when a game's version is not supported by its profile yet. The logs, opened from there, say more.

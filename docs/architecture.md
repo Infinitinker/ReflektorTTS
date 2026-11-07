@@ -68,12 +68,15 @@ A failing source, stage or sink is reported once as a `source.error`, `stage.err
 | `__main__.py` | Runs the core in a console, without the window, so developers see the log as it happens |
 | `arguments.py`, `logs.py` | Command line options and where logs go, shared by the desktop app and the console |
 | `events.py`, `bus.py` | Event types and the event bus |
+| `entry_points.py` | Finds plugins through their Python entry points |
+| `glossary.py` | A profile's glossary: its terms, and finding them in a line |
+| `staging.py` | Staging folders, where downloads are put together before they replace what is installed |
 | `pipeline/` | Plugin contracts, the plugin registry and the runner |
 | `profiles/` | Profiles: the format (`profile.schema.json`), loading, checking and migrating a file (`loader.py`), which profiles are used, of the bundled ones and the user's own (`catalog.py`), and the bundled profiles (`bundled/`); see [profiles.md](profiles.md) |
 | `apps/` | Finds running apps with a profile, and which build each is (`executable.py`) |
 | `sources/`, `stages/`, `sinks/` | Built-in plugins |
 | `sinks/tts/` | The tts sink: the core's side of speech (the narrator, which pauses and switches voices, and the client that starts the TTS process; the process runs only while an app is read), and the voice preview, which speaks a sample sentence through a TTS process of its own that exits once it is spoken |
-| `tts/` | The TTS service process: speech engines, playback and voices |
+| `tts/` | The TTS service process: its entry point (`process.py`, which imports little, so its log is set up before the engines load), the service, speech engines, playback and voices |
 | `downloads/` | Downloads the user asks for: the contract download sources follow, the Piper and Argos sources, and the manager running downloads |
 | `process_memory/` | Reading a running app's memory for the sources that need it: the process (one implementation per OS, `windows.py`) and pointer chains |
 | `ducking/` | Lowers the app's sound while lines are spoken; the per-app volume has one implementation per OS (`windows.py`, WASAPI audio sessions) |
@@ -90,7 +93,7 @@ How the folders are organized:
 
 - **Plugin folders** (`sources/`, `stages/`, `sinks/`) hold one plugin each. A plugin is a single module while it is small (`stages/tracker.py`) and becomes a package when it needs several files (`stages/normalize/`, `sources/memory/`, `sinks/tts/`). A plugin with rules for each language keeps them in a `languages/` folder, one module per language named after it (`stages/normalize/languages/polish.py`), so adding a language means adding a file, without changing the plugin's mechanism; the plugin maps language codes to them in one place.
 - **Subsystems** that are not plugins sit at the top level: `pipeline/`, `profiles/`, `apps/`, `api/`, `tts/`, `ducking/`, `desktop/`, and `process_memory/`, which several sources share.
-- **A folder's code runs in one process.** Code for a separate process gets its own folder, so the layout shows what runs where: `tts/` is the TTS process, and its client in the core lives with the sink in `sinks/tts/`.
+- **Code for a separate process gets its own folder**, so the layout shows what runs where: `tts/` holds the TTS process, and its client in the core lives with the sink in `sinks/tts/`. The core uses from `tts/` only what it shares with the process: the entry point it starts the process with (`process.py`), the contracts and messages (`engine.py`, `service.py`) and the voice listing (`voices.py`, and `available_voices`, which asks each engine plugin for its voices); it never loads a voice.
 
 Writing plugins: [plugins.md](plugins.md). The local API: [api.md](api.md).
 

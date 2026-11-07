@@ -23,12 +23,12 @@ Name the file after the game and its release year, in lowercase with dashes, lik
 
 ### Setting up from source (Windows)
 
-You need Python 3.13 and, for the overlay, MSYS2 (see [overlay/README.md](overlay/README.md)). From the repository root:
+You need Python 3.13 and, for the overlay, MSYS2 (see [overlay/README.md](overlay/README.md)). The commands below are for PowerShell or the Command Prompt, run from the repository root:
 
-```bash
+```powershell
 py -3.13 -m venv .venv
 ```
-```bash
+```powershell
 .venv\Scripts\pip install -e .[dev]
 ```
 
@@ -38,13 +38,13 @@ This installs ReflektorTTS with everything it needs, and the `dev` extra adds th
 
 The desktop app, as users run it: double-click `start.bat` in the repository root, or run
 
-```bash
+```powershell
 .venv\Scripts\reflektortts-desktop --overlay overlay\build\bin --overlay overlay\build64\bin
 ```
 
 Logs are written to `%LOCALAPPDATA%\ReflektorTTS\Logs`. To see the log while working on the code, run ReflektorTTS without the window, in a console, and stop it with Ctrl+C:
 
-```bash
+```powershell
 .venv\Scripts\python -m reflektortts --overlay overlay\build\bin --overlay overlay\build64\bin
 ```
 
@@ -57,16 +57,16 @@ Both take the same options:
 
 Every pull request is checked on Windows and Linux by the `Checks` workflow. Run them yourself first:
 
-```bash
+```powershell
 .venv\Scripts\python -m pytest
 ```
-```bash
+```powershell
 .venv\Scripts\python -m ruff check
 ```
-```bash
+```powershell
 .venv\Scripts\python -m ruff format --check
 ```
-```bash
+```powershell
 .venv\Scripts\python -m mypy
 ```
 
@@ -74,7 +74,7 @@ Tests live in `tests/`, mirroring `src/reflektortts/`, and run without a game, a
 
 The icon of ReflektorTTS is drawn in code by `tools/draw_icon.py`, into `src/reflektortts/desktop/icon.ico` and the README's `docs/images/icon.png`. After changing the drawing, run it from the repository root:
 
-```bash
+```powershell
 .venv\Scripts\python tools\draw_icon.py
 ```
 
@@ -87,10 +87,10 @@ The icon of ReflektorTTS is drawn in code by `tools/draw_icon.py`, into `src/ref
 
 It needs git, the `release` extra and both overlay builds (see [overlay/README.md](overlay/README.md)), and every change committed:
 
-```bash
+```powershell
 .venv\Scripts\pip install -e .[release]
 ```
-```bash
+```powershell
 .venv\Scripts\python tools\build_release.py
 ```
 

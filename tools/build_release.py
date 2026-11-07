@@ -27,6 +27,7 @@ from pathlib import Path
 
 import PyInstaller.__main__
 from notices import notices, shipped_distributions
+from packaging.version import Version
 from sources import check_sources, write_sources
 
 ENTRY = Path("src/reflektortts/desktop/__main__.py")
@@ -38,7 +39,7 @@ OVERLAY_FILES = ("reflektortts-overlay.dll", "reflektortts-inject.exe")
 COLLECT = {
     "--copy-metadata": ["reflektortts"],
     "--collect-submodules": ["reflektortts", "num2words", "winrt"],
-    "--collect-data": ["reflektortts", "piper", "sacremoses"],
+    "--collect-data": ["reflektortts", "piper"],
     "--collect-binaries": ["ctranslate2"],
     "--collect-all": ["_sounddevice_data"],
 }
@@ -47,7 +48,6 @@ COLLECT = {
 - num2words: one module per language, imported by name;
 - winrt: the Windows speech voices' modules, in a namespace package;
 - piper: the espeak-ng data it phonemizes with;
-- sacremoses: the Moses tokenizer's word lists, for translation;
 - ctranslate2: its native libraries;
 - _sounddevice_data: the PortAudio library sound is played with.
 """
@@ -60,11 +60,20 @@ UNUSED = (
     "_internal/_sounddevice_data/portaudio-binaries/libportaudio32bit.dll",
     "_internal/_sounddevice_data/portaudio-binaries/libportaudioarm64.dll",
     "_internal/_sounddevice_data/portaudio-binaries/libportaudio.dylib",
+    "_internal/piper/hebrew/*.onnx",
+    "_internal/piper/tashkeel/*.onnx",
+    "_internal/piper/img",
+    "_internal/piper/templates",
+    "_internal/PIL/_avif.*.pyd",
+    "_internal/PIL/_webp.*.pyd",
     "_internal/reflektortts-*.dist-info/direct_url.json",
 )
-"""Files the collected packages bring that ReflektorTTS does not use, removed from the build: NVIDIA's
-cuDNN (translation runs on the CPU), PortAudio builds for ASIO (with Steinberg's SDK) and other
-systems, and the path of the folder the build was installed from."""
+"""Files and folders the collected packages bring that ReflektorTTS does not use, removed from the
+build: NVIDIA's cuDNN (translation runs on the CPU), PortAudio builds for ASIO (with Steinberg's SDK)
+and other systems, Piper's models that add vowel marks to Hebrew and Arabic text (ReflektorTTS
+offers English and Polish voices), the pages of Piper's web server, Pillow's AVIF and WebP formats (only the icon's
+ICO and PNG are used; Pillow skips formats it cannot import), and the path of the folder the build
+was installed from."""
 COPYRIGHT = Path("COPYRIGHT")
 
 README = """ReflektorTTS {version}
@@ -91,6 +100,10 @@ Antivirus
   programs may distrust. If yours blocks reflektortts-inject.exe in the overlay folder,
   allow it to use the overlay; ReflektorTTS reads apps without the overlay too.
 
+Online games
+  Use ReflektorTTS only in single-player and offline games. Anti-cheat software may treat
+  the overlay and reading a game's memory as cheating, which can get your account banned.
+
 License
   ReflektorTTS is free software under the GPL-3.0-or-later (LICENSE.txt), with an additional
   permission for the libraries translation is built with (COPYRIGHT.txt).
@@ -108,8 +121,9 @@ Source code
 
 def version_info(release: str, copyright: str) -> str:
     """The exe's Windows version resource. Windows names the app by its file description, e.g. in
-    notifications; without one it shows the file name, ReflektorTTS.exe."""
-    numbers = (*(int(part) for part in release.split(".")[:3]), 0)
+    notifications; without one it shows the file name, ReflektorTTS.exe. Its four numbers are the
+    release's first three, padded with zeros, and a zero, also for pre-releases (0.2.0rc1 is 0.2.0.0)."""
+    numbers = (*(Version(release).release + (0, 0))[:3], 0)
     strings = {
         "FileDescription": NAME,
         "ProductName": NAME,
@@ -180,6 +194,7 @@ def build_exe(release: str, copyright: str) -> Path:
         "--onedir",
         "--noconfirm",
         "--clean",
+        "--noupx",
         f"--icon={ICON.resolve()}",
         f"--version-file={version_file.resolve()}",
         f"--distpath={BUILD / 'dist'}",
@@ -198,8 +213,11 @@ def remove_unused(folder: Path) -> None:
         found = list(folder.glob(pattern))
         if not found:
             raise SystemExit(f"The build has no {pattern} to remove: update UNUSED in tools/build_release.py.")
-        for file in found:
-            file.unlink()
+        for path in found:
+            if path.is_dir():
+                shutil.rmtree(path)
+            else:
+                path.unlink()
 
 
 def copy_overlay(folder: Path) -> None:
