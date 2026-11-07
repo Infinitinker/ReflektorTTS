@@ -1,6 +1,7 @@
 """The Profiles tab: every profile, bundled and the user's own, with its state; the selected one's
-details; buttons to enable or disable it, copy a bundled one to edit, remove one of the user's own,
-import a profile file, read the files again after editing them, and open the user's folder.
+details; buttons to enable or disable it, open its app's settings window, copy a bundled one to
+edit, remove one of the user's own, import a profile file, read the files again after editing them,
+and open the user's folder.
 
 The buttons never move: the one that enables or disables is as wide as its longest label, and a
 button that does not apply to the selected profile is grayed out."""
@@ -50,15 +51,20 @@ class ProfilesTab:
         parent: ttk.Notebook,
         status_bar: StatusBar,
         on_enable: Callable[[ProfileItem, bool], None],
+        on_app_settings: Callable[[ProfileItem], None],
+        app_settings_missing: str | None,
         on_copy: Callable[[ProfileItem], None],
         on_remove: Callable[[ProfileItem], None],
         on_import: Callable[[], None],
         on_reload: Callable[[], None],
         on_open_folder: Callable[[], None],
     ) -> None:
+        """app_settings_missing: why the settings window cannot be opened, or None when it can."""
         self.frame = ttk.Frame(parent, padding=(8, 8, 8, 6))
         self._status_bar = status_bar
         self._on_enable = on_enable
+        self._on_app_settings = on_app_settings
+        self._app_settings_missing = app_settings_missing
         self._on_copy = on_copy
         self._on_remove = on_remove
         self._items: dict[str, ProfileItem] = {}
@@ -125,17 +131,22 @@ class ProfilesTab:
             buttons, text="Disable", width=button_width(ENABLE_LABELS), state="disabled", command=self._act
         )
         self._button.grid(row=0, column=0)
+        self._app_settings = ttk.Button(
+            buttons, text="App settings…", state="disabled", command=self._open_app_settings
+        )
+        self._app_settings.grid(row=0, column=1, padx=(6, 0))
         self._copy = ttk.Button(buttons, text="Copy to edit", state="disabled", command=self._copy_selected)
-        self._copy.grid(row=0, column=1, padx=(6, 0))
+        self._copy.grid(row=0, column=2, padx=(6, 0))
         self._remove = ttk.Button(buttons, text="Remove", state="disabled", command=self._remove_selected)
-        self._remove.grid(row=0, column=2, padx=(6, 0))
+        self._remove.grid(row=0, column=3, padx=(6, 0))
         import_button = ttk.Button(buttons, text="Import…", command=on_import)
-        import_button.grid(row=0, column=3, padx=(6, 0))
+        import_button.grid(row=0, column=4, padx=(6, 0))
         reload = ttk.Button(buttons, text="Reload", command=on_reload)
-        reload.grid(row=0, column=4, padx=(6, 0))
+        reload.grid(row=0, column=5, padx=(6, 0))
         folder = ttk.Button(buttons, text="Open profiles folder", command=on_open_folder)
-        folder.grid(row=0, column=5, padx=(6, 0))
+        folder.grid(row=0, column=6, padx=(6, 0))
         self._status_bar.hint(self._button, self._button_hint)
+        self._status_bar.hint(self._app_settings, self._app_settings_hint)
         self._status_bar.hint(
             self._copy, lambda: "Copy a bundled profile to your folder and show it there, to edit it in an editor."
         )
@@ -186,6 +197,7 @@ class ProfilesTab:
         if item is not None:
             self._details.insert("1.0", details_text(item))
         self._details.configure(state="disabled")
+        self._app_settings.configure(state="normal" if self._can_open_app_settings(item) else "disabled")
         self._copy.configure(state="normal" if item is not None and item.origin == "bundled" else "disabled")
         self._remove.configure(state="normal" if item is not None and item.origin != "bundled" else "disabled")
         if item is None or item.state == "broken":
@@ -205,11 +217,27 @@ class ProfilesTab:
             return "Use this profile again."
         return "Stop using this profile: its app is not read until it is enabled again."
 
+    def _can_open_app_settings(self, item: ProfileItem | None) -> bool:
+        return self._app_settings_missing is None and item is not None and item.state != "broken"
+
+    def _app_settings_hint(self) -> str:
+        if self._app_settings_missing is not None:
+            return self._app_settings_missing
+        item = self._selected()
+        if item is not None and item.state == "broken":
+            return "A broken profile has no settings; fix its file, or remove it."
+        return "Change this app's voice, languages and the rest, also while it isn't running."
+
     def _remove_hint(self) -> str:
         item = self._selected()
         if item is not None and item.origin == "override":
             return "Delete your own file; the bundled profile is used again."
         return "Delete your own profile file."
+
+    def _open_app_settings(self) -> None:
+        item = self._selected()
+        if self._can_open_app_settings(item) and item is not None:
+            self._on_app_settings(item)
 
     def _copy_selected(self) -> None:
         item = self._selected()

@@ -18,6 +18,10 @@ FetchContent_Declare(minhook
     GIT_REPOSITORY https://github.com/TsudaKageyu/minhook.git
     GIT_TAG c3fcafdc10146beb5919319d0683e44e3c30d537 # v1.3.4
     SOURCE_SUBDIR not-built-with-its-cmake)
+# For the panel's window only.
+FetchContent_Declare(SDL3
+    GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
+    GIT_TAG f00dc919ca35b9756316e86c4777392de442f9b2) # release-3.4.20
 FetchContent_MakeAvailable(imgui nlohmann_json)
 
 # ImGui's core; each part adds the platform and renderer backends it draws with.
@@ -37,4 +41,13 @@ endif()
 add_subdirectory(shared)
 if(WIN32)
     add_subdirectory(overlay)
+endif()
+# The panel reaches the core through the shared library's transport, which exists for Windows only.
+# 32-bit builds are for the overlay in 32-bit apps, so only the 64-bit build makes the panel.
+if(WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 8)
+    add_subdirectory(panel)
+elseif(WIN32)
+    message(STATUS "The panel is not built: it comes with the 64-bit build only")
+else()
+    message(STATUS "The panel is not built: it needs a transport for this system (see shared/transport.h)")
 endif()

@@ -38,15 +38,11 @@ struct SourceStages {
     std::vector<StageOption> stages;
 };
 
-// What a client knows about the core, from its /v1 API.
-struct CoreState {
-    bool connected = false;
-    std::string app;      // Empty while no app is being read.
-    std::string profile;  // The profile ID of the app being read; empty while none is.
+// A profile's settings, as the status (for the app being read) and the profile settings carry them.
+struct ProfileSettings {
     std::string voice;
     std::string input_language;    // A code, e.g. "en".
     std::string output_language;  // A code, e.g. "pl".
-    bool paused = false;
     bool ducking = true;       // Whether the app's sound is lowered while speaking.
     float duck_volume = 0.3f;  // The app's volume while speaking, as a fraction of its own.
     float speech_rate = 1.0f;  // How fast lines are spoken, as a multiple of the voice's own pace.
@@ -55,6 +51,19 @@ struct CoreState {
     std::string subtitle_size = "medium";   // "small", "medium" or "large".
     std::string subtitle_position = "top";  // "top" or "bottom".
     std::vector<SourceStages> sources;
+};
+
+// What a client knows about the core, from its /v1 API.
+struct CoreState {
+    bool connected = false;
+    std::string app;      // The title of the profile's app; for the app being read, empty while none is.
+    std::string profile;  // The ID of the profile whose settings these are; empty while no app is being read.
+    bool running = false;  // Whether the profile's app is being read now.
+    bool paused = false;
+    ProfileSettings settings;
+    // Why the profile's settings cannot be shown, as the core says (e.g. that there is no such
+    // profile); empty when they can.
+    std::string settings_error;
     std::string subtitle;  // The subtitle to show now; empty when none.
     std::string last_line;
     std::string last_error;

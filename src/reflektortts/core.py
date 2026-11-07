@@ -349,7 +349,7 @@ class Core:
             voice = self._voice_for(settings.output_language, settings.voice)
             settings = replace(settings, voice=voice or settings.voice)
         view = self._save(profile, settings)
-        if voice_language is not None:
+        if change.voice is not None and voice_language is not None:
             # Only once the profile is saved, so a failed save changes nothing.
             remembered = self._shared.voices_by_language | {voice_language: change.voice}
             self._shared = replace(self._shared, voices_by_language=remembered)

@@ -31,7 +31,9 @@ from reflektortts.desktop.api_client import (
 from reflektortts.desktop.autostart import autostart_supported, system_autostart
 from reflektortts.desktop.catalog import DownloadItem, DownloadList, DownloadProgress, other_voices, parse_list
 from reflektortts.desktop.core_thread import CoreThread
+from reflektortts.desktop.dock import dock_of
 from reflektortts.desktop.folders import open_folder, show_file, where_files_are
+from reflektortts.desktop.panel_window import PanelWindows, find_program
 from reflektortts.desktop.profiles import ProfileItem, file_name, name_text, parse_profiles
 from reflektortts.desktop.state import load_state, save_state
 from reflektortts.desktop.status import CoreStatus, describe
@@ -66,6 +68,8 @@ class Application:
         """The voice the names were last fetched for, so a voice the core does not list is asked about once."""
         self._items: dict[str, DownloadItem] = {}
         self._core = CoreThread(args.profiles, config_dir(), args.overlay)
+        self._panels = PanelWindows(find_program(args.overlay))
+        """The settings windows, one per profile, opened from the Profiles tab."""
         self._feed = StatusFeed(
             lambda status: self._later(lambda: self._show(status)),
             lambda progress: self._later(lambda: self._download_progress(progress)),
@@ -94,6 +98,8 @@ class Application:
             voice_title=lambda voice: self._voice_titles.get(voice, voice),
             on_profiles_opened=self._profiles_opened,
             on_enable_profile=self._enable_profile,
+            on_app_settings=self._open_app_settings,
+            app_settings_missing=self._panels.missing,
             on_copy_profile=self._copy_profile,
             on_remove_profile=self._remove_profile,
             on_import_profile=self._import_profile,
@@ -244,6 +250,16 @@ class Application:
         action = "enabled" if enabled else "disabled"
         body = {"id": item.id, "enabled": enabled}
         self._profile_request("PATCH", "/profiles", body, f"{name_text(item)} could not be {action}")
+
+    def _open_app_settings(self, item: ProfileItem) -> None:
+        """Opens the profile's settings window beside this one, or brings it to the front; it talks to
+        the core itself."""
+        try:
+            self._panels.open(item.id, lambda: dock_of(self._root))
+        except OSError as error:
+            logger.exception("Cannot open the settings window for %s", item.id)
+            reason = error.strerror or str(error)
+            self._show_error(f"The settings window for {name_text(item)} could not be opened: {reason}")
 
     def _copy_profile(self, item: ProfileItem) -> None:
         """Copies a bundled profile and shows the copy, ready to edit."""
@@ -451,6 +467,7 @@ class Application:
         self._quitting = True
         self._window.hide()
         self._tray.stop()
+        self._panels.close_all()
         self._feed.stop()
         if not self._core.stopped():
             self._core.stop()

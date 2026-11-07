@@ -6,7 +6,7 @@ It comes in three parts:
 
 - **`shared/`**: a static library (`reflektortts-shared`) with what does not depend on where it is drawn or on the OS: the API client and the settings panel's drawing in Dear ImGui. The API client reaches the core through a small transport interface (`transport.h`), whose only implementation for now is WinHTTP's (`transport_winhttp.cpp`), built on Windows only.
 - **`overlay/`**: the overlay, a DLL loaded into the app's process (Windows only), and the injector that loads it. It hooks the point where the app shows each frame and draws the settings panel and the subtitles on top.
-- **`panel/`**: comes next: the settings panel in a window of its own.
+- **`panel/`**: the settings panel in a window of its own (`reflektortts-panel.exe`), for one profile whether or not its app runs, so apps without the overlay, and games before they start, can be set up too.
 
 ## The overlay
 
@@ -73,22 +73,70 @@ or `--pid <id>` instead of the process name, with the injector from the build ma
 
 If the overlay does not appear, it writes what went wrong to the debugger output; read it with [DebugView](https://learn.microsoft.com/sysinternals/downloads/debugview).
 
+## The panel
+
+### Using it
+
+The desktop app starts it for a profile, beside its own window:
+
+```bash
+reflektortts-panel --profile grand-theft-auto-2-1999 --dock-side right --dock-x 1108 --dock-y 200 --dock-height 640
+```
+
+The `--dock-*` arguments go together, all four or none, and are in physical pixels of the screen, measured on the windows' visible frames (title bar included, Windows' invisible resize borders not):
+
+- `--dock-side right|left`: which side of the desktop window it opens on;
+- `--dock-x <x>`: the edge the two windows share: the panel's left edge (its first pixel) when it opens on the right, its right edge (the first pixel past it, as in Windows' rectangles) when on the left. The panel opens on the display of its pixel next to that edge;
+- `--dock-y <y>` and `--dock-height <height>`: the top and height of both windows.
+
+The desktop app opens it on the right of its window if it fits on that display, else on the left; if it fits on neither side, over the desktop window at the display's right edge (`src/reflektortts/desktop/dock.py`). Without them, which the desktop app leaves out where Windows cannot tell where its window is, the panel opens centered on the main display, 600 high. Either way it opens as wide as the overlay's panel and a scrollbar, and cannot be made smaller than it opened, only bigger. Without `--profile <id>`, or with an argument it does not know or a wrong value, it says how to start it (on standard error and in a message box) and exits with 2.
+
+Asking the desktop app for a profile's window while it is open brings that window to the front, restored if it was minimized.
+
+The window, titled "*app* settings - ReflektorTTS", shows the same settings panel as the overlay, for that profile: the header with the connection state, the app and whether it is being read now (if it is not, a note says that changes apply when it starts), and the Input, Processing and Output boxes. It leaves out what only makes sense over a running game: pausing, stopping the line and the last line read. Changes are saved to the profile at once, and apply at once if its app is being read. A profile the core does not know shows the core's message instead (for example "There is no profile ..."); without the core, the window says "Not connected" and keeps trying, like the overlay.
+
+The window can be resized, and its contents follow the window's edge while it is dragged. It follows the display's scale (125%, 150%, ...), also when moved to another display, and so does its smallest size.
+
+### How it works
+
+[SDL3](https://www.libsdl.org) opens the window, reads input and draws, with ImGui's SDL3 and SDL_Renderer backends. SDL picks the renderer itself: Direct3D 11 where it works, else Direct3D 12, Direct3D 9, OpenGL or software; the debugger output says which (`Drawing with SDL's direct3d11 renderer`). It draws only while something happens: for a second after each input (for ImGui's hover delays), and a couple of frames when the client's state changes; otherwise it waits for the next event and uses no CPU. While the user drags the window's edge, Windows runs a loop of its own until the mouse button is released, so the frame loop is stuck in `SDL_WaitEventTimeout`; SDL then sends `SDL_EVENT_WINDOW_EXPOSED` with `data1` = 1 from a timer in that loop, on the main thread, and the panel draws a frame right in an event watch (`SDL_AddEventWatch`), never while one is being drawn already.
+
+Units: Python and `ReflektorTTS.exe` are not DPI aware, so Tk's measures are scaled down above 100% and the desktop app asks Windows for physical pixels instead (`win32_windows.py`: the window's DWM frame bounds, and its display's work area with the thread made per-monitor aware for the call). SDL makes the panel per-monitor DPI aware, so on Windows its window coordinates are physical pixels too, and the display's scale comes separately (`SDL_GetWindowDisplayScale`); the panel still divides by `SDL_GetWindowPixelDensity`, which is 1 there. SDL places a window's client area, so the panel measures its own visible frame (`DwmGetWindowAttribute`) and places the client area inside it.
+
+The API client keeps to the profile given: it loads `GET /v1/profiles/<id>/settings` once the event stream is open, applies the `profile_settings` events of that profile, and loads the settings again after each `status` event, since an app starting or stopping, or a voice installed or removed, can change whether the app is being read and its voice. Changes go to `PATCH /v1/profiles/<id>/settings`, `/sources` and `/stages`.
+
+It is built for Windows only, by the 64-bit build: other systems need a transport for the API client first (see `shared/transport.h`).
+
+| Path | Job |
+|---|---|
+| `src/main.cpp` | Reads the command line, starts the API client for the profile, runs the window |
+| `src/arguments.cpp` | Reads `--profile <id>` and the `--dock-*` arguments |
+| `src/panel_window.cpp` | Opens the SDL window and ImGui, and runs the frame loop, also while the window is resized |
+| `src/placement.cpp` | Sizes the window and places it where it opens |
+| `src/window_frame.cpp` | Measures the window's visible frame: through DWM on Windows, SDL's borders elsewhere |
+| `src/panel_ui.cpp` | The ImGui window filling the SDL window, and the window's title |
+| `src/ui_scale.cpp` | Scales ImGui to the display |
+| `src/wakeup.cpp` | Wakes the frame loop when the API client's state changes |
+| `src/startup_error.cpp` | Tells the user why the panel cannot start |
+| `src/panel.rc` | The program's icon, the desktop app's |
+
 ## The shared library
 
 | Path | Job |
 |---|---|
-| `core_state.h` | What a client knows about the core: the app being read, its settings, sources and stages, the voices and languages |
-| `api_client.cpp` | Follows the core's events and keeps reconnecting; sends commands, and changes to the profile of the app being read (`/v1/profiles/<id>/...`) |
+| `core_state.h` | What a client knows about the core: the app (the one being read, or the panel's profile's), its profile's settings, sources and stages, the voices and languages |
+| `api_client.cpp` | Follows the core's events and keeps reconnecting; sends commands, and changes to its profile (`/v1/profiles/<id>/...`). It follows the app being read, as the overlay needs, or keeps to one profile, as the panel does |
 | `transport.h` | How the API client reaches the core: a request, and the event stream |
 | `transport_winhttp.cpp` | The transport over WinHTTP, Windows only: events over a WebSocket, commands over HTTP |
-| `settings_panel.cpp` | The settings panel's contents: the header, the Input, Output and Last line boxes, and the last error |
+| `settings_panel.cpp` | The settings panel's contents: the header, the Input, Output and Last line boxes, and the last error; in the panel's window, without what only makes sense over the app (pausing, stopping the line, the last line) |
 | `processing_section.cpp` | The panel's Processing box |
 | `widgets.cpp`, `text_fit.cpp` | Small ImGui helpers, and fitting text to a width |
+| `system_font.cpp` | Loads the system's font, which has accented letters (Segoe UI on Windows) |
 | `log.cpp` | Writes to the debugger output on Windows, to standard error elsewhere |
 
 ## Building
 
-`CMakeLists.txt` here is the root project: it fetches the dependencies and builds `shared/`, and on Windows `overlay/`. Dependencies, fetched by CMake at configure time: [Dear ImGui](https://github.com/ocornut/imgui) (MIT), [nlohmann/json](https://github.com/nlohmann/json) (MIT) and, for the overlay, [MinHook](https://github.com/TsudaKageyu/minhook) (BSD-2-Clause). WinHTTP is part of Windows.
+`CMakeLists.txt` here is the root project: it fetches the dependencies and builds `shared/`, on Windows `overlay/`, and in the 64-bit Windows build `panel/`. Dependencies, fetched by CMake at configure time, each pinned to the commit of a release: [Dear ImGui](https://github.com/ocornut/imgui) (MIT), [nlohmann/json](https://github.com/nlohmann/json) (MIT), for the overlay [MinHook](https://github.com/TsudaKageyu/minhook) (BSD-2-Clause), and for the panel [SDL3](https://github.com/libsdl-org/SDL) (zlib), built as a static library with only its video and events parts. WinHTTP is part of Windows. Their licenses are in `THIRD_PARTY_NOTICES` in the repository root.
 
 ### On Windows with MSYS2
 
@@ -115,4 +163,4 @@ cmake -S native -B native/build64 -G Ninja -DCMAKE_BUILD_TYPE=Release
 cmake --build native/build64
 ```
 
-The results are in `native/build/bin/` and `native/build64/bin/`: `reflektortts-overlay.dll` and `reflektortts-inject.exe`. Both link the MinGW runtime statically, so they need no extra DLLs. To load a new build, restart the app: the DLL stays loaded until the app exits.
+The results are in `native/build/bin/` and `native/build64/bin/`: `reflektortts-overlay.dll` and `reflektortts-inject.exe`, and in the 64-bit build `reflektortts-panel.exe` too (the 32-bit build, which is only for the overlay in 32-bit apps, skips the panel and does not fetch SDL). All link the MinGW runtime statically, so they need no extra DLLs. To load a new build, restart the app: the DLL stays loaded until the app exits.

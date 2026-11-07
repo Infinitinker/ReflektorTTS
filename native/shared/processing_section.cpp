@@ -100,12 +100,12 @@ void draw_stage(const StageOption& stage) {
 
 }  // namespace
 
-void draw_processing(const CoreState& state) {
+void draw_processing(const ProfileSettings& settings) {
     begin_box("Processing");
     draw_tick_headings();
     // Source names matter only when an app has more than one source.
-    bool headings = state.sources.size() > 1;
-    for (const SourceStages& source : state.sources) {
+    bool headings = settings.sources.size() > 1;
+    for (const SourceStages& source : settings.sources) {
         // A switched-off source's stages stay visible, grayed out, and keep their own state.
         ImGui::BeginDisabled(!source.enabled);
         if (headings) {

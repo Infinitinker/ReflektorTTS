@@ -32,14 +32,39 @@ struct Request {
     std::string body;
 };
 
-std::unique_ptr<Transport> g_transport;
+// The client's threads run until the process ends, so what they use is never destroyed: a static
+// destructor would take it from under them as the process exits.
+struct Client {
+    std::unique_ptr<Transport> transport;
+    ApiClientOptions options;
 
-std::mutex g_state_mutex;
-CoreState g_state;
+    std::mutex state_mutex;
+    CoreState state;
 
-std::mutex g_requests_mutex;
-std::condition_variable g_requests_ready;
-std::deque<Request> g_requests;
+    std::mutex requests_mutex;
+    std::condition_variable requests_ready;
+    std::deque<Request> requests;
+};
+
+Client& g_client = *new Client();
+
+// Changes the state under its lock, then tells the client's user. Called on the client's threads,
+// which no exception may leave.
+template <typename Change>
+void update_state(Change change) {
+    {
+        std::lock_guard lock(g_client.state_mutex);
+        change(g_client.state);
+    }
+    if (!g_client.options.on_change) {
+        return;
+    }
+    try {
+        g_client.options.on_change();
+    } catch (const std::exception& error) {
+        log_message(std::string("Cannot tell the window that the state changed: ") + error.what());
+    }
+}
 
 std::optional<std::string> optional_text(const json& value) {
     return value.is_null() ? std::nullopt : std::optional(value.get<std::string>());
@@ -61,39 +86,113 @@ std::vector<SourceStages> read_sources(const json& sources) {
     return result;
 }
 
+// The settings that the status and a profile's settings both carry.
+ProfileSettings read_settings(const json& view) {
+    ProfileSettings settings;
+    settings.voice = view.at("voice").get<std::string>();
+    settings.input_language = view.at("input_language").get<std::string>();
+    settings.output_language = view.at("output_language").get<std::string>();
+    settings.ducking = view.at("ducking").get<bool>();
+    settings.duck_volume = view.at("duck_volume").get<float>();
+    settings.speech_rate = view.at("speech_rate").get<float>();
+    settings.new_line = view.at("new_line").get<std::string>();
+    settings.subtitles = view.at("subtitles").get<bool>();
+    settings.subtitle_size = view.at("subtitle_size").get<std::string>();
+    settings.subtitle_position = view.at("subtitle_position").get<std::string>();
+    settings.sources = read_sources(view.at("sources"));
+    return settings;
+}
+
 // Parses everything first, so a malformed status leaves the state untouched.
 void apply_status(const json& status) {
     const json& app = status.at("app");
     std::string title = app.is_null() ? "" : app.at("title").get<std::string>();
     std::string profile = app.is_null() ? "" : app.at("profile").get<std::string>();
-    std::string voice = status.at("voice").get<std::string>();
-    std::string input_language = status.at("input_language").get<std::string>();
-    std::string output_language = status.at("output_language").get<std::string>();
     bool paused = status.at("paused").get<bool>();
-    bool ducking = status.at("ducking").get<bool>();
-    float duck_volume = status.at("duck_volume").get<float>();
-    float speech_rate = status.at("speech_rate").get<float>();
-    std::string new_line = status.at("new_line").get<std::string>();
-    bool subtitles = status.at("subtitles").get<bool>();
-    std::string subtitle_size = status.at("subtitle_size").get<std::string>();
-    std::string subtitle_position = status.at("subtitle_position").get<std::string>();
-    std::vector<SourceStages> sources = read_sources(status.at("sources"));
+    ProfileSettings settings = read_settings(status);
+    update_state([&](CoreState& state) {
+        state.app = std::move(title);
+        state.profile = std::move(profile);
+        state.running = !app.is_null();
+        state.paused = paused;
+        state.settings = std::move(settings);
+    });
+}
 
-    std::lock_guard lock(g_state_mutex);
-    g_state.app = std::move(title);
-    g_state.profile = std::move(profile);
-    g_state.voice = std::move(voice);
-    g_state.input_language = std::move(input_language);
-    g_state.output_language = std::move(output_language);
-    g_state.paused = paused;
-    g_state.ducking = ducking;
-    g_state.duck_volume = duck_volume;
-    g_state.speech_rate = speech_rate;
-    g_state.new_line = std::move(new_line);
-    g_state.subtitles = subtitles;
-    g_state.subtitle_size = std::move(subtitle_size);
-    g_state.subtitle_position = std::move(subtitle_position);
-    g_state.sources = std::move(sources);
+// The same for a profile's settings (GET /v1/profiles/<id>/settings and profile_settings events).
+void apply_profile_settings(const json& view) {
+    std::string title = view.at("app").at("title").get<std::string>();
+    bool running = view.at("running").get<bool>();
+    ProfileSettings settings = read_settings(view);
+    update_state([&](CoreState& state) {
+        state.app = std::move(title);
+        state.running = running;
+        state.settings = std::move(settings);
+        state.settings_error.clear();
+    });
+}
+
+// The core's message for a request it refused, else the HTTP status.
+std::string error_message(const HttpResponse& response) {
+    json body = json::parse(response.body, nullptr, false);
+    if (body.is_object() && body.contains("error") && body["error"].is_string()) {
+        return body["error"].get<std::string>();
+    }
+    return "The request failed (HTTP " + std::to_string(response.status) + ").";
+}
+
+// Percent-encodes text for one segment of a URL path; a profile ID is a file name, so it can hold
+// any character.
+std::string encode_path_segment(const std::string& text) {
+    std::string encoded;
+    for (char c : text) {
+        auto byte = static_cast<unsigned char>(c);
+        bool unreserved = (byte >= 'a' && byte <= 'z') || (byte >= 'A' && byte <= 'Z') || (byte >= '0' && byte <= '9') ||
+                          byte == '-' || byte == '.' || byte == '_' || byte == '~';
+        if (unreserved) {
+            encoded += c;
+        } else {
+            char escape[4];
+            std::snprintf(escape, sizeof(escape), "%%%02X", byte);
+            encoded += escape;
+        }
+    }
+    return encoded;
+}
+
+// /v1/profiles/<profile>/<route>
+std::string profile_path(const std::string& profile, const char* route) {
+    return "/v1/profiles/" + encode_path_segment(profile) + "/" + route;
+}
+
+// Loads the settings of the profile the client keeps to. Returns false if the core cannot be
+// reached; a refusal, such as for an unknown profile, is kept to be shown instead of the settings.
+bool load_profile_settings() {
+    const std::string& profile = *g_client.options.profile;
+    std::optional<HttpResponse> response = g_client.transport->send("GET", profile_path(profile, "settings"), "");
+    if (!response) {
+        return false;
+    }
+    if (response->status != 200) {
+        std::string message = error_message(*response);
+        log_message("Cannot load the settings of profile " + profile + ": " + message);
+        update_state([&](CoreState& state) { state.settings_error = std::move(message); });
+        return true;
+    }
+    try {
+        apply_profile_settings(json::parse(response->body));
+    } catch (const json::exception& error) {
+        log_message(std::string("Cannot read the profile's settings: ") + error.what());
+        update_state([](CoreState& state) { state.settings_error = "The settings ReflektorTTS sent cannot be read."; });
+    }
+    return true;
+}
+
+// Whether the lines and errors of the app being read concern the client: they do unless it keeps
+// to a profile whose app is not the one being read.
+bool follows_app_being_read() {
+    std::lock_guard lock(g_client.state_mutex);
+    return !g_client.options.profile || g_client.state.running;
 }
 
 bool load_options();
@@ -107,16 +206,26 @@ void handle_event(const std::string& text) {
     try {
         std::string type = event.at("type").get<std::string>();
         if (type == "status") {
-            apply_status(event);
-        } else if (type == "line") {
-            std::lock_guard lock(g_state_mutex);
-            g_state.last_line = event.at("text").get<std::string>();
-        } else if (type == "subtitle") {
-            std::lock_guard lock(g_state_mutex);
-            g_state.subtitle = event.at("text").get<std::string>();
-        } else if (type == "error") {
-            std::lock_guard lock(g_state_mutex);
-            g_state.last_error = event.at("message").get<std::string>();
+            if (!g_client.options.profile) {
+                apply_status(event);
+            } else if (!load_profile_settings()) {
+                // An app starting or stopping, or a voice installed or removed, can change the
+                // profile's settings as shown, but the core sends them only when they are changed.
+                log_message("Cannot reach the core to load the profile's settings again");
+            }
+        } else if (type == "profile_settings") {
+            if (g_client.options.profile && event.at("profile").get<std::string>() == *g_client.options.profile) {
+                apply_profile_settings(event);
+            }
+        } else if (type == "line" && follows_app_being_read()) {
+            std::string line = event.at("text").get<std::string>();
+            update_state([&](CoreState& state) { state.last_line = std::move(line); });
+        } else if (type == "subtitle" && follows_app_being_read()) {
+            std::string subtitle = event.at("text").get<std::string>();
+            update_state([&](CoreState& state) { state.subtitle = std::move(subtitle); });
+        } else if (type == "error" && follows_app_being_read()) {
+            std::string message = event.at("message").get<std::string>();
+            update_state([&](CoreState& state) { state.last_error = std::move(message); });
         } else if (type == "download") {
             // A voice installed or removed while the app runs changes what the panel can offer.
             std::string state = event.at("state").get<std::string>();
@@ -132,7 +241,7 @@ void handle_event(const std::string& text) {
 // Fetches a JSON document. Returns nullopt if the core cannot be reached, and null JSON
 // (after logging why) if it answered with an error.
 std::optional<json> fetch(const std::string& path) {
-    std::optional<HttpResponse> response = g_transport->send("GET", path, "");
+    std::optional<HttpResponse> response = g_client.transport->send("GET", path, "");
     if (!response) {
         return std::nullopt;
     }
@@ -166,9 +275,10 @@ bool load_options() {
                 language_options.push_back({language.at("code").get<std::string>(), language.at("name").get<std::string>()});
             }
         }
-        std::lock_guard lock(g_state_mutex);
-        g_state.voices = std::move(voice_options);
-        g_state.languages = std::move(language_options);
+        update_state([&](CoreState& state) {
+            state.voices = std::move(voice_options);
+            state.languages = std::move(language_options);
+        });
     } catch (const json::exception& error) {
         log_message(std::string("Cannot read the voice or language list: ") + error.what());
     }
@@ -180,15 +290,18 @@ void listen_for_events() {
     if (!load_options()) {
         return;
     }
-    std::unique_ptr<EventStream> events = g_transport->open_event_stream("/v1/events");
+    std::unique_ptr<EventStream> events = g_client.transport->open_event_stream("/v1/events");
     if (!events) {
         return;
     }
-    {
-        std::lock_guard lock(g_state_mutex);
-        g_state.connected = true;
-        g_state.last_error.clear();
+    // Loaded once the events flow, so no change made in between is missed.
+    if (g_client.options.profile && !load_profile_settings()) {
+        return;
     }
+    update_state([](CoreState& state) {
+        state.connected = true;
+        state.last_error.clear();
+    });
     log_message("Connected to the ReflektorTTS core");
     while (std::optional<std::string> message = events->receive()) {
         handle_event(*message);
@@ -196,10 +309,11 @@ void listen_for_events() {
 }
 
 void disconnected() {
-    std::lock_guard lock(g_state_mutex);
-    g_state.connected = false;
-    // Without the core, nothing would ever hide the subtitle.
-    g_state.subtitle.clear();
+    update_state([](CoreState& state) {
+        state.connected = false;
+        // Without the core, nothing would ever hide the subtitle.
+        state.subtitle.clear();
+    });
 }
 
 // An exception leaving a thread would end the process, so each loop catches every one.
@@ -221,21 +335,18 @@ void request_loop() {
     for (;;) {
         Request request;
         {
-            std::unique_lock lock(g_requests_mutex);
-            g_requests_ready.wait(lock, [] { return !g_requests.empty(); });
-            request = std::move(g_requests.front());
-            g_requests.pop_front();
+            std::unique_lock lock(g_client.requests_mutex);
+            g_client.requests_ready.wait(lock, [] { return !g_client.requests.empty(); });
+            request = std::move(g_client.requests.front());
+            g_client.requests.pop_front();
         }
         std::string error;
         try {
-            std::optional<HttpResponse> response = g_transport->send(request.method, request.path, request.body);
+            std::optional<HttpResponse> response = g_client.transport->send(request.method, request.path, request.body);
             if (!response) {
                 error = "ReflektorTTS is not reachable.";
             } else if (response->status != 200) {
-                json body = json::parse(response->body, nullptr, false);
-                error = body.is_object() && body.contains("error") && body["error"].is_string()
-                            ? body["error"].get<std::string>()
-                            : "The request failed (HTTP " + std::to_string(response->status) + ").";
+                error = error_message(*response);
             }
         } catch (const std::exception& failure) {
             log_message(std::string("A request to the core failed: ") + failure.what());
@@ -244,53 +355,32 @@ void request_loop() {
             error = "The request failed.";
         }
         if (!error.empty()) {
-            std::lock_guard lock(g_state_mutex);
-            g_state.last_error = error;
+            update_state([&](CoreState& state) { state.last_error = std::move(error); });
         }
     }
 }
 
 void enqueue(Request request) {
     {
-        std::lock_guard lock(g_requests_mutex);
-        g_requests.push_back(std::move(request));
+        std::lock_guard lock(g_client.requests_mutex);
+        g_client.requests.push_back(std::move(request));
     }
-    g_requests_ready.notify_one();
+    g_client.requests_ready.notify_one();
 }
 
-// Percent-encodes text for one segment of a URL path; a profile ID is a file name, so it can hold
-// any character.
-std::string encode_path_segment(const std::string& text) {
-    std::string encoded;
-    for (char c : text) {
-        auto byte = static_cast<unsigned char>(c);
-        bool unreserved = (byte >= 'a' && byte <= 'z') || (byte >= 'A' && byte <= 'Z') || (byte >= '0' && byte <= '9') ||
-                          byte == '-' || byte == '.' || byte == '_' || byte == '~';
-        if (unreserved) {
-            encoded += c;
-        } else {
-            char escape[4];
-            std::snprintf(escape, sizeof(escape), "%%%02X", byte);
-            encoded += escape;
-        }
-    }
-    return encoded;
-}
-
-// Sends a change to the profile of the app being read, at /v1/profiles/<id>/<route>.
+// Sends a change to the client's profile, at /v1/profiles/<id>/<route>.
 void request_profile_change(const char* route, const json& body) {
     std::string profile;
     {
-        std::lock_guard lock(g_state_mutex);
-        profile = g_state.profile;
+        std::lock_guard lock(g_client.state_mutex);
+        profile = g_client.state.profile;
     }
     if (profile.empty()) {
         log_message("No app is being read, so the change is not sent");
-        std::lock_guard lock(g_state_mutex);
-        g_state.last_error = "No app is being read, so the change cannot be saved.";
+        update_state([](CoreState& state) { state.last_error = "No app is being read, so the change cannot be saved."; });
         return;
     }
-    enqueue({"PATCH", "/v1/profiles/" + encode_path_segment(profile) + "/" + route, body.dump()});
+    enqueue({"PATCH", profile_path(profile, route), body.dump()});
 }
 
 void request_setting(const json& setting) {
@@ -299,15 +389,19 @@ void request_setting(const json& setting) {
 
 }  // namespace
 
-void start_api_client(std::unique_ptr<Transport> transport) {
-    g_transport = std::move(transport);
+void start_api_client(std::unique_ptr<Transport> transport, ApiClientOptions options) {
+    g_client.transport = std::move(transport);
+    if (options.profile) {
+        g_client.state.profile = *options.profile;
+    }
+    g_client.options = std::move(options);
     std::thread(event_loop).detach();
     std::thread(request_loop).detach();
 }
 
 CoreState core_state() {
-    std::lock_guard lock(g_state_mutex);
-    return g_state;
+    std::lock_guard lock(g_client.state_mutex);
+    return g_client.state;
 }
 
 void request_paused(bool paused) {
@@ -368,8 +462,7 @@ void request_subtitle_position(const std::string& position) {
 }
 
 void dismiss_error() {
-    std::lock_guard lock(g_state_mutex);
-    g_state.last_error.clear();
+    update_state([](CoreState& state) { state.last_error.clear(); });
 }
 
 }  // namespace reflektortts

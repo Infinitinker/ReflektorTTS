@@ -13,7 +13,6 @@ namespace reflektortts {
 namespace {
 
 constexpr double kHintSeconds = 10.0;
-constexpr float kPanelWidth = 420.0f;
 
 void draw_hint() {
     ImGui::SetNextWindowPos(ImVec2(10.0f, 10.0f));
@@ -27,11 +26,11 @@ void draw_hint() {
 
 void draw_panel(const CoreState& state) {
     ImGui::SetNextWindowPos(ImVec2(20.0f, 20.0f), ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowSizeConstraints(ImVec2(kPanelWidth, 0.0f), ImVec2(kPanelWidth, FLT_MAX));
+    ImGui::SetNextWindowSizeConstraints(ImVec2(kSettingsPanelWidth, 0.0f), ImVec2(kSettingsPanelWidth, FLT_MAX));
     ImGui::Begin("ReflektorTTS", nullptr,
                  ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings |
                      ImGuiWindowFlags_AlwaysAutoResize);
-    draw_settings_panel(state);
+    draw_settings_panel(state, PanelPlace::Overlay);
     ImGui::TextDisabled("Ctrl+Shift+R closes this panel");
     ImGui::End();
 }

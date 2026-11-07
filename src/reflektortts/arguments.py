@@ -32,7 +32,8 @@ def parse_arguments(program: str, argv: list[str] | None = None, desktop: bool =
         type=Path,
         action="append",
         help="folder with an overlay build to load into apps (DLL and injector); repeat for 32- and 64-bit "
-        "builds (default: the ones next to ReflektorTTS.exe in a release, none otherwise)",
+        "builds, and the 64-bit one also gives the settings window run from source (default: the ones next to "
+        "ReflektorTTS.exe in a release, none otherwise)",
     )
     if desktop:
         parser.add_argument("--hidden", action="store_true", help="start with only the icon next to the clock")

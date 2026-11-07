@@ -5,8 +5,9 @@
   with one ReflektorTTS folder inside;
 - ReflektorTTS-<version>-sources.zip, the source code the release offers (see tools/sources.py).
 
-The folder holds ReflektorTTS.exe (the desktop app with its own Python, built by PyInstaller), the
-32- and 64-bit overlay builds, LICENSE.txt, COPYRIGHT.txt, THIRD_PARTY_NOTICES.txt and README.txt.
+The folder holds ReflektorTTS.exe (the desktop app with its own Python, built by PyInstaller),
+reflektortts-panel.exe next to it (the settings window, from the 64-bit native build), the 32- and
+64-bit overlay builds, LICENSE.txt, COPYRIGHT.txt, THIRD_PARTY_NOTICES.txt and README.txt.
 
 PyInstaller does not see what ReflektorTTS finds only while it runs, so it is told: plugins are
 found through entry points (the package's metadata) and imported by name, the profiles, schemas
@@ -14,7 +15,7 @@ and icon are data files, and some libraries bring native parts or data of their 
 
 A release is built from a commit, which its README.txt names, so every change must be committed.
 Needs git, Inno Setup 7 (ISCC.exe in its usual folder, or set ISCC to it), the release extra and
-both overlay builds (see native/README.md):
+both native builds, with the overlays and the settings window (see native/README.md):
     pip install -e .[release]
 Run from the repository root:
     python tools/build_release.py           (a release)
@@ -40,6 +41,8 @@ BUILD = Path("build/release")
 NAME = "ReflektorTTS"
 OVERLAY_BUILDS = {"x86": Path("native/build/bin"), "x64": Path("native/build64/bin")}
 OVERLAY_FILES = ("reflektortts-overlay.dll", "reflektortts-inject.exe")
+PANEL = Path("native/build64/bin/reflektortts-panel.exe")
+"""The settings window, which the desktop app finds next to ReflektorTTS.exe."""
 COLLECT = {
     "--copy-metadata": ["reflektortts"],
     "--collect-submodules": ["reflektortts", "num2words", "winrt"],
@@ -94,6 +97,8 @@ Starting
 
   Start an app ReflektorTTS has a profile for (the window's Profiles tab lists them): its
   text is read aloud. In apps with the overlay, Ctrl+Shift+R opens the ReflektorTTS panel.
+  The Profiles tab's App settings... button opens the same settings in a window, for any
+  app, also while it isn't running.
 
 Voices and translation
   Windows voices work right away. More voices and translation models are downloaded only
@@ -275,6 +280,12 @@ def copy_overlay(folder: Path) -> None:
             shutil.copy2(build / file, target / file)
 
 
+def copy_panel(folder: Path) -> None:
+    if not PANEL.is_file():
+        raise SystemExit(f"Build the settings window first (see native/README.md): {PANEL} is missing.")
+    shutil.copy2(PANEL, folder / PANEL.name)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Builds a portable release of ReflektorTTS.")
     parser.add_argument("--draft", action="store_true", help="a build to test, not to publish")
@@ -293,6 +304,7 @@ def main() -> None:
     folder = build_exe(release, copyright)
     remove_unused(folder)
     copy_overlay(folder)
+    copy_panel(folder)
     (folder / "THIRD_PARTY_NOTICES.txt").write_text(third_party, "utf-8", newline="\r\n")
     for name in ("LICENSE", "COPYRIGHT"):
         (folder / f"{name}.txt").write_text(Path(name).read_text("utf-8"), "utf-8", newline="\r\n")

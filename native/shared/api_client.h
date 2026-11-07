@@ -1,6 +1,8 @@
 #pragma once
 
+#include <functional>
 #include <memory>
+#include <optional>
 #include <string>
 
 #include "core_state.h"
@@ -8,9 +10,18 @@
 
 namespace reflektortts {
 
+struct ApiClientOptions {
+    // The profile whose settings the client shows and changes, whether or not its app runs (the
+    // panel's window). Without one, it follows the app being read, as the status says (the overlay).
+    std::optional<std::string> profile;
+    // Called on one of the client's threads after its state changes, e.g. to wake a window waiting
+    // for input. It must not throw.
+    std::function<void()> on_change;
+};
+
 // Connects to the core's API through transport on background threads, and keeps reconnecting.
 // Call once; the threads run for as long as the process.
-void start_api_client(std::unique_ptr<Transport> transport);
+void start_api_client(std::unique_ptr<Transport> transport, ApiClientOptions options = {});
 
 CoreState core_state();
 
@@ -18,8 +29,8 @@ CoreState core_state();
 void request_paused(bool paused);
 void request_stop_line();
 
-// Changes to the settings of the app being read, sent to its profile; while no app is being read
-// they are not sent.
+// Changes to the settings of the client's profile; while it follows the app being read and no app
+// is, they are not sent.
 void request_voice(const std::string& voice_id);
 void request_input_language(const std::string& code);
 void request_output_language(const std::string& code);

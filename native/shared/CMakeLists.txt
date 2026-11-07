@@ -1,7 +1,8 @@
 # What does not depend on where it is drawn or on the OS: the API client and the settings panel's
-# drawing, shared by the overlay and the panel to come. The transport is one file per OS.
+# drawing, shared by the overlay and the panel. The transport is one file per OS.
 add_library(reflektortts-shared STATIC
     log.cpp
+    system_font.cpp
     api_client.cpp
     widgets.cpp
     text_fit.cpp

@@ -70,7 +70,7 @@ Rather not install anything? Download `ReflektorTTS-<version>-windows-x64.zip` i
 ReflektorTTS runs next to the clock: its icon there opens the window, pauses reading, switches **Start with Windows** on or off, or quits. Closing the window leaves ReflektorTTS running.
 
 - **Status** shows what ReflektorTTS is doing: the app it reads, or that it waits for one, and an app version its profile does not support yet, with the voice, the languages and what happens to the app's sound: the app's own settings, or with no app running, the ones a new app starts with. It also pauses reading, quits ReflektorTTS, and links to the project page, bug reports and the support pages.
-- **Profiles** lists the profiles, bundled and your own, says which are used and why others are not, enables or disables them, and copies, removes or imports profile files.
+- **Profiles** lists the profiles, bundled and your own, says which are used and why others are not, enables or disables them, and copies, removes or imports profile files. **App settings…** opens the selected app's settings in a window of their own beside the ReflektorTTS window, the same as in the game, whether or not the app is running: set up an app before you start it, or one without the overlay. Clicking it again brings that window to the front.
 - **Voices** and **Translations** download voices and translation models; see [Voices](#voices) and [Translation](#translation).
 - **Settings** has the **Start with Windows** switch: ReflektorTTS then starts, hidden next to the clock, when you sign in. A first install for you alone turns it on unless you untick it; Task Manager's Startup apps can turn it off too. It also opens the settings, logs and profiles folders.
 
@@ -85,6 +85,8 @@ In an app with the overlay, press **Ctrl+Shift+R** to open the ReflektorTTS pane
 - **Output**: your language, the voice, the reading speed, what a new line does while another is spoken, the app's sound, pause, and subtitles.
 
 It also shows the last line read. Everything chosen there is saved for each app, in `%LOCALAPPDATA%\ReflektorTTS\settings\profiles\`, one file per app; deleting an app's file resets it.
+
+The same settings, without pause and the last line read, open in a window of their own from **App settings…** in the Profiles tab, for any app, running or not.
 
 ## Voices
 

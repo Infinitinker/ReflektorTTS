@@ -3,11 +3,11 @@
 #include <imgui.h>
 #include <imgui_impl_win32.h>
 
-#include <filesystem>
 #include <string>
 
 #include "input.h"
 #include "log.h"
+#include "system_font.h"
 #include "ui.h"
 
 namespace reflektortts {
@@ -18,20 +18,6 @@ constexpr float kFontSize = 16.0f;
 bool g_claimed = false;
 HWND g_window = nullptr;
 
-// ImGui's built-in font covers basic Latin only; Segoe UI also has Polish and other
-// accented letters, and ImGui loads glyphs from it on demand.
-void load_system_font() {
-    wchar_t windows_dir[MAX_PATH];
-    if (GetWindowsDirectoryW(windows_dir, MAX_PATH) == 0) {
-        return;
-    }
-    std::filesystem::path font = std::filesystem::path(windows_dir) / L"Fonts" / L"segoeui.ttf";
-    if (!std::filesystem::exists(font) ||
-        ImGui::GetIO().Fonts->AddFontFromFileTTF(font.string().c_str(), kFontSize) == nullptr) {
-        log_message("Segoe UI not found; accented letters may not display");
-    }
-}
-
 }  // namespace
 
 bool claim_overlay(const char* api_name, HWND window) {
@@ -41,7 +27,7 @@ bool claim_overlay(const char* api_name, HWND window) {
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
     io.IniFilename = nullptr;
-    load_system_font();
+    load_system_font(kFontSize);
     if (!ImGui_ImplWin32_Init(window)) {
         log_message("ImGui Win32 backend failed to initialize");
         ImGui::DestroyContext();
