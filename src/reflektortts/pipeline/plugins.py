@@ -7,6 +7,8 @@ from dataclasses import dataclass
 from importlib import resources
 from typing import Any
 
+import jsonschema
+
 from reflektortts.apps.detector import RunningApp
 from reflektortts.entry_points import load_plugins
 from reflektortts.glossary import Glossaries
@@ -75,7 +77,17 @@ def load_schema(package: str, file_name: str) -> Mapping[str, Any]:
 
 
 def _load[Plugin: (SourcePlugin, StagePlugin)](group: str, kind: type[Plugin]) -> dict[str, Plugin]:
-    return {plugin.type: plugin for plugin in load_plugins(group, kind)}
+    """The group's plugins by type; one whose settings schema is not a valid JSON Schema is logged
+    and skipped, so profiles that use it are refused instead of stopping the core."""
+    plugins = {}
+    for plugin in load_plugins(group, kind):
+        try:
+            jsonschema.Draft202012Validator.check_schema(plugin.settings_schema)
+        except jsonschema.SchemaError as error:
+            logger.error("The plugin %s has an invalid settings schema (%s); skipping it", plugin.type, error.message)
+            continue
+        plugins[plugin.type] = plugin
+    return plugins
 
 
 def source_plugins() -> dict[str, SourcePlugin]:

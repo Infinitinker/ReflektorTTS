@@ -113,3 +113,13 @@ def test_an_event_the_window_cannot_read_is_skipped() -> None:
         feed._handle(message)
 
     assert previews == [PreviewState("piper:a", playing=True)]
+
+
+def test_commands_go_straight_to_the_core_past_a_proxy(
+    server: ApiServer, core: FakeCore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("HTTP_PROXY", "http://proxy.invalid:8080")
+
+    post("/pause", url(server))
+
+    assert core.current.paused

@@ -76,3 +76,20 @@ def test_unknown_or_wrongly_typed_fields_are_ignored(tmp_path: Path) -> None:
     assert load_profile_settings(tmp_path, GTA2) == ProfileSettings(
         disabled_sources=("ok",), stage_switches={"a": {Output.SPEECH: False}}
     )
+
+
+def test_a_file_not_saved_as_utf8_is_reported_and_defaults_are_used(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    (tmp_path / "settings").mkdir()
+    (tmp_path / "settings" / "shared.json").write_text('{"voices_by_language": {"pl": "Paweł"}}', "cp1250")
+
+    assert load_shared(tmp_path) == SharedSettings()
+    assert "Cannot read settings" in caplog.text
+
+
+def test_a_file_saved_with_a_byte_order_mark_loads(tmp_path: Path) -> None:
+    (tmp_path / "settings").mkdir()
+    (tmp_path / "settings" / "shared.json").write_text('{"voices_by_language": {"pl": "windows:Paweł"}}', "utf-8-sig")
+
+    assert load_shared(tmp_path).voices_by_language == {"pl": "windows:Paweł"}

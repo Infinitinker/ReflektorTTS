@@ -24,8 +24,17 @@ class Rule:
 
 
 def rule_from_settings(rule: Mapping[str, str]) -> Rule:
+    """Raises ValueError, in user terms, for a replacement its pattern cannot fill in."""
     if "pattern" in rule:
-        return Rule(re.compile(rule["pattern"]), rule["replace"], literal=False)
+        pattern = re.compile(rule["pattern"])
+        try:
+            pattern.sub(rule["replace"], "")
+        except (re.error, IndexError) as error:
+            raise ValueError(
+                f'the replacement "{rule["replace"]}" does not fit the pattern "{rule["pattern"]}": {error}. '
+                "Use \\1, \\2... only for groups the pattern has, and write each backslash twice in JSON"
+            ) from error
+        return Rule(pattern, rule["replace"], literal=False)
     return Rule(re.compile(re.escape(rule["find"])), rule["replace"], literal=True)
 
 

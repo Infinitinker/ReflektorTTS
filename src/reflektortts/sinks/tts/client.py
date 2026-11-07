@@ -8,7 +8,8 @@ from multiprocessing.connection import Connection
 from types import TracebackType
 
 from reflektortts.logs import file_log_dir
-from reflektortts.tts.service import NewLine, Say, Speaking, Stop, run
+from reflektortts.tts.process import run
+from reflektortts.tts.service import NewLine, Say, Speaking, Stop
 
 logger = logging.getLogger(__name__)
 

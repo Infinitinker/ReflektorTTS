@@ -22,6 +22,11 @@ RETRY_SECONDS = 1.0
 TIMEOUT_SECONDS = 5.0
 
 
+LOCAL = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+"""Opens the core's address directly: a proxy set for the internet would not reach it, and requests
+must not leave the computer."""
+
+
 class ApiClientError(Exception):
     """The core did not take a command; status is its HTTP status, or None if it did not answer."""
 
@@ -49,7 +54,7 @@ def request_json(
         f"{base_url}{path}", data=data, method=method, headers={"Content-Type": "application/json"}
     )
     try:
-        with urllib.request.urlopen(request, timeout=timeout) as response:
+        with LOCAL.open(request, timeout=timeout) as response:
             text = response.read()
     except urllib.error.HTTPError as error:
         try:

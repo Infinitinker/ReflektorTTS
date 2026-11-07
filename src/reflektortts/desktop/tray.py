@@ -10,6 +10,8 @@ from reflektortts.desktop.icon import icon_image
 
 TRAY_ICON_SIZE = 32
 """The largest size a tray shows; the icon's simple drawing, which stays clear when scaled down."""
+MAX_TITLE = 127
+"""The longest tooltip Windows takes (128 characters with the ending zero); a longer one fails."""
 
 
 class Tray:
@@ -41,7 +43,8 @@ class Tray:
     def show_status(self, text: str, paused: bool, connected: bool) -> None:
         self._paused = paused
         self._connected = connected
-        self._icon.title = f"ReflektorTTS: {text}"
+        title = f"ReflektorTTS: {text}"
+        self._icon.title = title if len(title) <= MAX_TITLE else title[: MAX_TITLE - 1] + "…"
         self._icon.update_menu()
 
     def notify(self, title: str, message: str) -> None:

@@ -90,7 +90,12 @@ class Application:
 
     def _run_tasks(self) -> None:
         while not self._quitting and not self._tasks.empty():
-            self._tasks.get()()
+            task = self._tasks.get()
+            try:
+                task()
+            except Exception:
+                # Tasks run from this timer, which must keep running: the tray's Quit comes through it.
+                logger.exception("A window task failed")
         if self._quitting:
             return
         if not self._stopped and self._core.stopped():
@@ -185,7 +190,7 @@ class Application:
         if not path:
             return
         try:
-            data = json.loads(Path(path).read_text("utf-8"))
+            data = json.loads(Path(path).read_text("utf-8-sig"))
         except (OSError, ValueError) as error:
             self._show_error(f"{Path(path).name} cannot be read as a profile: {error}")
             return

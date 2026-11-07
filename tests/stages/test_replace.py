@@ -58,3 +58,9 @@ def test_invalid_pattern_is_rejected_when_the_profile_loads(tmp_path: Path) -> N
 def test_a_rule_cannot_have_both_find_and_pattern(tmp_path: Path) -> None:
     with pytest.raises(ProfileError, match=r"rules\[0\]"):
         load_profile(write_profile(tmp_path, {"find": "#", "pattern": "#", "replace": ""}), SCHEMAS)
+
+
+@pytest.mark.parametrize("replacement", [r"\2", r"\q", r"\g<name>"])
+def test_a_replacement_that_does_not_fit_its_pattern_stops_the_stage_from_starting(replacement: str) -> None:
+    with pytest.raises(ValueError, match="does not fit the pattern"):
+        PLUGIN.create({"rules": [{"pattern": "#([^#]*)#", "replace": replacement}]}, {})

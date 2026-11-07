@@ -56,6 +56,8 @@ def _migrate(data: dict[str, Any], name: str) -> dict[str, Any]:
     version = data.get("version")
     if not isinstance(version, int) or isinstance(version, bool):
         raise ProfileError(f'{name}: "version" must be a whole number.')
+    if version < 1:
+        raise ProfileError(f'{name}: "version" must be from 1 to {CURRENT_VERSION}.')
     if version > CURRENT_VERSION:
         raise ProfileError(f"{name}: made for a newer ReflektorTTS (profile version {version}). Update ReflektorTTS.")
     while version < CURRENT_VERSION:
@@ -110,11 +112,17 @@ def load_profile(path: Path, schemas: PluginSchemas | None = None) -> Profile:
     """schemas defaults to the installed plugins' schemas."""
     name = path.name
     try:
-        data = json.loads(path.read_text("utf-8"))
+        # utf-8-sig also reads files that editors saved with a byte order mark.
+        data = json.loads(path.read_text("utf-8-sig"))
     except OSError as error:
         raise ProfileError(f"{name}: cannot be read ({error.strerror}).") from error
     except json.JSONDecodeError as error:
-        raise ProfileError(f"{name}: not valid JSON (line {error.lineno}, column {error.colno}).") from error
+        where = f"line {error.lineno}, column {error.colno}"
+        raise ProfileError(f"{name}: not valid JSON: {error.msg} ({where}).") from error
+    except UnicodeDecodeError as error:
+        raise ProfileError(f"{name}: not saved as UTF-8. Save it as UTF-8 in your editor, then reload.") from error
+    except RecursionError as error:
+        raise ProfileError(f"{name}: nested too deeply to read.") from error
     return parse_profile(data, path.stem, schemas)
 
 

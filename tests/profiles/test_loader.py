@@ -67,8 +67,8 @@ def test_invalid_profile_names_file_and_problem(tmp_path: Path, change: dict[str
     assert message in str(raised.value)
 
 
-def test_invalid_json_reports_the_position(tmp_path: Path) -> None:
-    with pytest.raises(ProfileError, match=r"broken\.json: not valid JSON \(line 1, column 2\)"):
+def test_invalid_json_says_what_is_wrong_and_where(tmp_path: Path) -> None:
+    with pytest.raises(ProfileError, match=r"broken\.json: not valid JSON: Expecting property .*\(line 1, column 2\)"):
         load_profile(write(tmp_path, "broken.json", "{oops"))
 
 
@@ -274,3 +274,29 @@ def test_a_glossary_entry_that_cannot_be_used_is_refused(tmp_path: Path, entries
         load_profile(write(tmp_path, "app.json", VALID | {"glossary": {"en": entries}}))
 
     assert message in str(raised.value)
+
+
+def test_a_profile_saved_with_a_byte_order_mark_loads(tmp_path: Path) -> None:
+    path = tmp_path / "test-app-1999.json"
+    path.write_text(json.dumps(VALID), encoding="utf-8-sig")
+
+    assert load_profile(path).app == App(title="Test App", year=1999)
+
+
+def test_a_profile_not_saved_as_utf8_is_refused_in_user_terms(tmp_path: Path) -> None:
+    path = tmp_path / "app.json"
+    path.write_text(json.dumps(VALID | {"app": {"title": "Paweł", "year": 1999}}, ensure_ascii=False), "cp1250")
+
+    with pytest.raises(ProfileError, match="app.json: not saved as UTF-8"):
+        load_profile(path)
+
+
+def test_a_profile_nested_too_deeply_is_refused(tmp_path: Path) -> None:
+    with pytest.raises(ProfileError, match="app.json: nested too deeply"):
+        load_profile(write(tmp_path, "app.json", "[" * 100_000 + "]" * 100_000))
+
+
+@pytest.mark.parametrize("version", [0, -1])
+def test_a_version_below_1_is_refused(tmp_path: Path, version: int) -> None:
+    with pytest.raises(ProfileError, match='app.json: "version" must be from 1 to 1'):
+        load_profile(write(tmp_path, "app.json", VALID | {"version": version}))

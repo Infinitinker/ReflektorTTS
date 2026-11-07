@@ -67,6 +67,7 @@ class Ducker:
         self._changed = threading.Condition()
         self._app: ProcessInfo | None = None
         self._restore_leftover = False
+        self._put_back_left = False
         self._speaking = False
         self._silent_since = -math.inf
         self._stretch = 0
@@ -76,11 +77,14 @@ class Ducker:
         self._thread = threading.Thread(target=self._run, name="ducker", daemon=True)
         self._thread.start()
 
-    def watch(self, app: ProcessInfo | None) -> None:
-        """Sets the app to lower; None when no app is running."""
+    def watch(self, app: ProcessInfo | None, still_running: bool = False) -> None:
+        """Sets the app to lower; None when no app is read. still_running tells, with None, that the
+        app left still runs (reading stopped, or its profile was disabled), so a lowered app gets its
+        volume back now; one that exited keeps its record, for when it starts again."""
         with self._changed:
             self._app = app
             self._restore_leftover = app is not None
+            self._put_back_left = still_running
             self._changed.notify()
 
     def speaking(self, active: bool) -> None:
@@ -134,7 +138,7 @@ class Ducker:
         """The next volume change, or None and how long to wait for one. Called with the lock held."""
         app = self._app
         if lowered is not None and (app is None or app.pid != lowered.app.pid):
-            return self._forget, None
+            return (self._put_back if self._put_back_left else self._forget), None
         if app is None:
             return None, None
         if lowered is None and self._restore_leftover:
@@ -182,6 +186,12 @@ class Ducker:
             return lowered
         self._records.remove(lowered.app.name)
         return None
+
+    def _put_back(self, lowered: _Lowered | None) -> None:
+        assert lowered is not None
+        self._set(lowered, lowered.original)
+        self._records.remove(lowered.app.name)
+        logger.info("Put the volume of %s back, as it is no longer read", lowered.app.name)
 
     def _forget(self, lowered: _Lowered | None) -> None:
         assert lowered is not None

@@ -1,9 +1,12 @@
 from collections.abc import Mapping
 from typing import Any
 
+import pytest
+
 from reflektortts.glossary import Glossaries
 from reflektortts.languages import Languages
-from reflektortts.pipeline.plugins import StagePlugin, inactive_reason
+from reflektortts.pipeline import plugins
+from reflektortts.pipeline.plugins import StagePlugin, inactive_reason, stage_plugins
 from reflektortts.pipeline.protocols import Stage
 
 
@@ -25,3 +28,14 @@ def test_a_stage_that_works_with_the_languages_is_active() -> None:
     plugin = StagePlugin("fine", {}, create)
 
     assert inactive_reason(plugin, Languages("en", "pl")) is None
+
+
+def test_a_plugin_with_an_invalid_settings_schema_is_skipped(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    fine = StagePlugin("fine", {"type": "object"}, create)
+    broken = StagePlugin("broken", {"type": "text"}, create)
+    monkeypatch.setattr(plugins, "load_plugins", lambda group, kind: [fine, broken])
+
+    assert stage_plugins() == {"fine": fine}
+    assert "The plugin broken has an invalid settings schema" in caplog.text

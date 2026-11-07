@@ -98,8 +98,8 @@ def _read(path: Path) -> dict[str, Any]:
     if not path.is_file():
         return {}
     try:
-        data = json.loads(path.read_text("utf-8"))
-    except (OSError, json.JSONDecodeError) as error:
+        data = json.loads(path.read_text("utf-8-sig"))
+    except (OSError, ValueError) as error:
         logger.error("Cannot read settings from %s (%s); using defaults.", path, error)
         return {}
     if not isinstance(data, dict):

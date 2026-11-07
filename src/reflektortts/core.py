@@ -494,8 +494,9 @@ class Core:
             else:
                 logger.error("%s is running, but none of its sources could start.", app.profile.app.title)
             read_app(app, routes, sinks, stop, self._report, self._watching(app), languages=self.languages)
-            logger.info("%s closed", app.profile.app.title)
-            self._ducker.watch(None)
+            still_running = self._is_running(app.process.pid)
+            logger.info("Stopped reading %s" if still_running else "%s closed", app.profile.app.title)
+            self._ducker.watch(None, still_running=still_running)
             self._leave()
 
     def _wait_while_unsupported(self, app: RunningApp, stop: threading.Event) -> None:

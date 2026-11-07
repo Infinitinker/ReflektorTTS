@@ -40,7 +40,7 @@ class DuckRecords:
             return {}
         try:
             data = json.loads(self._path.read_text("utf-8"))
-        except (OSError, json.JSONDecodeError) as error:
+        except (OSError, ValueError) as error:
             logger.error("Cannot read %s (%s); app volumes it held are lost.", self._path, error)
             return {}
         if not isinstance(data, dict):

@@ -7,16 +7,12 @@ from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from enum import StrEnum
 from multiprocessing.connection import Connection
-from pathlib import Path
 from typing import Protocol
 
-from reflektortts.logs import log_to_file
 from reflektortts.tts.engine import MAX_RATE, AudioChunk, TtsEngine, load_engine_plugin, parse_voice
 from reflektortts.tts.playback import without_trailing_silence
 
 logger = logging.getLogger(__name__)
-
-LOG_FILE = "reflektortts-tts.log"
 
 MAX_WAITING = 3
 """Lines that may wait their turn; past that the oldest waiting is dropped, so the voice never
@@ -196,24 +192,18 @@ def report_to(events: Connection) -> Callable[[bool], None]:
     return report
 
 
-def run(connection: Connection, events: Connection, voice: str, log_level: int, log_dir: Path | None) -> None:
-    """Entry point of the TTS process. Commands arrive on connection; Speaking messages go to events.
-
-    voice is "engine:name", e.g. "windows:Microsoft Adam". Logs go to a file in log_dir when the
-    core logs to files (it has no console), otherwise to the console.
-    """
-    if log_dir is None:
-        logging.basicConfig(level=log_level, format="%(asctime)s %(processName)s %(name)s: %(message)s")
-    else:
-        log_to_file(log_dir / LOG_FILE)
-    from reflektortts.tts.playback import Player
-
-    parsed = parse_voice(voice)
+def run(connection: Connection, events: Connection, voice: str) -> None:
+    """The TTS service, run by reflektortts.tts.process. Commands arrive on connection; Speaking
+    messages go to events. voice is "engine:name", e.g. "windows:Microsoft Adam"."""
     try:
+        from reflektortts.tts.playback import Player
+
+        parsed = parse_voice(voice)
         engine = load_engine_plugin(parsed.engine).create(parsed.name)
+        player = Player()
     except Exception as error:
         # Exiting closes the connection, so the core's next line fails with TtsServiceError.
         logger.error("Cannot use the voice %s: %s", voice, error)
         return
     logger.info("Voice %s loaded", voice)
-    serve(connection, Speaker(engine, Player(), report_to(events)))
+    serve(connection, Speaker(engine, player, report_to(events)))

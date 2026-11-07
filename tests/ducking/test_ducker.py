@@ -188,3 +188,19 @@ def test_a_failing_volume_is_logged_and_does_not_stop_the_ducker(
     ducker.speaking(True)
 
     wait_until(lambda: volume.level == pytest.approx(0.24))
+
+
+def test_an_app_no_longer_read_but_still_running_gets_its_volume_back(
+    make_ducker: Callable[..., Ducker], records: DuckRecords
+) -> None:
+    volume = FakeVolume(0.8)
+    ducker = make_ducker(FakeMixer(volume), Timing(fade_down=0.0, hold=60.0, fade_up=0.0, step=0.0))
+    ducker.watch(GTA2)
+    ducker.speaking(True)
+    wait_until(lambda: volume.level == pytest.approx(0.24))
+
+    ducker.watch(None, still_running=True)
+    wait_until(lambda: volume.level == pytest.approx(0.8))
+    ducker.close()
+
+    assert records.get("gta2.exe") is None
