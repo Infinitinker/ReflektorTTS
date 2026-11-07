@@ -14,7 +14,7 @@ and icon are data files, and some libraries bring native parts or data of their 
 
 A release is built from a commit, which its README.txt names, so every change must be committed.
 Needs git, Inno Setup 7 (ISCC.exe in its usual folder, or set ISCC to it), the release extra and
-both overlay builds (see overlay/README.md):
+both overlay builds (see native/README.md):
     pip install -e .[release]
 Run from the repository root:
     python tools/build_release.py           (a release)
@@ -38,7 +38,7 @@ ENTRY = Path("src/reflektortts/desktop/__main__.py")
 ICON = Path("src/reflektortts/desktop/icon.ico")
 BUILD = Path("build/release")
 NAME = "ReflektorTTS"
-OVERLAY_BUILDS = {"x86": Path("overlay/build/bin"), "x64": Path("overlay/build64/bin")}
+OVERLAY_BUILDS = {"x86": Path("native/build/bin"), "x64": Path("native/build64/bin")}
 OVERLAY_FILES = ("reflektortts-overlay.dll", "reflektortts-inject.exe")
 COLLECT = {
     "--copy-metadata": ["reflektortts"],
@@ -268,7 +268,7 @@ def copy_overlay(folder: Path) -> None:
     for name, build in OVERLAY_BUILDS.items():
         missing = [file for file in OVERLAY_FILES if not (build / file).is_file()]
         if missing:
-            raise SystemExit(f"Build the overlay first (see overlay/README.md): {build} has no {', '.join(missing)}.")
+            raise SystemExit(f"Build the overlay first (see native/README.md): {build} has no {', '.join(missing)}.")
         target = folder / "overlay" / name
         target.mkdir(parents=True, exist_ok=True)
         for file in OVERLAY_FILES:

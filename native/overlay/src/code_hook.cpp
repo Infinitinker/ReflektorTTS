@@ -10,6 +10,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "describe_address.h"
 #include "log.h"
 
 namespace reflektortts {

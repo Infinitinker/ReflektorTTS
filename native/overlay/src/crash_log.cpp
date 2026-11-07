@@ -6,6 +6,7 @@
 #include <cstdio>
 #include <string>
 
+#include "describe_address.h"
 #include "log.h"
 
 namespace reflektortts {

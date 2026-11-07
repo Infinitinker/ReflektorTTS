@@ -21,16 +21,19 @@ from reflektortts.events import (
     ErrorEvent,
     Output,
     PreviewEvent,
+    ProfileSettingsView,
+    SourceStages,
     StageState,
     Status,
     SubtitleEvent,
     TextEvent,
 )
-from reflektortts.languages import LANGUAGES, LanguageError, check_language
+from reflektortts.languages import LANGUAGES, LanguageError
 from reflektortts.profiles.catalog import ProfileChangeError, ProfileExistsError, ProfileView
 from reflektortts.profiles.loader import ProfileError
+from reflektortts.settings import SettingsChange
 from reflektortts.sinks.subtitles import POSITIONS, SIZES
-from reflektortts.tts.engine import MAX_RATE, MIN_RATE, VoiceError, VoiceInfo, find_voice
+from reflektortts.tts.engine import MAX_RATE, MIN_RATE, VoiceError, VoiceInfo
 from reflektortts.tts.service import NewLine
 
 logger = logging.getLogger(__name__)
@@ -56,47 +59,37 @@ class UnknownProfileError(Exception):
     """There is no profile with that ID."""
 
 
-class NoAppError(Exception):
-    """A source or stage cannot be switched now: no app is being read."""
+class BrokenProfileError(Exception):
+    """A profile's file cannot be read, so it has no settings to show or change."""
 
 
 class CoreControl(Protocol):
-    """What the API needs from the core."""
+    """What the API needs from the core. Every method on a profile's settings raises
+    UnknownProfileError if there is no such profile, and BrokenProfileError if its file cannot be
+    read."""
 
     def status(self) -> Status: ...
 
     def voices(self) -> list[VoiceInfo]: ...
 
-    def set_voice(self, voice: str) -> Status:
-        """Raises VoiceError if the voice is not available."""
-
     def preview_voice(self, voice: str) -> None:
         """Raises VoiceError if the voice is not available or speaks no supported language."""
 
-    def set_input_language(self, language: str) -> Status:
-        """Raises LanguageError if the language is not supported."""
+    def profile_settings(self, profile_id: str) -> ProfileSettingsView: ...
 
-    def set_output_language(self, language: str) -> Status:
-        """Raises LanguageError if the language is not supported."""
+    def change_profile_settings(self, profile_id: str, change: SettingsChange) -> ProfileSettingsView:
+        """Raises LanguageError for a language that is not supported, VoiceError for a voice that is
+        not available; then nothing is changed."""
 
-    def set_ducking(self, enabled: bool, volume: float) -> Status:
-        """volume is the app's volume while speaking, from 0.0 to 1.0 of its own."""
+    def set_source_enabled(self, profile_id: str, name: str, enabled: bool) -> ProfileSettingsView:
+        """Raises SourceError if the profile has no such source."""
 
-    def set_speech(self, rate: float, new_line: NewLine) -> Status:
-        """rate is from MIN_RATE to MAX_RATE."""
-
-    def set_subtitles(self, enabled: bool, size: str, position: str) -> Status:
-        """size is one of SIZES, position one of POSITIONS."""
+    def set_stage_enabled(self, profile_id: str, key: str, output: Output, enabled: bool) -> ProfileSettingsView:
+        """Raises StageError if the profile has no such stage."""
 
     def set_paused(self, paused: bool) -> Status: ...
 
     def stop_line(self) -> Status: ...
-
-    def set_source_enabled(self, name: str, enabled: bool) -> Status:
-        """Raises NoAppError if no app is read, SourceError if it has no such source."""
-
-    def set_stage_enabled(self, key: str, output: Output, enabled: bool) -> Status:
-        """Raises NoAppError if no app is read, StageError if it has no such stage."""
 
     def profiles(self) -> list[ProfileView]: ...
 
@@ -137,12 +130,24 @@ def stage_json(stage: StageState) -> dict[str, Any]:
     }
 
 
+def sources_json(sources: tuple[SourceStages, ...]) -> list[dict[str, Any]]:
+    return [
+        {
+            "name": source.source,
+            "type": source.type,
+            "enabled": source.enabled,
+            "stages": [stage_json(stage) for stage in source.stages],
+        }
+        for source in sources
+    ]
+
+
 def status_json(status: Status) -> dict[str, Any]:
-    app = None if status.app is None else {"title": status.app.title, "pid": status.app.pid}
+    app = status.app
     unsupported = status.unsupported
     return {
         "type": "status",
-        "app": app,
+        "app": None if app is None else {"title": app.title, "pid": app.pid, "profile": app.profile},
         "unsupported": None if unsupported is None else {"title": unsupported.title, "sha256": unsupported.sha256},
         "voice": status.voice,
         "input_language": status.input_language,
@@ -155,15 +160,27 @@ def status_json(status: Status) -> dict[str, Any]:
         "subtitles": status.subtitles,
         "subtitle_size": status.subtitle_size,
         "subtitle_position": status.subtitle_position,
-        "sources": [
-            {
-                "name": source.source,
-                "type": source.type,
-                "enabled": source.enabled,
-                "stages": [stage_json(stage) for stage in source.stages],
-            }
-            for source in status.sources
-        ],
+        "sources": sources_json(status.sources),
+    }
+
+
+def profile_settings_json(view: ProfileSettingsView) -> dict[str, Any]:
+    return {
+        "type": "profile_settings",
+        "profile": view.profile,
+        "app": {"title": view.app_title},
+        "running": view.running,
+        "voice": view.voice,
+        "input_language": view.input_language,
+        "output_language": view.output_language,
+        "ducking": view.ducking,
+        "duck_volume": view.duck_volume,
+        "speech_rate": view.speech_rate,
+        "new_line": view.new_line,
+        "subtitles": view.subtitles,
+        "subtitle_size": view.subtitle_size,
+        "subtitle_position": view.subtitle_position,
+        "sources": sources_json(view.sources),
     }
 
 
@@ -185,6 +202,8 @@ def event_json(event: Event) -> dict[str, Any]:
             "total": event.total,
             "message": event.message,
         }
+    if isinstance(event, ProfileSettingsView):
+        return profile_settings_json(event)
     return status_json(event)
 
 
@@ -231,13 +250,11 @@ def listed_json(listed: Listed) -> dict[str, Any]:
 
 CORE = web.AppKey("core", CoreControl)
 SOCKETS = web.AppKey("sockets", weakref.WeakSet[web.WebSocketResponse])
-# Keeps each PATCH /v1/settings atomic: it fills the fields not sent from the status it reads first.
-SETTINGS_LOCK = web.AppKey("settings_lock", threading.Lock)
 
 
 def error_response(message: str, status: int = 400) -> web.Response:
     """400 for a request that is wrong as sent; 404 for a resource in the path that does not exist;
-    409 for one that cannot be done as things are now, e.g. with no app being read."""
+    409 for one that cannot be done as things are now, e.g. with a broken profile file."""
     return web.json_response({"error": message}, status=status)
 
 
@@ -260,9 +277,11 @@ SETTINGS_HELP = (
     '"cut_off" or "speed_up"), "subtitle_size" ("small", "medium" or "large") and "subtitle_position" ("top" or '
     '"bottom"), e.g. {"output_language": "pl"}.'
 )
-SOURCES_HELP = 'Send {"name": "<source name from the status>", "enabled": true or false}.'
+SOURCES_HELP = 'Send {"name": "<source name from the profile\'s settings>", "enabled": true or false}.'
 OUTPUTS = tuple(output.value for output in Output)
-STAGES_HELP = 'Send {"key": "<stage key from the status>", "output": "text" or "speech", "enabled": true or false}.'
+STAGES_HELP = (
+    'Send {"key": "<stage key from the profile\'s settings>", "output": "text" or "speech", "enabled": true or false}.'
+)
 PROFILES_HELP = 'Send {"id": "<id from GET /v1/profiles>", "enabled": true or false}.'
 IMPORT_HELP = 'Send {"id": "<the file name without .json>", "profile": {<the profile>}, "replace": true or false}.'
 
@@ -305,80 +324,66 @@ SETTING_CHECKS: dict[str, Callable[[object], bool]] = {
 }
 
 
-async def patch_settings(request: web.Request) -> web.Response:
-    """Applies ducking, speech and subtitles, the input language, then the output language, then the voice.
+def settings_change(values: dict[str, Any]) -> SettingsChange:
+    """A change from settings checked with SETTING_CHECKS."""
+    fields = dict(values)
+    for field in ("duck_volume", "speech_rate"):
+        if field in fields:
+            fields[field] = float(fields[field])
+    if "new_line" in fields:
+        fields["new_line"] = NewLine(fields["new_line"])
+    return SettingsChange(**fields)
 
-    Each is optional. Changing the output language may also switch the voice, so an explicit voice comes last.
-    Everything is checked before anything is applied, so a request is applied in full or not at all.
-    """
+
+async def profile_settings_response(
+    request: web.Request, act: Callable[[CoreControl, str], ProfileSettingsView]
+) -> web.Response:
+    """Runs act on the core with the profile ID in the path, off the event loop (the core may wait
+    for a speech process while it holds its lock), and answers with the profile's settings."""
+    try:
+        view = await asyncio.to_thread(act, request.app[CORE], request.match_info["id"])
+    except UnknownProfileError as error:
+        return error_response(str(error), 404)
+    except BrokenProfileError as error:
+        return error_response(str(error), 409)
+    except (VoiceError, LanguageError, SourceError, StageError) as error:
+        return error_response(str(error))
+    return web.json_response(profile_settings_json(view))
+
+
+async def get_profile_settings(request: web.Request) -> web.Response:
+    return await profile_settings_response(request, lambda core, profile_id: core.profile_settings(profile_id))
+
+
+async def patch_profile_settings(request: web.Request) -> web.Response:
+    """Each setting is optional; the core checks the languages and the voice, and applies a request
+    in full or not at all."""
     body = await read_object(request)
     if body is None:
         return error_response("The request body must be a JSON object.")
     unknown = [field for field in body if field not in SETTING_CHECKS]
     if unknown:
         return error_response(f'There is no setting "{unknown[0]}". {SETTINGS_HELP}')
-    values = dict(body)
-    wrong = [field for field, value in values.items() if not SETTING_CHECKS[field](value)]
-    if not values or wrong:
+    wrong = [field for field, value in body.items() if not SETTING_CHECKS[field](value)]
+    if not body or wrong:
         return error_response(f'"{wrong[0]}" cannot be set to that. {SETTINGS_HELP}' if wrong else SETTINGS_HELP)
-    core = request.app[CORE]
-    try:
-        for field in ("input_language", "output_language"):
-            if field in values:
-                check_language(values[field])
-        if "voice" in values:
-            find_voice(values["voice"], await asyncio.to_thread(core.voices))
-    except (VoiceError, LanguageError) as error:
-        return error_response(str(error))
-    try:
-        status = await asyncio.to_thread(apply_settings, core, values, request.app[SETTINGS_LOCK])
-    except (VoiceError, LanguageError) as error:
-        return error_response(str(error))
-    return web.json_response(status_json(status))
+    change = settings_change(body)
+    return await profile_settings_response(
+        request, lambda core, profile_id: core.change_profile_settings(profile_id, change)
+    )
 
 
-def apply_settings(core: CoreControl, values: dict[str, Any], lock: threading.Lock) -> Status:
-    """Applies checked settings in patch_settings' order, holding the lock so that a concurrent
-    request cannot change a field between the status read here and the writes. Runs off the event
-    loop: the core may wait for a speech process while it holds its lock."""
-    with lock:
-        status = core.status()
-        if values.keys() & {"ducking", "duck_volume"}:
-            enabled = values.get("ducking", status.ducking)
-            status = core.set_ducking(enabled, float(values.get("duck_volume", status.duck_volume)))
-        if values.keys() & {"speech_rate", "new_line"}:
-            status = core.set_speech(
-                float(values.get("speech_rate", status.speech_rate)), NewLine(values.get("new_line", status.new_line))
-            )
-        if values.keys() & {"subtitles", "subtitle_size", "subtitle_position"}:
-            status = core.set_subtitles(
-                values.get("subtitles", status.subtitles),
-                values.get("subtitle_size", status.subtitle_size),
-                values.get("subtitle_position", status.subtitle_position),
-            )
-        if "input_language" in values:
-            status = core.set_input_language(values["input_language"])
-        if "output_language" in values:
-            status = core.set_output_language(values["output_language"])
-        if "voice" in values:
-            status = core.set_voice(values["voice"])
-        return status
-
-
-async def patch_sources(request: web.Request) -> web.Response:
+async def patch_profile_sources(request: web.Request) -> web.Response:
     body = await read_object(request)
     if body is None or not isinstance(body.get("name"), str) or not isinstance(body.get("enabled"), bool):
         return error_response(SOURCES_HELP)
-    try:
-        status = await asyncio.to_thread(request.app[CORE].set_source_enabled, body["name"], body["enabled"])
-    except NoAppError as error:
-        return error_response(str(error), 409)
-    except SourceError as error:
-        return error_response(str(error))
-    return web.json_response(status_json(status))
+    name, enabled = body["name"], body["enabled"]
+    return await profile_settings_response(
+        request, lambda core, profile_id: core.set_source_enabled(profile_id, name, enabled)
+    )
 
 
-async def patch_stages(request: web.Request) -> web.Response:
+async def patch_profile_stages(request: web.Request) -> web.Response:
     body = await read_object(request)
     if (
         body is None
@@ -387,15 +392,10 @@ async def patch_stages(request: web.Request) -> web.Response:
         or not isinstance(body.get("enabled"), bool)
     ):
         return error_response(STAGES_HELP)
-    try:
-        status = await asyncio.to_thread(
-            request.app[CORE].set_stage_enabled, body["key"], Output(body["output"]), body["enabled"]
-        )
-    except NoAppError as error:
-        return error_response(str(error), 409)
-    except StageError as error:
-        return error_response(str(error))
-    return web.json_response(status_json(status))
+    key, output, enabled = body["key"], Output(body["output"]), body["enabled"]
+    return await profile_settings_response(
+        request, lambda core, profile_id: core.set_stage_enabled(profile_id, key, output, enabled)
+    )
 
 
 async def get_profiles(request: web.Request) -> web.Response:
@@ -564,22 +564,22 @@ def create_app(core: CoreControl) -> web.Application:
     app = web.Application(middlewares=[json_errors, refuse_web_pages])
     app[CORE] = core
     app[SOCKETS] = weakref.WeakSet()
-    app[SETTINGS_LOCK] = threading.Lock()
     app.add_routes(
         [
             web.get("/v1/status", get_status),
             web.get("/v1/voices", get_voices),
             web.post("/v1/voices/preview", post_voice_preview),
             web.get("/v1/languages", get_languages),
-            web.patch("/v1/settings", patch_settings),
-            web.patch("/v1/sources", patch_sources),
-            web.patch("/v1/stages", patch_stages),
             web.get("/v1/profiles", get_profiles),
             web.patch("/v1/profiles", patch_profiles),
             web.post("/v1/profiles", post_profiles),
             web.post("/v1/profiles/reload", post_profiles_reload),
             web.post("/v1/profiles/{id}/copy", post_profile_copy),
             web.delete("/v1/profiles/{id}", delete_profile),
+            web.get("/v1/profiles/{id}/settings", get_profile_settings),
+            web.patch("/v1/profiles/{id}/settings", patch_profile_settings),
+            web.patch("/v1/profiles/{id}/sources", patch_profile_sources),
+            web.patch("/v1/profiles/{id}/stages", patch_profile_stages),
             web.post("/v1/pause", post_pause),
             web.post("/v1/resume", post_resume),
             web.post("/v1/stop", post_stop),

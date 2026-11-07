@@ -1,8 +1,16 @@
-# Overlay
+# Native code
 
-A DLL loaded into the app's process. It hooks the point where the app shows each frame and draws a Dear ImGui control panel on top. All logic stays in the Python core: the overlay is a client of the core's [local API](../docs/api.md) (`http://127.0.0.1:47821/v1`), so it only draws and captures input (grabbing frames for OCR is planned). See also [docs/architecture.md](../docs/architecture.md).
+ReflektorTTS's C++ code. All logic stays in the Python core: each part is a client of the core's [local API](../docs/api.md) (`http://127.0.0.1:47821/v1`), so it only draws and captures input (grabbing frames for OCR is planned). See also [docs/architecture.md](../docs/architecture.md).
 
-## Using it
+It comes in three parts:
+
+- **`shared/`**: a static library (`reflektortts-shared`) with what does not depend on where it is drawn or on the OS: the API client and the settings panel's drawing in Dear ImGui. The API client reaches the core through a small transport interface (`transport.h`), whose only implementation for now is WinHTTP's (`transport_winhttp.cpp`), built on Windows only.
+- **`overlay/`**: the overlay, a DLL loaded into the app's process (Windows only), and the injector that loads it. It hooks the point where the app shows each frame and draws the settings panel and the subtitles on top.
+- **`panel/`**: comes next: the settings panel in a window of its own.
+
+## The overlay
+
+### Using it
 
 The core loads the overlay into an app when it detects it (see the main README, `--overlay`). For the first 10 seconds a hint shows in the top-left corner. Then:
 
@@ -18,7 +26,7 @@ The core loads the overlay into an app when it detects it (see the main README, 
 - The overlay draws its own mouse cursor while the panel is open, since games often hide the system one.
 - While the panel is open, the app gets no keyboard or mouse input, and the cursor is free to leave the app's window. Key and mouse-button releases still reach it, as window messages and as buffered DirectInput events, so keys held when the panel opened (such as Ctrl+Shift+R itself) are not stuck down for the app. Gamepads keep working.
 
-## How it works
+### How it works
 
 Supported graphics APIs: **Direct3D 9, 11 and 12**. The overlay hooks only the APIs whose DLLs the app uses, each as soon as its DLL is loaded, however late (after a launcher, say): Windows tells it about every DLL the app loads, as ReShade has it told. It never loads a Direct3D or DirectInput DLL the app does not use, except `dxgi.dll` and `d3dcompiler_47.dll`, which ImGui's Direct3D 11 and 12 backends link, so they come with the overlay into every app. The first API to show a frame gets the overlay. Older APIs (DirectDraw, Direct3D 1–8) and OpenGL/Vulkan are not supported yet.
 
@@ -29,6 +37,8 @@ The graphics API's methods are found through the vtable of a throwaway object of
 Mouse buttons are read directly while the panel is open, because games using DirectInput or replacing their window procedure keep click messages from arriving.
 
 Blocking the app's input works like ReShade's default "block all input while the overlay is visible". The first time the panel opens, the overlay hooks every keyboard and mouse API the app has loaded (and on later openings, any loaded since), all through code hooks: the reads of DirectInput 8 and 1–7 devices, the message queue (`GetMessage`, `PeekMessage`: input messages for the app's window go to the panel and the app gets `WM_NULL`; other windows are left alone, since DirectInput reads the keyboard through raw input sent to a hidden window of its own), key state (`GetAsyncKeyState`, `GetKeyState`, `GetKeyboardState`), buffered raw input (`GetRawInputBuffer`) and the cursor (`GetCursorPos`, `SetCursorPos`, `ClipCursor`). The overlay's own calls are let through, recognized by their return address, so the panel keeps seeing real input. XInput gamepads are not blocked. Window messages reach the panel on the thread that draws, at the start of its next frame, since many games handle their window on another thread. The panel is laid out in window coordinates and scaled to the app's back buffer, so it lines up with the mouse when the image is scaled (the Direct3D 9 backend ignores that scale).
+
+The overlay's files, in `overlay/`:
 
 | Path | Job |
 |---|---|
@@ -45,14 +55,42 @@ Blocking the app's input works like ReShade's default "block all input while the
 | `src/win32_input_hook.cpp` | Hooks the message queue, key state, raw input and cursor functions |
 | `src/dinput_hook.cpp` | Hooks keyboard and mouse reads of DirectInput 8 and 1–7 devices |
 | `src/code_hook.cpp` | Code hooks (MinHook), kept in place when another overlay cuts them out, and telling the overlay's own calls apart |
-| `src/api_client.cpp` | Talks to the core over WinHTTP: events over a WebSocket, commands over HTTP |
-| `src/ui.cpp` | The hint and the control panel |
+| `src/crash_log.cpp` | Logs where the app crashed, with the call stack in 64-bit apps |
+| `src/ui.cpp` | The hint, and the panel's window |
+| `src/subtitles.cpp` | The subtitles over the app |
 | `src/probe_window.cpp` | Hidden window for the throwaway devices used to locate API methods |
 | `injector/inject.cpp` | Loads the DLL into a running app |
 
-Dependencies, fetched by CMake at configure time: [Dear ImGui](https://github.com/ocornut/imgui) (MIT), [nlohmann/json](https://github.com/nlohmann/json) (MIT) and [MinHook](https://github.com/TsudaKageyu/minhook) (BSD-2-Clause). WinHTTP is part of Windows.
+### Loading the overlay by hand
 
-## Building on Windows with MSYS2
+The core normally does this. For testing without the core, start the app and run:
+
+```bash
+native/build/bin/reflektortts-inject.exe gta2.exe
+```
+
+or `--pid <id>` instead of the process name, with the injector from the build matching the app. It exits with 3 if the app and the build differ in bitness (32-bit vs 64-bit), which the core uses to try another build.
+
+If the overlay does not appear, it writes what went wrong to the debugger output; read it with [DebugView](https://learn.microsoft.com/sysinternals/downloads/debugview).
+
+## The shared library
+
+| Path | Job |
+|---|---|
+| `core_state.h` | What a client knows about the core: the app being read, its settings, sources and stages, the voices and languages |
+| `api_client.cpp` | Follows the core's events and keeps reconnecting; sends commands, and changes to the profile of the app being read (`/v1/profiles/<id>/...`) |
+| `transport.h` | How the API client reaches the core: a request, and the event stream |
+| `transport_winhttp.cpp` | The transport over WinHTTP, Windows only: events over a WebSocket, commands over HTTP |
+| `settings_panel.cpp` | The settings panel's contents: the header, the Input, Output and Last line boxes, and the last error |
+| `processing_section.cpp` | The panel's Processing box |
+| `widgets.cpp`, `text_fit.cpp` | Small ImGui helpers, and fitting text to a width |
+| `log.cpp` | Writes to the debugger output on Windows, to standard error elsewhere |
+
+## Building
+
+`CMakeLists.txt` here is the root project: it fetches the dependencies and builds `shared/`, and on Windows `overlay/`. Dependencies, fetched by CMake at configure time: [Dear ImGui](https://github.com/ocornut/imgui) (MIT), [nlohmann/json](https://github.com/nlohmann/json) (MIT) and, for the overlay, [MinHook](https://github.com/TsudaKageyu/minhook) (BSD-2-Clause). WinHTTP is part of Windows.
+
+### On Windows with MSYS2
 
 The overlay must match the app's bitness: older games, including GTA2 and GTA San Andreas, are 32-bit, and most modern ones are 64-bit. Build both, each with its own MSYS2 toolchain, and give the core both folders: it uses the one that fits each app.
 
@@ -66,27 +104,15 @@ pacman -S --needed git mingw-w64-x86_64-toolchain mingw-w64-x86_64-cmake mingw-w
 The 32-bit build, from the **MSYS2 MINGW32** shell in the repository root:
 
 ```bash
-cmake -S overlay -B overlay/build -G Ninja -DCMAKE_BUILD_TYPE=Release
-cmake --build overlay/build
+cmake -S native -B native/build -G Ninja -DCMAKE_BUILD_TYPE=Release
+cmake --build native/build
 ```
 
 The 64-bit build, from the **MSYS2 MINGW64** shell:
 
 ```bash
-cmake -S overlay -B overlay/build64 -G Ninja -DCMAKE_BUILD_TYPE=Release
-cmake --build overlay/build64
+cmake -S native -B native/build64 -G Ninja -DCMAKE_BUILD_TYPE=Release
+cmake --build native/build64
 ```
 
-The results are in `overlay/build/bin/` and `overlay/build64/bin/`: `reflektortts-overlay.dll` and `reflektortts-inject.exe`. Both link the MinGW runtime statically, so they need no extra DLLs. To load a new build, restart the app: the DLL stays loaded until the app exits.
-
-## Loading it by hand
-
-The core normally does this. For testing without the core, start the app and run:
-
-```bash
-overlay/build/bin/reflektortts-inject.exe gta2.exe
-```
-
-or `--pid <id>` instead of the process name, with the injector from the build matching the app. It exits with 3 if the app and the build differ in bitness (32-bit vs 64-bit), which the core uses to try another build.
-
-If the overlay does not appear, it writes what went wrong to the debugger output; read it with [DebugView](https://learn.microsoft.com/sysinternals/downloads/debugview).
+The results are in `native/build/bin/` and `native/build64/bin/`: `reflektortts-overlay.dll` and `reflektortts-inject.exe`. Both link the MinGW runtime statically, so they need no extra DLLs. To load a new build, restart the app: the DLL stays loaded until the app exits.

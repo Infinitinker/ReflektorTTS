@@ -11,7 +11,7 @@ from typing import Any, Concatenate
 
 import psutil
 
-from reflektortts.api.server import ApiServer, NoAppError, SourceError, StageError, UnknownProfileError
+from reflektortts.api.server import ApiServer, BrokenProfileError, SourceError, StageError, UnknownProfileError
 from reflektortts.apps.detector import Builds, RunningApp, find_running_apps
 from reflektortts.bus import EventBus, Listener
 from reflektortts.downloads.manager import Downloads, Listing
@@ -25,6 +25,7 @@ from reflektortts.events import (
     ErrorEvent,
     Output,
     PreviewEvent,
+    ProfileSettingsView,
     SourceStages,
     StageState,
     Status,
@@ -43,6 +44,7 @@ from reflektortts.pipeline.plugins import SourcePlugin, StagePlugin, inactive_re
 from reflektortts.pipeline.protocols import Sink
 from reflektortts.pipeline.runner import Chain, Route, Runner, log_error
 from reflektortts.profiles.catalog import (
+    CatalogEntry,
     Choice,
     ProfileFiles,
     ProfileState,
@@ -54,6 +56,8 @@ from reflektortts.profiles.catalog import (
 from reflektortts.profiles.model import Profile, SourceSettings, StageSettings
 from reflektortts.settings import (
     ProfileSettings,
+    SettingsChange,
+    changed,
     load_profile_settings,
     load_shared,
     save_profile_settings,
@@ -65,7 +69,6 @@ from reflektortts.sinks.tts.narrator import Narrator
 from reflektortts.sinks.tts.preview import VoicePreview
 from reflektortts.sinks.tts.sink import TtsSink
 from reflektortts.tts.engine import VoiceError, VoiceInfo, available_voices, find_voice
-from reflektortts.tts.service import NewLine
 from reflektortts.user_dirs import cache_dir, data_dir
 
 logger = logging.getLogger(__name__)
@@ -137,6 +140,15 @@ def _enabled_check(
 
 def _source_check(source: str, is_source_enabled: Callable[[str], bool]) -> Callable[[], bool]:
     return lambda: is_source_enabled(source)
+
+
+def _stage_switch(settings: ProfileSettings, key: str, output: Output) -> bool | None:
+    """How the user switched a stage for an output, or None if they have not."""
+    return settings.stage_switches.get(key, {}).get(output)
+
+
+def _languages(settings: ProfileSettings) -> Languages:
+    return Languages(input=settings.input_language, output=settings.output_language)
 
 
 def _switched(disabled: tuple[str, ...], key: str, enabled: bool) -> tuple[str, ...]:
@@ -223,9 +235,10 @@ def _serialized[**P, R](method: Callable[Concatenate["Core", P], R]) -> Callable
 class Core:
     """Owns the narrator, the settings and the event bus; the API controls it through these methods.
 
-    Settings belong to the app being read and are saved for it; an app starts with the defaults
-    until the user changes something in it. While no app is read, the defaults apply and
-    changes are not saved.
+    Settings belong to each profile and are saved for it; an app starts with the defaults until
+    the user changes something for it. A profile's settings can be changed whether or not its app
+    runs; those of the app being read apply at once. While no app is read, the status shows the
+    defaults.
     """
 
     def __init__(
@@ -279,55 +292,29 @@ class Core:
 
     @_serialized
     def status(self) -> Status:
+        settings = self._settings
         return Status(
             app=self._app,
             voice=self._narrator.voice,
-            input_language=self._settings.input_language,
-            output_language=self._settings.output_language,
+            input_language=settings.input_language,
+            output_language=settings.output_language,
             paused=self._narrator.paused,
-            ducking=self._settings.ducking,
-            duck_volume=self._settings.duck_volume,
-            speech_rate=self._settings.speech_rate,
-            new_line=self._settings.new_line,
-            subtitles=self._settings.subtitles,
-            subtitle_size=self._settings.subtitle_size,
-            subtitle_position=self._settings.subtitle_position,
-            sources=self._source_stages(),
+            ducking=settings.ducking,
+            duck_volume=settings.duck_volume,
+            speech_rate=settings.speech_rate,
+            new_line=settings.new_line,
+            subtitles=settings.subtitles,
+            subtitle_size=settings.subtitle_size,
+            subtitle_position=settings.subtitle_position,
+            sources=() if self._profile is None else self._source_stages(self._profile, settings),
             unsupported=self._unsupported,
         )
 
     def languages(self) -> Languages:
-        return Languages(input=self._settings.input_language, output=self._settings.output_language)
-
-    @_serialized
-    def set_input_language(self, language: str) -> Status:
-        check_language(language)
-        self._change(input_language=language)
-        return self._publish_status()
-
-    @_serialized
-    def set_output_language(self, language: str) -> Status:
-        """Also switches to a voice for the language, unless the current one speaks it. Any
-        language can be chosen: without a voice for it, lines are translated and shown, not spoken."""
-        check_language(language)
-        voice = self._voice_for(language, self._settings.voice)
-        self._change(output_language=language, voice=voice or self._settings.voice)
-        self._speak()
-        return self._publish_status()
+        return _languages(self._settings)
 
     def voices(self) -> list[VoiceInfo]:
         return self._list_voices()
-
-    @_serialized
-    def set_voice(self, voice: str) -> Status:
-        """Switches the voice and remembers it as the last one used for its language."""
-        info = find_voice(voice, self.voices())
-        remembered = self._shared.voices_by_language | {primary_language(info.language): voice}
-        self._shared = replace(self._shared, voices_by_language=remembered)
-        save_shared(self._shared, self._settings_dir)
-        self._change(voice=voice)
-        self._speak()
-        return self._publish_status()
 
     def preview_voice(self, voice: str) -> None:
         """Speaks a sample sentence in the voice's language, also while an app is read."""
@@ -337,25 +324,37 @@ class Core:
         self._preview.play(voice, SAMPLES[language])
 
     @_serialized
-    def set_ducking(self, enabled: bool, volume: float) -> Status:
-        """Whether, and how far, the app's sound is lowered while lines are spoken."""
-        self._ducker.configure(enabled, volume)
-        self._change(ducking=enabled, duck_volume=volume)
-        return self._publish_status()
+    def profile_settings(self, profile_id: str) -> ProfileSettingsView:
+        """A profile's settings, whether or not its app runs. Raises UnknownProfileError, or
+        BrokenProfileError for a profile file that cannot be read."""
+        profile = self._find_profile(profile_id)
+        return self._settings_view(profile, self._settings_of(profile))
 
     @_serialized
-    def set_speech(self, rate: float, new_line: NewLine) -> Status:
-        """How fast lines are spoken, and what a new line does while another is spoken."""
-        self._narrator.configure(rate, new_line)
-        self._change(speech_rate=rate, new_line=new_line)
-        return self._publish_status()
-
-    @_serialized
-    def set_subtitles(self, enabled: bool, size: str, position: str) -> Status:
-        """Whether lines are shown as subtitles over the app, how large and where."""
-        self._subtitles.configure(enabled)
-        self._change(subtitles=enabled, subtitle_size=size, subtitle_position=position)
-        return self._publish_status()
+    def change_profile_settings(self, profile_id: str, change: SettingsChange) -> ProfileSettingsView:
+        """Changes a profile's settings; see _save. Choosing an output language also switches to a
+        voice for it, unless the current one speaks it; any language can be chosen: without a voice
+        for it, lines are translated and shown, not spoken. A voice chosen is remembered as the last
+        one used for its language. Raises UnknownProfileError, BrokenProfileError, LanguageError or
+        VoiceError, and then changes nothing."""
+        profile = self._find_profile(profile_id)
+        for language in (change.input_language, change.output_language):
+            if language is not None:
+                check_language(language)
+        voice_language = (
+            None if change.voice is None else primary_language(find_voice(change.voice, self.voices()).language)
+        )
+        settings = changed(self._settings_of(profile), change)
+        if change.output_language is not None and change.voice is None:
+            voice = self._voice_for(settings.output_language, settings.voice)
+            settings = replace(settings, voice=voice or settings.voice)
+        view = self._save(profile, settings)
+        if voice_language is not None:
+            # Only once the profile is saved, so a failed save changes nothing.
+            remembered = self._shared.voices_by_language | {voice_language: change.voice}
+            self._shared = replace(self._shared, voices_by_language=remembered)
+            save_shared(self._shared, self._settings_dir)
+        return view
 
     @_serialized
     def set_paused(self, paused: bool) -> Status:
@@ -371,38 +370,43 @@ class Core:
         return self.status()
 
     def is_source_enabled(self, name: str) -> bool:
+        """Whether the app being read has a source switched on."""
         return name not in self._settings.disabled_sources
 
     @_serialized
-    def set_source_enabled(self, name: str, enabled: bool) -> Status:
-        """Switches a source of the app being read on or off; the choice is saved for that app."""
-        profile = self._profile
-        if profile is None:
-            raise NoAppError("No app is being read.")
+    def set_source_enabled(self, profile_id: str, name: str, enabled: bool) -> ProfileSettingsView:
+        """Switches a profile's source on or off; see _save. Raises UnknownProfileError,
+        BrokenProfileError, or SourceError if the profile has no such source."""
+        profile = self._find_profile(profile_id)
         names = [source.name for source in profile.sources]
         if name not in names:
             raise SourceError(f'{profile.app.title} has no source "{name}". Its sources: {", ".join(names)}.')
-        self._change(disabled_sources=_switched(self._settings.disabled_sources, name, enabled))
-        return self._publish_status()
+        settings = self._settings_of(profile)
+        return self._save(
+            profile, replace(settings, disabled_sources=_switched(settings.disabled_sources, name, enabled))
+        )
 
     def stage_switch(self, key: str, output: Output) -> bool | None:
-        """How the user switched a stage for an output, or None if they have not."""
-        return self._settings.stage_switches.get(key, {}).get(output)
+        """How the user switched a stage of the app being read for an output, or None if they have not."""
+        return _stage_switch(self._settings, key, output)
 
     @_serialized
-    def set_stage_enabled(self, key: str, output: Output, enabled: bool) -> Status:
-        """Switches a stage of the app being read on or off for an output; the choice is saved for
-        that app, and from then on the profile no longer decides it."""
-        profile = self._profile
-        if profile is None:
-            raise NoAppError("No app is being read.")
-        keys = [stage.key for source in self._source_stages() for stage in source.stages]
+    def set_stage_enabled(self, profile_id: str, key: str, output: Output, enabled: bool) -> ProfileSettingsView:
+        """Switches a profile's stage on or off for an output; see _save. From then on the profile
+        no longer decides it. Raises UnknownProfileError, BrokenProfileError, or StageError if the
+        profile has no such stage."""
+        profile = self._find_profile(profile_id)
+        keys = [
+            stage_key(source.name, position, stage.type)
+            for source in profile.sources
+            for position, stage in enumerate(source.stages)
+        ]
         if key not in keys:
             raise StageError(f'{profile.app.title} has no stage "{key}". Its stages: {", ".join(keys)}.')
-        switches = dict(self._settings.stage_switches)
+        settings = self._settings_of(profile)
+        switches = dict(settings.stage_switches)
         switches[key] = switches.get(key, {}) | {output: enabled}
-        self._change(stage_switches=switches)
-        return self._publish_status()
+        return self._save(profile, replace(settings, stage_switches=switches))
 
     @_serialized
     def profiles(self) -> list[ProfileView]:
@@ -523,10 +527,27 @@ class Core:
         self._unsupported_profile = profile_id
         self._publish_status()
 
-    def _check_profile(self, profile_id: str) -> None:
-        if profile_id not in {entry.id for entry in self._catalog}:
-            ids = ", ".join(entry.id for entry in self._catalog)
-            raise UnknownProfileError(f'There is no profile "{profile_id}". Profiles: {ids}.')
+    def _check_profile(self, profile_id: str) -> CatalogEntry:
+        for entry in self._catalog:
+            if entry.id == profile_id:
+                return entry
+        ids = ", ".join(entry.id for entry in self._catalog)
+        raise UnknownProfileError(f'There is no profile "{profile_id}". Profiles: {ids}.')
+
+    def _find_profile(self, profile_id: str) -> Profile:
+        """A profile by ID; for the app being read, the one it is read with, even if its file
+        changed since."""
+        if self._profile is not None and self._profile.id == profile_id:
+            return self._profile
+        entry = self._check_profile(profile_id)
+        if entry.profile is None:
+            raise BrokenProfileError(
+                f'The profile "{profile_id}" cannot be read ({entry.error}). Fix its file, then reload the profiles.'
+            )
+        return entry.profile
+
+    def _is_read(self, profile_id: str) -> bool:
+        return self._profile is not None and self._profile.id == profile_id
 
     def _reload_profiles(self) -> Status:
         """Reads the profiles again and decides which are used. An app being read whose profile
@@ -555,7 +576,7 @@ class Core:
     def _profile_state(self, choice: Choice) -> ProfileState:
         if choice.standing != Standing.USED:
             return ProfileState(choice.standing.value)
-        if self._profile is not None and self._profile.id == choice.entry.id:
+        if self._is_read(choice.entry.id):
             return ProfileState.READING
         if self._unsupported_profile == choice.entry.id:
             return ProfileState.UNSUPPORTED
@@ -574,32 +595,64 @@ class Core:
         self._ducker.close()
         self._subtitles.close()
 
-    def _source_stages(self) -> tuple[SourceStages, ...]:
-        profile = self._profile
-        if profile is None:
-            return ()
+    def _settings_of(self, profile: Profile) -> ProfileSettings:
+        if self._is_read(profile.id):
+            return self._settings
+        return load_profile_settings(self._settings_dir, profile.id)
+
+    def _save(self, profile: Profile, settings: ProfileSettings) -> ProfileSettingsView:
+        """Saves a profile's settings and publishes them; if its app is being read, they apply at
+        once, and the status is published too."""
+        save_profile_settings(settings, self._settings_dir, profile.id)
+        if self._is_read(profile.id):
+            self._use(settings)
+            self._speak()
+            self._publish_status()
+        view = self._settings_view(profile, settings)
+        self._bus.publish(view)
+        return view
+
+    def _settings_view(self, profile: Profile, settings: ProfileSettings) -> ProfileSettingsView:
+        return ProfileSettingsView(
+            profile=profile.id,
+            app_title=profile.app.title,
+            running=self._is_read(profile.id),
+            voice=self._voice_for(settings.output_language, settings.voice) or settings.voice,
+            input_language=settings.input_language,
+            output_language=settings.output_language,
+            ducking=settings.ducking,
+            duck_volume=settings.duck_volume,
+            speech_rate=settings.speech_rate,
+            new_line=settings.new_line,
+            subtitles=settings.subtitles,
+            subtitle_size=settings.subtitle_size,
+            subtitle_position=settings.subtitle_position,
+            sources=self._source_stages(profile, settings),
+        )
+
+    def _source_stages(self, profile: Profile, settings: ProfileSettings) -> tuple[SourceStages, ...]:
         return tuple(
             SourceStages(
                 source=source.name,
                 type=source.type,
-                enabled=self.is_source_enabled(source.name),
+                enabled=source.name not in settings.disabled_sources,
                 stages=tuple(
-                    self._stage_state(stage_key(source.name, position, stage.type), stage)
+                    self._stage_state(stage_key(source.name, position, stage.type), stage, settings)
                     for position, stage in enumerate(source.stages)
                 ),
             )
             for source in profile.sources
         )
 
-    def _stage_state(self, key: str, stage: StageSettings) -> StageState:
+    def _stage_state(self, key: str, stage: StageSettings, settings: ProfileSettings) -> StageState:
         plugin = self._stages.get(stage.type)
         return StageState(
             key=key,
             type=stage.type,
             summary=plugin.summary if plugin is not None else "",
             warning=plugin.warning_when_disabled if plugin is not None else None,
-            enabled={output: stage_on(stage, output, self.stage_switch(key, output)) for output in Output},
-            inactive=inactive_reason(plugin, self.languages()) if plugin is not None else None,
+            enabled={output: stage_on(stage, output, _stage_switch(settings, key, output)) for output in Output},
+            inactive=inactive_reason(plugin, _languages(settings)) if plugin is not None else None,
         )
 
     def _voice_for(self, language: str, preferred: str) -> str | None:
@@ -618,14 +671,15 @@ class Core:
         all if there is none; voices are never downloaded here. With no app, the voice is only
         remembered."""
         voice = self._voice_for(self._settings.output_language, self._settings.voice)
-        if voice is not None:
-            self._narrator.use_voice(voice)
-        if self._app is None:
-            return
         if voice is None:
+            # Closed first, so that taking the chosen voice starts no speech process for it.
             self._narrator.close()
-            logger.info("No voice for the output language %s: lines are not spoken", self._settings.output_language)
-        else:
+            self._narrator.use_voice(self._settings.voice)
+            if self._app is not None:
+                logger.info("No voice for the output language %s: lines are not spoken", self._settings.output_language)
+            return
+        self._narrator.use_voice(voice)
+        if self._app is not None:
             self._narrator.start()
 
     @_serialized
@@ -645,7 +699,7 @@ class Core:
     @_serialized
     def _enter(self, app: RunningApp) -> None:
         """An app is being read from now on, with its settings; its voice is loaded only now."""
-        self._app = AppInfo(title=app.profile.app.title, pid=app.process.pid)
+        self._app = AppInfo(title=app.profile.app.title, pid=app.process.pid, profile=app.profile.id)
         self._profile = app.profile
         self._use(load_profile_settings(self._settings_dir, app.profile.id))
         self._speak()
@@ -662,20 +716,11 @@ class Core:
         self._publish_status()
 
     def _use(self, settings: ProfileSettings) -> None:
-        """Switches to an app's settings, or to the defaults."""
+        """Switches to an app's settings, or to the defaults; _speak then switches the voice."""
         self._settings = settings
-        if settings.voice != self._narrator.voice:
-            self._narrator.use_voice(settings.voice)
         self._narrator.configure(settings.speech_rate, settings.new_line)
         self._ducker.configure(settings.ducking, settings.duck_volume)
         self._subtitles.configure(settings.subtitles)
-
-    def _change(self, **changes: Any) -> None:
-        """Changes settings, saved for the app being read, if any."""
-        self._settings = replace(self._settings, **changes)
-        profile = self._profile
-        if profile is not None:
-            save_profile_settings(self._settings, self._settings_dir, profile.id)
 
     def _report(self, error: ErrorEvent) -> None:
         # A source usually fails a moment before the app's exit is noticed; that is not an error.

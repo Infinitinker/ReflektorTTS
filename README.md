@@ -145,7 +145,7 @@ Profiles for more games, fixes and ideas are welcome: see [CONTRIBUTING.md](CONT
 Further documentation:
 
 - [docs/profiles.md](docs/profiles.md): profiles and their format
-- [overlay/README.md](overlay/README.md): the overlay
+- [native/README.md](native/README.md): the native code: the overlay, and the code it shares
 - [docs/architecture.md](docs/architecture.md): how ReflektorTTS is built, and what is planned
 - [docs/plugins.md](docs/plugins.md): writing sources, stages, speech engines and download sources
 - [docs/api.md](docs/api.md): the local API, through which the desktop app and the overlay control ReflektorTTS

@@ -85,7 +85,7 @@ A failing source, stage or sink is reported once as a `source.error`, `stage.err
 | `settings.py` | Per-user settings: one file per app, and shared ones (the voice remembered for each language, the profiles disabled) |
 | `user_dirs.py` | The per-user folders (`%LOCALAPPDATA%\ReflektorTTS` on Windows) |
 | `overlay.py` | Loads the overlay into an app |
-| `overlay/` (repository root) | The overlay (C++); see [overlay/README.md](../overlay/README.md) |
+| `native/` (repository root) | The C++ code, in three parts: `shared/`, a library with the API client and the settings panel's drawing; `overlay/`, the overlay DLL loaded into apps, and its injector; and `panel/` (coming next), the settings panel in a window of its own. See [native/README.md](../native/README.md) |
 | `tests/` (repository root) | Tests, mirroring `src/reflektortts/` |
 | `tools/` (repository root) | Developer tools, not part of ReflektorTTS: `draw_icon.py` draws the ReflektorTTS icon, `build_release.py` builds a release (the installer, from `installer.iss`, and the portable zip), `notices.py` collects the licenses it ships, and `sources.py` the source code it offers |
 
@@ -123,7 +123,7 @@ Finding a line's label when subtitles can be turned off: turn subtitles on and f
 
 ## Overlay
 
-The overlay hooks Direct3D 9, 11 and 12 (DirectDraw and Direct3D 1–8 games work through a wrapper such as dgVoodoo2), draws the ReflektorTTS panel and the subtitles, and blocks the app's input while the panel is open. See [overlay/README.md](../overlay/README.md).
+The overlay hooks Direct3D 9, 11 and 12 (DirectDraw and Direct3D 1–8 games work through a wrapper such as dgVoodoo2), draws the ReflektorTTS panel and the subtitles, and blocks the app's input while the panel is open. See [native/README.md](../native/README.md).
 
 Planned:
 

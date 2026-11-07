@@ -1,5 +1,8 @@
 #include <windows.h>
 
+#include <memory>
+#include <utility>
+
 #include "api_client.h"
 #include "crash_log.h"
 #include "d3d11_renderer.h"
@@ -9,6 +12,7 @@
 #include "d3d9_renderer.h"
 #include "dll_load_watch.h"
 #include "dxgi_hook.h"
+#include "transport_winhttp.h"
 
 namespace {
 
@@ -71,7 +75,9 @@ DWORD WINAPI start_overlay(LPVOID) {
         }
         if (hooked && !client_started) {
             client_started = true;
-            start_api_client();
+            if (std::unique_ptr<Transport> transport = make_winhttp_transport(L"ReflektorTTS overlay")) {
+                start_api_client(std::move(transport));
+            }
         }
         if (notified) {
             WaitForSingleObject(dll_loaded, INFINITE);

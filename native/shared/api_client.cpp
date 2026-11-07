@@ -1,18 +1,19 @@
 #include "api_client.h"
 
-#include <windows.h>
-#include <winhttp.h>
-
+#include <chrono>
 #include <condition_variable>
-#include <exception>
 #include <cstddef>
+#include <cstdio>
 #include <deque>
+#include <exception>
+#include <memory>
 #include <mutex>
 #include <nlohmann/json.hpp>
 #include <optional>
 #include <string>
 #include <thread>
 #include <utility>
+#include <vector>
 
 #include "log.h"
 
@@ -21,21 +22,17 @@ namespace {
 
 using nlohmann::json;
 
-constexpr wchar_t kHost[] = L"127.0.0.1";
-constexpr INTERNET_PORT kPort = 47821;  // Must match reflektortts.api.server.PORT.
-constexpr DWORD kReconnectMs = 2000;
-// The core's events are small; a bigger message is skipped, so a wrong server cannot fill memory.
-constexpr std::size_t kMaxEventBytes = 1 << 20;
-// The same for answers to requests, such as the voice list.
-constexpr std::size_t kMaxResponseBytes = 4 << 20;
+constexpr std::chrono::milliseconds kReconnectDelay(2000);
 // How much of an unexpected answer is logged.
 constexpr std::size_t kLoggedBytes = 300;
 
 struct Request {
-    const wchar_t* method;
-    std::wstring path;
+    std::string method;
+    std::string path;
     std::string body;
 };
+
+std::unique_ptr<Transport> g_transport;
 
 std::mutex g_state_mutex;
 CoreState g_state;
@@ -43,80 +40,6 @@ CoreState g_state;
 std::mutex g_requests_mutex;
 std::condition_variable g_requests_ready;
 std::deque<Request> g_requests;
-
-HINTERNET g_session = nullptr;
-
-class Handle {
-public:
-    explicit Handle(HINTERNET handle) : handle_(handle) {}
-    ~Handle() {
-        if (handle_ != nullptr) {
-            WinHttpCloseHandle(handle_);
-        }
-    }
-    Handle(const Handle&) = delete;
-    Handle& operator=(const Handle&) = delete;
-    HINTERNET get() const { return handle_; }
-    explicit operator bool() const { return handle_ != nullptr; }
-
-private:
-    HINTERNET handle_;
-};
-
-// Returns nullopt for a body bigger than kMaxResponseBytes.
-std::optional<std::string> read_body(HINTERNET request) {
-    std::string body;
-    DWORD available = 0;
-    while (WinHttpQueryDataAvailable(request, &available) && available > 0) {
-        if (body.size() + available > kMaxResponseBytes) {
-            log_message("Skipping an answer bigger than " + std::to_string(kMaxResponseBytes) + " bytes");
-            return std::nullopt;
-        }
-        std::string chunk(available, '\0');
-        DWORD read = 0;
-        if (!WinHttpReadData(request, chunk.data(), available, &read)) {
-            break;
-        }
-        body.append(chunk.data(), read);
-    }
-    return body;
-}
-
-struct Response {
-    DWORD status;
-    std::string body;
-};
-
-std::optional<Response> send(const Request& request) {
-    Handle connection(WinHttpConnect(g_session, kHost, kPort, 0));
-    if (!connection) {
-        return std::nullopt;
-    }
-    Handle handle(WinHttpOpenRequest(connection.get(), request.method, request.path.c_str(), nullptr,
-                                     WINHTTP_NO_REFERER, WINHTTP_DEFAULT_ACCEPT_TYPES, 0));
-    if (!handle) {
-        return std::nullopt;
-    }
-    bool has_body = !request.body.empty();
-    const wchar_t* headers = has_body ? L"Content-Type: application/json" : WINHTTP_NO_ADDITIONAL_HEADERS;
-    // -1 means "headers are zero-terminated"; with no headers the length must be 0.
-    DWORD headers_length = has_body ? static_cast<DWORD>(-1) : 0;
-    void* body = has_body ? const_cast<char*>(request.body.data()) : WINHTTP_NO_REQUEST_DATA;
-    auto length = static_cast<DWORD>(request.body.size());
-    if (!WinHttpSendRequest(handle.get(), headers, headers_length, body, length, length, 0) ||
-        !WinHttpReceiveResponse(handle.get(), nullptr)) {
-        return std::nullopt;
-    }
-    DWORD status = 0;
-    DWORD size = sizeof(status);
-    WinHttpQueryHeaders(handle.get(), WINHTTP_QUERY_STATUS_CODE | WINHTTP_QUERY_FLAG_NUMBER, WINHTTP_HEADER_NAME_BY_INDEX,
-                        &status, &size, WINHTTP_NO_HEADER_INDEX);
-    std::optional<std::string> response_body = read_body(handle.get());
-    if (!response_body) {
-        return std::nullopt;
-    }
-    return Response{status, std::move(*response_body)};
-}
 
 std::optional<std::string> optional_text(const json& value) {
     return value.is_null() ? std::nullopt : std::optional(value.get<std::string>());
@@ -142,6 +65,7 @@ std::vector<SourceStages> read_sources(const json& sources) {
 void apply_status(const json& status) {
     const json& app = status.at("app");
     std::string title = app.is_null() ? "" : app.at("title").get<std::string>();
+    std::string profile = app.is_null() ? "" : app.at("profile").get<std::string>();
     std::string voice = status.at("voice").get<std::string>();
     std::string input_language = status.at("input_language").get<std::string>();
     std::string output_language = status.at("output_language").get<std::string>();
@@ -157,6 +81,7 @@ void apply_status(const json& status) {
 
     std::lock_guard lock(g_state_mutex);
     g_state.app = std::move(title);
+    g_state.profile = std::move(profile);
     g_state.voice = std::move(voice);
     g_state.input_language = std::move(input_language);
     g_state.output_language = std::move(output_language);
@@ -206,8 +131,8 @@ void handle_event(const std::string& text) {
 
 // Fetches a JSON document. Returns nullopt if the core cannot be reached, and null JSON
 // (after logging why) if it answered with an error.
-std::optional<json> fetch(const wchar_t* path) {
-    std::optional<Response> response = send({L"GET", path, ""});
+std::optional<json> fetch(const std::string& path) {
+    std::optional<HttpResponse> response = g_transport->send("GET", path, "");
     if (!response) {
         return std::nullopt;
     }
@@ -222,8 +147,8 @@ std::optional<json> fetch(const wchar_t* path) {
 
 // Loads the voices and languages the panel offers. Returns false if the core cannot be reached.
 bool load_options() {
-    std::optional<json> voices = fetch(L"/v1/voices");
-    std::optional<json> languages = fetch(L"/v1/languages");
+    std::optional<json> voices = fetch("/v1/voices");
+    std::optional<json> languages = fetch("/v1/languages");
     if (!voices || !languages) {
         return false;
     }
@@ -250,26 +175,13 @@ bool load_options() {
     return true;
 }
 
-HINTERNET open_event_socket(HINTERNET connection) {
-    Handle request(WinHttpOpenRequest(connection, L"GET", L"/v1/events", nullptr, WINHTTP_NO_REFERER,
-                                      WINHTTP_DEFAULT_ACCEPT_TYPES, 0));
-    if (!request || !WinHttpSetOption(request.get(), WINHTTP_OPTION_UPGRADE_TO_WEB_SOCKET, nullptr, 0) ||
-        !WinHttpSendRequest(request.get(), WINHTTP_NO_ADDITIONAL_HEADERS, 0, nullptr, 0, 0, 0) ||
-        !WinHttpReceiveResponse(request.get(), nullptr)) {
-        return nullptr;
-    }
-    // The socket takes over the connection; the HTTP request handle is closed on return.
-    return WinHttpWebSocketCompleteUpgrade(request.get(), 0);
-}
-
 // Runs one session: fetches the voice and language lists, then follows /v1/events until it ends.
 void listen_for_events() {
     if (!load_options()) {
         return;
     }
-    Handle connection(WinHttpConnect(g_session, kHost, kPort, 0));
-    Handle socket(connection ? open_event_socket(connection.get()) : nullptr);
-    if (!socket) {
+    std::unique_ptr<EventStream> events = g_transport->open_event_stream("/v1/events");
+    if (!events) {
         return;
     }
     {
@@ -278,32 +190,8 @@ void listen_for_events() {
         g_state.last_error.clear();
     }
     log_message("Connected to the ReflektorTTS core");
-
-    std::string message;
-    bool too_big = false;
-    char buffer[4096];
-    for (;;) {
-        DWORD read = 0;
-        WINHTTP_WEB_SOCKET_BUFFER_TYPE type{};
-        if (WinHttpWebSocketReceive(socket.get(), buffer, sizeof(buffer), &read, &type) != NO_ERROR ||
-            type == WINHTTP_WEB_SOCKET_CLOSE_BUFFER_TYPE) {
-            break;
-        }
-        if (!too_big && message.size() + read > kMaxEventBytes) {
-            log_message("Skipping an event bigger than " + std::to_string(kMaxEventBytes) + " bytes");
-            too_big = true;
-            message.clear();
-        }
-        if (!too_big) {
-            message.append(buffer, read);
-        }
-        if (type == WINHTTP_WEB_SOCKET_UTF8_MESSAGE_BUFFER_TYPE || type == WINHTTP_WEB_SOCKET_BINARY_MESSAGE_BUFFER_TYPE) {
-            if (!too_big) {
-                handle_event(message);
-            }
-            message.clear();
-            too_big = false;
-        }
+    while (std::optional<std::string> message = events->receive()) {
+        handle_event(*message);
     }
 }
 
@@ -314,7 +202,7 @@ void disconnected() {
     g_state.subtitle.clear();
 }
 
-// An exception leaving a thread would end the app, so each loop catches every one.
+// An exception leaving a thread would end the process, so each loop catches every one.
 void event_loop() {
     for (;;) {
         try {
@@ -325,7 +213,7 @@ void event_loop() {
             log_message("Lost the connection to the core");
         }
         disconnected();
-        Sleep(kReconnectMs);
+        std::this_thread::sleep_for(kReconnectDelay);
     }
 }
 
@@ -340,7 +228,7 @@ void request_loop() {
         }
         std::string error;
         try {
-            std::optional<Response> response = send(request);
+            std::optional<HttpResponse> response = g_transport->send(request.method, request.path, request.body);
             if (!response) {
                 error = "ReflektorTTS is not reachable.";
             } else if (response->status != 200) {
@@ -370,16 +258,49 @@ void enqueue(Request request) {
     g_requests_ready.notify_one();
 }
 
-}  // namespace
+// Percent-encodes text for one segment of a URL path; a profile ID is a file name, so it can hold
+// any character.
+std::string encode_path_segment(const std::string& text) {
+    std::string encoded;
+    for (char c : text) {
+        auto byte = static_cast<unsigned char>(c);
+        bool unreserved = (byte >= 'a' && byte <= 'z') || (byte >= 'A' && byte <= 'Z') || (byte >= '0' && byte <= '9') ||
+                          byte == '-' || byte == '.' || byte == '_' || byte == '~';
+        if (unreserved) {
+            encoded += c;
+        } else {
+            char escape[4];
+            std::snprintf(escape, sizeof(escape), "%%%02X", byte);
+            encoded += escape;
+        }
+    }
+    return encoded;
+}
 
-void start_api_client() {
-    g_session = WinHttpOpen(L"ReflektorTTS overlay", WINHTTP_ACCESS_TYPE_NO_PROXY, WINHTTP_NO_PROXY_NAME,
-                            WINHTTP_NO_PROXY_BYPASS, 0);
-    if (g_session == nullptr) {
-        log_message("Cannot start WinHTTP; the overlay cannot reach ReflektorTTS");
+// Sends a change to the profile of the app being read, at /v1/profiles/<id>/<route>.
+void request_profile_change(const char* route, const json& body) {
+    std::string profile;
+    {
+        std::lock_guard lock(g_state_mutex);
+        profile = g_state.profile;
+    }
+    if (profile.empty()) {
+        log_message("No app is being read, so the change is not sent");
+        std::lock_guard lock(g_state_mutex);
+        g_state.last_error = "No app is being read, so the change cannot be saved.";
         return;
     }
-    // The DLL stays loaded until the app exits, so these threads live as long as the app.
+    enqueue({"PATCH", "/v1/profiles/" + encode_path_segment(profile) + "/" + route, body.dump()});
+}
+
+void request_setting(const json& setting) {
+    request_profile_change("settings", setting);
+}
+
+}  // namespace
+
+void start_api_client(std::unique_ptr<Transport> transport) {
+    g_transport = std::move(transport);
     std::thread(event_loop).detach();
     std::thread(request_loop).detach();
 }
@@ -390,60 +311,60 @@ CoreState core_state() {
 }
 
 void request_paused(bool paused) {
-    enqueue({L"POST", paused ? L"/v1/pause" : L"/v1/resume", ""});
+    enqueue({"POST", paused ? "/v1/pause" : "/v1/resume", ""});
 }
 
 void request_stop_line() {
-    enqueue({L"POST", L"/v1/stop", ""});
+    enqueue({"POST", "/v1/stop", ""});
 }
 
 void request_voice(const std::string& voice_id) {
-    enqueue({L"PATCH", L"/v1/settings", json{{"voice", voice_id}}.dump()});
+    request_setting(json{{"voice", voice_id}});
 }
 
 void request_input_language(const std::string& code) {
-    enqueue({L"PATCH", L"/v1/settings", json{{"input_language", code}}.dump()});
+    request_setting(json{{"input_language", code}});
 }
 
 void request_output_language(const std::string& code) {
-    enqueue({L"PATCH", L"/v1/settings", json{{"output_language", code}}.dump()});
+    request_setting(json{{"output_language", code}});
 }
 
 void request_source_enabled(const std::string& name, bool enabled) {
-    enqueue({L"PATCH", L"/v1/sources", json{{"name", name}, {"enabled", enabled}}.dump()});
+    request_profile_change("sources", json{{"name", name}, {"enabled", enabled}});
 }
 
 void request_stage_enabled(const std::string& key, StageOutput output, bool enabled) {
     const char* name = output == StageOutput::Text ? "text" : "speech";
-    enqueue({L"PATCH", L"/v1/stages", json{{"key", key}, {"output", name}, {"enabled", enabled}}.dump()});
+    request_profile_change("stages", json{{"key", key}, {"output", name}, {"enabled", enabled}});
 }
 
 void request_ducking(bool enabled) {
-    enqueue({L"PATCH", L"/v1/settings", json{{"ducking", enabled}}.dump()});
+    request_setting(json{{"ducking", enabled}});
 }
 
 void request_duck_volume(float volume) {
-    enqueue({L"PATCH", L"/v1/settings", json{{"duck_volume", volume}}.dump()});
+    request_setting(json{{"duck_volume", volume}});
 }
 
 void request_speech_rate(float rate) {
-    enqueue({L"PATCH", L"/v1/settings", json{{"speech_rate", rate}}.dump()});
+    request_setting(json{{"speech_rate", rate}});
 }
 
 void request_new_line(const std::string& new_line) {
-    enqueue({L"PATCH", L"/v1/settings", json{{"new_line", new_line}}.dump()});
+    request_setting(json{{"new_line", new_line}});
 }
 
 void request_subtitles(bool enabled) {
-    enqueue({L"PATCH", L"/v1/settings", json{{"subtitles", enabled}}.dump()});
+    request_setting(json{{"subtitles", enabled}});
 }
 
 void request_subtitle_size(const std::string& size) {
-    enqueue({L"PATCH", L"/v1/settings", json{{"subtitle_size", size}}.dump()});
+    request_setting(json{{"subtitle_size", size}});
 }
 
 void request_subtitle_position(const std::string& position) {
-    enqueue({L"PATCH", L"/v1/settings", json{{"subtitle_position", position}}.dump()});
+    request_setting(json{{"subtitle_position", position}});
 }
 
 void dismiss_error() {

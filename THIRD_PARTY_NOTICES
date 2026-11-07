@@ -1,6 +1,6 @@
 Third-party notices
 
-The in-game overlay (overlay/) is built with the following libraries, which CMake fetches at
+The in-game overlay (native/) is built with the following libraries, which CMake fetches at
 configure time and which are compiled into reflektortts-overlay.dll, and with the MinGW-w64
 runtime, which is also linked into reflektortts-inject.exe. Their licenses require these notices
 to come with any copy of those files.

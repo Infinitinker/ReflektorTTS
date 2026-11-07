@@ -8,7 +8,7 @@ language, in any app. On the first run neither exists.
 import json
 import logging
 import os
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
@@ -55,6 +55,29 @@ class ProfileSettings:
     stage_switches: dict[str, dict[Output, bool]] = field(default_factory=dict)
     """How the user switched stages, by key and output, e.g. {"subtitles/3:normalize": {"text": True}};
     a stage is otherwise on where its profile starts it."""
+
+
+@dataclass(frozen=True)
+class SettingsChange:
+    """Settings the user changes at once, for one app; None leaves a setting as it is. The values
+    are of the types and in the ranges of ProfileSettings; the languages and the voice are checked
+    where they are changed."""
+
+    voice: str | None = None
+    input_language: str | None = None
+    output_language: str | None = None
+    ducking: bool | None = None
+    duck_volume: float | None = None
+    speech_rate: float | None = None
+    new_line: NewLine | None = None
+    subtitles: bool | None = None
+    subtitle_size: str | None = None
+    subtitle_position: str | None = None
+
+
+def changed(settings: ProfileSettings, change: SettingsChange) -> ProfileSettings:
+    """The settings with the change made."""
+    return replace(settings, **{name: value for name, value in asdict(change).items() if value is not None})
 
 
 @dataclass(frozen=True)

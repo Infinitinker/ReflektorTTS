@@ -8,4 +8,4 @@ if not exist ".venv\Scripts\pythonw.exe" (
     pause
     exit /b 1
 )
-start "" ".venv\Scripts\pythonw.exe" -m reflektortts.desktop --overlay overlay\build\bin --overlay overlay\build64\bin
+start "" ".venv\Scripts\pythonw.exe" -m reflektortts.desktop --overlay native\build\bin --overlay native\build64\bin

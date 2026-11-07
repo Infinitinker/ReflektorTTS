@@ -9,11 +9,6 @@
 
 namespace reflektortts {
 
-// Writes to the debugger output, readable with DebugView or an attached debugger.
-inline void log_message(const std::string& message) {
-    OutputDebugStringA(("[ReflektorTTS] " + message + "\n").c_str());
-}
-
 // "module+offset" for a code address, which stays the same between runs.
 inline std::string describe_address(const void* address) {
     HMODULE module = nullptr;
