@@ -2,7 +2,7 @@
 
 Thank you for helping! Profiles for more games are the most welcome contribution, and you don't need to be a programmer to write one. Fixes, ideas and bug reports are welcome too.
 
-- **Found a bug?** Open an issue with the bug report form. The logs help most: the Status tab's **Open logs folder** button opens them.
+- **Found a bug?** Open an issue with the bug report form. The logs help most: the Settings tab's **Open logs folder** button opens them.
 - **Want a game supported?** Open an issue with the app support form, or write its profile yourself (below).
 - **Found a security problem?** Report it privately, as [SECURITY.md](SECURITY.md) describes, not in an issue.
 

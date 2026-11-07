@@ -10,6 +10,7 @@ import queue
 import sys
 import threading
 import tkinter as tk
+import webbrowser
 from collections.abc import Callable
 from dataclasses import replace
 from pathlib import Path
@@ -18,6 +19,7 @@ from typing import Any
 
 from reflektortts.api.server import PORT, ApiError
 from reflektortts.arguments import Arguments
+from reflektortts.desktop.about import about
 from reflektortts.desktop.api_client import (
     REFRESH_TIMEOUT_SECONDS,
     ApiClientError,
@@ -26,10 +28,10 @@ from reflektortts.desktop.api_client import (
     reflektortts_answers,
     request_json,
 )
-from reflektortts.desktop.autostart import system_autostart
+from reflektortts.desktop.autostart import autostart_supported, system_autostart
 from reflektortts.desktop.catalog import DownloadItem, DownloadList, DownloadProgress, other_voices, parse_list
 from reflektortts.desktop.core_thread import CoreThread
-from reflektortts.desktop.folders import open_folder, show_file
+from reflektortts.desktop.folders import open_folder, show_file, where_files_are
 from reflektortts.desktop.profiles import ProfileItem, file_name, name_text, parse_profiles
 from reflektortts.desktop.state import load_state, save_state
 from reflektortts.desktop.status import CoreStatus, describe
@@ -57,6 +59,11 @@ class Application:
         self._refreshed = False
         """Whether the download lists were fetched since the window was opened."""
         self._language_names: dict[str, str] = {}
+        self._voice_titles: dict[str, str] = {}
+        """Voices by their ID, e.g. "Microsoft Adam (Windows)", as the core lists them."""
+        self._fetching_names = False
+        self._names_for: str | None = None
+        """The voice the names were last fetched for, so a voice the core does not list is asked about once."""
         self._items: dict[str, DownloadItem] = {}
         self._core = CoreThread(args.profiles, config_dir(), args.overlay)
         self._feed = StatusFeed(
@@ -84,6 +91,7 @@ class Application:
             on_remove=self._remove_download,
             on_preview=self._preview,
             language_name=lambda code: self._language_names.get(code, code),
+            voice_title=lambda voice: self._voice_titles.get(voice, voice),
             on_profiles_opened=self._profiles_opened,
             on_enable_profile=self._enable_profile,
             on_copy_profile=self._copy_profile,
@@ -94,8 +102,13 @@ class Application:
             ),
             on_open_profiles=lambda: open_folder(args.profiles),
             on_start_with_windows=self._set_start_with_windows,
+            on_quit=self._quit,
+            on_open_link=self._open_link,
+            about=about(),
+            files_text=where_files_are(),
+            autostart_supported=autostart_supported(),
         )
-        self._window.show_start_with_windows(self._start_with_windows())
+        self._window.settings.show_start_with_windows(self._start_with_windows())
 
     def start(self) -> None:
         if sys.platform == "win32":
@@ -136,8 +149,39 @@ class Application:
         # follows while it is shown.
         if status is not None and self._window.profiles_shown():
             self._in_background(self._fetch_profiles)
+        if status is not None and status.voice != self._names_for and not self._fetching_names:
+            # The status names its voice and languages by ID; the core knows their names.
+            self._names_for = status.voice
+            self._fetching_names = True
+            self._in_background(self._fetch_names)
         self._window.show_status(status)
         self._tray.show_status(describe(status), status is not None and status.paused, status is not None)
+
+    def _fetch_names(self) -> None:
+        """Runs in the background; the status is shown again with the names on Tkinter's thread."""
+        try:
+            languages = request_json("GET", "/languages")["languages"]
+            names = {language["code"]: language["name"] for language in languages}
+            voices = request_json("GET", "/voices")["voices"]
+            titles = {voice["id"]: f"{voice['name']} ({voice['engine_title']})" for voice in voices}
+        except (ApiClientError, KeyError, TypeError) as error:
+            logger.warning("Cannot get the names of the voices and languages: %s", error)
+            self._later(self._names_failed)
+            return
+
+        def show() -> None:
+            self._fetching_names = False
+            self._language_names = names
+            self._voice_titles = titles
+            if not self._stopped:
+                self._window.show_status(self._status)
+
+        self._later(show)
+
+    def _names_failed(self) -> None:
+        """The next status tries again."""
+        self._fetching_names = False
+        self._names_for = None
 
     def _core_stopped(self) -> None:
         self._stopped = True
@@ -146,7 +190,7 @@ class Application:
             # Whatever holds the port may not be ReflektorTTS; asking it takes a moment.
             self._in_background(self._check_port)
             return
-        message = "ReflektorTTS stopped: open the logs folder to see why."
+        message = "ReflektorTTS stopped: open the logs folder, in the Settings tab, to see why."
         self._window.show_stopped(message)
         self._tray.show_status(message, paused=False, connected=False)
 
@@ -365,7 +409,7 @@ class Application:
 
     def _window_show(self) -> None:
         # Task Manager may have changed it meanwhile.
-        self._window.show_start_with_windows(self._start_with_windows())
+        self._window.settings.show_start_with_windows(self._start_with_windows())
         self._tray.refresh()
         self._window.show()
 
@@ -382,6 +426,12 @@ class Application:
                 "Still running", "ReflektorTTS keeps reading apps from here. Right-click its icon to quit."
             )
 
+    def _open_link(self, url: str) -> None:
+        """Opens a web page in the user's browser."""
+        if not webbrowser.open(url):
+            logger.warning("No web browser could open %s", url)
+            self._show_error(f"No web browser could be opened. The page is {url}")
+
     def _start_with_windows(self) -> bool | None:
         """Whether ReflektorTTS starts with Windows; None where it cannot. Called on any thread."""
         return None if self._autostart is None else self._autostart.enabled()
@@ -394,7 +444,7 @@ class Application:
         except OSError as error:
             logger.exception("Cannot change whether ReflektorTTS starts with Windows")
             self._show_error(f"ReflektorTTS could not change whether it starts with Windows: {error.strerror}")
-        self._window.show_start_with_windows(self._start_with_windows())
+        self._window.settings.show_start_with_windows(self._start_with_windows())
         self._tray.refresh()
 
     def _quit(self) -> None:

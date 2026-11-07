@@ -1,12 +1,19 @@
 import pytest
 
-from reflektortts.desktop.status import CoreStatus, describe, hint, parse_status
+from reflektortts.desktop.status import (
+    CoreStatus,
+    describe,
+    hint,
+    languages_text,
+    parse_status,
+    sound_text,
+)
 
 
 def test_a_status_event_gives_the_game_and_whether_reading_is_paused() -> None:
     event = {"type": "status", "app": {"title": "Mad Max", "pid": 42}, "paused": True, "voice": "piper:a"}
 
-    assert parse_status(event) == CoreStatus(app="Mad Max", paused=True)
+    assert parse_status(event) == CoreStatus(app="Mad Max", paused=True, voice="piper:a")
     assert parse_status({"type": "status", "app": None, "paused": False}) == CoreStatus(app=None, paused=False)
 
 
@@ -39,3 +46,30 @@ def test_an_unsupported_version_is_described_with_its_hash() -> None:
         hint(CoreStatus(app=None, paused=False))
         == "In an app with the overlay, open the ReflektorTTS panel with Ctrl+Shift+R."
     )
+
+
+def test_a_status_event_gives_the_voice_languages_and_app_sound() -> None:
+    event = {
+        "type": "status",
+        "app": None,
+        "paused": False,
+        "voice": "windows:Microsoft Adam",
+        "input_language": "en",
+        "output_language": "pl",
+        "ducking": True,
+        "duck_volume": 0.3,
+    }
+
+    status = parse_status(event)
+
+    assert status is not None
+    assert status.voice == "windows:Microsoft Adam"
+    assert languages_text(status, {"en": "English", "pl": "Polski"}.__getitem__) == "English → Polski"
+    assert sound_text(status) == "Lowered to 30% while a line is spoken"
+
+
+def test_one_language_is_named_once_and_unlowered_sound_is_said() -> None:
+    status = CoreStatus(app=None, paused=False, input_language="pl", output_language="pl", ducking=False)
+
+    assert languages_text(status, {"pl": "Polski"}.__getitem__) == "Polski"
+    assert sound_text(status) == "Not lowered while a line is spoken"

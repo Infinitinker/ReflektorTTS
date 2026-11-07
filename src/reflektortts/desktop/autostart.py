@@ -84,6 +84,11 @@ if sys.platform == "win32":
                 pass  # Nothing to delete.
 
 
+def autostart_supported() -> bool:
+    """Whether this system has a start with Windows at all, even if this copy cannot use it."""
+    return sys.platform == "win32"
+
+
 def system_autostart() -> Autostart | None:
     """This ReflektorTTS.exe's autostart, or None where it is not available."""
     if sys.platform == "win32" and getattr(sys, "frozen", False):

@@ -101,9 +101,13 @@ def test_the_feed_passes_on_the_status_and_its_changes(server: ApiServer, core: 
     feed = StatusFeed(statuses.put, base_url=url(server))
     feed.start()
     try:
-        assert statuses.get(timeout=TIMEOUT) == CoreStatus(app="Grand Theft Auto 2", paused=False)
+        first = statuses.get(timeout=TIMEOUT)
+        assert first is not None
+        assert (first.app, first.paused, first.voice) == ("Grand Theft Auto 2", False, core.current.voice)
         core.bus.publish(replace(core.current, app=None, paused=True))
-        assert statuses.get(timeout=TIMEOUT) == CoreStatus(app=None, paused=True)
+        changed = statuses.get(timeout=TIMEOUT)
+        assert changed is not None
+        assert (changed.app, changed.paused) == (None, True)
     finally:
         feed.stop()
 

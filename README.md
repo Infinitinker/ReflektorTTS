@@ -56,11 +56,11 @@ Rather not install anything? Download `ReflektorTTS-<version>-windows-x64.zip` i
 
 <table>
   <tr>
-    <td><img src="docs/images/profiles.png" alt="The Profiles tab, listing the profiles for GTA 2, GTA San Andreas and Mad Max"></td>
+    <td><img src="docs/images/status.png" alt="The Status tab: what ReflektorTTS is doing, its voice, languages and the app's sound, with links to the project and its support pages"></td>
     <td><img src="docs/images/voices.png" alt="The Voices tab, listing Piper voices to download"></td>
   </tr>
   <tr>
-    <td align="center">The apps ReflektorTTS knows</td>
+    <td align="center">What ReflektorTTS is doing</td>
     <td align="center">Voices to download</td>
   </tr>
 </table>
@@ -69,9 +69,10 @@ Rather not install anything? Download `ReflektorTTS-<version>-windows-x64.zip` i
 
 ReflektorTTS runs next to the clock: its icon there opens the window, pauses reading, switches **Start with Windows** on or off, or quits. Closing the window leaves ReflektorTTS running.
 
-- **Status** shows what ReflektorTTS is doing: the app it reads, or that it waits for one, and an app version its profile does not support yet. It also opens the logs and settings folders, and has the **Start with Windows** switch: ReflektorTTS then starts, hidden next to the clock, when you sign in. A first install for you alone turns it on unless you untick it; Task Manager's Startup apps can turn it off too.
+- **Status** shows what ReflektorTTS is doing: the app it reads, or that it waits for one, and an app version its profile does not support yet, with the voice, the languages and what happens to the app's sound. It also pauses reading, quits ReflektorTTS, and links to the project page, bug reports and the support pages.
 - **Profiles** lists the profiles, bundled and your own, says which are used and why others are not, enables or disables them, and copies, removes or imports profile files.
 - **Voices** and **Translations** download voices and translation models; see [Voices](#voices) and [Translation](#translation).
+- **Settings** has the **Start with Windows** switch: ReflektorTTS then starts, hidden next to the clock, when you sign in. A first install for you alone turns it on unless you untick it; Task Manager's Startup apps can turn it off too. It also opens the settings and logs folders.
 
 An app's voice is loaded when the app starts and unloaded when it closes. A translation model, once used, stays loaded until ReflektorTTS quits, so the next app translates right away.
 
@@ -126,10 +127,10 @@ ReflektorTTS is not code-signed yet, so Windows SmartScreen doesn't know it. Cho
 No. The overlay and reading a game's memory are meant for single-player and offline modes. Anti-cheat software may treat them as cheating, which can get your account banned.
 
 **A game runs, but nothing is read.**
-Look at the Status tab. It says when a game's version is not supported by its profile yet. The logs, opened from there, say more.
+Look at the Status tab. It says when a game's version is not supported by its profile yet. The logs, opened from the Settings tab, say more.
 
 **How do I stop ReflektorTTS from starting with Windows?**
-Untick **Start with Windows** in the window's Status tab or in its icon's menu next to the clock.
+Untick **Start with Windows** in the window's Settings tab or in its icon's menu next to the clock.
 
 **Where are my settings?**
 Settings, downloaded voices and models, your own profiles and the logs are all in `%LOCALAPPDATA%\ReflektorTTS`. They stay when you update ReflektorTTS.
