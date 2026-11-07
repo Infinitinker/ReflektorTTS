@@ -755,3 +755,16 @@ def test_profiles_imported_copied_or_removed_count_at_once(tmp_path: Path) -> No
     assert len([event for event in events if isinstance(event, Status)]) == 3
     with pytest.raises(UnknownProfileError):
         core.remove_profile("mine-2001")
+
+
+def test_without_a_game_the_status_shows_the_voice_a_new_game_would_get(tmp_path: Path) -> None:
+    # The default voice is not installed; a new game would speak English with the installed one.
+    alan = VoiceInfo("piper:en_GB-alan-low", "piper", "en_GB-alan-low", "en-GB", "Piper")
+    core = make_core(tmp_path, Clients(), voices=[alan, ADAM])
+
+    assert core.status().voice == alan.id
+
+    core._enter(playing(GTA2))
+    core._leave()
+
+    assert core.status().voice == alan.id

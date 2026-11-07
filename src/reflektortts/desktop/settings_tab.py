@@ -21,6 +21,7 @@ class SettingsTab:
         on_start_with_windows: Callable[[bool], None],
         on_open_settings: Callable[[], None],
         on_open_logs: Callable[[], None],
+        on_open_profiles: Callable[[], None],
     ) -> None:
         self.frame = ttk.Frame(notebook, padding=PADDING)
         self.frame.columnconfigure(0, weight=1)
@@ -61,8 +62,11 @@ class SettingsTab:
         settings.grid(row=0, column=0)
         logs = ttk.Button(buttons, text="Open logs folder", command=on_open_logs)
         logs.grid(row=0, column=1, padx=(6, 0))
+        profiles = ttk.Button(buttons, text="Open profiles folder", command=on_open_profiles)
+        profiles.grid(row=0, column=2, padx=(6, 0))
         status_bar.hint(settings, lambda: "Open the folder with the settings saved for each app.")
         status_bar.hint(logs, lambda: "Open the folder with ReflektorTTS's logs, e.g. to report a problem.")
+        status_bar.hint(profiles, lambda: "Open the folder for your own profiles, which the Profiles tab lists too.")
 
     def show_start_with_windows(self, enabled: bool | None) -> None:
         """Whether ReflektorTTS starts with Windows; None where it cannot."""

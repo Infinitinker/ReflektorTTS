@@ -50,7 +50,7 @@ The status object, returned by several requests and sent as an event:
 |---|---|
 | `app` | The app being read, or `null` while waiting for one |
 | `unsupported` | An app running in a build its profile does not list, which is neither read nor given the overlay: its `title` and its executable's `sha256` (or `null` if it could not be read); otherwise `null` |
-| `voice` | The current voice, as `engine:name` |
+| `voice` | The current voice, as `engine:name`; with no app, the installed voice a new app would start with |
 | `input_language` | The language of the app's text (ISO 639-1 code); English unless the user chose another |
 | `output_language` | The language lines are prepared, spoken and shown in (ISO 639-1 code) |
 | `paused` | Whether reading is paused |

@@ -63,7 +63,9 @@ class ProfilesTab:
         self._on_remove = on_remove
         self._items: dict[str, ProfileItem] = {}
         self.frame.columnconfigure(0, weight=1)
-        self.frame.rowconfigure(0, weight=1)
+        # The list and the box under it share the height 60/40 as the window is resized.
+        self.frame.rowconfigure(0, weight=3, uniform="split")
+        self.frame.rowconfigure(2, weight=2, uniform="split")
         self._build_table()
         self._build_details(on_import, on_reload, on_open_folder)
 
@@ -98,8 +100,9 @@ class ProfilesTab:
         self._subtitle.grid(row=1, column=0, sticky="w")
 
         group = ttk.LabelFrame(self.frame, text="Details", padding=(8, 2, 2, 4))
-        group.grid(row=2, column=0, sticky="ew")
+        group.grid(row=2, column=0, sticky="nsew")
         group.columnconfigure(0, weight=1)
+        group.rowconfigure(0, weight=1)
         self._details = tk.Text(
             group,
             height=DETAILS_LINES,

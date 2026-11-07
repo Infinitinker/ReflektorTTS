@@ -42,7 +42,9 @@ class DownloadsTab:
         self._language_name = language_name
         self._items: dict[str, DownloadItem] = {}
         self.frame.columnconfigure(0, weight=1)
-        self.frame.rowconfigure(0, weight=1)
+        # The list and the box under it share the height 60/40 as the window is resized.
+        self.frame.rowconfigure(0, weight=3, uniform="split")
+        self.frame.rowconfigure(2, weight=2, uniform="split")
         self._build_table()
         self._build_details()
 
@@ -75,8 +77,9 @@ class DownloadsTab:
         self._subtitle.grid(row=1, column=0, sticky="w")
 
         group = ttk.LabelFrame(self.frame, text="License", padding=(8, 2, 2, 4))
-        group.grid(row=2, column=0, sticky="ew")
+        group.grid(row=2, column=0, sticky="nsew")
         group.columnconfigure(0, weight=1)
+        group.rowconfigure(0, weight=1)
         self._license = tk.Text(
             group,
             height=LICENSE_LINES,

@@ -69,10 +69,10 @@ Rather not install anything? Download `ReflektorTTS-<version>-windows-x64.zip` i
 
 ReflektorTTS runs next to the clock: its icon there opens the window, pauses reading, switches **Start with Windows** on or off, or quits. Closing the window leaves ReflektorTTS running.
 
-- **Status** shows what ReflektorTTS is doing: the app it reads, or that it waits for one, and an app version its profile does not support yet, with the voice, the languages and what happens to the app's sound. It also pauses reading, quits ReflektorTTS, and links to the project page, bug reports and the support pages.
+- **Status** shows what ReflektorTTS is doing: the app it reads, or that it waits for one, and an app version its profile does not support yet, with the voice, the languages and what happens to the app's sound: the app's own settings, or with no app running, the ones a new app starts with. It also pauses reading, quits ReflektorTTS, and links to the project page, bug reports and the support pages.
 - **Profiles** lists the profiles, bundled and your own, says which are used and why others are not, enables or disables them, and copies, removes or imports profile files.
 - **Voices** and **Translations** download voices and translation models; see [Voices](#voices) and [Translation](#translation).
-- **Settings** has the **Start with Windows** switch: ReflektorTTS then starts, hidden next to the clock, when you sign in. A first install for you alone turns it on unless you untick it; Task Manager's Startup apps can turn it off too. It also opens the settings and logs folders.
+- **Settings** has the **Start with Windows** switch: ReflektorTTS then starts, hidden next to the clock, when you sign in. A first install for you alone turns it on unless you untick it; Task Manager's Startup apps can turn it off too. It also opens the settings, logs and profiles folders.
 
 An app's voice is loaded when the app starts and unloaded when it closes. A translation model, once used, stays loaded until ReflektorTTS quits, so the next app translates right away.
 

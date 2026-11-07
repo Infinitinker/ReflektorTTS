@@ -268,6 +268,8 @@ class Core:
         self._narrator.configure(self._settings.speech_rate, self._settings.new_line)
         self._app: AppInfo | None = None
         self._profile: Profile | None = None
+        # With no app, the status shows what a new app starts with: an installed voice for its language.
+        self._speak()
         self._unsupported: UnsupportedApp | None = None
         self._unsupported_profile: str | None = None
         self._builds = Builds()
@@ -656,6 +658,7 @@ class Core:
         self._profile = None
         self._narrator.close()
         self._use(ProfileSettings())
+        self._speak()
         self._publish_status()
 
     def _use(self, settings: ProfileSettings) -> None:

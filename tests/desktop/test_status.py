@@ -6,6 +6,7 @@ from reflektortts.desktop.status import (
     hint,
     languages_text,
     parse_status,
+    settings_caption,
     sound_text,
 )
 
@@ -73,3 +74,9 @@ def test_one_language_is_named_once_and_unlowered_sound_is_said() -> None:
 
     assert languages_text(status, {"pl": "Polski"}.__getitem__) == "Polski"
     assert sound_text(status) == "Not lowered while a line is spoken"
+
+
+def test_the_details_say_whose_settings_they_are() -> None:
+    assert settings_caption(None) == ""
+    assert settings_caption(CoreStatus(app=None, paused=False)) == "Settings a new app starts with:"
+    assert settings_caption(CoreStatus(app="Mad Max", paused=False)) == "Settings for Mad Max:"

@@ -12,7 +12,14 @@ from reflektortts.desktop.icon import icon_photo
 from reflektortts.desktop.profiles import ProfileItem
 from reflektortts.desktop.profiles_tab import ProfilesTab
 from reflektortts.desktop.settings_tab import SettingsTab
-from reflektortts.desktop.status import CoreStatus, describe, hint, languages_text, sound_text
+from reflektortts.desktop.status import (
+    CoreStatus,
+    describe,
+    hint,
+    languages_text,
+    settings_caption,
+    sound_text,
+)
 from reflektortts.desktop.status_bar import StatusBar
 from reflektortts.desktop.theme import BUSY, DIM, GOOD, heading_font, title_font
 from reflektortts.desktop.widgets import button_width
@@ -118,6 +125,7 @@ class Window:
             on_start_with_windows,
             on_open_settings,
             on_open_logs,
+            on_open_profiles,
         )
         self._notebook.add(self.settings.frame, text="Settings")
         self._notebook.bind(
@@ -135,6 +143,7 @@ class Window:
         )
         for label, text in zip(self._details, texts, strict=True):
             label.configure(text=text)
+        self._settings_for.configure(text=settings_caption(status))
         self._pause.configure(
             text=PAUSE_LABELS[1] if self._paused else PAUSE_LABELS[0],
             state="disabled" if status is None else "normal",
@@ -143,6 +152,7 @@ class Window:
     def show_stopped(self, message: str) -> None:
         self._status.configure(text=message, foreground=DIM)
         self._hint.configure(text="")
+        self._settings_for.configure(text="")
         for label in self._details:
             label.configure(text="")
         self._pause.configure(state="disabled")
@@ -189,8 +199,10 @@ class Window:
         self._status.grid(row=0, column=0, columnspan=2, sticky="w")
         self._hint = ttk.Label(now, text=hint(None), foreground=DIM)
         self._hint.grid(row=1, column=0, columnspan=2, sticky="w", pady=(2, 10))
+        self._settings_for = ttk.Label(now, text="", foreground=DIM)
+        self._settings_for.grid(row=2, column=0, columnspan=2, sticky="w", pady=(0, 2))
         self._details: list[ttk.Label] = []
-        for row, name in enumerate(DETAILS, start=2):
+        for row, name in enumerate(DETAILS, start=3):
             ttk.Label(now, text=name, foreground=DIM).grid(row=row, column=0, sticky="w", padx=(0, 16))
             detail = ttk.Label(now, text="")
             detail.grid(row=row, column=1, sticky="w")
@@ -203,13 +215,14 @@ class Window:
             command=on_pause_toggle,
             state="disabled",
         )
-        self._pause.grid(row=2 + len(DETAILS), column=0, columnspan=2, sticky="w", pady=(12, 0))
+        self._pause.grid(row=3 + len(DETAILS), column=0, columnspan=2, sticky="w", pady=(12, 0))
         self._status_bar.hint(self._pause, self._pause_hint)
 
         links = ttk.Frame(frame)
         links.grid(row=3, column=0, sticky="ew")
+        links.columnconfigure((0, 1), weight=1, uniform="links")
         project = ttk.LabelFrame(links, text="Project", padding=10)
-        project.grid(row=0, column=0, sticky="nsw", padx=(0, 12))
+        project.grid(row=0, column=0, sticky="nsew", padx=(0, 12))
         page = ttk.Button(project, text="Project page", command=lambda: on_open_link(about.project))
         page.grid(row=0, column=0)
         report = ttk.Button(project, text="Report a problem", command=lambda: on_open_link(about.issues))
@@ -222,7 +235,7 @@ class Window:
         )
 
         support = ttk.LabelFrame(links, text="Support ReflektorTTS", padding=10)
-        support.grid(row=0, column=1, sticky="nsw")
+        support.grid(row=0, column=1, sticky="nsew")
         ko_fi = ttk.Button(support, text="Ko-fi", command=lambda: on_open_link(KO_FI))
         ko_fi.grid(row=0, column=0)
         buycoffee = ttk.Button(support, text="buycoffee.to", command=lambda: on_open_link(BUYCOFFEE))
