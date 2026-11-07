@@ -69,7 +69,7 @@ class SharedSettings:
 
 def load_shared(directory: Path) -> SharedSettings:
     """Reads shared.json; missing or invalid settings get defaults."""
-    data = _read(directory / SETTINGS_FOLDER / SHARED_FILE)
+    data = read_json_object(directory / SETTINGS_FOLDER / SHARED_FILE)
     return SharedSettings(
         voices_by_language=_text_map(data.get("voices_by_language")),
         disabled_profiles=_texts(data.get("disabled_profiles")),
@@ -77,23 +77,23 @@ def load_shared(directory: Path) -> SharedSettings:
 
 
 def save_shared(settings: SharedSettings, directory: Path) -> None:
-    _write(directory / SETTINGS_FOLDER / SHARED_FILE, asdict(settings))
+    write_json_object(directory / SETTINGS_FOLDER / SHARED_FILE, asdict(settings))
 
 
 def load_profile_settings(directory: Path, profile_id: str) -> ProfileSettings:
     """An app's settings; missing or invalid ones get defaults."""
-    return _profile_settings(_read(_profile_settings_path(directory, profile_id)))
+    return _profile_settings(read_json_object(_profile_settings_path(directory, profile_id)))
 
 
 def save_profile_settings(settings: ProfileSettings, directory: Path, profile_id: str) -> None:
-    _write(_profile_settings_path(directory, profile_id), asdict(settings))
+    write_json_object(_profile_settings_path(directory, profile_id), asdict(settings))
 
 
 def _profile_settings_path(directory: Path, profile_id: str) -> Path:
     return directory / SETTINGS_FOLDER / PROFILES_FOLDER / f"{profile_id}.json"
 
 
-def _read(path: Path) -> dict[str, Any]:
+def read_json_object(path: Path) -> dict[str, Any]:
     """A settings file's fields; none if it is missing, and a broken file is reported."""
     if not path.is_file():
         return {}
@@ -108,7 +108,7 @@ def _read(path: Path) -> dict[str, Any]:
     return data
 
 
-def _write(path: Path, data: dict[str, Any]) -> None:
+def write_json_object(path: Path, data: dict[str, Any]) -> None:
     """Writes through a temporary file, so a crash never leaves a half-written file."""
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_suffix(".tmp")

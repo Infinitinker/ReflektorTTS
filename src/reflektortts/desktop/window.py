@@ -1,6 +1,8 @@
-"""The desktop app's window: a Status tab (what ReflektorTTS is doing, pause, its folders), one
-tab per kind of download (voices, translations) and a status bar."""
+"""The desktop app's window: a Status tab (what ReflektorTTS is doing, pause, its folders, and on
+Windows whether it starts with Windows), one tab per kind of download (voices, translations) and a
+status bar."""
 
+import sys
 import tkinter as tk
 from collections.abc import Callable
 from tkinter import ttk
@@ -57,6 +59,7 @@ class Window:
         on_import_profile: Callable[[], None],
         on_reload_profiles: Callable[[], None],
         on_open_profiles: Callable[[], None],
+        on_start_with_windows: Callable[[bool], None],
     ) -> None:
         self._root = root
         root.title("ReflektorTTS")
@@ -74,7 +77,7 @@ class Window:
         self._status_bar = StatusBar(root, row=1)
         status = ttk.Frame(self._notebook, padding=PADDING)
         self._notebook.add(status, text="Status")
-        self._build_status(status, on_pause_toggle, on_open_logs, on_open_settings)
+        self._build_status(status, on_pause_toggle, on_open_logs, on_open_settings, on_start_with_windows)
         self.profiles = ProfilesTab(
             self._notebook,
             self._status_bar,
@@ -128,6 +131,7 @@ class Window:
         on_pause_toggle: Callable[[], None],
         on_open_logs: Callable[[], None],
         on_open_settings: Callable[[], None],
+        on_start_with_windows: Callable[[bool], None],
     ) -> None:
         self._status = ttk.Label(frame, text=describe(None), font=heading_font(), foreground=status_color(None))
         self._status.grid(row=0, column=0, sticky="w")
@@ -152,6 +156,30 @@ class Window:
         self._status_bar.hint(self._pause, self._pause_hint)
         self._status_bar.hint(logs, lambda: "Open the folder with ReflektorTTS's logs, e.g. to report a problem.")
         self._status_bar.hint(settings, lambda: "Open the folder with the settings saved for each app.")
+
+        self._start_with_windows = tk.BooleanVar(value=False)
+        self._autostart = ttk.Checkbutton(
+            frame,
+            text="Start with Windows",
+            variable=self._start_with_windows,
+            command=lambda: on_start_with_windows(self._start_with_windows.get()),
+            state="disabled",
+        )
+        if sys.platform == "win32":
+            self._autostart.grid(row=3, column=0, sticky="w", pady=(16, 0))
+        self._autostart_available = False
+        self._status_bar.hint(self._autostart, self._autostart_hint)
+
+    def show_start_with_windows(self, enabled: bool | None) -> None:
+        """Whether ReflektorTTS starts with Windows; None where it cannot."""
+        self._autostart_available = enabled is not None
+        self._start_with_windows.set(bool(enabled))
+        self._autostart.configure(state="normal" if self._autostart_available else "disabled")
+
+    def _autostart_hint(self) -> str:
+        if self._autostart_available:
+            return "Start ReflektorTTS, hidden next to the clock, when you sign in to Windows."
+        return "Only ReflektorTTS.exe from a release can start with Windows."
 
     def _pause_hint(self) -> str:
         return "Read lines aloud again." if self._paused else "Stop reading lines aloud until you resume."

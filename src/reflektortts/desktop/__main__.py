@@ -25,7 +25,7 @@ def log_callback_error(kind: type[BaseException], error: BaseException, trace: T
 def main(argv: list[str] | None = None) -> int:
     # In ReflektorTTS.exe, the speech process starts as another run of the exe; this lets it.
     multiprocessing.freeze_support()
-    args = parse_arguments("reflektortts-desktop", argv)
+    args = parse_arguments("reflektortts-desktop", argv, desktop=True)
     log_to_file(log_dir() / LOG_FILE)
     logger.info("Started; settings in %s, logs in %s", config_dir(), log_dir())
     announce_running()

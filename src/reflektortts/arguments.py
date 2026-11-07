@@ -14,9 +14,12 @@ class Arguments:
     """Folder with app profiles."""
     overlay: tuple[Path, ...]
     """Folders with overlay builds, e.g. 32- and 64-bit."""
+    hidden: bool = False
+    """The desktop app starts with only its tray icon, as when Windows starts it at sign-in."""
 
 
-def parse_arguments(program: str, argv: list[str] | None = None) -> Arguments:
+def parse_arguments(program: str, argv: list[str] | None = None, desktop: bool = False) -> Arguments:
+    """desktop adds the desktop app's own options."""
     parser = argparse.ArgumentParser(prog=program, description="Your app, read aloud.")
     parser.add_argument(
         "--profiles",
@@ -31,8 +34,14 @@ def parse_arguments(program: str, argv: list[str] | None = None) -> Arguments:
         help="folder with an overlay build to load into apps (DLL and injector); repeat for 32- and 64-bit "
         "builds (default: the ones next to ReflektorTTS.exe in a release, none otherwise)",
     )
+    if desktop:
+        parser.add_argument("--hidden", action="store_true", help="start with only the icon next to the clock")
     args = parser.parse_args(argv)
-    return Arguments(profiles=args.profiles, overlay=tuple(args.overlay or default_overlay_dirs()))
+    return Arguments(
+        profiles=args.profiles,
+        overlay=tuple(args.overlay or default_overlay_dirs()),
+        hidden=desktop and args.hidden,
+    )
 
 
 def default_overlay_dirs() -> list[Path]:

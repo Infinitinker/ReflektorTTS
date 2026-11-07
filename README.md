@@ -45,7 +45,7 @@ Each app is described by a profile, so more apps can be added without changing R
 
 ## Getting started
 
-1. **Download** `ReflektorTTS-<version>-windows-x64-setup.exe` from the [latest release](https://github.com/Infinitinker/ReflektorTTS/releases/latest) and run it. It installs ReflektorTTS for you alone, without asking for administrator rights.
+1. **Download** `ReflektorTTS-<version>-windows-x64-setup.exe` from the [latest release](https://github.com/Infinitinker/ReflektorTTS/releases/latest) and run it. It installs ReflektorTTS for you alone, without asking for administrator rights, or, if you choose, for all users of the computer.
 2. **Start ReflektorTTS** from the installer's last page or the Start menu. Its icon appears next to the clock; click it to open the window.
 3. **Start a supported game.** ReflektorTTS notices it and reads its text aloud, with a voice Windows already has.
 4. **Press Ctrl+Shift+R** in the game to choose the voice, the languages, the reading speed and more.
@@ -67,9 +67,9 @@ Rather not install anything? Download `ReflektorTTS-<version>-windows-x64.zip` i
 
 ## The desktop window
 
-ReflektorTTS runs next to the clock: its icon there opens the window, pauses reading or quits. Closing the window leaves ReflektorTTS running.
+ReflektorTTS runs next to the clock: its icon there opens the window, pauses reading, switches **Start with Windows** on or off, or quits. Closing the window leaves ReflektorTTS running.
 
-- **Status** shows what ReflektorTTS is doing: the app it reads, or that it waits for one, and an app version its profile does not support yet. It also opens the logs and settings folders.
+- **Status** shows what ReflektorTTS is doing: the app it reads, or that it waits for one, and an app version its profile does not support yet. It also opens the logs and settings folders, and has the **Start with Windows** switch: ReflektorTTS then starts, hidden next to the clock, when you sign in. A first install for you alone turns it on unless you untick it; Task Manager's Startup apps can turn it off too.
 - **Profiles** lists the profiles, bundled and your own, says which are used and why others are not, enables or disables them, and copies, removes or imports profile files.
 - **Voices** and **Translations** download voices and translation models; see [Voices](#voices) and [Translation](#translation).
 
@@ -128,11 +128,14 @@ No. The overlay and reading a game's memory are meant for single-player and offl
 **A game runs, but nothing is read.**
 Look at the Status tab. It says when a game's version is not supported by its profile yet. The logs, opened from there, say more.
 
+**How do I stop ReflektorTTS from starting with Windows?**
+Untick **Start with Windows** in the window's Status tab or in its icon's menu next to the clock.
+
 **Where are my settings?**
 Settings, downloaded voices and models, your own profiles and the logs are all in `%LOCALAPPDATA%\ReflektorTTS`. They stay when you update ReflektorTTS.
 
 **How do I update or remove it?**
-Run the newer installer. If ReflektorTTS is running, it asks you to quit it first (right-click its icon next to the clock > Quit); quit games that use the overlay too. It then updates ReflektorTTS and keeps your settings. To remove it, use Windows Settings > Apps; it asks whether to delete your settings and downloads too. With the zip, replace its folder to update, and delete it and `%LOCALAPPDATA%\ReflektorTTS` to remove it.
+Run the newer installer. If ReflektorTTS is running, it asks you to quit it first (right-click its icon next to the clock > Quit); quit games that use the overlay too. It then updates ReflektorTTS and keeps your settings. To remove it, use Windows Settings > Apps; it asks whether to delete your settings and downloads too (removing an install for all users leaves each user's own). With the zip, replace its folder to update, and delete it and `%LOCALAPPDATA%\ReflektorTTS` to remove it.
 
 ## Contributing
 

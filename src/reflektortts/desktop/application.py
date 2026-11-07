@@ -11,6 +11,7 @@ import sys
 import threading
 import tkinter as tk
 from collections.abc import Callable
+from dataclasses import replace
 from pathlib import Path
 from tkinter import filedialog, messagebox
 from typing import Any
@@ -25,15 +26,17 @@ from reflektortts.desktop.api_client import (
     reflektortts_answers,
     request_json,
 )
+from reflektortts.desktop.autostart import system_autostart
 from reflektortts.desktop.catalog import DownloadItem, DownloadList, DownloadProgress, other_voices, parse_list
 from reflektortts.desktop.core_thread import CoreThread
 from reflektortts.desktop.folders import open_folder, show_file
 from reflektortts.desktop.profiles import ProfileItem, file_name, name_text, parse_profiles
+from reflektortts.desktop.state import load_state, save_state
 from reflektortts.desktop.status import CoreStatus, describe
 from reflektortts.desktop.tray import Tray
 from reflektortts.desktop.window import Window
 from reflektortts.settings import SETTINGS_FOLDER
-from reflektortts.user_dirs import config_dir, log_dir
+from reflektortts.user_dirs import config_dir, log_dir, state_dir
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +51,9 @@ class Application:
         self._stopped = False
         self._quitting = False
         """Set by quit: the window is gone, so nothing may touch it any more."""
-        self._told_about_tray = False
+        self._state = load_state(state_dir())
+        self._autostart = system_autostart()
+        self._hidden = args.hidden
         self._refreshed = False
         """Whether the download lists were fetched since the window was opened."""
         self._language_names: dict[str, str] = {}
@@ -63,6 +68,10 @@ class Application:
             on_open=lambda: self._later(self._window_show),
             on_pause_toggle=lambda: self._later(self._toggle_pause),
             on_quit=lambda: self._later(self._quit),
+            start_with_windows=self._start_with_windows,
+            on_start_with_windows_toggle=lambda: self._later(
+                lambda: self._set_start_with_windows(not self._start_with_windows())
+            ),
         )
         self._window = Window(
             root,
@@ -84,7 +93,9 @@ class Application:
                 "POST", "/profiles/reload", None, "The profiles could not be read again"
             ),
             on_open_profiles=lambda: open_folder(args.profiles),
+            on_start_with_windows=self._set_start_with_windows,
         )
+        self._window.show_start_with_windows(self._start_with_windows())
 
     def start(self) -> None:
         if sys.platform == "win32":
@@ -96,6 +107,8 @@ class Application:
         self._feed.start()
         self._tray.start()
         self._root.after(POLL_MS, self._run_tasks)
+        if self._hidden:
+            self._window.hide()
 
     def _later(self, task: Callable[[], None]) -> None:
         """Runs task on Tkinter's thread; safe to call from any thread."""
@@ -351,16 +364,38 @@ class Application:
         threading.Thread(target=work, name="api request", daemon=True).start()
 
     def _window_show(self) -> None:
+        # Task Manager may have changed it meanwhile.
+        self._window.show_start_with_windows(self._start_with_windows())
+        self._tray.refresh()
         self._window.show()
 
     def _hide(self) -> None:
         self._window.hide()
         self._refreshed = False
-        if not self._told_about_tray:
-            self._told_about_tray = True
+        if not self._state.told_about_tray:
+            self._state = replace(self._state, told_about_tray=True)
+            try:
+                save_state(self._state, state_dir())
+            except OSError as error:
+                logger.warning("Cannot remember that the tray notice was shown: %s", error)
             self._tray.notify(
                 "Still running", "ReflektorTTS keeps reading apps from here. Right-click its icon to quit."
             )
+
+    def _start_with_windows(self) -> bool | None:
+        """Whether ReflektorTTS starts with Windows; None where it cannot. Called on any thread."""
+        return None if self._autostart is None else self._autostart.enabled()
+
+    def _set_start_with_windows(self, enabled: bool) -> None:
+        if self._autostart is None:
+            return
+        try:
+            self._autostart.enable(enabled)
+        except OSError as error:
+            logger.exception("Cannot change whether ReflektorTTS starts with Windows")
+            self._show_error(f"ReflektorTTS could not change whether it starts with Windows: {error.strerror}")
+        self._window.show_start_with_windows(self._start_with_windows())
+        self._tray.refresh()
 
     def _quit(self) -> None:
         if self._quitting:
