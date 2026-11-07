@@ -44,7 +44,7 @@ class SettingsTab:
             self._autostart.grid(row=0, column=0, sticky="w")
             ttk.Label(
                 startup,
-                text="ReflektorTTS starts hidden next to the clock when you sign in, ready to read your apps.",
+                text="Starts hidden next to the clock when you sign in, ready to read your apps.",
                 foreground=DIM,
             ).grid(row=1, column=0, sticky="w", padx=(22, 0))
             status_bar.hint(self._autostart, self._autostart_hint)
@@ -65,7 +65,7 @@ class SettingsTab:
         profiles = ttk.Button(buttons, text="Open profiles folder", command=on_open_profiles)
         profiles.grid(row=0, column=2, padx=(6, 0))
         status_bar.hint(settings, lambda: "Open the folder with the settings saved for each app.")
-        status_bar.hint(logs, lambda: "Open the folder with ReflektorTTS's logs, e.g. to report a problem.")
+        status_bar.hint(logs, lambda: "Open the logs folder, e.g. to report a problem.")
         status_bar.hint(profiles, lambda: "Open the folder for your own profiles, which the Profiles tab lists too.")
 
     def show_start_with_windows(self, enabled: bool | None) -> None:
@@ -77,5 +77,5 @@ class SettingsTab:
 
     def _autostart_hint(self) -> str:
         if self._available:
-            return "Start ReflektorTTS, hidden next to the clock, when you sign in to Windows."
+            return "Start hidden next to the clock when you sign in to Windows."
         return "Only ReflektorTTS.exe from a release can start with Windows."

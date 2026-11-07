@@ -186,10 +186,11 @@ class Window:
         ttk.Label(header, text=f"Your apps, read aloud. Version {about.version}", foreground=DIM).grid(
             row=1, column=1, sticky="nw"
         )
-        quit_button = ttk.Button(header, text="Quit ReflektorTTS", command=on_quit)
+        quit_button = ttk.Button(header, text="Quit", command=on_quit)
         quit_button.grid(row=0, column=2, rowspan=2, sticky="e")
         self._status_bar.hint(
-            quit_button, lambda: "Stop ReflektorTTS completely. Closing the window keeps it running next to the clock."
+            quit_button,
+            lambda: "Stop reading and close completely. Closing the window keeps it running next to the clock.",
         )
 
         now = ttk.LabelFrame(frame, text="Now", padding=12)
@@ -227,14 +228,12 @@ class Window:
         page.grid(row=0, column=0)
         report = ttk.Button(project, text="Report a problem", command=lambda: on_open_link(about.issues))
         report.grid(row=0, column=1, padx=(6, 0))
-        self._status_bar.hint(
-            page, lambda: "Open ReflektorTTS's page on GitHub: its code, its guides and its releases."
-        )
+        self._status_bar.hint(page, lambda: "Open the project's page on GitHub: its code, guides and releases.")
         self._status_bar.hint(
             report, lambda: "Report a problem on GitHub. The logs help: open their folder in the Settings tab."
         )
 
-        support = ttk.LabelFrame(links, text="Support ReflektorTTS", padding=10)
+        support = ttk.LabelFrame(links, text="Support", padding=10)
         support.grid(row=0, column=1, sticky="nsew")
         ko_fi = ttk.Button(support, text="Ko-fi", command=lambda: on_open_link(KO_FI))
         ko_fi.grid(row=0, column=0)

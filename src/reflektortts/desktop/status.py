@@ -49,7 +49,7 @@ def hint(status: CoreStatus | None) -> str:
         if status.unsupported_sha256 is None:
             return "Its executable could not be read to tell which version it is; see the log."
         return f"To support it, its profile needs this version's SHA-256: {status.unsupported_sha256}"
-    return "In an app with the overlay, open the ReflektorTTS panel with Ctrl+Shift+R."
+    return "In an app with the overlay, open the panel with Ctrl+Shift+R."
 
 
 def describe(status: CoreStatus | None) -> str:

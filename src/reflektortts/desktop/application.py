@@ -190,7 +190,7 @@ class Application:
             # Whatever holds the port may not be ReflektorTTS; asking it takes a moment.
             self._in_background(self._check_port)
             return
-        message = "ReflektorTTS stopped: open the logs folder, in the Settings tab, to see why."
+        message = "Stopped: open the logs folder, in the Settings tab, to see why."
         self._window.show_stopped(message)
         self._tray.show_status(message, paused=False, connected=False)
 
@@ -422,9 +422,7 @@ class Application:
                 save_state(self._state, state_dir())
             except OSError as error:
                 logger.warning("Cannot remember that the tray notice was shown: %s", error)
-            self._tray.notify(
-                "Still running", "ReflektorTTS keeps reading apps from here. Right-click its icon to quit."
-            )
+            self._tray.notify("Still running", "Keeps reading apps from here. Right-click the icon to quit.")
 
     def _open_link(self, url: str) -> None:
         """Opens a web page in the user's browser."""
@@ -443,7 +441,7 @@ class Application:
             self._autostart.enable(enabled)
         except OSError as error:
             logger.exception("Cannot change whether ReflektorTTS starts with Windows")
-            self._show_error(f"ReflektorTTS could not change whether it starts with Windows: {error.strerror}")
+            self._show_error(f"Start with Windows could not be changed: {error.strerror}")
         self._window.settings.show_start_with_windows(self._start_with_windows())
         self._tray.refresh()
 

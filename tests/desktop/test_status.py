@@ -43,10 +43,7 @@ def test_an_unsupported_version_is_described_with_its_hash() -> None:
     assert status == CoreStatus(app=None, paused=False, unsupported="Mad Max", unsupported_sha256="abc")
     assert describe(status) == "This version of Mad Max is not supported yet"
     assert hint(status) == "To support it, its profile needs this version's SHA-256: abc"
-    assert (
-        hint(CoreStatus(app=None, paused=False))
-        == "In an app with the overlay, open the ReflektorTTS panel with Ctrl+Shift+R."
-    )
+    assert hint(CoreStatus(app=None, paused=False)) == "In an app with the overlay, open the panel with Ctrl+Shift+R."
 
 
 def test_a_status_event_gives_the_voice_languages_and_app_sound() -> None:
