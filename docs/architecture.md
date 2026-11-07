@@ -84,7 +84,7 @@ A failing source, stage or sink is reported once as a `source.error`, `stage.err
 | `overlay.py` | Loads the overlay into an app |
 | `overlay/` (repository root) | The overlay (C++); see [overlay/README.md](../overlay/README.md) |
 | `tests/` (repository root) | Tests, mirroring `src/reflektortts/` |
-| `tools/` (repository root) | Developer tools, not part of ReflektorTTS: `draw_icon.py` draws the ReflektorTTS icon, `build_release.py` builds the portable zip, and `notices.py` collects the licenses it ships |
+| `tools/` (repository root) | Developer tools, not part of ReflektorTTS: `draw_icon.py` draws the ReflektorTTS icon, `build_release.py` builds the portable zip, `notices.py` collects the licenses it ships, and `sources.py` the source code it offers |
 
 How the folders are organized:
 
@@ -148,7 +148,7 @@ Known pitfalls of older games and how the overlay handles them:
 
 ## Platforms and distribution
 
-- **Windows** is the main platform. ReflektorTTS ships as a portable zip: the desktop app built with PyInstaller (one folder, its own Python, every dependency included), the overlay builds and the notices, built by `tools/build_release.py`. User data stays in the per-user folders, so a release folder can be replaced to update. An installer may follow.
+- **Windows** is the main platform. ReflektorTTS ships as a portable zip: the desktop app built with PyInstaller (one folder, its own Python, every dependency included), the overlay builds and the notices, built by `tools/build_release.py`, with a zip of the source code it offers next to it. User data stays in the per-user folders, so a release folder can be replaced to update. An installer may follow.
 - The desktop app uses Tkinter, part of Python, and pystray (LGPL-3.0) for the tray icon; Qt or wx would look more modern but add over 100 MB. The overlay works only with what is already downloaded: downloads (voices, translation models) belong in the desktop app.
 - **Linux** second: apps under Proton/Wine with the same overlay DLL; native apps through a Vulkan layer and `LD_PRELOAD` for OpenGL (as MangoHud does). Sources to port: memory (`process_vm_readv`), OCR (Tesseract), clipboard. Ducking needs a per-app volume through PipeWire/PulseAudio (e.g. `pulsectl`). pystray and Tkinter both want the main thread on some Linux setups, so the desktop app is checked there separately.
 - **macOS** is out of scope: the hardened runtime and SIP block injection, and reading memory (`task_for_pid`) needs extra permissions.
