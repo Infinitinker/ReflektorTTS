@@ -116,6 +116,9 @@ void restore_cut_hooks() {
             continue;
         }
         *cut.original = trampoline;
+        // hook_function hands this trampoline out for the target from now on: the first one leads
+        // to the other overlay's code, which now jumps back to us.
+        g_trampolines[cut.target] = trampoline;
         log_message("Another overlay removed our hook on " + describe_address(cut.target) + "; hooked its code at " +
                     describe_address(destination) + " instead");
     }

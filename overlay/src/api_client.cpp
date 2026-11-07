@@ -4,6 +4,7 @@
 #include <winhttp.h>
 
 #include <condition_variable>
+#include <exception>
 #include <cstddef>
 #include <deque>
 #include <mutex>
@@ -11,6 +12,7 @@
 #include <optional>
 #include <string>
 #include <thread>
+#include <utility>
 
 #include "log.h"
 
@@ -24,6 +26,10 @@ constexpr INTERNET_PORT kPort = 47821;  // Must match reflektortts.api.server.PO
 constexpr DWORD kReconnectMs = 2000;
 // The core's events are small; a bigger message is skipped, so a wrong server cannot fill memory.
 constexpr std::size_t kMaxEventBytes = 1 << 20;
+// The same for answers to requests, such as the voice list.
+constexpr std::size_t kMaxResponseBytes = 4 << 20;
+// How much of an unexpected answer is logged.
+constexpr std::size_t kLoggedBytes = 300;
 
 struct Request {
     const wchar_t* method;
@@ -57,10 +63,15 @@ private:
     HINTERNET handle_;
 };
 
-std::string read_body(HINTERNET request) {
+// Returns nullopt for a body bigger than kMaxResponseBytes.
+std::optional<std::string> read_body(HINTERNET request) {
     std::string body;
     DWORD available = 0;
     while (WinHttpQueryDataAvailable(request, &available) && available > 0) {
+        if (body.size() + available > kMaxResponseBytes) {
+            log_message("Skipping an answer bigger than " + std::to_string(kMaxResponseBytes) + " bytes");
+            return std::nullopt;
+        }
         std::string chunk(available, '\0');
         DWORD read = 0;
         if (!WinHttpReadData(request, chunk.data(), available, &read)) {
@@ -100,7 +111,11 @@ std::optional<Response> send(const Request& request) {
     DWORD size = sizeof(status);
     WinHttpQueryHeaders(handle.get(), WINHTTP_QUERY_STATUS_CODE | WINHTTP_QUERY_FLAG_NUMBER, WINHTTP_HEADER_NAME_BY_INDEX,
                         &status, &size, WINHTTP_NO_HEADER_INDEX);
-    return Response{status, read_body(handle.get())};
+    std::optional<std::string> response_body = read_body(handle.get());
+    if (!response_body) {
+        return std::nullopt;
+    }
+    return Response{status, std::move(*response_body)};
 }
 
 std::optional<std::string> optional_text(const json& value) {
@@ -198,7 +213,8 @@ std::optional<json> fetch(const wchar_t* path) {
     }
     json document = json::parse(response->body, nullptr, false);
     if (response->status != 200 || document.is_discarded()) {
-        log_message("Unexpected answer from the core (HTTP " + std::to_string(response->status) + "): " + response->body);
+        log_message("Unexpected answer from the core (HTTP " + std::to_string(response->status) +
+                    "): " + response->body.substr(0, kLoggedBytes));
         return json();
     }
     return document;
@@ -289,15 +305,26 @@ void listen_for_events() {
             too_big = false;
         }
     }
+}
+
+void disconnected() {
     std::lock_guard lock(g_state_mutex);
     g_state.connected = false;
     // Without the core, nothing would ever hide the subtitle.
     g_state.subtitle.clear();
 }
 
+// An exception leaving a thread would end the app, so each loop catches every one.
 void event_loop() {
     for (;;) {
-        listen_for_events();
+        try {
+            listen_for_events();
+        } catch (const std::exception& error) {
+            log_message(std::string("Lost the connection to the core: ") + error.what());
+        } catch (...) {
+            log_message("Lost the connection to the core");
+        }
+        disconnected();
         Sleep(kReconnectMs);
     }
 }
@@ -311,15 +338,22 @@ void request_loop() {
             request = std::move(g_requests.front());
             g_requests.pop_front();
         }
-        std::optional<Response> response = send(request);
         std::string error;
-        if (!response) {
-            error = "ReflektorTTS is not reachable.";
-        } else if (response->status != 200) {
-            json body = json::parse(response->body, nullptr, false);
-            error = body.is_object() && body.contains("error") && body["error"].is_string()
-                        ? body["error"].get<std::string>()
-                        : "The request failed (HTTP " + std::to_string(response->status) + ").";
+        try {
+            std::optional<Response> response = send(request);
+            if (!response) {
+                error = "ReflektorTTS is not reachable.";
+            } else if (response->status != 200) {
+                json body = json::parse(response->body, nullptr, false);
+                error = body.is_object() && body.contains("error") && body["error"].is_string()
+                            ? body["error"].get<std::string>()
+                            : "The request failed (HTTP " + std::to_string(response->status) + ").";
+            }
+        } catch (const std::exception& failure) {
+            log_message(std::string("A request to the core failed: ") + failure.what());
+            error = "The request failed.";
+        } catch (...) {
+            error = "The request failed.";
         }
         if (!error.empty()) {
             std::lock_guard lock(g_state_mutex);

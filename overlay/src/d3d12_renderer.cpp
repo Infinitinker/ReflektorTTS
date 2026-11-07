@@ -148,6 +148,18 @@ void start(IDXGISwapChain* swap_chain) {
     g_state = State::Running;
 }
 
+// Whether the swap chain belongs to the device the overlay draws with. A swap chain the app
+// recreates, with a new device, can get the address of the one it freed, so the address alone
+// does not tell.
+bool on_our_device(IDXGISwapChain* swap_chain) {
+    ID3D12Device* device = nullptr;
+    if (FAILED(swap_chain->GetDevice(__uuidof(ID3D12Device), reinterpret_cast<void**>(&device)))) {
+        return false;
+    }
+    device->Release();
+    return device == g_device;
+}
+
 // Apps replace their swap chain, e.g. when switching from the menu to gameplay, so the
 // overlay follows the swap chain that presented last. Moving to another device is not
 // supported yet; the old one is abandoned, never released (see forget_renderer_backend).
@@ -189,7 +201,7 @@ ID3D12Resource* current_back_buffer(IDXGISwapChain* swap_chain, UINT& index) {
 void render_d3d12_frame(IDXGISwapChain* swap_chain) {
     if (g_state == State::NotStarted) {
         start(swap_chain);
-    } else if (g_state == State::Running && swap_chain != g_swap_chain) {
+    } else if (g_state == State::Running && (swap_chain != g_swap_chain || !on_our_device(swap_chain))) {
         switch_swap_chain(swap_chain);
     }
     if (g_state != State::Running || swap_chain != g_swap_chain) {

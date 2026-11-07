@@ -31,6 +31,18 @@ bool use_device(ID3D11Device* device) {
     return ImGui_ImplDX11_Init(g_device, g_context);
 }
 
+// Whether the swap chain belongs to the device the overlay draws with. A swap chain the app
+// recreates, with a new device, can get the address of the one it freed, so the address alone
+// does not tell.
+bool on_our_device(IDXGISwapChain* swap_chain) {
+    ID3D11Device* device = nullptr;
+    if (FAILED(swap_chain->GetDevice(__uuidof(ID3D11Device), reinterpret_cast<void**>(&device)))) {
+        return false;
+    }
+    device->Release();
+    return device == g_device;
+}
+
 // Apps replace their swap chain, and sometimes their device, e.g. when switching from
 // the menu to gameplay, so the overlay follows the swap chain that presented last.
 void attach(IDXGISwapChain* swap_chain) {
@@ -112,7 +124,7 @@ ID3D11RenderTargetView* create_render_target(IDXGISwapChain* swap_chain, D3D11_T
 }  // namespace
 
 void render_d3d11_frame(IDXGISwapChain* swap_chain) {
-    if (g_state != State::Disabled && swap_chain != g_swap_chain) {
+    if (g_state != State::Disabled && (swap_chain != g_swap_chain || !on_our_device(swap_chain))) {
         attach(swap_chain);
     }
     if (g_state != State::Running || swap_chain != g_swap_chain) {
