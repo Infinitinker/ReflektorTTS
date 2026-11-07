@@ -13,6 +13,18 @@ The desktop app's Profiles tab lists them all with their state, and does the res
 
 The profile format is not finalized yet. Its JSON Schema is `src/reflektortts/profiles/profile.schema.json`; a full guide to writing and contributing profiles will be added here once the format settles.
 
+An editor that understands JSON Schema (e.g. Visual Studio Code) checks a profile as you type and suggests its fields when the profile names the schema in a `$schema` field:
+
+```json
+{
+  "$schema": "https://raw.githubusercontent.com/Infinitinker/ReflektorTTS/main/src/reflektortts/profiles/profile.schema.json",
+  "version": 1,
+  ...
+}
+```
+
+ReflektorTTS ignores that field. The editor checks only the profile's own fields; the fields of each source and stage are checked by their plugins when ReflektorTTS loads the profile.
+
 ## Format (version 1)
 
 A profile is a JSON file saved as UTF-8 (with or without a byte order mark), as current editors do by default.
@@ -42,7 +54,7 @@ A profile is a JSON file saved as UTF-8 (with or without a byte order mark), as 
   - `tracker`: passes a line on once it has stayed unchanged for `stable_ms` (default 500; the text is checked on every read of the source, so the wait is rounded up to whole `poll_interval_ms`: with 250 ms polling, 300 waits 500, so set a multiple), has at least `min_letters` letters (default 4), and letters make up at least half of its visible characters; the same line is passed on again only after it disappears or changes. Nearly every source needs it, because sources report the current text on every read.
   - `replace`: `rules`, a list of replacements applied in order, e.g. to remove an app's formatting marks. Each rule is either:
     - `{"find": "#", "replace": ""}`: plain text, matched literally;
-    - `{"pattern": "#([^#]*)#", "replace": "\\1"}`: a regular expression (Python syntax), where `\1`, `\2`... in `replace` insert the pattern's groups. In JSON a backslash is written twice. GTA2 marks colored words like `#TEST#`; this rule keeps the word and drops the marks. Invalid patterns are reported when the profile loads, and a replacement that doesn't fit its pattern (such as `\2` for a pattern with one group) when the app starts.
+    - `{"pattern": "#([^#]*)#", "replace": "\\1"}`: a regular expression (Python syntax), where `\1`, `\2`... in `replace` insert the pattern's groups. In JSON a backslash is written twice. GTA2 marks colored words like `#TEST#`; this rule keeps the word and drops the marks. Invalid patterns are reported when the profile loads, and a replacement that doesn't fit its pattern (such as `\2` for a pattern with one group) when the app starts. A pattern may take at most 0.1 s on a line; a line it takes longer on is skipped, and reported as a stage error.
   - `translate`: translates lines from the input language into the output language the user chose in the overlay (lektor mode), when the two differ and a translation model for them is installed (otherwise lines pass untranslated). Only English to Polish is available so far. The input language is English unless the user chooses another. Place it after the stages that clean up the text and before `normalize`. It follows the profile's `glossary` for the line's input language, and leaves a line as written if it has fewer than `min_letters` letters (default 1) besides its kept terms and those with `pronounce`, so a line of only names, like "Carl, Zero, Zero, Carl.", is not translated.
   - `pronounce`: respells the terms of the `glossary` for the input language that have a `pronounce` for the output language, so the voice pronounces them right, e.g. "Carl" as "Karl" for a Polish voice. It keeps the ending a term was declined with ("Carlowi" becomes "Karlowi", "Big Smoke'a" becomes "Big Smołka"), and matches terms as written or in capitals, so "Carlos" and "carl" stay. Place it after `translate` and before `normalize`, usually only for speech: `{"type": "pronounce", "text": false}`. It has no settings.
   - `normalize`: spells out numbers, money, percentages, units, times, dates, common abbreviations and the symbols & and + in the output language the user chose in the overlay, e.g. `$50,000` becomes "fifty thousand dollars" in English and "pięćdziesiąt tysięcy dolarów" in Polish, "2 min" becomes "dwie minuty", and "o 14:30" becomes "o czternastej trzydzieści". Place it after the stages that clean up the text. It has no settings.
@@ -52,7 +64,7 @@ A profile is a JSON file saved as UTF-8 (with or without a byte order mark), as 
 Reads text from the app's memory through a pointer chain, written as in Cheat Engine. Fields are described in `src/reflektortts/sources/memory/settings.schema.json`:
 
 - `encoding`: how the app stores text: `utf-16le`, `utf-8`, `cp1250` or `cp1252`.
-- `pointers`: one entry per supported build of the app. Memory addresses differ between releases (e.g. retail, patched, Steam), so each chain names the SHA-256 of the executable it was found in (`exe_sha256`, one of the builds in `match`), its base `address` (`"gta2.exe+272F40"`) and its `offsets` in hex. On a build with no matching entry, the user is told the app version is not supported yet.
+- `pointers`: one entry per supported build of the app. Memory addresses differ between releases (e.g. retail, patched, Steam), so each chain names the SHA-256 of the executable it was found in (`exe_sha256`, one of the builds in `match`: a profile that lists its builds and has a chain for another is refused, since that chain would never be used), its base `address` (`"gta2.exe+272F40"`) and its `offsets` in hex. On a build with no matching entry, the user is told the app version is not supported yet.
 
 A pointer can outlive its text, e.g. in the app's menu, and then points at unrelated memory. Readings where under 90% of the characters could appear in dialogue (Latin letters with accents, Cyrillic, spaces, common punctuation) count as no text, so garbage is never read aloud.
 

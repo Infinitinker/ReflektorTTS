@@ -1,5 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/Infinitinker/ReflektorTTS/main/src/reflektortts/profiles/profile.schema.json",
   "title": "ReflektorTTS profile",
   "description": "Describes one app: how to recognize it, where to read its text and how to process it.",
   "type": "object",
@@ -10,6 +11,10 @@
   ],
   "additionalProperties": false,
   "properties": {
+    "$schema": {
+      "description": "This schema's URL, for editors that check and complete profiles; ReflektorTTS ignores it.",
+      "type": "string"
+    },
     "version": {
       "description": "Profile format version.",
       "const": 1

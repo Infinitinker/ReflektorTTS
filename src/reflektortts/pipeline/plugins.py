@@ -2,7 +2,7 @@
 
 import json
 import logging
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 from importlib import resources
 from typing import Any
@@ -31,6 +31,9 @@ class SourcePlugin:
     settings_schema: Mapping[str, Any]
     """JSON Schema for the plugin's own fields in a profile's source entry."""
     create: Callable[[SourceSettings, RunningApp], Source]
+    builds: Callable[[Mapping[str, Any]], Iterable[str]] = lambda settings: ()
+    """The builds of the app (SHA-256 of its executable) that the source's schema-validated fields
+    are for, e.g. one per pointer chain. A profile that lists its builds must list each of these."""
 
 
 @dataclass(frozen=True)
@@ -78,13 +81,24 @@ def load_schema(package: str, file_name: str) -> Mapping[str, Any]:
 
 def _load[Plugin: (SourcePlugin, StagePlugin)](group: str, kind: type[Plugin]) -> dict[str, Plugin]:
     """The group's plugins by type; one whose settings schema is not a valid JSON Schema is logged
-    and skipped, so profiles that use it are refused instead of stopping the core."""
-    plugins = {}
+    and skipped, so profiles that use it are refused instead of stopping the core. Of two plugins
+    with the same type, the first is kept and the other logged and skipped."""
+    plugins: dict[str, Plugin] = {}
     for plugin in load_plugins(group, kind):
         try:
             jsonschema.Draft202012Validator.check_schema(plugin.settings_schema)
         except jsonschema.SchemaError as error:
             logger.error("The plugin %s has an invalid settings schema (%s); skipping it", plugin.type, error.message)
+            continue
+        kept = plugins.get(plugin.type)
+        if kept is not None:
+            logger.warning(
+                "The plugins %s and %s in %s both have the type %s; keeping the first, skipping the second",
+                kept.create.__module__,
+                plugin.create.__module__,
+                group,
+                plugin.type,
+            )
             continue
         plugins[plugin.type] = plugin
     return plugins

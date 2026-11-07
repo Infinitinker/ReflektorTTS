@@ -300,3 +300,52 @@ def test_a_profile_nested_too_deeply_is_refused(tmp_path: Path) -> None:
 def test_a_version_below_1_is_refused(tmp_path: Path, version: int) -> None:
     with pytest.raises(ProfileError, match='app.json: "version" must be from 1 to 1'):
         load_profile(write(tmp_path, "app.json", VALID | {"version": version}))
+
+
+def test_a_profile_may_name_its_schema_for_editors(tmp_path: Path) -> None:
+    schema = json.loads(Path(loader.__file__).with_name("profile.schema.json").read_text("utf-8"))
+
+    profile = load_profile(write(tmp_path, "test-app-1999.json", {"$schema": schema["$id"]} | VALID))
+
+    assert profile.app == App(title="Test App", year=1999)
+
+
+BUILT_SCHEMAS = PluginSchemas(
+    sources={"built": {"type": "object"}},
+    stages={},
+    source_builds={"built": lambda settings: settings["builds"]},
+)
+BUILT_MATCH = {"match": {"executables": [{"name": "test.exe", "sha256": [BUILD]}]}}
+
+
+def test_a_source_for_a_build_the_profile_does_not_list_is_refused(tmp_path: Path) -> None:
+    data = with_sources({"type": "built", "name": "subtitles", "builds": [BUILD.upper(), "ab" * 32]}) | BUILT_MATCH
+
+    with pytest.raises(
+        ProfileError,
+        match=rf'app\.json: \$\.sources\[0\] \("subtitles"\) is set up for the build {"ab" * 32}, which "match" ',
+    ):
+        load_profile(write(tmp_path, "app.json", data), BUILT_SCHEMAS)
+
+
+def test_a_source_may_be_for_any_build_when_the_profile_lists_none(tmp_path: Path) -> None:
+    data = with_sources({"type": "built", "name": "subtitles", "builds": ["ab" * 32]})
+
+    assert load_profile(write(tmp_path, "app.json", data), BUILT_SCHEMAS).sources[0].name == "subtitles"
+
+
+def test_a_source_whose_plugin_fails_to_tell_its_builds_is_refused(tmp_path: Path) -> None:
+    data = with_sources({"type": "built", "name": "subtitles"}) | BUILT_MATCH
+
+    with pytest.raises(
+        ProfileError,
+        match=r'app\.json: \$\.sources\[0\] \("subtitles"\): the built source plugin cannot tell which builds',
+    ):
+        load_profile(write(tmp_path, "app.json", data), BUILT_SCHEMAS)
+
+
+def test_a_source_whose_plugin_tells_builds_that_are_not_strings_is_refused(tmp_path: Path) -> None:
+    data = with_sources({"type": "built", "name": "subtitles", "builds": [None]}) | BUILT_MATCH
+
+    with pytest.raises(ProfileError, match="cannot tell which builds it is for"):
+        load_profile(write(tmp_path, "app.json", data), BUILT_SCHEMAS)

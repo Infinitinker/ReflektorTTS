@@ -39,3 +39,20 @@ def test_a_plugin_with_an_invalid_settings_schema_is_skipped(
 
     assert stage_plugins() == {"fine": fine}
     assert "The plugin broken has an invalid settings schema" in caplog.text
+
+
+def test_of_two_plugins_with_one_type_the_first_is_kept_and_both_are_named(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    def community_create(settings: Mapping[str, Any], glossaries: Glossaries) -> Stage:
+        raise AssertionError("not created in these tests")
+
+    community_create.__module__ = "community.plugin"
+    built_in = StagePlugin("tracker", {"type": "object"}, create)
+    community = StagePlugin("tracker", {"type": "object"}, community_create)
+    monkeypatch.setattr(plugins, "load_plugins", lambda group, kind: [built_in, community])
+
+    assert stage_plugins() == {"tracker": built_in}
+    assert (
+        f"The plugins {__name__} and community.plugin in reflektortts.stages both have the type tracker" in caplog.text
+    )

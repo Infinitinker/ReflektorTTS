@@ -1,5 +1,6 @@
 """The contract every download source follows, so the app shows and handles them all the same way."""
 
+import logging
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import StrEnum
@@ -7,6 +8,8 @@ from pathlib import Path
 from typing import Protocol
 
 from reflektortts.entry_points import load_plugins
+
+logger = logging.getLogger(__name__)
 
 GROUP = "reflektortts.downloads"
 
@@ -74,4 +77,12 @@ class DownloadPlugin:
 
 
 def download_plugins() -> dict[str, DownloadPlugin]:
-    return {plugin.name: plugin for plugin in load_plugins(GROUP, DownloadPlugin)}
+    """The download sources by name; of two with the same name, the first is kept and the other
+    logged and skipped."""
+    plugins: dict[str, DownloadPlugin] = {}
+    for plugin in load_plugins(GROUP, DownloadPlugin):
+        if plugin.name in plugins:
+            logger.warning("Two download sources are named %s; keeping the first, skipping the other", plugin.name)
+            continue
+        plugins[plugin.name] = plugin
+    return plugins

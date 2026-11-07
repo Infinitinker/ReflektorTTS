@@ -20,7 +20,7 @@ A plugin package declares an entry point whose value is a plugin object, for exa
 ocr = "my_package.ocr_plugin:PLUGIN"
 ```
 
-The entry point's object must be a `SourcePlugin`, `StagePlugin`, `EnginePlugin` or `DownloadPlugin`. A plugin that cannot be imported, or is something else, is logged and skipped, so it never stops ReflektorTTS or the other plugins. Likewise, a source or stage that fails while an app is read is reported (`source.error`, `stage.error`) and skipped, and a stage whose `inactive_reason` fails counts as inactive.
+The entry point's object must be a `SourcePlugin`, `StagePlugin`, `EnginePlugin` or `DownloadPlugin`. A plugin that cannot be imported, or is something else, is logged and skipped, so it never stops ReflektorTTS or the other plugins; so is a source or stage plugin whose settings schema is not a valid JSON Schema, and of two plugins of one kind with the same type (or download sources with the same name), the second. Likewise, a source or stage that fails while an app is read is reported (`source.error`, `stage.error`) and skipped, and a stage whose `inactive_reason` fails counts as inactive.
 
 ## Settings and profiles
 
@@ -58,19 +58,21 @@ class Source(Protocol):
 ```
 
 ```python
-SourcePlugin(type="memory", settings_schema=..., create=create)
+SourcePlugin(type="memory", settings_schema=..., create=create, builds=builds)
 
 
 def create(source: SourceSettings, app: RunningApp) -> Source: ...
+def builds(settings: Mapping[str, Any]) -> Iterable[str]: ...  # optional
 ```
 
 - `create` gets the profile's entry (`source.settings` holds the plugin's own, already validated fields; `source.name` and `source.poll_interval` come from the core) and the running app (its profile and process ID). Turn the settings into your own dataclasses here rather than passing dicts around.
+- `builds` is optional: the builds of the app (the SHA-256 of its executable) that the source's fields are for, such as one per pointer chain. In a profile that lists its builds, each must be listed, or the profile is refused when it loads, which catches a mistyped hash.
 - `read` returns the **current** text on every call, even if it has not changed; the tracker stage turns that into one line per change. Return `None` (or an empty string) when there is no text.
 - `languages` are the user's input and output languages. Most sources read whatever the app shows and ignore them; a source that can read a line in several languages, like `avalanche`, reads it in the input language.
 - `read` runs on the thread that polls every source, so keep it quick: do slow work (reading an app's files, say) in a thread of your own and return `None` until it is done, as `avalanche` does.
 - Raise an exception with a message the user understands when reading fails ("Cannot read the app's memory at 672F40."). The runner reports it once as a `source.error` event and keeps polling; it logs when the source works again. A source that cannot start at all should raise from `create`, e.g. "This version of the app is not supported by its profile yet".
 - `close` releases what the source holds (handles, files). It is called when the app exits.
-- Platform-specific code stays inside the plugin, behind a small interface with one implementation per OS. Code that several sources need goes into a shared module instead: sources that read the app's memory use `process_memory/` for the process, pointer chains (`parse_pointer_chains`, `chain_for`, `resolve`), and the app's executable (`executable_path`, `executable_sha256`).
+- Platform-specific code stays inside the plugin, behind a small interface with one implementation per OS. Code that several sources need goes into a shared module instead: sources that read the app's memory use `process_memory/` for the process and pointer chains (`parse_pointer_chains`, `chain_for`, `resolve`), and `apps/executable.py` for the app's executable (`executable_path`, `executable_sha256`).
 ## Stages
 
 ```python

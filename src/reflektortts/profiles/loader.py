@@ -1,8 +1,9 @@
 """Loads profile files: parses, migrates to the current version and validates them."""
 
 import json
-from collections.abc import Callable, Mapping
-from dataclasses import dataclass
+import logging
+from collections.abc import Callable, Iterable, Mapping
+from dataclasses import dataclass, field
 from functools import cache
 from importlib import resources
 from pathlib import Path
@@ -14,6 +15,8 @@ from jsonschema.protocols import Validator
 from reflektortts.glossary import Glossaries, Glossary, GlossaryTerm
 from reflektortts.pipeline.plugins import source_plugins, stage_plugins
 from reflektortts.profiles.model import App, Executable, Match, Profile, SourceSettings, StageSettings
+
+logger = logging.getLogger(__name__)
 
 CURRENT_VERSION = 1
 
@@ -29,10 +32,13 @@ DEFAULT_POLL_INTERVAL_MS = 250
 
 @dataclass(frozen=True)
 class PluginSchemas:
-    """Plugin types mapped to the JSON Schema of their own fields."""
+    """What loading a profile needs from the installed plugins: their types mapped to the JSON
+    Schema of their own fields, and, for sources, to the builds of the app those fields are for."""
 
     sources: Mapping[str, Mapping[str, Any]]
     stages: Mapping[str, Mapping[str, Any]]
+    source_builds: Mapping[str, Callable[[Mapping[str, Any]], Iterable[str]]] = field(default_factory=dict)
+    """Source types mapped to their plugin's SourcePlugin.builds."""
 
 
 class ProfileError(Exception):
@@ -46,9 +52,11 @@ def _validator() -> jsonschema.Draft202012Validator:
 
 
 def installed_plugin_schemas() -> PluginSchemas:
+    sources = source_plugins()
     return PluginSchemas(
-        sources={type_: plugin.settings_schema for type_, plugin in source_plugins().items()},
+        sources={type_: plugin.settings_schema for type_, plugin in sources.items()},
         stages={type_: plugin.settings_schema for type_, plugin in stage_plugins().items()},
+        source_builds={type_: plugin.builds for type_, plugin in sources.items()},
     )
 
 
@@ -147,6 +155,7 @@ def parse_profile(data: Any, profile_id: str, schemas: PluginSchemas | None = No
             f'{name}: "overlay" needs the "sha256" of every executable, so the overlay is loaded only into '
             "builds it was tested with."
         )
+    _check_builds(sources, executables, schemas, name)
     return Profile(
         id=profile_id,
         app=App(title=data["app"]["title"], year=data["app"]["year"]),
@@ -197,3 +206,42 @@ def _check_unique_names(sources: tuple[SourceSettings, ...], name: str) -> None:
         if source.name in seen:
             raise ProfileError(f'{name}: two sources are named "{source.name}"; give each its own name.')
         seen.add(source.name)
+
+
+def _check_builds(
+    sources: tuple[SourceSettings, ...], executables: tuple[Executable, ...], schemas: PluginSchemas, name: str
+) -> None:
+    """In a profile that lists its builds, a source set up for a build of the app, e.g. with a
+    pointer chain found in it, must be for a listed one: any other build is never read, so it is
+    most likely a typo that leaves a listed build without its source."""
+    if not all(executable.sha256 for executable in executables):
+        return
+    listed = {build for executable in executables for build in executable.sha256}
+    for index, source in enumerate(sources):
+        hook = schemas.source_builds.get(source.type)
+        if hook is None:
+            continue
+        where = f'{name}: $.sources[{index}] ("{source.name}")'
+        for build in _source_builds(hook, source, where):
+            if build.lower() not in listed:
+                raise ProfileError(
+                    f'{where} is set up for the build {build}, which "match" does not list. Add it to the "sha256" '
+                    "of its executable, or correct it in the source."
+                )
+
+
+def _source_builds(
+    hook: Callable[[Mapping[str, Any]], Iterable[str]], source: SourceSettings, where: str
+) -> tuple[str, ...]:
+    """The plugin's builds hook, which must not stop profile loading: if it fails or returns
+    something other than strings, the profile is refused and the failure is logged."""
+    try:
+        builds = tuple(hook(source.settings))
+        if not all(isinstance(build, str) for build in builds):
+            raise TypeError(f"builds must be strings, got {builds!r}")
+    except Exception as error:
+        logger.exception("The %s source plugin cannot tell which builds %s is for", source.type, where)
+        raise ProfileError(
+            f"{where}: the {source.type} source plugin cannot tell which builds it is for ({error})."
+        ) from error
+    return builds
