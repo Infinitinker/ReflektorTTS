@@ -55,7 +55,7 @@ Both take the same options:
 
 ### Checks
 
-Every pull request is checked on Windows and Linux by the `Checks` workflow. Run them yourself first:
+Every pull request is checked by the `Checks` workflow: lint and formatting once, types and tests on both Windows and Linux. Run them yourself first:
 
 ```powershell
 .venv\Scripts\python -m pytest
@@ -68,6 +68,12 @@ Every pull request is checked on Windows and Linux by the `Checks` workflow. Run
 ```
 ```powershell
 .venv\Scripts\python -m mypy
+```
+
+mypy checks the code as it runs on your system. To check it as it runs on the other one too, add `--platform linux` on Windows, or `--platform win32` on Linux:
+
+```powershell
+.venv\Scripts\python -m mypy --platform linux
 ```
 
 Tests live in `tests/`, mirroring `src/reflektortts/`, and run without a game, a GPU or the network. [docs/architecture.md](docs/architecture.md) explains how the code is organized, and [docs/plugins.md](docs/plugins.md) how to add sources, processing stages, speech engines and download sources as plugins.
