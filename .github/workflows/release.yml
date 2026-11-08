@@ -92,19 +92,27 @@ jobs:
 
       - name: Build the release
         run: python tools/build_release.py
+      # Each file on its own and unzipped, so the run's page offers the files themselves.
       - uses: actions/upload-artifact@v7
         with:
-          name: release
-          path: |
-            build/release/*-setup.exe
-            build/release/*.zip
+          path: build/release/*-windows-x64-setup.exe
+          archive: false
           if-no-files-found: error
-          compression-level: 0 # The installer and the zips are compressed already.
+      - uses: actions/upload-artifact@v7
+        with:
+          path: build/release/*-windows-x64.zip
+          archive: false
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v7
+        with:
+          path: build/release/*-sources.zip
+          archive: false
+          if-no-files-found: error
 
+  # Runs for every build, so the files are checked every time; only a pushed tag drafts a release.
   draft:
     name: Draft the release
     needs: build
-    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -112,16 +120,35 @@ jobs:
       id-token: write # To sign the provenance attestations.
       attestations: write # To store them.
     steps:
+      # skip-decompress keeps each file as uploaded: otherwise the two zips would arrive unpacked.
       - uses: actions/download-artifact@v8
         with:
-          name: release
+          pattern: ReflektorTTS-*
+          merge-multiple: true
+          skip-decompress: true
           path: release
+      - name: Check the files
+        working-directory: release
+        run: |
+          ls -l
+          for suffix in windows-x64-setup.exe windows-x64.zip sources.zip; do
+            files=(*-"$suffix")
+            if [ "${#files[@]}" -ne 1 ] || [ ! -f "${files[0]}" ]; then
+              echo "::error::Expected one *-$suffix, found: ${files[*]}"
+              exit 1
+            fi
+          done
+          [ "$(ls | wc -l)" -eq 3 ] || { echo "::error::Expected exactly three files."; exit 1; }
+          unzip -tq -- *-windows-x64.zip
+          unzip -tq -- *-sources.zip
       # Records that these files were built by this workflow from this commit, so anyone can check a
       # download with: gh attestation verify <file> --repo Infinitinker/ReflektorTTS
       - uses: actions/attest-build-provenance@v4
+        if: github.event_name == 'push'
         with:
           subject-path: release/*
       - name: Draft the release
+        if: github.event_name == 'push'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
