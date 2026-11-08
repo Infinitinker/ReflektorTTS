@@ -92,14 +92,23 @@ jobs:
 
       - name: Build the release
         run: python tools/build_release.py
+      # Each file on its own and unzipped, so the run's page offers the files themselves. Each step
+      # fails unless its pattern matches exactly one file.
       - uses: actions/upload-artifact@v7
         with:
-          name: release
-          path: |
-            build/release/*-setup.exe
-            build/release/*.zip
+          path: build/release/*-windows-x64-setup.exe
+          archive: false
           if-no-files-found: error
-          compression-level: 0 # The installer and the zips are compressed already.
+      - uses: actions/upload-artifact@v7
+        with:
+          path: build/release/*-windows-x64.zip
+          archive: false
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v7
+        with:
+          path: build/release/*-sources.zip
+          archive: false
+          if-no-files-found: error
 
   draft:
     name: Draft the release
@@ -112,10 +121,21 @@ jobs:
       id-token: write # To sign the provenance attestations.
       attestations: write # To store them.
     steps:
+      # skip-decompress keeps each file as uploaded: otherwise the two zips would arrive unpacked.
       - uses: actions/download-artifact@v8
         with:
-          name: release
+          pattern: ReflektorTTS-*
+          merge-multiple: true
+          skip-decompress: true
           path: release
+      - name: Check the files
+        working-directory: release
+        run: |
+          ls -l
+          for file in *-windows-x64-setup.exe *-windows-x64.zip *-sources.zip; do
+            [ -f "$file" ] || { echo "::error::$file did not arrive as a file."; exit 1; }
+          done
+          [ "$(ls | wc -l)" -eq 3 ] || { echo "::error::Expected exactly the three files."; exit 1; }
       # Records that these files were built by this workflow from this commit, so anyone can check a
       # download with: gh attestation verify <file> --repo Infinitinker/ReflektorTTS
       - uses: actions/attest-build-provenance@v4
