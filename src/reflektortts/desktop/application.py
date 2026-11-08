@@ -70,7 +70,8 @@ class Application:
         self._items: dict[str, DownloadItem] = {}
         self._core = CoreThread(args.profiles, config_dir(), args.overlay)
         self._panels = PanelWindows(find_program(args.overlay))
-        """The settings windows, one per profile, opened from the Profiles tab."""
+        """The settings windows, one per profile, opened from the Profiles tab or, for the app being
+        read, the Status tab."""
         self._feed = StatusFeed(
             lambda status: self._later(lambda: self._show(status)),
             lambda progress: self._later(lambda: self._download_progress(progress)),
@@ -99,7 +100,8 @@ class Application:
             voice_title=lambda voice: self._voice_titles.get(voice, voice),
             on_profiles_opened=self._profiles_opened,
             on_enable_profile=self._enable_profile,
-            on_app_settings=self._open_app_settings,
+            on_app_settings=lambda item: self._open_app_settings(item.id, name_text(item)),
+            on_read_app_settings=self._open_app_settings,
             app_settings_missing=self._panels.missing,
             on_copy_profile=self._copy_profile,
             on_remove_profile=self._remove_profile,
@@ -258,15 +260,15 @@ class Application:
         body = {"id": item.id, "enabled": enabled}
         self._profile_request("PATCH", "/profiles", body, f"{name_text(item)} could not be {action}")
 
-    def _open_app_settings(self, item: ProfileItem) -> None:
+    def _open_app_settings(self, profile: str, title: str) -> None:
         """Opens the profile's settings window beside this one, or brings it to the front; it talks to
-        the core itself."""
+        the core itself. title names the app in an error."""
         try:
-            self._panels.open(item.id, lambda: dock_of(self._root))
+            self._panels.open(profile, lambda: dock_of(self._root))
         except OSError as error:
-            logger.exception("Cannot open the settings window for %s", item.id)
+            logger.exception("Cannot open the settings window for %s", profile)
             reason = error.strerror or str(error)
-            self._show_error(f"The settings window for {name_text(item)} could not be opened: {reason}")
+            self._show_error(f"The settings window for {title} could not be opened: {reason}")
 
     def _copy_profile(self, item: ProfileItem) -> None:
         """Copies a bundled profile and shows the copy, ready to edit."""

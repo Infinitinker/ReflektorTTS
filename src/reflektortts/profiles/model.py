@@ -2,6 +2,7 @@
 
 from collections.abc import Mapping
 from dataclasses import dataclass, field
+from enum import StrEnum
 from typing import Any
 
 from reflektortts.glossary import Glossaries
@@ -11,6 +12,15 @@ from reflektortts.glossary import Glossaries
 class App:
     title: str
     year: int
+
+
+class Rating(StrEnum):
+    """How far a profile is tested, as a medal, from the least tested."""
+
+    BRONZE = "bronze"
+    SILVER = "silver"
+    GOLD = "gold"
+    PLATINUM = "platinum"
 
 
 @dataclass(frozen=True)
@@ -67,3 +77,5 @@ class Profile:
     glossary: Glossaries = field(default_factory=dict)
     """Terms of the app that translation and speech treat specially, by input language; given to
     every stage."""
+    rating: Rating | None = None
+    """How far the profile is tested; None if it is not rated."""

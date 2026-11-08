@@ -80,6 +80,10 @@
         }
       }
     },
+    "rating": {
+      "description": "How far the profile is tested, as a medal: bronze (some texts read, tried only briefly), silver (the main texts read, tested in the first part of the app), gold (the main texts read, tested through most of the app) or platinum (every text the app shows read, tested through all of it). Without it, the profile is not rated.",
+      "enum": ["bronze", "silver", "gold", "platinum"]
+    },
     "overlay": {
       "description": "Whether the overlay is loaded into the app. Default: false. Needs the executables' sha256, so the overlay only goes into builds it was tested with.",
       "type": "boolean"

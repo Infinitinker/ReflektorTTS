@@ -12,6 +12,7 @@ from tkinter import ttk
 
 from reflektortts.desktop.integration_window import IntegrationWindow
 from reflektortts.desktop.integrations import IntegrationItem, integrations_hint, integrations_of
+from reflektortts.desktop.medals import GAP, MEDALS, medal_photo
 from reflektortts.desktop.profiles import (
     ORIGINS,
     STATES,
@@ -20,13 +21,22 @@ from reflektortts.desktop.profiles import (
     file_name,
     name_text,
     overlay_text,
+    rating_text,
     summary_text,
 )
 from reflektortts.desktop.status_bar import StatusBar
 from reflektortts.desktop.theme import BUSY, DIM, GOOD, group_background, heading_font
-from reflektortts.desktop.widgets import button_width, fit_columns
+from reflektortts.desktop.widgets import (
+    button_width,
+    fit_columns,
+    fit_tree_column,
+    flat_treeview_style,
+    row_image_size,
+)
 
 DETAILS_LINES = 6
+RATING = "Rating"
+"""The first column's title: the profile's medal."""
 COLUMNS = (
     ("name", "Name"),
     ("origin", "Origin"),
@@ -91,8 +101,17 @@ class ProfilesTab:
         table.columnconfigure(0, weight=1)
         table.rowconfigure(0, weight=1)
         self._tree = ttk.Treeview(
-            table, columns=[column for column, _ in COLUMNS], show="headings", selectmode="browse"
+            table,
+            columns=[column for column, _ in COLUMNS],
+            show="tree headings",
+            selectmode="browse",
+            style=flat_treeview_style(),
         )
+        # Images can only be in the first column, so the medals are there.
+        self._medal_size = row_image_size()
+        self._medals = {rating: medal_photo(rating, self._medal_size) for rating in (*MEDALS, None)}
+        self._tree.heading("#0", text=RATING, anchor="w")
+        self._tree.column("#0", stretch=False)
         for column, title in COLUMNS:
             self._tree.heading(column, text=title, anchor="w")
             self._tree.column(column, anchor="w", stretch=column == "state")
@@ -173,7 +192,7 @@ class ProfilesTab:
         self._tree.delete(*self._tree.get_children())
         self._tree.insert("", "end", iid="message", values=(message, "", "", "", ""), tags=("message",))
         self._items = {}
-        fit_columns(self._tree, COLUMNS)
+        self._fit_columns()
         self._status_bar.set_text(self.frame, "")
         self._show_selected()
 
@@ -187,14 +206,21 @@ class ProfilesTab:
         for item in self._items.values():
             executables = ", ".join(executable.name for executable in item.executables)
             values = (name_text(item), ORIGINS[item.origin], executables, overlay_text(item), STATES[item.state])
-            self._tree.insert("", "end", iid=item.id, values=values, tags=(item.state,))
+            medal, _ = rating_text(item)
+            # A broken file has no medal, nor its image ("" is none).
+            image = self._medals[item.rating] if medal else ""
+            self._tree.insert("", "end", iid=item.id, text=medal, image=image, values=values, tags=(item.state,))
         if selected in self._items:
             self._tree.selection_set(selected)
             self._tree.see(selected)
-        fit_columns(self._tree, COLUMNS)
+        self._fit_columns()
         self._status_bar.set_text(self.frame, summary_text(items))
         self._show_selected()
         self._follow_integrations()
+
+    def _fit_columns(self) -> None:
+        fit_tree_column(self._tree, RATING, self._medal_size + GAP)
+        fit_columns(self._tree, COLUMNS)
 
     def _selected_id(self) -> str | None:
         selection = self._tree.selection()

@@ -15,7 +15,8 @@ A profile is one JSON file that tells ReflektorTTS how to recognize a game and w
 1. In the ReflektorTTS window's Profiles tab, select a bundled profile close to what you need and choose **Copy to edit**, or start a new file in `%LOCALAPPDATA%\ReflektorTTS\profiles\`.
 2. Edit it in any text editor, saved as UTF-8, and choose **Reload**. A profile with a mistake is shown as broken, with the reason.
 3. Play the game and check that its text is read. List the `sha256` of each build you tested, which a profile with the overlay must do: once a profile lists builds, the Status tab shows the SHA-256 of any other build it meets.
-4. Share it: open a pull request that adds it to `src/reflektortts/profiles/bundled/`, or attach it to an app support issue.
+4. Give it a `rating` medal for how far you tested it, from `bronze` (tried briefly) to `platinum` (every text read, tested to the end); [docs/profiles.md](docs/profiles.md) says what each one takes.
+5. Share it: open a pull request that adds it to `src/reflektortts/profiles/bundled/`, or attach it to an app support issue.
 
 Name the file after the game and its release year, in lowercase with dashes, like `grand-theft-auto-2-1999.json`.
 

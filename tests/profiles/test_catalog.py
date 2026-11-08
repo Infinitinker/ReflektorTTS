@@ -42,10 +42,19 @@ def test_the_bundled_profiles_are_valid_and_do_not_clash() -> None:
 
     assert [choice.entry.id for choice in choices if choice.standing == Standing.USED] == [
         "grand-theft-auto-2-1999",
+        "grand-theft-auto-iii-2001",
         "grand-theft-auto-san-andreas-2004",
+        "grand-theft-auto-vice-city-2002",
         "mad-max-2015",
         "vlc-media-player-2001",
     ]
+
+
+def test_every_bundled_profile_is_rated() -> None:
+    catalog = load_catalog(Path("no-such-folder"), BUNDLED_DIR)
+    unrated = [entry.id for entry in catalog if entry.profile is None or entry.profile.rating is None]
+
+    assert unrated == []
 
 
 def test_a_user_profile_with_a_bundled_id_replaces_it_even_when_broken(tmp_path: Path) -> None:

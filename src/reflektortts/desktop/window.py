@@ -59,6 +59,24 @@ def hint_color(status: CoreStatus | None) -> str:
     return BUSY if status is not None and status.app and status.source_error else DIM
 
 
+def read_app(status: CoreStatus | None, missing: str | None) -> tuple[str, str] | None:
+    """The profile and title of the app being read, whose settings the Status tab's App settings…
+    opens; None while no app is read, or where there is no settings window (missing says why)."""
+    if missing is not None or status is None or status.app is None or status.profile is None:
+        return None
+    return status.profile, status.app
+
+
+def app_settings_hint(status: CoreStatus | None, missing: str | None) -> str:
+    """What the Status tab's App settings… does, or why it does nothing now."""
+    if missing is not None:
+        return missing
+    app = read_app(status, missing)
+    if app is None:
+        return "Opens the settings of the app being read. To set up another app, select it in the Profiles tab."
+    return f"Change the voice, languages and the rest for {app[1]}, in a window of its own."
+
+
 class Window:
     def __init__(
         self,
@@ -76,6 +94,7 @@ class Window:
         on_profiles_opened: Callable[[], None],
         on_enable_profile: Callable[[ProfileItem, bool], None],
         on_app_settings: Callable[[ProfileItem], None],
+        on_read_app_settings: Callable[[str, str], None],
         app_settings_missing: str | None,
         on_copy_profile: Callable[[ProfileItem], None],
         on_remove_profile: Callable[[ProfileItem], None],
@@ -98,6 +117,9 @@ class Window:
         self._header_icon = icon_photo(HEADER_ICON_SIZE)
         self._language_name = language_name
         self._voice_title = voice_title
+        self._app_settings_missing = app_settings_missing
+        self._shown: CoreStatus | None = None
+        """The status shown, which the App settings… hint follows."""
         root.geometry(f"{SIZE[0]}x{SIZE[1]}")
         root.minsize(*SIZE)
         root.protocol("WM_DELETE_WINDOW", on_close)
@@ -109,7 +131,7 @@ class Window:
         self._status_bar = StatusBar(root, row=1)
         status = ttk.Frame(self._notebook, padding=PADDING)
         self._notebook.add(status, text="Status")
-        self._build_status(status, on_pause_toggle, on_quit, on_open_link, about)
+        self._build_status(status, on_pause_toggle, on_read_app_settings, on_quit, on_open_link, about)
         self.profiles = ProfilesTab(
             self._notebook,
             self._status_bar,
@@ -149,6 +171,7 @@ class Window:
         )
 
     def show_status(self, status: CoreStatus | None) -> None:
+        self._shown = status
         self._paused = status is not None and status.paused
         self._status.configure(text=describe(status), foreground=status_color(status))
         self._hint.configure(text=hint(status), foreground=hint_color(status))
@@ -164,14 +187,19 @@ class Window:
             text=PAUSE_LABELS[1] if self._paused else PAUSE_LABELS[0],
             state="disabled" if status is None else "normal",
         )
+        self._app_settings.configure(
+            state="disabled" if read_app(status, self._app_settings_missing) is None else "normal"
+        )
 
     def show_stopped(self, message: str) -> None:
+        self._shown = None
         self._status.configure(text=message, foreground=DIM)
         self._hint.configure(text="", foreground=DIM)
         self._settings_for.configure(text="")
         for label in self._details:
             label.configure(text="")
         self._pause.configure(state="disabled")
+        self._app_settings.configure(state="disabled")
 
     def show(self) -> None:
         """Shows the window on its Status tab."""
@@ -188,6 +216,7 @@ class Window:
         self,
         frame: ttk.Frame,
         on_pause_toggle: Callable[[], None],
+        on_read_app_settings: Callable[[str, str], None],
         on_quit: Callable[[], None],
         on_open_link: Callable[[str], None],
         about: About,
@@ -227,15 +256,25 @@ class Window:
             detail.grid(row=row, column=1, sticky="w")
             self._details.append(detail)
         self._paused = False
+        buttons = ttk.Frame(now)
+        buttons.grid(row=3 + len(DETAILS), column=0, columnspan=2, sticky="w", pady=(12, 0))
         self._pause = ttk.Button(
-            now,
+            buttons,
             text=PAUSE_LABELS[0],
             width=button_width(PAUSE_LABELS),
             command=on_pause_toggle,
             state="disabled",
         )
-        self._pause.grid(row=3 + len(DETAILS), column=0, columnspan=2, sticky="w", pady=(12, 0))
+        self._pause.grid(row=0, column=0)
         self._status_bar.hint(self._pause, self._pause_hint)
+        self._app_settings = ttk.Button(
+            buttons,
+            text="App settings…",
+            command=lambda: self._open_app_settings(on_read_app_settings),
+            state="disabled",
+        )
+        self._app_settings.grid(row=0, column=1, padx=(6, 0))
+        self._status_bar.hint(self._app_settings, lambda: app_settings_hint(self._shown, self._app_settings_missing))
 
         links = ttk.Frame(frame)
         links.grid(row=3, column=0, sticky="ew")
@@ -263,6 +302,11 @@ class Window:
         )
 
         ttk.Label(frame, text=LICENSE, foreground=DIM).grid(row=4, column=0, sticky="w", pady=(10, 0))
+
+    def _open_app_settings(self, on_read_app_settings: Callable[[str, str], None]) -> None:
+        app = read_app(self._shown, self._app_settings_missing)
+        if app is not None:
+            on_read_app_settings(*app)
 
     def _pause_hint(self) -> str:
         return "Read lines aloud again." if self._paused else "Stop reading lines aloud until you resume."

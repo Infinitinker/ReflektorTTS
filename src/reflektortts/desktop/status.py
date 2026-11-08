@@ -10,6 +10,8 @@ class CoreStatus:
     app: str | None
     """The title of the app being read, or None while waiting for one."""
     paused: bool
+    profile: str | None = None
+    """The ID of the profile the app is read with, or None while waiting for one."""
     unsupported: str | None = None
     """The title of an app running in a build its profile does not list, which is not read."""
     unsupported_sha256: str | None = None
@@ -36,6 +38,7 @@ def parse_status(event: Mapping[str, Any]) -> CoreStatus | None:
     return CoreStatus(
         app=app["title"] if app else None,
         paused=bool(event.get("paused")),
+        profile=app.get("profile") if app else None,
         unsupported=unsupported["title"] if unsupported else None,
         unsupported_sha256=unsupported["sha256"] if unsupported else None,
         voice=str(event.get("voice", "")),

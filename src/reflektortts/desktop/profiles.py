@@ -16,6 +16,14 @@ STATES = {
     "clash": "Clash",
     "broken": "Broken",
 }
+RATINGS = {
+    "bronze": ("Bronze", "Some of the app's texts are read, tried only briefly, so others may be missed."),
+    "silver": ("Silver", "The main texts are read, tested in the first part of the app."),
+    "gold": ("Gold", "The main texts are read, tested through most of the app."),
+    "platinum": ("Platinum", "Every text the app shows is read, tested through all of it."),
+}
+"""Each medal's name and what it says about a profile, by the medal's name in the API."""
+NOT_RATED = ("Not rated", "Its author did not say how far it is tested.")
 IN_USE = ("reading", "not_running", "unsupported")
 """States of a profile that is used, whatever its app is doing."""
 
@@ -47,6 +55,8 @@ class ProfileItem:
     reason: str | None
     file: str
     overlay: bool | None
+    rating: str | None
+    """As the API names it, e.g. "gold"; None if not rated, or for a broken file."""
     executables: tuple[ExecutableItem, ...]
     sources: tuple[SourceItem, ...]
 
@@ -62,6 +72,7 @@ def parse_profiles(data: Mapping[str, Any]) -> list[ProfileItem]:
             reason=profile["reason"],
             file=profile["file"],
             overlay=profile["overlay"],
+            rating=profile["rating"],
             executables=tuple(
                 ExecutableItem(executable["name"], tuple(executable["sha256"])) for executable in profile["executables"]
             ),
@@ -86,14 +97,25 @@ def overlay_text(item: ProfileItem) -> str:
     return "" if item.overlay is None else ("Yes" if item.overlay else "No")
 
 
+def rating_text(item: ProfileItem) -> tuple[str, str]:
+    """The medal's name and what it means, e.g. ("Gold", "The main texts are read, ..."); empty
+    for a broken file, which has none."""
+    if item.title is None:
+        return "", ""
+    return RATINGS[item.rating] if item.rating is not None else NOT_RATED
+
+
 def summary_text(items: Sequence[ProfileItem]) -> str:
     used = sum(item.state in IN_USE for item in items)
     return f"{len(items)} profiles, {used} used"
 
 
 def details_text(item: ProfileItem) -> str:
-    """The reason it is not used, if any, then its executables and sources."""
+    """The reason it is not used, if any, what its medal means, then its executables and sources."""
     lines = [item.reason, ""] if item.reason else []
+    medal, meaning = rating_text(item)
+    if medal:
+        lines += [f"{medal}: {meaning}", ""]
     for executable in item.executables:
         builds = ", ".join(executable.sha256) if executable.sha256 else "any version"
         lines.append(f"{executable.name}: {builds}")

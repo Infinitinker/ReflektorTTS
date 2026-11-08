@@ -18,6 +18,12 @@ def test_a_status_event_gives_the_game_and_whether_reading_is_paused() -> None:
     assert parse_status({"type": "status", "app": None, "paused": False}) == CoreStatus(app=None, paused=False)
 
 
+def test_a_status_event_gives_the_profile_the_app_is_read_with() -> None:
+    event = {"type": "status", "app": {"title": "GTA2", "pid": 7, "profile": "gta2"}, "paused": False}
+
+    assert parse_status(event) == CoreStatus(app="GTA2", paused=False, profile="gta2")
+
+
 def test_other_events_are_not_a_status() -> None:
     assert parse_status({"type": "line", "source": "subtitles", "text": "Hi"}) is None
 

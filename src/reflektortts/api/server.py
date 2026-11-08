@@ -230,6 +230,7 @@ def profile_json(view: ProfileView) -> dict[str, Any]:
         "reason": view.choice.reason,
         "file": str(entry.path),
         "overlay": None if profile is None else profile.overlay,
+        "rating": None if profile is None or profile.rating is None else profile.rating.value,
         "executables": []
         if profile is None
         else [{"name": executable.name, "sha256": list(executable.sha256)} for executable in profile.match.executables],
