@@ -5,6 +5,7 @@ import logging
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 from importlib import resources
+from pathlib import Path
 from typing import Any
 
 import jsonschema
@@ -12,6 +13,7 @@ import jsonschema
 from reflektortts.apps.detector import RunningApp
 from reflektortts.entry_points import load_plugins
 from reflektortts.glossary import Glossaries
+from reflektortts.integrations import Integration
 from reflektortts.languages import Languages
 from reflektortts.pipeline.protocols import Source, Stage
 from reflektortts.profiles.model import SourceSettings
@@ -34,6 +36,10 @@ class SourcePlugin:
     builds: Callable[[Mapping[str, Any]], Iterable[str]] = lambda settings: ()
     """The builds of the app (SHA-256 of its executable) that the source's schema-validated fields
     are for, e.g. one per pointer chain. A profile that lists its builds must list each of these."""
+    integration: Callable[[Path], Integration] | None = None
+    """Creates the integration the source needs, if any, given the JSON file it may keep its state
+    in (the file and its folder may not exist yet). It is called once, when the core starts, and
+    must not touch files or the app then: only state, enable and disable may."""
 
 
 @dataclass(frozen=True)

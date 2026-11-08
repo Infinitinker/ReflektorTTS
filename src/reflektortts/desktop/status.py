@@ -22,6 +22,8 @@ class CoreStatus:
     """Whether the app's sound is lowered while a line is spoken."""
     duck_volume: float = 1.0
     """How far: the app's volume then, as a fraction of its own."""
+    source_error: str | None = None
+    """Why a source of the app being read fails, for the user, until it works again."""
 
 
 def parse_status(event: Mapping[str, Any]) -> CoreStatus | None:
@@ -30,6 +32,7 @@ def parse_status(event: Mapping[str, Any]) -> CoreStatus | None:
         return None
     app = event.get("app")
     unsupported = event.get("unsupported")
+    source_error = event.get("source_error")
     return CoreStatus(
         app=app["title"] if app else None,
         paused=bool(event.get("paused")),
@@ -40,11 +43,14 @@ def parse_status(event: Mapping[str, Any]) -> CoreStatus | None:
         output_language=str(event.get("output_language", "en")),
         ducking=bool(event.get("ducking")),
         duck_volume=float(event.get("duck_volume", 1.0)),
+        source_error=source_error["message"] if source_error else None,
     )
 
 
 def hint(status: CoreStatus | None) -> str:
     """A second line for the window: what to do now."""
+    if status is not None and status.app and status.source_error:
+        return status.source_error
     if status is not None and status.unsupported and not status.app:
         if status.unsupported_sha256 is None:
             return "Its executable could not be read to tell which version it is; see the log."

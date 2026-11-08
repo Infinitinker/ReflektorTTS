@@ -7,8 +7,10 @@ from tkinter import ttk
 
 from reflektortts.desktop.about import BUYCOFFEE, KO_FI, LICENSE, About
 from reflektortts.desktop.catalog import DownloadItem
+from reflektortts.desktop.clamped_label import ClampedLabel
 from reflektortts.desktop.downloads_tab import DownloadsTab
 from reflektortts.desktop.icon import icon_photo
+from reflektortts.desktop.integrations import IntegrationItem
 from reflektortts.desktop.profiles import ProfileItem
 from reflektortts.desktop.profiles_tab import ProfilesTab
 from reflektortts.desktop.settings_tab import SettingsTab
@@ -37,6 +39,9 @@ DOWNLOAD_TABS = {Kind.VOICE: "Voices", Kind.TRANSLATION: "Translations"}
 HEADER_ICON_SIZE = 48
 DETAILS = ("Voice", "Languages", "App sound")
 """The lines under what ReflektorTTS is doing, in its Now box."""
+NOW_PADDING = 12
+HINT_LINES = 2
+"""The line under the status always takes this many lines, so a long message never moves the details."""
 
 
 def status_color(status: CoreStatus | None) -> str:
@@ -47,6 +52,11 @@ def status_color(status: CoreStatus | None) -> str:
     if status.paused or (status.unsupported and not status.app):
         return BUSY
     return GOOD if status.app else ""
+
+
+def hint_color(status: CoreStatus | None) -> str:
+    """Amber when the line under the status says why a source of the app fails, else gray."""
+    return BUSY if status is not None and status.app and status.source_error else DIM
 
 
 class Window:
@@ -72,6 +82,7 @@ class Window:
         on_import_profile: Callable[[], None],
         on_reload_profiles: Callable[[], None],
         on_open_profiles: Callable[[], None],
+        on_integration: Callable[[IntegrationItem, bool], None],
         on_start_with_windows: Callable[[bool], None],
         on_quit: Callable[[], None],
         on_open_link: Callable[[str], None],
@@ -110,6 +121,7 @@ class Window:
             on_import_profile,
             on_reload_profiles,
             on_open_profiles,
+            on_integration,
         )
         self._notebook.add(self.profiles.frame, text="Profiles")
 
@@ -139,7 +151,7 @@ class Window:
     def show_status(self, status: CoreStatus | None) -> None:
         self._paused = status is not None and status.paused
         self._status.configure(text=describe(status), foreground=status_color(status))
-        self._hint.configure(text=hint(status))
+        self._hint.configure(text=hint(status), foreground=hint_color(status))
         texts = (
             ("", "", "")
             if status is None
@@ -155,7 +167,7 @@ class Window:
 
     def show_stopped(self, message: str) -> None:
         self._status.configure(text=message, foreground=DIM)
-        self._hint.configure(text="")
+        self._hint.configure(text="", foreground=DIM)
         self._settings_for.configure(text="")
         for label in self._details:
             label.configure(text="")
@@ -197,13 +209,14 @@ class Window:
             lambda: "Stop reading and close completely. Closing the window keeps it running next to the clock.",
         )
 
-        now = ttk.LabelFrame(frame, text="Now", padding=12)
+        now = ttk.LabelFrame(frame, text="Now", padding=NOW_PADDING)
         now.grid(row=1, column=0, sticky="ew")
         now.columnconfigure(1, weight=1)
         self._status = ttk.Label(now, text=describe(None), font=heading_font(), foreground=status_color(None))
         self._status.grid(row=0, column=0, columnspan=2, sticky="w")
-        self._hint = ttk.Label(now, text=hint(None), foreground=DIM)
-        self._hint.grid(row=1, column=0, columnspan=2, sticky="w", pady=(2, 10))
+        self._hint = ClampedLabel(now, HINT_LINES)
+        self._hint.frame.grid(row=1, column=0, columnspan=2, sticky="ew", pady=(2, 10))
+        self._hint.configure(text=hint(None), foreground=DIM)
         self._settings_for = ttk.Label(now, text="", foreground=DIM)
         self._settings_for.grid(row=2, column=0, columnspan=2, sticky="w", pady=(0, 2))
         self._details: list[ttk.Label] = []

@@ -10,7 +10,7 @@ import pytest
 from reflektortts.api.server import BrokenProfileError, SourceError, StageError, UnknownProfileError
 from reflektortts.apps.detector import ProcessInfo, RunningApp
 from reflektortts.bus import Event
-from reflektortts.core import Core, build_routes, read_app
+from reflektortts.core import Core, build_routes, load_integrations, missing_integrations, read_app
 from reflektortts.ducking.records import DuckRecords
 from reflektortts.ducking.volume import OpenAppVolume
 from reflektortts.events import (
@@ -24,6 +24,14 @@ from reflektortts.events import (
     UnsupportedApp,
 )
 from reflektortts.glossary import Glossaries, GlossaryTerm
+from reflektortts.integrations import (
+    Integration,
+    IntegrationError,
+    IntegrationState,
+    IntegrationStatus,
+    IntegrationView,
+    UnknownIntegrationError,
+)
 from reflektortts.languages import LanguageError, Languages
 from reflektortts.pipeline.plugins import SourcePlugin, StagePlugin
 from reflektortts.pipeline.runner import Chain, Route
@@ -35,6 +43,7 @@ from reflektortts.sinks.tts.narrator import Narrator
 from reflektortts.sinks.tts.preview import VoicePreview
 from reflektortts.tts.engine import DEFAULT_VOICE, VoiceError, VoiceInfo
 from reflektortts.tts.service import NewLine
+from tests.fake_integration import FakeIntegration
 from tests.sinks.tts.test_narrator import Clients
 
 
@@ -247,6 +256,7 @@ def make_core(
     voices: list[VoiceInfo] | None = None,
     previews: Clients | None = None,
     profiles: ProfileFiles | None = None,
+    integrations: Mapping[str, Integration] | None = None,
 ) -> Core:
     return Core(
         profiles=profiles or FixedProfiles(GTA2),
@@ -258,6 +268,8 @@ def make_core(
         duck_records=DuckRecords(tmp_path / "lowered-apps.json"),
         download_sources={},
         preview_factory=lambda on_change: VoicePreview(on_change, (previews or Clients()).start, lambda work: work()),
+        sources=SOURCES,
+        integrations={} if integrations is None else integrations,
     )
 
 
@@ -760,6 +772,8 @@ def core_playing(tmp_path: Path, is_running: Callable[[int], bool], exit_grace_s
         duck_records=DuckRecords(tmp_path / "lowered-apps.json"),
         exit_grace_seconds=exit_grace_seconds,
         download_sources={},
+        sources=SOURCES,
+        integrations={},
     )
     core._app = AppInfo("App", 42, "app")
     return core
@@ -775,7 +789,9 @@ def test_source_errors_after_the_game_exits_are_not_reported(tmp_path: Path) -> 
     running.clear()
     core._report(ErrorEvent("source.error", "messages", "read failed"))
 
-    assert events == [ErrorEvent("source.error", "messages", "read failed")]
+    assert [event for event in events if isinstance(event, ErrorEvent)] == [
+        ErrorEvent("source.error", "messages", "read failed")
+    ]
 
 
 def test_source_errors_while_the_game_is_exiting_are_not_reported(tmp_path: Path) -> None:
@@ -891,3 +907,196 @@ def test_without_a_game_the_status_shows_the_voice_a_new_game_would_get(tmp_path
     core._leave()
 
     assert core.status().voice == alan.id
+
+
+REMOTE = Profile(
+    "remote-app-2001",
+    App("Remote App", 2001),
+    Match((Executable("remote.exe"),)),
+    (SourceSettings("remote", "subtitles", 0.25, {}),),
+)
+
+
+def test_each_source_plugin_s_integration_is_created_once_with_a_file_of_its_own(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    given: list[Path] = []
+
+    def create(path: Path) -> FakeIntegration:
+        given.append(path)
+        return FakeIntegration()
+
+    def broken(path: Path) -> FakeIntegration:
+        raise RuntimeError("no settings folder")
+
+    plugins = {
+        "fixed": SourcePlugin("fixed", {}, create_source),
+        "remote": SourcePlugin("remote", {}, create_source, integration=create),
+        "broken": SourcePlugin("broken", {}, create_source, integration=broken),
+    }
+
+    integrations = load_integrations(plugins, tmp_path / "integrations")
+
+    assert list(integrations) == ["remote"]
+    assert given == [tmp_path / "integrations" / "remote.json"]
+    assert not (tmp_path / "integrations").exists()
+    assert "The integration of the broken source is not available" in caplog.text
+
+
+@pytest.mark.parametrize(
+    ("sources", "missing"),
+    [
+        (("remote",), ["remote"]),
+        (("remote", "remote"), ["remote"]),
+        (("remote", "fixed"), []),
+        (("remote", "ready"), []),
+        ((), []),
+    ],
+)
+def test_a_profile_waits_for_integrations_only_if_every_source_needs_one_not_enabled(
+    sources: tuple[str, ...], missing: list[str]
+) -> None:
+    profile = replace(
+        REMOTE, sources=tuple(SourceSettings(type, f"source {n}", 0.25, {}) for n, type in enumerate(sources))
+    )
+    states = {
+        "remote": IntegrationState(IntegrationStatus.DISABLED),
+        "ready": IntegrationState(IntegrationStatus.ENABLED),
+    }
+
+    assert missing_integrations(profile, states) == missing
+
+
+def test_a_profile_not_set_up_is_not_read_until_its_integration_is_enabled(tmp_path: Path) -> None:
+    remote = FakeIntegration()
+    core = make_core(tmp_path, Clients(), profiles=FixedProfiles(GTA2, REMOTE), integrations={"remote": remote})
+    events: list[Event] = []
+    core.subscribe(events.append)
+
+    assert [profile.id for profile in core._used()] == [GTA2.id]
+    [gta2, waiting] = core.profiles()
+    assert (gta2.state, gta2.choice.reason) == (ProfileState.NOT_RUNNING, None)
+    assert (waiting.state, waiting.choice.reason) == (
+        ProfileState.NOT_SET_UP,
+        "Not read until the Fake integration is enabled.",
+    )
+
+    view = core.set_integration_enabled("remote", True)
+
+    assert view == IntegrationView(
+        "remote", "Fake integration", FakeIntegration.description, IntegrationState(IntegrationStatus.ENABLED)
+    )
+    assert [type(event) for event in events] == [Status]
+    assert [profile.id for profile in core._used()] == [GTA2.id, REMOTE.id]
+    assert [view.state for view in core.profiles()] == [ProfileState.NOT_RUNNING, ProfileState.NOT_RUNNING]
+    core.set_integration_enabled("remote", False)
+    assert remote.calls == ["enable", "disable"]
+    assert [view.state for view in core.profiles()][1] == ProfileState.NOT_SET_UP
+
+
+def test_an_app_being_read_stops_once_its_integration_is_disabled(tmp_path: Path) -> None:
+    core = make_core(
+        tmp_path,
+        Clients(),
+        profiles=FixedProfiles(REMOTE),
+        integrations={"remote": FakeIntegration(IntegrationStatus.ENABLED)},
+    )
+    core._is_running = lambda pid: True
+    watching = core._watching(playing(REMOTE))
+
+    assert watching(42)
+    core.set_integration_enabled("remote", False)
+
+    assert not watching(42)
+
+
+def test_integrations_are_listed_and_one_that_cannot_be_checked_is_unavailable(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    remote, other = FakeIntegration(), FakeIntegration(IntegrationStatus.ENABLED)
+    remote.failure = OSError("Access is denied")
+    core = make_core(tmp_path, Clients(), profiles=FixedProfiles(REMOTE), integrations={"remote": remote, "a": other})
+
+    views = core.integrations()
+    core.integrations()
+
+    assert [view.id for view in views] == ["a", "remote"]
+    assert views[1].state == IntegrationState(IntegrationStatus.UNAVAILABLE, "Could not check: Access is denied")
+    assert caplog.text.count("Cannot check the state of the remote integration") == 1
+    assert [view.state for view in core.profiles()] == [ProfileState.NOT_SET_UP]
+
+
+def test_an_integration_that_cannot_change_now_changes_nothing(tmp_path: Path) -> None:
+    refusing = FakeIntegration()
+    refusing.refusal = "Close the app first, then try again."
+    unavailable = FakeIntegration(IntegrationStatus.UNAVAILABLE, "The app is not installed.")
+    integrations = {"refusing": refusing, "unavailable": unavailable}
+    core = make_core(tmp_path, Clients(), integrations=integrations)
+    events: list[Event] = []
+    core.subscribe(events.append)
+
+    with pytest.raises(IntegrationError, match="Close the app first"):
+        core.set_integration_enabled("refusing", True)
+    with pytest.raises(IntegrationError, match="The app is not installed."):
+        core.set_integration_enabled("unavailable", True)
+    with pytest.raises(UnknownIntegrationError, match='no integration "nope". Integrations: refusing, unavailable.'):
+        core.set_integration_enabled("nope", True)
+
+    assert events == []
+    assert unavailable.calls == []
+
+
+def test_the_status_shows_the_last_source_error_until_it_works_again_or_the_app_changes(tmp_path: Path) -> None:
+    core = make_core(tmp_path, Clients())
+    core._is_running = lambda pid: True
+    core._enter(playing(GTA2))
+    messages = ErrorEvent("source.error", "messages", "Cannot read the text.")
+    help_box = ErrorEvent("source.error", "help", "Cannot read the help box.")
+    events: list[Event] = []
+    core.subscribe(events.append)
+
+    core._report(messages)
+    core._report(help_box)
+    core._report(ErrorEvent("sink.error", "tts", "No sound device."))
+    assert core.status().source_error == help_box
+    core._works_again("source.error", "help")
+    assert core.status().source_error == messages
+    core._works_again("sink.error", "messages")
+    core._works_again("source.error", "unknown")
+    assert core.status().source_error == messages
+
+    statuses = [event.source_error for event in events if isinstance(event, Status)]
+    assert statuses == [messages, help_box, messages]
+    core._leave()
+    assert core.status().source_error is None
+
+
+def test_the_status_shows_why_a_failing_source_fails_now(tmp_path: Path) -> None:
+    core = make_core(tmp_path, Clients())
+    checks: list[int] = []
+
+    def running(pid: int) -> bool:
+        checks.append(pid)
+        return True
+
+    core._is_running = running
+    core._enter(playing(GTA2))
+    first = ErrorEvent("source.error", "messages", "No subtitles for A.")
+    help_box = ErrorEvent("source.error", "help", "Cannot read the help box.")
+    now = ErrorEvent("source.error", "messages", "No subtitles for B.")
+    core._report(first)
+    core._report(help_box)
+    events: list[Event] = []
+    core.subscribe(events.append)
+    checked = len(checks)
+
+    core._still_failing(now)
+    core._still_failing(ErrorEvent("source.error", "unknown", "Not reported."))
+    core._still_failing(ErrorEvent("stage.error", "messages", "Not a source."))
+
+    assert core.status().source_error == now
+    assert [event.source_error for event in events if isinstance(event, Status)] == [now]
+    assert not any(isinstance(event, ErrorEvent) for event in events)
+    assert len(checks) == checked
+    core._works_again("source.error", "messages")
+    assert core.status().source_error == help_box

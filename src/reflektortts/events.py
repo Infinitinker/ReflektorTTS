@@ -137,6 +137,9 @@ class Status:
     """The stages of the app being read, per source; empty while waiting for an app."""
     unsupported: UnsupportedApp | None = None
     """A running app in a build its profile does not list, which is not read."""
+    source_error: ErrorEvent | None = None
+    """The last error of a source of the app being read that has not worked since; None if there
+    is none, or no app is read."""
 
 
 @dataclass(frozen=True)

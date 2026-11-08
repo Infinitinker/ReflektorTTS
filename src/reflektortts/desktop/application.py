@@ -33,6 +33,7 @@ from reflektortts.desktop.catalog import DownloadItem, DownloadList, DownloadPro
 from reflektortts.desktop.core_thread import CoreThread
 from reflektortts.desktop.dock import dock_of
 from reflektortts.desktop.folders import open_folder, show_file, where_files_are
+from reflektortts.desktop.integrations import IntegrationItem, failure_text, parse_integrations
 from reflektortts.desktop.panel_window import PanelWindows, find_program
 from reflektortts.desktop.profiles import ProfileItem, file_name, name_text, parse_profiles
 from reflektortts.desktop.state import load_state, save_state
@@ -107,6 +108,7 @@ class Application:
                 "POST", "/profiles/reload", None, "The profiles could not be read again"
             ),
             on_open_profiles=lambda: open_folder(args.profiles),
+            on_integration=self._change_integration,
             on_start_with_windows=self._set_start_with_windows,
             on_quit=self._quit,
             on_open_link=self._open_link,
@@ -237,14 +239,19 @@ class Application:
         self._in_background(self._fetch_profiles)
 
     def _fetch_profiles(self) -> None:
-        """Runs in the background; the list is shown on Tkinter's thread."""
+        """Runs in the background; the list is shown on Tkinter's thread, with the integrations."""
         try:
             items = parse_profiles(request_json("GET", "/profiles"))
+            integrations = parse_integrations(request_json("GET", "/integrations"))
         except ApiClientError as error:
             message = str(error)
             self._later(lambda: self._window.profiles.show_message(f"The profiles could not be loaded: {message}"))
             return
-        self._later(lambda: self._window.profiles.show(items))
+        self._later(lambda: self._window.profiles.show(items, integrations))
+
+    def _change_integration(self, item: IntegrationItem, enabled: bool) -> None:
+        body = {"enabled": enabled}
+        self._profile_request("PATCH", f"/integrations/{item.id}", body, failure_text(item, enabled))
 
     def _enable_profile(self, item: ProfileItem, enabled: bool) -> None:
         action = "enabled" if enabled else "disabled"

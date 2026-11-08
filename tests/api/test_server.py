@@ -38,6 +38,13 @@ from reflektortts.events import (
     SubtitleEvent,
     TextEvent,
 )
+from reflektortts.integrations import (
+    IntegrationError,
+    IntegrationState,
+    IntegrationStatus,
+    IntegrationView,
+    UnknownIntegrationError,
+)
 from reflektortts.languages import LanguageError, check_language
 from reflektortts.profiles.catalog import (
     CatalogEntry,
@@ -105,6 +112,7 @@ MAD_MAX_SETTINGS = ProfileSettingsView(
     sources=(SourceStages("messages", "memory", True, (TRACKER,)),),
 )
 SETTINGS_PATH = "/v1/profiles/mad-max-2015/settings"
+DISABLED = IntegrationStatus.DISABLED
 
 
 class FakeCore:
@@ -136,6 +144,9 @@ class FakeCore:
         )
         self.view = MAD_MAX_SETTINGS
         self.changes: list[SettingsChange] = []
+        self.integration = IntegrationView(
+            "remote", "Remote integration", "Turns on the app's remote control.", IntegrationState(DISABLED)
+        )
 
     def status(self) -> Status:
         return self.current
@@ -242,6 +253,18 @@ class FakeCore:
         self.reloads += 1
         return self.current
 
+    def integrations(self) -> list[IntegrationView]:
+        return [self.integration]
+
+    def set_integration_enabled(self, integration_id: str, enabled: bool) -> IntegrationView:
+        if integration_id != self.integration.id:
+            raise UnknownIntegrationError(f'There is no integration "{integration_id}".')
+        if enabled and self.integration.state.status is IntegrationStatus.UNAVAILABLE:
+            raise IntegrationError("Close the app first, then try again.")
+        status = IntegrationStatus.ENABLED if enabled else DISABLED
+        self.integration = replace(self.integration, state=IntegrationState(status))
+        return self.integration
+
     def subscribe(self, listener: Listener) -> Callable[[], None]:
         return self.bus.subscribe(listener)
 
@@ -297,6 +320,7 @@ def test_status() -> None:
             "type": "status",
             "app": {"title": "Grand Theft Auto 2", "pid": 42, "profile": "grand-theft-auto-2-1999"},
             "unsupported": None,
+            "source_error": None,
             "voice": "piper:a",
             "input_language": "pl",
             "output_language": "en",
@@ -312,6 +336,17 @@ def test_status() -> None:
         }
 
     with_client(FakeCore(), test)
+
+
+def test_the_status_gives_the_last_source_error_of_the_app_being_read() -> None:
+    core = FakeCore()
+    core.current = replace(core.current, source_error=ErrorEvent("source.error", "messages", "Cannot read."))
+
+    async def test(client: TestClient[Any, Any]) -> None:
+        status = await (await client.get("/v1/status")).json()
+        assert status["source_error"] == {"source": "messages", "message": "Cannot read."}
+
+    with_client(core, test)
 
 
 def test_a_profile_s_settings_are_shown_by_its_id() -> None:
@@ -755,3 +790,72 @@ def test_profiles_are_imported_copied_removed_and_reloaded() -> None:
     assert core.imported == [("mine-2000", False), ("mad-max-2015", True)]
     assert core.removed_profiles == ["mad-max-2015"]
     assert core.reloads == 1
+
+
+def test_integrations_are_listed_with_their_state() -> None:
+    core = FakeCore()
+    core.integration = replace(
+        core.integration, state=IntegrationState(IntegrationStatus.UNAVAILABLE, "The app is not installed.")
+    )
+
+    async def test(client: TestClient[Any, Any]) -> None:
+        listed = await client.get("/v1/integrations")
+        assert (listed.status, await listed.json()) == (
+            200,
+            {
+                "integrations": [
+                    {
+                        "id": "remote",
+                        "name": "Remote integration",
+                        "description": "Turns on the app's remote control.",
+                        "state": "unavailable",
+                        "reason": "The app is not installed.",
+                    }
+                ]
+            },
+        )
+
+    with_client(core, test)
+
+
+def test_an_integration_is_enabled_and_disabled_by_id() -> None:
+    core = FakeCore()
+
+    async def test(client: TestClient[Any, Any]) -> None:
+        enabled = await client.patch("/v1/integrations/remote", json={"enabled": True})
+        assert (enabled.status, (await enabled.json())["state"]) == (200, "enabled")
+        disabled = await client.patch("/v1/integrations/remote", json={"enabled": False})
+        assert (disabled.status, await disabled.json()) == (
+            200,
+            {
+                "id": "remote",
+                "name": "Remote integration",
+                "description": "Turns on the app's remote control.",
+                "state": "disabled",
+                "reason": None,
+            },
+        )
+
+    with_client(core, test)
+
+
+@pytest.mark.parametrize("body", [{}, {"enabled": "yes"}, []])
+def test_bad_integration_requests_are_rejected_with_a_message(body: Any) -> None:
+    async def test(client: TestClient[Any, Any]) -> None:
+        response = await client.patch("/v1/integrations/remote", json=body)
+        assert (response.status, await response.json()) == (400, {"error": 'Send {"enabled": true or false}.'})
+
+    with_client(FakeCore(), test)
+
+
+def test_an_unknown_integration_or_one_that_cannot_change_now_is_refused() -> None:
+    core = FakeCore()
+    core.integration = replace(core.integration, state=IntegrationState(IntegrationStatus.UNAVAILABLE, "Not now."))
+
+    async def test(client: TestClient[Any, Any]) -> None:
+        unknown = await client.patch("/v1/integrations/nope", json={"enabled": True})
+        assert (unknown.status, await unknown.json()) == (404, {"error": 'There is no integration "nope".'})
+        refused = await client.patch("/v1/integrations/remote", json={"enabled": True})
+        assert (refused.status, await refused.json()) == (409, {"error": "Close the app first, then try again."})
+
+    with_client(core, test)

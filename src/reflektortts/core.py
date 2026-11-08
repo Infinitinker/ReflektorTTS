@@ -31,6 +31,14 @@ from reflektortts.events import (
     Status,
     UnsupportedApp,
 )
+from reflektortts.integrations import (
+    Integration,
+    IntegrationError,
+    IntegrationState,
+    IntegrationStatus,
+    IntegrationView,
+    UnknownIntegrationError,
+)
 from reflektortts.languages import (
     DEFAULT_INPUT_LANGUAGE,
     DEFAULT_OUTPUT_LANGUAGE,
@@ -69,7 +77,7 @@ from reflektortts.sinks.tts.narrator import Narrator
 from reflektortts.sinks.tts.preview import VoicePreview
 from reflektortts.sinks.tts.sink import TtsSink
 from reflektortts.tts.engine import VoiceError, VoiceInfo, available_voices, find_voice
-from reflektortts.user_dirs import cache_dir, data_dir
+from reflektortts.user_dirs import cache_dir, data_dir, state_dir
 
 logger = logging.getLogger(__name__)
 
@@ -78,6 +86,8 @@ EXIT_GRACE_SECONDS = 2.0
 """How long a source error waits for the app to exit before it is reported: while an app exits,
 its memory is torn down before Windows counts the process as gone, so sources fail first."""
 EXIT_CHECK_SECONDS = 0.1
+INTEGRATIONS_FOLDER = "integrations"
+"""In the state folder: one JSON file per integration, named after it, that it may keep its state in."""
 
 
 def default_profiles_dir() -> Path:
@@ -93,6 +103,34 @@ def load_download_sources() -> dict[str, DownloadSource]:
         except Exception:
             logger.exception("Download source %s is not available", name)
     return sources
+
+
+def load_integrations(sources: Mapping[str, SourcePlugin], folder: Path) -> dict[str, Integration]:
+    """The integration of every source plugin that offers one, by the plugin's type, each given
+    its own file in folder; one that cannot be created is logged and skipped."""
+    integrations = {}
+    for source_type, plugin in sources.items():
+        if plugin.integration is None:
+            continue
+        try:
+            integrations[source_type] = plugin.integration(folder / f"{source_type}.json")
+        except Exception:
+            logger.exception("The integration of the %s source is not available", source_type)
+    return integrations
+
+
+NOT_NEEDED = IntegrationState(IntegrationStatus.ENABLED)
+"""How a source whose plugin offers no integration counts: as if it had one enabled."""
+
+
+def missing_integrations(profile: Profile, states: Mapping[str, IntegrationState]) -> list[str]:
+    """The integrations a profile is not read without, by ID: if every source of it needs one
+    that is not enabled, those; else none. A source needs the integration of its type, if its
+    plugin offers one (states has every integration's state)."""
+    types = list(dict.fromkeys(source.type for source in profile.sources))
+    if any(states.get(source_type, NOT_NEEDED).status is IntegrationStatus.ENABLED for source_type in types):
+        return []
+    return types
 
 
 def start_narrator(voice: str, on_speaking: Callable[[bool], None]) -> Narrator:
@@ -204,10 +242,20 @@ def read_app(
     is_running: Callable[[int], bool] = psutil.pid_exists,
     check_seconds: float = APP_CHECK_SECONDS,
     languages: Callable[[], Languages] = lambda: Languages(DEFAULT_INPUT_LANGUAGE, DEFAULT_OUTPUT_LANGUAGE),
+    on_works_again: Callable[[str, str], None] = lambda kind, origin: None,
+    on_still_failing: Callable[[ErrorEvent], None] = lambda error: None,
 ) -> None:
-    """Runs the pipeline until the app exits or stop is set, then closes the sources."""
+    """Runs the pipeline until the app exits or stop is set, then closes the sources; see Runner
+    for on_error, on_works_again and on_still_failing."""
     runner_stop = threading.Event()
-    runner = Runner(routes, sinks, on_error, languages=languages)
+    runner = Runner(
+        routes,
+        sinks,
+        on_error,
+        languages=languages,
+        on_works_again=on_works_again,
+        on_still_failing=on_still_failing,
+    )
     worker = threading.Thread(target=runner.run, args=(runner_stop,), name="runner")
     worker.start()
     try:
@@ -255,7 +303,11 @@ class Core:
         exit_grace_seconds: float = EXIT_GRACE_SECONDS,
         download_sources: Mapping[str, DownloadSource] | None = None,
         preview_factory: Callable[[Callable[[PreviewEvent], None]], VoicePreview] = VoicePreview,
+        sources: Mapping[str, SourcePlugin] | None = None,
+        integrations: Mapping[str, Integration] | None = None,
     ) -> None:
+        """sources and stages default to the installed plugins, integrations to those of the
+        sources, with their files in the state folder."""
         self._lock = threading.RLock()
         """Held by every change; reentrant, since changes call each other and status()."""
         self._profile_files = profiles
@@ -269,6 +321,15 @@ class Core:
         self._overlay_dirs = overlay_dirs
         self._list_voices = list_voices
         self._stages = stage_plugins() if stages is None else stages
+        self._sources = source_plugins() if sources is None else sources
+        if integrations is None:
+            integrations = load_integrations(self._sources, state_dir() / INTEGRATIONS_FOLDER)
+        self._integrations = integrations
+        self._failing_integrations: set[str] = set()
+        """Integrations whose state could not be checked, so each failure is logged once."""
+        self._source_errors: dict[str, ErrorEvent] = {}
+        """The sources of the app being read that failed and have not worked since, by name, in the
+        order they failed."""
         self._ducker = Ducker(
             open_app_volume(),
             DuckRecords(records_path()) if duck_records is None else duck_records,
@@ -286,8 +347,8 @@ class Core:
         self._unsupported: UnsupportedApp | None = None
         self._unsupported_profile: str | None = None
         self._builds = Builds()
-        sources = load_download_sources() if download_sources is None else download_sources
-        self._downloads = Downloads(sources, self._downloaded)
+        downloads = load_download_sources() if download_sources is None else download_sources
+        self._downloads = Downloads(downloads, self._downloaded)
         self._preview = preview_factory(self._bus.publish)
 
     @_serialized
@@ -308,6 +369,7 @@ class Core:
             subtitle_position=settings.subtitle_position,
             sources=() if self._profile is None else self._source_stages(self._profile, settings),
             unsupported=self._unsupported,
+            source_error=next(reversed(self._source_errors.values()), None),
         )
 
     def languages(self) -> Languages:
@@ -411,7 +473,15 @@ class Core:
     @_serialized
     def profiles(self) -> list[ProfileView]:
         """Every profile, with why it is not used or what its app is doing."""
-        return [ProfileView(choice, self._profile_state(choice)) for choice in self._choices]
+        states = self._integration_states()
+        views = []
+        for choice in self._choices:
+            state = self._profile_state(choice, states)
+            if state is ProfileState.NOT_SET_UP and choice.entry.profile is not None:
+                missing = missing_integrations(choice.entry.profile, states)
+                choice = replace(choice, reason=f"Not read until {self._integration_names(missing)} is enabled.")
+            views.append(ProfileView(choice, state))
+        return views
 
     @_serialized
     def set_profile_enabled(self, profile_id: str, enabled: bool) -> Status:
@@ -454,6 +524,29 @@ class Core:
         """Reads the profile files again, e.g. after the user edited one."""
         return self._reload_profiles()
 
+    @_serialized
+    def integrations(self) -> list[IntegrationView]:
+        """Every integration, by ID, with its state now."""
+        return [self._integration_view(integration_id) for integration_id in sorted(self._integrations)]
+
+    @_serialized
+    def set_integration_enabled(self, integration_id: str, enabled: bool) -> IntegrationView:
+        """Enables or disables an integration; a profile it sets up is read from the next check on.
+        Raises UnknownIntegrationError, or IntegrationError with what to do, e.g. for one that is
+        unavailable."""
+        integration = self._find_integration(integration_id)
+        if enabled:
+            state = self._integration_state(integration_id)
+            if state.status is IntegrationStatus.UNAVAILABLE:
+                raise IntegrationError(state.reason or f"The {integration.name} cannot be enabled now.")
+            integration.enable()
+        else:
+            integration.disable()
+        logger.info("%s the %s", "Enabled" if enabled else "Disabled", integration.name)
+        self._log_choices()
+        self._publish_status()
+        return self._integration_view(integration_id)
+
     def downloads(self, refresh: bool) -> Listing:
         """What can be downloaded, with what is installed or downloading; refresh fetches the lists."""
         return self._downloads.listing(refresh)
@@ -471,7 +564,6 @@ class Core:
 
     def run(self, stop: threading.Event) -> None:
         """Reads every profiled app that starts, one at a time, until stop is set."""
-        sources = source_plugins()
         sinks: dict[Output, list[Sink]] = {
             Output.TEXT: [self._subtitles, BusSink(self._bus)],
             Output.SPEECH: [TtsSink(self._narrator)],
@@ -491,7 +583,13 @@ class Core:
             if app.profile.overlay and self._overlay_dirs:
                 inject_overlay(app.process.pid, self._overlay_dirs)
             routes = build_routes(
-                app, sources, self._stages, self._report, self.stage_switch, self.is_source_enabled, self.languages
+                app,
+                self._sources,
+                self._stages,
+                self._report,
+                self.stage_switch,
+                self.is_source_enabled,
+                self.languages,
             )
             if routes:
                 logger.info("Reading %s aloud", app.profile.app.title)
@@ -499,7 +597,17 @@ class Core:
                 logger.warning("%s is running, but its profile has no sources to read yet.", app.profile.app.title)
             else:
                 logger.error("%s is running, but none of its sources could start.", app.profile.app.title)
-            read_app(app, routes, sinks, stop, self._report, self._watching(app), languages=self.languages)
+            read_app(
+                app,
+                routes,
+                sinks,
+                stop,
+                self._report,
+                self._watching(app),
+                languages=self.languages,
+                on_works_again=self._works_again,
+                on_still_failing=self._still_failing,
+            )
             still_running = self._is_running(app.process.pid)
             logger.info("Stopped reading %s" if still_running else "%s closed", app.profile.app.title)
             self._ducker.watch(None, still_running=still_running)
@@ -557,11 +665,16 @@ class Core:
         self._log_choices()
         return self._publish_status()
 
+    @_serialized
     def _used(self) -> list[Profile]:
+        """The profiles whose apps are read: used, and set up."""
+        states = self._integration_states()
         return [
             choice.entry.profile
             for choice in self._choices
-            if choice.entry.profile and choice.standing == Standing.USED
+            if choice.entry.profile
+            and choice.standing == Standing.USED
+            and not missing_integrations(choice.entry.profile, states)
         ]
 
     def _watching(self, app: RunningApp) -> Callable[[int], bool]:
@@ -573,11 +686,13 @@ class Core:
 
         return watching
 
-    def _profile_state(self, choice: Choice) -> ProfileState:
+    def _profile_state(self, choice: Choice, integrations: Mapping[str, IntegrationState]) -> ProfileState:
         if choice.standing != Standing.USED:
             return ProfileState(choice.standing.value)
         if self._is_read(choice.entry.id):
             return ProfileState.READING
+        if choice.entry.profile is not None and missing_integrations(choice.entry.profile, integrations):
+            return ProfileState.NOT_SET_UP
         if self._unsupported_profile == choice.entry.id:
             return ProfileState.UNSUPPORTED
         return ProfileState.NOT_RUNNING
@@ -586,8 +701,44 @@ class Core:
         for choice in self._choices:
             if choice.standing in (Standing.BROKEN, Standing.CLASH, Standing.NOT_USED):
                 logger.error("Not using the profile %s: %s", choice.entry.id, choice.reason)
+        for view in self.profiles():
+            if view.state is ProfileState.NOT_SET_UP:
+                logger.info("Not reading %s: %s", view.choice.entry.id, view.choice.reason)
         titles = [profile.app.title for profile in self._used()]
         logger.info("Watching for %s", ", ".join(titles) if titles else "nothing: no profile is used")
+
+    def _find_integration(self, integration_id: str) -> Integration:
+        integration = self._integrations.get(integration_id)
+        if integration is None:
+            ids = ", ".join(sorted(self._integrations)) or "none"
+            raise UnknownIntegrationError(f'There is no integration "{integration_id}". Integrations: {ids}.')
+        return integration
+
+    def _integration_state(self, integration_id: str) -> IntegrationState:
+        """An integration's state; one that cannot be checked counts as unavailable, with the
+        failure as its reason, and the failure is logged once until it can be checked again."""
+        try:
+            state = self._integrations[integration_id].state()
+        except Exception as error:
+            if integration_id not in self._failing_integrations:
+                self._failing_integrations.add(integration_id)
+                logger.exception("Cannot check the state of the %s integration", integration_id)
+            return IntegrationState(IntegrationStatus.UNAVAILABLE, f"Could not check: {error}")
+        self._failing_integrations.discard(integration_id)
+        return state
+
+    def _integration_states(self) -> dict[str, IntegrationState]:
+        return {integration_id: self._integration_state(integration_id) for integration_id in self._integrations}
+
+    def _integration_view(self, integration_id: str) -> IntegrationView:
+        integration = self._integrations[integration_id]
+        return IntegrationView(
+            integration_id, integration.name, integration.description, self._integration_state(integration_id)
+        )
+
+    def _integration_names(self, integration_ids: Sequence[str]) -> str:
+        """E.g. "the VLC integration", or "the A or the B" when either would do."""
+        return " or ".join(f"the {self._integrations[integration_id].name}" for integration_id in integration_ids)
 
     def close(self) -> None:
         self._narrator.close()
@@ -701,6 +852,7 @@ class Core:
         """An app is being read from now on, with its settings; its voice is loaded only now."""
         self._app = AppInfo(title=app.profile.app.title, pid=app.process.pid, profile=app.profile.id)
         self._profile = app.profile
+        self._source_errors = {}
         self._use(load_profile_settings(self._settings_dir, app.profile.id))
         self._speak()
         self._publish_status()
@@ -710,6 +862,7 @@ class Core:
         """The app is no longer read; its voice is unloaded and the defaults apply again."""
         self._app = None
         self._profile = None
+        self._source_errors = {}
         self._narrator.close()
         self._use(ProfileSettings())
         self._speak()
@@ -730,6 +883,30 @@ class Core:
             return
         log_error(error)
         self._bus.publish(error)
+        if error.kind == "source.error":
+            self._source_failed(error)
+
+    @_serialized
+    def _source_failed(self, error: ErrorEvent) -> None:
+        """A source of the app being read failed: the status shows it until it works again."""
+        if self._app is None:
+            return
+        self._source_errors.pop(error.origin, None)
+        self._source_errors[error.origin] = error
+        self._publish_status()
+
+    @_serialized
+    def _still_failing(self, error: ErrorEvent) -> None:
+        """A failing source of the app being read fails for another reason now: the status says
+        that one instead. The app is not checked for exiting, since the first error was."""
+        if error.kind == "source.error" and self._source_errors.pop(error.origin, None) is not None:
+            self._source_errors[error.origin] = error
+            self._publish_status()
+
+    @_serialized
+    def _works_again(self, kind: str, origin: str) -> None:
+        if kind == "source.error" and self._source_errors.pop(origin, None) is not None:
+            self._publish_status()
 
     def _exits(self, pid: int) -> bool:
         """Whether the app exits within the grace time. Blocks the caller (the runner) meanwhile,

@@ -59,6 +59,7 @@ reflektortts-desktop = "reflektortts.desktop.__main__:main"
 [project.entry-points."reflektortts.sources"]
 memory = "reflektortts.sources.memory.plugin:PLUGIN"
 avalanche = "reflektortts.sources.avalanche.plugin:PLUGIN"
+vlc = "reflektortts.sources.vlc.plugin:PLUGIN"
 
 [project.entry-points."reflektortts.downloads"]
 piper = "reflektortts.downloads.piper:PLUGIN"

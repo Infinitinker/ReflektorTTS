@@ -15,6 +15,7 @@ The status object, returned by several requests and sent as an event:
   "type": "status",
   "app": { "title": "Grand Theft Auto 2", "pid": 4824, "profile": "grand-theft-auto-2-1999" },
   "unsupported": null,
+  "source_error": null,
   "voice": "windows:Microsoft Adam",
   "input_language": "en",
   "output_language": "pl",
@@ -50,6 +51,7 @@ The status object, returned by several requests and sent as an event:
 |---|---|
 | `app` | The app being read: its `title`, process ID (`pid`) and `profile`, the ID of its profile, to change its settings with; or `null` while waiting for one |
 | `unsupported` | An app running in a build its profile does not list, which is neither read nor given the overlay: its `title` and its executable's `sha256` (or `null` if it could not be read); otherwise `null` |
+| `source_error` | Why a source of the app being read fails, as the last `error` event of kind `source.error` said, or the message the source fails with now, if it changed since: the source's name in the profile (`source`) and the `message` for the user. It stays until that source works again, when the status changes to the error of another failing source, if any, or `null`; the next app starts with `null` |
 | `voice` | The current voice, as `engine:name`; with no app, the installed voice a new app would start with |
 | `input_language` | The language of the app's text (ISO 639-1 code); English unless the user chose another |
 | `output_language` | The language lines are prepared, spoken and shown in (ISO 639-1 code) |
@@ -122,7 +124,7 @@ Lists every profile, bundled and the user's own, in ID order:
 ```
 
 - `origin`: `bundled`, `custom` (the user's own) or `override` (the user's own, replacing the bundled profile with its ID).
-- `state`: `reading`, `not_running`, `unsupported` (its app runs in a build the profile does not list), `disabled`, `not_used` (another profile, the user's own, matches the same app), `clash` (another of the user's own does) or `broken` (the file cannot be read as a profile; `title`, `year` and `overlay` are then `null`). `reason` says why for `not_used`, `clash` and `broken`.
+- `state`: `reading`, `not_running`, `unsupported` (its app runs in a build the profile does not list), `not_set_up` (every source of it needs an [integration](#integrations) that is not enabled, so its app is not read), `disabled`, `not_used` (another profile, the user's own, matches the same app), `clash` (another of the user's own does) or `broken` (the file cannot be read as a profile; `title`, `year` and `overlay` are then `null`). `reason` says why for `not_set_up`, `not_used`, `clash` and `broken`.
 
 ### `PATCH /v1/profiles`
 
@@ -229,6 +231,36 @@ Switches a stage of the profile on or off, for the text shown (`"output": "text"
 
 Returns the profile's settings; a stage the profile does not have answers 400.
 
+## Integrations
+
+Changes a source needs made in an app's own settings before it can read the app, e.g. VLC's web interface switched on; see [plugins.md](plugins.md#integrations). A profile whose sources all need one that is not enabled has the state `not_set_up`, and is not read.
+
+### `GET /v1/integrations`
+
+Lists every integration, by ID, with its state now:
+
+```json
+{
+  "integrations": [
+    {
+      "id": "vlc",
+      "name": "VLC integration",
+      "description": "Turns on VLC's web interface for this computer only, ...",
+      "state": "disabled",
+      "reason": null
+    }
+  ]
+}
+```
+
+- `id`: the type of the source plugin that offers it; a profile needs the integrations of its sources' `type`s (see `GET /v1/profiles`).
+- `name`: what the user calls it, read after "the"; `description`: what enabling it changes and disabling it puts back.
+- `state`: `enabled`, `disabled` or `unavailable` (it cannot be enabled now; `reason` says why, for the user; otherwise `null`).
+
+### `PATCH /v1/integrations/<id>`
+
+Enables or disables an integration: `{"enabled": true}`. Returns the integration as `GET /v1/integrations` lists it, and a `status` event follows, after which clients fetch the profiles again: a profile it sets up is read from the next check on, within a few seconds, and an app read through it stops being read once it is disabled. An unknown ID answers 404; one that cannot be changed now (unavailable, or e.g. while the app runs) 409, with what to do, e.g. `{"error": "Close VLC first, then try again."}`.
+
 ## Downloads
 
 Voices and translation models the user can download, from download source plugins (Piper voices, Argos Translate models). Nothing downloads unless a client asks; what is installed is used right away.
@@ -285,7 +317,7 @@ A request that is wrong as sent returns **HTTP 400** with a message for the user
 { "error": "There is no voice \"piper:missing\". Available: piper:en_US-ljspeech-medium, windows:Microsoft Adam." }
 ```
 
-Every other failure uses the same format: **404** for a path, or a profile or download in the path, that does not exist; **405** for a method a path does not take (the message lists the ones it does); **409** for something that cannot be done as things are now: showing or changing the settings of a profile whose file cannot be read, importing a profile with an ID the user already has, copying a profile that is not bundled or already copied, removing a bundled profile, starting a download that is already running, removing one that is downloading or not installed; and **500** for an unexpected error inside ReflektorTTS, whose details are in its log.
+Every other failure uses the same format: **404** for a path, or a profile, integration or download in the path, that does not exist; **405** for a method a path does not take (the message lists the ones it does); **409** for something that cannot be done as things are now: showing or changing the settings of a profile whose file cannot be read, importing a profile with an ID the user already has, copying a profile that is not bundled or already copied, removing a bundled profile, enabling or disabling an integration that cannot be changed now, starting a download that is already running, removing one that is downloading or not installed; and **500** for an unexpected error inside ReflektorTTS, whose details are in its log.
 
 ## Requests from web pages
 
@@ -303,11 +335,11 @@ On connecting, the client receives the current status. After that, every event t
 
 | `type` | Sent when | Other fields |
 |---|---|---|
-| `status` | Anything in the status object changes: the app (also an unsupported one), voice, languages, pause, ducking, speech or subtitle settings, a source or stage switch, or a voice or model installed or removed | As in the status object |
+| `status` | Anything in the status object changes: the app (also an unsupported one), voice, languages, pause, ducking, speech or subtitle settings, a source or stage switch, a source failing or working again, or a voice or model installed or removed; also after an integration is enabled or disabled, or the profiles change | As in the status object |
 | `profile_settings` | A profile's settings are changed through one of the [profile settings](#profile-settings) requests; if its app is being read, a `status` event comes too. Only these requests send it: a client keeping a profile's settings open fetches them again after a `status` event, since an app starting or stopping, or a voice installed or removed, can change `running` or `voice` | As in the profile settings object |
 | `line` | A line has passed the stages for the text shown | `source`: the source's name in the profile; `text`: the line |
 | `subtitle` | The subtitle to show over the app changes, while subtitles are on | `text`: the subtitle, or `""` to hide it. The core decides how long each one stays: while it is spoken plus a moment, and at least as long as it takes to read |
-| `error` | A source, stage or sink fails (reported once until it works again) | `kind`: `source.error`, `stage.error` or `sink.error`; `origin`: which one; `message`: for the user |
+| `error` | A source, stage or sink fails (reported once until it works again, even if its message changes meanwhile; for a source, the status's `source_error` follows the message and says when it works again) | `kind`: `source.error`, `stage.error` or `sink.error`; `origin`: which one; `message`: for the user |
 | `download` | A download moves on, a few times a second at most | `id`; `state`: `downloading`, `installed`, `failed` or `removed`; `done` and `total` bytes (`total` may be `null`); `message`: why it failed, for the user |
 | `preview` | A voice preview starts (also while its voice loads) or ends: spoken, cut off by another preview, or its voice could not be loaded | `voice`; `playing`: `true` when it starts, `false` when it ends. A preview cut off by another one gets no `false`: the other's `true` replaces it |
 

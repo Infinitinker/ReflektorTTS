@@ -40,6 +40,7 @@ ReflektorTTS reads an app's text aloud as it appears on screen, and can translat
 | **Grand Theft Auto 2** | 1999, the 9.6 freeware release | Subtitles |
 | **Grand Theft Auto: San Andreas** | 2004, Steam | Subtitles and the help box, with a glossary that keeps names like Sweet and Big Smoke untranslated and pronounces them right in Polish |
 | **Mad Max** | 2015, Steam | Subtitles, in the game language you choose |
+| **VLC media player** | 3, installed from videolan.org | The subtitles of the video playing, from its subtitle file (`.srt`, `.vtt`, `.ass`, `.ssa` or `.sbv`), in time with VLC; enable the VLC integration in the Profiles tab first, see [VLC](docs/profiles.md#vlc-source-type-vlc) |
 
 Each app is described by a profile, so more apps can be added without changing ReflektorTTS itself; see [Profiles](#profiles).
 
@@ -69,8 +70,8 @@ Rather not install anything? Download `ReflektorTTS-<version>-windows-x64.zip` i
 
 ReflektorTTS runs next to the clock: its icon there opens the window, pauses reading, switches **Start with Windows** on or off, or quits. Closing the window leaves ReflektorTTS running.
 
-- **Status** shows what ReflektorTTS is doing: the app it reads, or that it waits for one, and an app version its profile does not support yet, with the voice, the languages and what happens to the app's sound: the app's own settings, or with no app running, the ones a new app starts with. It also pauses reading, quits ReflektorTTS, and links to the project page, bug reports and the support pages.
-- **Profiles** lists the profiles, bundled and your own, says which are used and why others are not, enables or disables them, and copies, removes or imports profile files. **App settings…** opens the selected app's settings in a window of their own beside the ReflektorTTS window, the same as in the game, whether or not the app is running: set up an app before you start it, or one without the overlay. Clicking it again brings that window to the front.
+- **Status** shows what ReflektorTTS is doing: the app it reads, or that it waits for one, and an app version its profile does not support yet, with the voice, the languages and what happens to the app's sound: the app's own settings, or with no app running, the ones a new app starts with. When ReflektorTTS cannot read the app, it says why and what to do, until it can again. It also pauses reading, quits ReflektorTTS, and links to the project page, bug reports and the support pages.
+- **Profiles** lists the profiles, bundled and your own, says which are used and why others are not, enables or disables them, and copies, removes or imports profile files. **App settings…** opens the selected app's settings in a window of their own beside the ReflektorTTS window, the same as in the game, whether or not the app is running: set up an app before you start it, or one without the overlay. Clicking it again brings that window to the front. An app that can be read only once its own settings are changed shows as **Not set up**, with a group under its details: **Enable** there makes the change, and **Disable** puts back what it changed.
 - **Voices** and **Translations** download voices and translation models; see [Voices](#voices) and [Translation](#translation).
 - **Settings** has the **Start with Windows** switch: ReflektorTTS then starts, hidden next to the clock, when you sign in. A first install for you alone turns it on unless you untick it; Task Manager's Startup apps can turn it off too. It also opens the settings, logs and profiles folders.
 
@@ -138,7 +139,7 @@ Untick **Start with Windows** in the window's Settings tab or in its icon's menu
 Settings, downloaded voices and models, your own profiles and the logs are all in `%LOCALAPPDATA%\ReflektorTTS`. They stay when you update ReflektorTTS.
 
 **How do I update or remove it?**
-Run the newer installer. If ReflektorTTS is running, it asks you to quit it first (right-click its icon next to the clock > Quit); quit games that use the overlay too. It then updates ReflektorTTS and keeps your settings. To remove it, use Windows Settings > Apps; it asks whether to delete your settings and downloads too (removing an install for all users leaves each user's own). With the zip, replace its folder to update, and delete it and `%LOCALAPPDATA%\ReflektorTTS` to remove it.
+Run the newer installer. If ReflektorTTS is running, it asks you to quit it first (right-click its icon next to the clock > Quit); quit games that use the overlay too. It then updates ReflektorTTS and keeps your settings. To remove it, use Windows Settings > Apps; it asks whether to delete your settings and downloads too (removing an install for all users leaves each user's own). If you enabled the VLC integration, disable it first: deleting your settings deletes the record of what ReflektorTTS changed in VLC's settings. With the zip, replace its folder to update, and delete it and `%LOCALAPPDATA%\ReflektorTTS` to remove it.
 
 ## Contributing
 

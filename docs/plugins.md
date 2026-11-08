@@ -4,7 +4,7 @@ ReflektorTTS reads text through **sources**, processes it with **stages**, and s
 
 | Kind | Entry-point group | Contract | Built-in examples |
 |---|---|---|---|
-| Source | `reflektortts.sources` | `Source` in `pipeline/protocols.py` | `memory`, `avalanche` (`sources/`) |
+| Source | `reflektortts.sources` | `Source` in `pipeline/protocols.py` | `memory`, `avalanche`, `vlc` (`sources/`) |
 | Stage | `reflektortts.stages` | `Stage` in `pipeline/protocols.py` | `tracker`, `replace`, `translate`, `pronounce`, `normalize` (`stages/`) |
 | TTS engine | `reflektortts.tts_engines` | `TtsEngine` in `tts/engine.py` | `piper`, `windows` (`tts/engines/`) |
 | Download source | `reflektortts.downloads` | `DownloadSource` in `downloads/source.py` | `piper`, `argos` (`downloads/`) |
@@ -46,7 +46,7 @@ Write schemas with `"additionalProperties": false` so typos are caught, give eve
 
 ## Sources
 
-A source is named after how it reads (`memory`, reading text through a pointer chain) or, when it needs one engine's know-how, after that engine (`avalanche`, for Avalanche Studios' engine), with no category prefix. Every profile for a game on that engine uses the same source with its own addresses.
+A source is named after how it reads (`memory`, reading text through a pointer chain), when it needs one engine's know-how, after that engine (`avalanche`, for Avalanche Studios' engine), or, when it reads one app through what that app offers, after the app (`vlc`, through VLC's web interface), with no category prefix. Every profile for a game on that engine uses the same source with its own addresses.
 
 ```python
 class Source(Protocol):
@@ -70,9 +70,37 @@ def builds(settings: Mapping[str, Any]) -> Iterable[str]: ...  # optional
 - `read` returns the **current** text on every call, even if it has not changed; the tracker stage turns that into one line per change. Return `None` (or an empty string) when there is no text.
 - `languages` are the user's input and output languages. Most sources read whatever the app shows and ignore them; a source that can read a line in several languages, like `avalanche`, reads it in the input language.
 - `read` runs on the thread that polls every source, so keep it quick: do slow work (reading an app's files, say) in a thread of your own and return `None` until it is done, as `avalanche` does.
-- Raise an exception with a message the user understands when reading fails ("Cannot read the app's memory at 672F40."). The runner reports it once as a `source.error` event and keeps polling; it logs when the source works again. A source that cannot start at all should raise from `create`, e.g. "This version of the app is not supported by its profile yet".
+- Raise an exception with a message the user understands when reading fails ("Cannot read the app's memory at 672F40."), saying what to do where you can. Keep it short: the Status tab gives it two lines and cuts a longer one, showing it whole only while the mouse is over it. The runner reports it once as a `source.error` event and keeps polling; the status shows the error (the desktop window's Status tab, the overlay's panel) until the source works again, which is logged. If it fails with another message meanwhile (the next video has no subtitles either, say), the status shows the new message instead, without another event and only in the debug log; so a message may name what it is about, such as a file. A source that cannot start at all should raise from `create`, e.g. "This version of the app is not supported by its profile yet"; it is not tried again until the app starts again, so a problem the user can fix while the app runs (a setting of the app, say) belongs in `read`.
 - `close` releases what the source holds (handles, files). It is called when the app exits.
 - Platform-specific code stays inside the plugin, behind a small interface with one implementation per OS. Code that several sources need goes into a shared module instead: sources that read the app's memory use `process_memory/` for the process and pointer chains (`parse_pointer_chains`, `chain_for`, `resolve`), and `apps/executable.py` for the app's executable (`executable_path`, `executable_sha256`).
+
+### Integrations
+
+Some apps can be read only once their own settings are changed, e.g. a web interface switched on. A source plugin then offers an **integration**, which the user enables from the desktop window's Profiles tab, under the profile's details, instead of editing the app's settings by hand:
+
+```python
+SourcePlugin(type="vlc", settings_schema=..., create=create, integration=create_integration)
+
+
+def create_integration(state_file: Path) -> Integration: ...  # Touches no files.
+
+
+class Integration(Protocol):  # In reflektortts/integrations.py.
+    name: str  # Read after "the": "VLC integration".
+    description: str  # What enabling changes and disabling puts back, for the user.
+
+    def state(self) -> IntegrationState: ...  # ENABLED, DISABLED, or UNAVAILABLE with a reason.
+    def enable(self) -> None: ...  # Raises IntegrationError with what to do.
+    def disable(self) -> None: ...  # The same.
+```
+
+- `integration` is a factory: given the path of a JSON file the integration may keep its state in (`integrations/<type>.json` in the state folder; neither may exist yet, so create the folder when you first write), it returns the integration. The core calls it once, at start, and only `state`, `enable` and `disable` may then touch files or the app, so creating it never fails and tests can create the core without the app. A factory that raises anyway is logged and skipped. The integration's ID is the plugin's type.
+- A profile whose sources **all** need an integration that is not enabled is not read at all: its app is not even watched for, and the Profiles tab shows it as "Not set up", with a group for the integration (its `name` as the title, its `description`, its state and an Enable or Disable button). A profile with another source still reads that one.
+- `state` checks the app's settings on every call (the user can change them outside ReflektorTTS); the core calls it whenever profiles are listed or chosen, every few seconds, so keep it to reading a file. Count a setup the user made by hand as `ENABLED`, if the source can read with it. Say why it is `UNAVAILABLE` in the user's terms, in a way that also fits users who do not have the app ("VLC's settings file was not found: if VLC is installed, start it once, close it, and try again"). A `state` that raises counts as unavailable with the error as its reason, and is logged once.
+- `enable` changes only what the source needs; `disable` puts back what `enable` changed, line for line, and leaves alone what the user changed since (record the original and the value written, in the state file, not in the app's own settings). Never store a secret the app keeps itself: the source reads it from the app's settings. Write atomically, and refuse with an `IntegrationError` what cannot be done safely, e.g. while the app runs and would overwrite its settings: its message is shown to the user as it is ("Close VLC first, then try again."). The core refuses to enable an unavailable integration with its reason, so `enable` need not check that again.
+- Calls are made under the core's lock, one at a time; keep them quick.
+- The `vlc` source is the example (`sources/vlc/`). Its integration (`integration.py`) adds VLC's web interface to `extraintf` in VLC's settings file (`vlcrc`, edited as bytes so every other byte stays as VLC wrote it, `vlcrc.py`), sets a random password if there is none, and limits the interface to 127.0.0.1 if no host is set; a web interface the user set up counts as enabled and is left alone. It refuses while VLC runs (`apps.detector.running_processes`), records each line it replaced and the value it wrote (only the password's SHA-256), and on disable takes out only the module it added and puts back each other line whose value is still its own. The source (`source.py`) reads the password and port from `vlcrc` each time the file changes, asks VLC's web interface for its status, and reads the cue of the media's subtitle file (found by `subtitles.py`) at VLC's playback time (`timing.py`): `formats/` holds one parser per format (`srt.py`, `vtt.py`, `ass.py`, `sbv.py`), each turning the file's text into the same cues (`cues.py`) with the shared text cleanup in `markup.py`, and its `__init__.py` picks the parser by the file's extension; the HTTP client is behind a function the tests fake (`web.py`, `tests/sources/vlc/fake_vlc.py`).
+
 ## Stages
 
 ```python
@@ -149,4 +177,4 @@ DownloadPlugin(name="piper", create=PiperVoices)  # create gets a cache folder o
 
 ## Testing
 
-Tests live in `tests/`, mirroring the package: the tests for `src/reflektortts/stages/tracker.py` are in `tests/stages/test_tracker.py`. They run without a running app, GPU, audio device or network. Put hardware- and app-dependent parts behind an interface and test against a fake kept in `tests/`, as `tests/process_memory/fake_memory.py` and the fake streams in `tests/tts/test_playback.py` do.
+Tests live in `tests/`, mirroring the package: the tests for `src/reflektortts/stages/tracker.py` are in `tests/stages/test_tracker.py`. They run without a running app, GPU, audio device or network. Put hardware- and app-dependent parts behind an interface and test against a fake kept in `tests/`, as `tests/process_memory/fake_memory.py` and the fake streams in `tests/tts/test_playback.py` do. Test an integration against settings files in pytest's `tmp_path`, never the user's own; `tests/fake_integration.py` stands in for one where the core or the API is tested.

@@ -28,6 +28,7 @@ from reflektortts.events import (
     SubtitleEvent,
     TextEvent,
 )
+from reflektortts.integrations import IntegrationError, IntegrationView, UnknownIntegrationError
 from reflektortts.languages import LANGUAGES, LanguageError
 from reflektortts.profiles.catalog import ProfileChangeError, ProfileExistsError, ProfileView
 from reflektortts.profiles.loader import ProfileError
@@ -107,6 +108,12 @@ class CoreControl(Protocol):
 
     def reload_profiles(self) -> Status: ...
 
+    def integrations(self) -> list[IntegrationView]: ...
+
+    def set_integration_enabled(self, integration_id: str, enabled: bool) -> IntegrationView:
+        """Raises UnknownIntegrationError if there is no such integration, IntegrationError if it
+        cannot be done now."""
+
     def downloads(self, refresh: bool) -> Listing:
         """refresh fetches the lists from the internet, so it can take a while."""
 
@@ -145,10 +152,14 @@ def sources_json(sources: tuple[SourceStages, ...]) -> list[dict[str, Any]]:
 def status_json(status: Status) -> dict[str, Any]:
     app = status.app
     unsupported = status.unsupported
+    source_error = status.source_error
     return {
         "type": "status",
         "app": None if app is None else {"title": app.title, "pid": app.pid, "profile": app.profile},
         "unsupported": None if unsupported is None else {"title": unsupported.title, "sha256": unsupported.sha256},
+        "source_error": None
+        if source_error is None
+        else {"source": source_error.origin, "message": source_error.message},
         "voice": status.voice,
         "input_language": status.input_language,
         "output_language": status.output_language,
@@ -231,6 +242,16 @@ def profile_json(view: ProfileView) -> dict[str, Any]:
     }
 
 
+def integration_json(view: IntegrationView) -> dict[str, Any]:
+    return {
+        "id": view.id,
+        "name": view.name,
+        "description": view.description,
+        "state": view.state.status.value,
+        "reason": view.state.reason,
+    }
+
+
 def listed_json(listed: Listed) -> dict[str, Any]:
     entry = listed.entry
     return {
@@ -283,6 +304,7 @@ STAGES_HELP = (
     'Send {"key": "<stage key from the profile\'s settings>", "output": "text" or "speech", "enabled": true or false}.'
 )
 PROFILES_HELP = 'Send {"id": "<id from GET /v1/profiles>", "enabled": true or false}.'
+INTEGRATION_HELP = 'Send {"enabled": true or false}.'
 IMPORT_HELP = 'Send {"id": "<the file name without .json>", "profile": {<the profile>}, "replace": true or false}.'
 
 
@@ -453,6 +475,26 @@ async def post_profiles_reload(request: web.Request) -> web.Response:
     return web.json_response(status_json(status))
 
 
+async def get_integrations(request: web.Request) -> web.Response:
+    views = await asyncio.to_thread(request.app[CORE].integrations)
+    return web.json_response({"integrations": [integration_json(view) for view in views]})
+
+
+async def patch_integration(request: web.Request) -> web.Response:
+    body = await read_object(request)
+    if body is None or not isinstance(body.get("enabled"), bool):
+        return error_response(INTEGRATION_HELP)
+    try:
+        view = await asyncio.to_thread(
+            request.app[CORE].set_integration_enabled, request.match_info["id"], body["enabled"]
+        )
+    except UnknownIntegrationError as error:
+        return error_response(str(error), 404)
+    except IntegrationError as error:
+        return error_response(str(error), 409)
+    return web.json_response(integration_json(view))
+
+
 DOWNLOADS_HELP = 'Send {"id": "<id from GET /v1/downloads>"}.'
 
 
@@ -580,6 +622,8 @@ def create_app(core: CoreControl) -> web.Application:
             web.patch("/v1/profiles/{id}/settings", patch_profile_settings),
             web.patch("/v1/profiles/{id}/sources", patch_profile_sources),
             web.patch("/v1/profiles/{id}/stages", patch_profile_stages),
+            web.get("/v1/integrations", get_integrations),
+            web.patch("/v1/integrations/{id}", patch_integration),
             web.post("/v1/pause", post_pause),
             web.post("/v1/resume", post_resume),
             web.post("/v1/stop", post_stop),

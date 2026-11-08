@@ -128,7 +128,7 @@ It is built for Windows only, by the 64-bit build: other systems need a transpor
 | `api_client.cpp` | Follows the core's events and keeps reconnecting; sends commands, and changes to its profile (`/v1/profiles/<id>/...`). It follows the app being read, as the overlay needs, or keeps to one profile, as the panel does |
 | `transport.h` | How the API client reaches the core: a request, and the event stream |
 | `transport_winhttp.cpp` | The transport over WinHTTP, Windows only: events over a WebSocket, commands over HTTP |
-| `settings_panel.cpp` | The settings panel's contents: the header, the Input, Output and Last line boxes, and the last error; in the panel's window, without what only makes sense over the app (pausing, stopping the line, the last line) |
+| `settings_panel.cpp` | The settings panel's contents: the header, the Input, Output and Last line boxes, and the last error (a source's goes away once the status says the source works again); in the panel's window, without what only makes sense over the app (pausing, stopping the line, the last line) |
 | `processing_section.cpp` | The panel's Processing box |
 | `widgets.cpp`, `text_fit.cpp` | Small ImGui helpers, and fitting text to a width |
 | `system_font.cpp` | Loads the system's font, which has accented letters (Segoe UI on Windows) |

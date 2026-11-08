@@ -66,6 +66,13 @@ void update_state(Change change) {
     }
 }
 
+// Sets the error the panel shows, or hides it with an empty message; from_source marks a source's
+// error, which follow_source_error takes away once the source works again.
+void set_error(CoreState& state, std::string message, bool from_source = false) {
+    state.last_error = std::move(message);
+    state.last_error_from_source = from_source;
+}
+
 std::optional<std::string> optional_text(const json& value) {
     return value.is_null() ? std::nullopt : std::optional(value.get<std::string>());
 }
@@ -195,6 +202,28 @@ bool follows_app_being_read() {
     return !g_client.options.profile || g_client.state.running;
 }
 
+// A status carries the error of the source of the app being read that failed last and has not
+// worked since. A source's error the panel shows follows it, so it goes once the source works.
+void follow_source_error(const json& status) {
+    const auto source_error = status.find("source_error");
+    if (source_error == status.end() || !follows_app_being_read()) {
+        return;
+    }
+    {
+        std::lock_guard lock(g_client.state_mutex);
+        if (!g_client.state.last_error_from_source) {
+            return;
+        }
+    }
+    std::string message = source_error->is_null() ? "" : source_error->at("message").get<std::string>();
+    update_state([&](CoreState& state) {
+        if (state.last_error_from_source) {
+            bool from_source = !message.empty();
+            set_error(state, std::move(message), from_source);
+        }
+    });
+}
+
 bool load_options();
 
 void handle_event(const std::string& text) {
@@ -206,6 +235,7 @@ void handle_event(const std::string& text) {
     try {
         std::string type = event.at("type").get<std::string>();
         if (type == "status") {
+            follow_source_error(event);
             if (!g_client.options.profile) {
                 apply_status(event);
             } else if (!load_profile_settings()) {
@@ -225,7 +255,8 @@ void handle_event(const std::string& text) {
             update_state([&](CoreState& state) { state.subtitle = std::move(subtitle); });
         } else if (type == "error" && follows_app_being_read()) {
             std::string message = event.at("message").get<std::string>();
-            update_state([&](CoreState& state) { state.last_error = std::move(message); });
+            bool from_source = event.at("kind").get<std::string>() == "source.error";
+            update_state([&](CoreState& state) { set_error(state, std::move(message), from_source); });
         } else if (type == "download") {
             // A voice installed or removed while the app runs changes what the panel can offer.
             std::string state = event.at("state").get<std::string>();
@@ -300,7 +331,7 @@ void listen_for_events() {
     }
     update_state([](CoreState& state) {
         state.connected = true;
-        state.last_error.clear();
+        set_error(state, "");
     });
     log_message("Connected to the ReflektorTTS core");
     while (std::optional<std::string> message = events->receive()) {
@@ -355,7 +386,7 @@ void request_loop() {
             error = "The request failed.";
         }
         if (!error.empty()) {
-            update_state([&](CoreState& state) { state.last_error = std::move(error); });
+            update_state([&](CoreState& state) { set_error(state, std::move(error)); });
         }
     }
 }
@@ -377,7 +408,8 @@ void request_profile_change(const char* route, const json& body) {
     }
     if (profile.empty()) {
         log_message("No app is being read, so the change is not sent");
-        update_state([](CoreState& state) { state.last_error = "No app is being read, so the change cannot be saved."; });
+        update_state(
+            [](CoreState& state) { set_error(state, "No app is being read, so the change cannot be saved."); });
         return;
     }
     enqueue({"PATCH", profile_path(profile, route), body.dump()});
@@ -462,7 +494,7 @@ void request_subtitle_position(const std::string& position) {
 }
 
 void dismiss_error() {
-    update_state([](CoreState& state) { state.last_error.clear(); });
+    update_state([](CoreState& state) { set_error(state, ""); });
 }
 
 }  // namespace reflektortts

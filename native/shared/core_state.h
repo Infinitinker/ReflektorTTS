@@ -67,6 +67,7 @@ struct CoreState {
     std::string subtitle;  // The subtitle to show now; empty when none.
     std::string last_line;
     std::string last_error;
+    bool last_error_from_source = false;  // A source's error goes once the status says it works again.
     std::vector<VoiceOption> voices;
     std::vector<LanguageOption> languages;
 };

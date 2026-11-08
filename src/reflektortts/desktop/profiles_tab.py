@@ -1,7 +1,8 @@
 """The Profiles tab: every profile, bundled and the user's own, with its state; the selected one's
-details; buttons to enable or disable it, open its app's settings window, copy a bundled one to
-edit, remove one of the user's own, import a profile file, read the files again after editing them,
-and open the user's folder.
+details, and a group for each integration its sources need, to enable or disable it; buttons to
+enable or disable the profile, open its app's settings window, copy a bundled one to edit, remove
+one of the user's own, import a profile file, read the files again after editing them, and open the
+user's folder.
 
 The buttons never move: the one that enables or disables is as wide as its longest label, and a
 button that does not apply to the selected profile is grayed out."""
@@ -10,6 +11,8 @@ import tkinter as tk
 from collections.abc import Callable
 from tkinter import ttk
 
+from reflektortts.desktop.integration_groups import IntegrationGroups
+from reflektortts.desktop.integrations import IntegrationItem, integrations_of
 from reflektortts.desktop.profiles import (
     ORIGINS,
     STATES,
@@ -37,6 +40,7 @@ STATE_COLORS = {
     "reading": GOOD,
     "disabled": DIM,
     "unsupported": BUSY,
+    "not_set_up": BUSY,
     "not_used": BUSY,
     "clash": BUSY,
     "broken": BUSY,
@@ -58,8 +62,10 @@ class ProfilesTab:
         on_import: Callable[[], None],
         on_reload: Callable[[], None],
         on_open_folder: Callable[[], None],
+        on_integration: Callable[[IntegrationItem, bool], None],
     ) -> None:
-        """app_settings_missing: why the settings window cannot be opened, or None when it can."""
+        """app_settings_missing: why the settings window cannot be opened, or None when it can.
+        on_integration is given an integration and whether to enable it."""
         self.frame = ttk.Frame(parent, padding=(8, 8, 8, 6))
         self._status_bar = status_bar
         self._on_enable = on_enable
@@ -68,12 +74,17 @@ class ProfilesTab:
         self._on_copy = on_copy
         self._on_remove = on_remove
         self._items: dict[str, ProfileItem] = {}
+        self._integrations: list[IntegrationItem] = []
         self.frame.columnconfigure(0, weight=1)
-        # The list and the box under it share the height 60/40 as the window is resized.
+        # The list and the box under it share the height 60/40 as the window is resized; the
+        # integration groups under the box take only the height they need.
         self.frame.rowconfigure(0, weight=3, uniform="split")
         self.frame.rowconfigure(2, weight=2, uniform="split")
         self._build_table()
         self._build_details(on_import, on_reload, on_open_folder)
+        self._groups = IntegrationGroups(self.frame, status_bar, on_integration)
+        self._groups.frame.grid(row=3, column=0, sticky="ew")
+        self._groups.frame.grid_remove()
 
     def _build_table(self) -> None:
         table = ttk.Frame(self.frame)
@@ -126,7 +137,7 @@ class ProfilesTab:
         details_scroll.grid(row=0, column=1, sticky="ns")
 
         buttons = ttk.Frame(self.frame)
-        buttons.grid(row=3, column=0, sticky="w", pady=(8, 0))
+        buttons.grid(row=4, column=0, sticky="w", pady=(8, 0))
         self._button = ttk.Button(
             buttons, text="Disable", width=button_width(ENABLE_LABELS), state="disabled", command=self._act
         )
@@ -164,9 +175,11 @@ class ProfilesTab:
         self._status_bar.set_text(self.frame, "")
         self._show_selected()
 
-    def show(self, items: list[ProfileItem]) -> None:
-        """Shows the profiles, sorted by name, keeping the selection."""
+    def show(self, items: list[ProfileItem], integrations: list[IntegrationItem]) -> None:
+        """Shows the profiles, sorted by name, keeping the selection, with the integrations their
+        sources need."""
         selected = self._selected_id()
+        self._integrations = integrations
         self._tree.delete(*self._tree.get_children())
         self._items = {item.id: item for item in sorted(items, key=lambda item: name_text(item).lower())}
         for item in self._items.values():
@@ -197,6 +210,12 @@ class ProfilesTab:
         if item is not None:
             self._details.insert("1.0", details_text(item))
         self._details.configure(state="disabled")
+        integrations = integrations_of(item, self._integrations)
+        self._groups.show(integrations)
+        if integrations:
+            self._groups.frame.grid()
+        else:
+            self._groups.frame.grid_remove()
         self._app_settings.configure(state="normal" if self._can_open_app_settings(item) else "disabled")
         self._copy.configure(state="normal" if item is not None and item.origin == "bundled" else "disabled")
         self._remove.configure(state="normal" if item is not None and item.origin != "bundled" else "disabled")

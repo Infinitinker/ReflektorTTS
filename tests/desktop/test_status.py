@@ -77,3 +77,18 @@ def test_the_details_say_whose_settings_they_are() -> None:
     assert settings_caption(None) == ""
     assert settings_caption(CoreStatus(app=None, paused=False)) == "Settings a new app starts with:"
     assert settings_caption(CoreStatus(app="Mad Max", paused=False)) == "Settings for Mad Max:"
+
+
+def test_the_source_error_of_the_app_being_read_is_what_to_do_now() -> None:
+    event = {
+        "type": "status",
+        "app": {"title": "VLC media player", "pid": 42},
+        "paused": False,
+        "source_error": {"source": "subtitles", "message": "VLC's web interface is off."},
+    }
+
+    status = parse_status(event)
+
+    assert status == CoreStatus(app="VLC media player", paused=False, source_error="VLC's web interface is off.")
+    assert hint(status) == "VLC's web interface is off."
+    assert parse_status(event | {"source_error": None}) == CoreStatus(app="VLC media player", paused=False)

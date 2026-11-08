@@ -10,6 +10,7 @@ STATES = {
     "reading": "Reading",
     "not_running": "Not running",
     "unsupported": "Unsupported version",
+    "not_set_up": "Not set up",
     "disabled": "Disabled",
     "not_used": "Not used",
     "clash": "Clash",

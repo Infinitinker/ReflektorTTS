@@ -191,13 +191,44 @@ def test_failing_source_is_reported_once_and_others_keep_working() -> None:
     sink = RecordingSink()
     broken = ScriptedSource("memory", [OSError("app closed"), OSError("app closed"), "back"])
     healthy = ScriptedSource("clipboard", ["a", "b", "c"])
-    runner = Runner([Route(broken), Route(healthy)], to_text(sink), on_error=errors.append)
+    working: list[tuple[str, str]] = []
+    runner = Runner(
+        [Route(broken), Route(healthy)],
+        to_text(sink),
+        on_error=errors.append,
+        on_works_again=lambda kind, origin: working.append((kind, origin)),
+    )
 
     for tick in range(3):
         runner.poll(float(tick))
 
     assert errors == [ErrorEvent("source.error", "memory", "app closed")]
+    assert working == [("source.error", "memory")]
     assert texts(sink) == ["a", "b", "back", "c"]
+
+
+def test_a_source_failing_for_another_reason_is_reported_as_still_failing() -> None:
+    errors: list[ErrorEvent] = []
+    still: list[ErrorEvent] = []
+    script: list[str | None | Exception] = [
+        OSError("No subtitles for A."),
+        OSError("No subtitles for A."),
+        OSError("No subtitles for B."),
+        "back",
+        OSError("No subtitles for B."),
+    ]
+    runner = Runner(
+        [Route(ScriptedSource("vlc", script))], to_text(RecordingSink()), errors.append, on_still_failing=still.append
+    )
+
+    for tick in range(5):
+        runner.poll(float(tick))
+
+    assert errors == [
+        ErrorEvent("source.error", "vlc", "No subtitles for A."),
+        ErrorEvent("source.error", "vlc", "No subtitles for B."),
+    ]
+    assert still == [ErrorEvent("source.error", "vlc", "No subtitles for B.")]
 
 
 def test_failing_stage_drops_the_event_and_is_reported() -> None:
