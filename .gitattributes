@@ -1,0 +1,4 @@
+# Text files have LF line endings in every checkout, on every system, so releases built from any
+# checkout hold the same files. Windows' cmd needs CRLF in batch files.
+* text=auto eol=lf
+*.bat text eol=crlf
