@@ -92,7 +92,8 @@ jobs:
 
       - name: Build the release
         run: python tools/build_release.py
-      # Each file on its own and unzipped, so the run's page offers the files themselves.
+      # Each file on its own and unzipped, so the run's page offers the files themselves. Each step
+      # fails unless its pattern matches exactly one file.
       - uses: actions/upload-artifact@v7
         with:
           path: build/release/*-windows-x64-setup.exe
@@ -109,10 +110,10 @@ jobs:
           archive: false
           if-no-files-found: error
 
-  # Runs for every build, so the files are checked every time; only a pushed tag drafts a release.
   draft:
     name: Draft the release
     needs: build
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -131,24 +132,16 @@ jobs:
         working-directory: release
         run: |
           ls -l
-          for suffix in windows-x64-setup.exe windows-x64.zip sources.zip; do
-            files=(*-"$suffix")
-            if [ "${#files[@]}" -ne 1 ] || [ ! -f "${files[0]}" ]; then
-              echo "::error::Expected one *-$suffix, found: ${files[*]}"
-              exit 1
-            fi
+          for file in *-windows-x64-setup.exe *-windows-x64.zip *-sources.zip; do
+            [ -f "$file" ] || { echo "::error::$file did not arrive as a file."; exit 1; }
           done
-          [ "$(ls | wc -l)" -eq 3 ] || { echo "::error::Expected exactly three files."; exit 1; }
-          unzip -tq -- *-windows-x64.zip
-          unzip -tq -- *-sources.zip
+          [ "$(ls | wc -l)" -eq 3 ] || { echo "::error::Expected exactly the three files."; exit 1; }
       # Records that these files were built by this workflow from this commit, so anyone can check a
       # download with: gh attestation verify <file> --repo Infinitinker/ReflektorTTS
       - uses: actions/attest-build-provenance@v4
-        if: github.event_name == 'push'
         with:
           subject-path: release/*
       - name: Draft the release
-        if: github.event_name == 'push'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
