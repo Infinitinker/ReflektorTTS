@@ -175,6 +175,6 @@ def _load(file: SubtitleFile, language: str) -> _Subtitles:
     except OSError as error:
         raise VlcError(f"Cannot read the subtitles in {path.name} ({error.strerror}).") from error
     if not cues:
-        raise VlcError(f"{path.name} has no subtitles ReflektorTTS can read: is it in the {file.format.name} format?")
+        raise VlcError(f"No subtitles found in {path.name}: is it in the {file.format.name} format?")
     logger.info("Reading %d subtitles from %s", len(cues), path)
     return _Subtitles(file, stamp, cues)

@@ -141,7 +141,7 @@ def find_subtitles(media: Path, language: str) -> SubtitleFile | None:
         return SubtitleFile(chosen.path, file_format)
     if candidates:
         raise VlcError(
-            f"{min(candidates, key=Candidate.rank).path.name} is in a format ReflektorTTS cannot read: "
+            f"{min(candidates, key=Candidate.rank).path.name} is in a format that cannot be read: "
             f"convert it to {media.stem}.srt."
         )
     raise VlcError(

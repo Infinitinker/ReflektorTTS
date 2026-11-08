@@ -175,6 +175,7 @@ class Window:
 
     def show(self) -> None:
         """Shows the window on its Status tab."""
+        self.profiles.close_integration()  # It would stay over another tab, no longer updated.
         self._notebook.select(0)  # type: ignore[no-untyped-call]  # Untyped in typeshed.
         self._root.deiconify()
         self._root.lift()

@@ -288,7 +288,7 @@ def test_disabling_with_a_damaged_record_says_how_to_turn_the_interface_off_in_v
         vlc.integration.disable()
 
     message = str(raised.value)
-    assert message.startswith("ReflektorTTS's record of what it changed in VLC's settings is damaged (")
+    assert message.startswith("The record of what Enable changed in VLC's settings is damaged (")
     assert str(vlc.state_file) in message
     assert message.endswith("Interface > Main interfaces: clear Web).")
     assert vlc.vlcrc.read_bytes() == enabled

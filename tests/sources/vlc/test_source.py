@@ -208,7 +208,7 @@ def test_a_subtitle_file_without_cues_is_reported_with_its_format(vlc: Setup) ->
     with pytest.raises(VlcError) as raised:
         vlc.read()
 
-    assert str(raised.value) == "movie.srt has no subtitles ReflektorTTS can read: is it in the SubRip (.srt) format?"
+    assert str(raised.value) == "No subtitles found in movie.srt: is it in the SubRip (.srt) format?"
 
 
 def test_subtitles_in_other_formats_are_read_too(vlc: Setup) -> None:

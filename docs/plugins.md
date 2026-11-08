@@ -76,7 +76,7 @@ def builds(settings: Mapping[str, Any]) -> Iterable[str]: ...  # optional
 
 ### Integrations
 
-Some apps can be read only once their own settings are changed, e.g. a web interface switched on. A source plugin then offers an **integration**, which the user enables from the desktop window's Profiles tab, under the profile's details, instead of editing the app's settings by hand:
+Some apps can be read only once their own settings are changed, e.g. a web interface switched on. A source plugin then offers an **integration**, which the user enables from the desktop window's Profiles tab, with the profile's Integration… button, instead of editing the app's settings by hand:
 
 ```python
 SourcePlugin(type="vlc", settings_schema=..., create=create, integration=create_integration)
@@ -95,7 +95,7 @@ class Integration(Protocol):  # In reflektortts/integrations.py.
 ```
 
 - `integration` is a factory: given the path of a JSON file the integration may keep its state in (`integrations/<type>.json` in the state folder; neither may exist yet, so create the folder when you first write), it returns the integration. The core calls it once, at start, and only `state`, `enable` and `disable` may then touch files or the app, so creating it never fails and tests can create the core without the app. A factory that raises anyway is logged and skipped. The integration's ID is the plugin's type.
-- A profile whose sources **all** need an integration that is not enabled is not read at all: its app is not even watched for, and the Profiles tab shows it as "Not set up", with a group for the integration (its `name` as the title, its `description`, its state and an Enable or Disable button). A profile with another source still reads that one.
+- A profile whose sources **all** need an integration that is not enabled is not read at all: its app is not even watched for, and the Profiles tab shows it as "Not set up"; its Integration… button opens a window with a group for the integration (its `name` as the title, its `description`, its state and an Enable or Disable button). A profile with another source still reads that one.
 - `state` checks the app's settings on every call (the user can change them outside ReflektorTTS); the core calls it whenever profiles are listed or chosen, every few seconds, so keep it to reading a file. Count a setup the user made by hand as `ENABLED`, if the source can read with it. Say why it is `UNAVAILABLE` in the user's terms, in a way that also fits users who do not have the app ("VLC's settings file was not found: if VLC is installed, start it once, close it, and try again"). A `state` that raises counts as unavailable with the error as its reason, and is logged once.
 - `enable` changes only what the source needs; `disable` puts back what `enable` changed, line for line, and leaves alone what the user changed since (record the original and the value written, in the state file, not in the app's own settings). Never store a secret the app keeps itself: the source reads it from the app's settings. Write atomically, and refuse with an `IntegrationError` what cannot be done safely, e.g. while the app runs and would overwrite its settings: its message is shown to the user as it is ("Close VLC first, then try again."). The core refuses to enable an unavailable integration with its reason, so `enable` need not check that again.
 - Calls are made under the core's lock, one at a time; keep them quick.

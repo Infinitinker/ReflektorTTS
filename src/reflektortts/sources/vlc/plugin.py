@@ -33,7 +33,7 @@ def portable_folder(pid: int) -> Path | None:
 
 def create(source: SourceSettings, app: RunningApp) -> VlcSource:
     if portable_folder(app.process.pid) is not None:
-        raise VlcError("This VLC is a portable copy: ReflektorTTS sets up only the installed VLC.")
+        raise VlcError("This VLC is a portable copy: only an installed VLC can be read.")
     return VlcSource(source.name, source.poll_interval, SettingsFile(vlcrc_path()))
 
 

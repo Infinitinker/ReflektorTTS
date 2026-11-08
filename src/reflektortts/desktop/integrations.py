@@ -45,6 +45,14 @@ def integrations_of(profile: ProfileItem | None, items: Sequence[IntegrationItem
     return [by_id[source_type] for source_type in types if source_type in by_id]
 
 
+def integrations_hint(items: Sequence[IntegrationItem]) -> str:
+    """What the Integration… button does for a profile that needs these integrations."""
+    if not items:
+        return "This app needs no change in its own settings to be read."
+    names = " and ".join(f"the {item.name}" for item in items)
+    return f"Enable or disable {names}, which this app needs to be read."
+
+
 def state_text(item: IntegrationItem) -> str:
     if item.state == "enabled":
         return "Enabled"
@@ -58,15 +66,6 @@ def action(item: IntegrationItem) -> tuple[str, bool]:
     if item.state == "enabled":
         return ACTION_LABELS[1], True
     return ACTION_LABELS[0], item.state != "unavailable"
-
-
-def action_hint(item: IntegrationItem) -> str:
-    """What the button does, said apart from the profile's own Enable and Disable."""
-    if item.state == "enabled":
-        return f"Turn off the {item.name}, putting back what it changed."
-    if item.state == "unavailable":
-        return f"The {item.name} cannot be enabled now; its state says why."
-    return f"Set up the {item.name}, so this app can be read."
 
 
 def failure_text(item: IntegrationItem, enabled: bool) -> str:

@@ -1,8 +1,7 @@
 """The Profiles tab: every profile, bundled and the user's own, with its state; the selected one's
-details, and a group for each integration its sources need, to enable or disable it; buttons to
-enable or disable the profile, open its app's settings window, copy a bundled one to edit, remove
-one of the user's own, import a profile file, read the files again after editing them, and open the
-user's folder.
+details; buttons to enable or disable the profile, open its app's settings window, open a window for
+the integrations its sources need, copy a bundled one to edit, remove one of the user's own, import a
+profile file, read the files again after editing them, and open the user's folder.
 
 The buttons never move: the one that enables or disables is as wide as its longest label, and a
 button that does not apply to the selected profile is grayed out."""
@@ -11,8 +10,8 @@ import tkinter as tk
 from collections.abc import Callable
 from tkinter import ttk
 
-from reflektortts.desktop.integration_groups import IntegrationGroups
-from reflektortts.desktop.integrations import IntegrationItem, integrations_of
+from reflektortts.desktop.integration_window import IntegrationWindow
+from reflektortts.desktop.integrations import IntegrationItem, integrations_hint, integrations_of
 from reflektortts.desktop.profiles import (
     ORIGINS,
     STATES,
@@ -72,19 +71,19 @@ class ProfilesTab:
         self._on_app_settings = on_app_settings
         self._app_settings_missing = app_settings_missing
         self._on_copy = on_copy
+        self._on_integration = on_integration
+        self._integration_window: IntegrationWindow | None = None
+        self._integration_profile: str | None = None
+        """The profile the integration window is open for."""
         self._on_remove = on_remove
         self._items: dict[str, ProfileItem] = {}
         self._integrations: list[IntegrationItem] = []
         self.frame.columnconfigure(0, weight=1)
-        # The list and the box under it share the height 60/40 as the window is resized; the
-        # integration groups under the box take only the height they need.
+        # The list and the box under it share the height 60/40 as the window is resized.
         self.frame.rowconfigure(0, weight=3, uniform="split")
         self.frame.rowconfigure(2, weight=2, uniform="split")
         self._build_table()
         self._build_details(on_import, on_reload, on_open_folder)
-        self._groups = IntegrationGroups(self.frame, status_bar, on_integration)
-        self._groups.frame.grid(row=3, column=0, sticky="ew")
-        self._groups.frame.grid_remove()
 
     def _build_table(self) -> None:
         table = ttk.Frame(self.frame)
@@ -137,7 +136,7 @@ class ProfilesTab:
         details_scroll.grid(row=0, column=1, sticky="ns")
 
         buttons = ttk.Frame(self.frame)
-        buttons.grid(row=4, column=0, sticky="w", pady=(8, 0))
+        buttons.grid(row=3, column=0, sticky="w", pady=(8, 0))
         self._button = ttk.Button(
             buttons, text="Disable", width=button_width(ENABLE_LABELS), state="disabled", command=self._act
         )
@@ -146,18 +145,21 @@ class ProfilesTab:
             buttons, text="App settings…", state="disabled", command=self._open_app_settings
         )
         self._app_settings.grid(row=0, column=1, padx=(6, 0))
+        self._integration = ttk.Button(buttons, text="Integration…", state="disabled", command=self._open_integration)
+        self._integration.grid(row=0, column=2, padx=(6, 0))
         self._copy = ttk.Button(buttons, text="Copy to edit", state="disabled", command=self._copy_selected)
-        self._copy.grid(row=0, column=2, padx=(6, 0))
+        self._copy.grid(row=0, column=3, padx=(6, 0))
         self._remove = ttk.Button(buttons, text="Remove", state="disabled", command=self._remove_selected)
-        self._remove.grid(row=0, column=3, padx=(6, 0))
+        self._remove.grid(row=0, column=4, padx=(6, 0))
         import_button = ttk.Button(buttons, text="Import…", command=on_import)
-        import_button.grid(row=0, column=4, padx=(6, 0))
+        import_button.grid(row=0, column=5, padx=(6, 0))
         reload = ttk.Button(buttons, text="Reload", command=on_reload)
-        reload.grid(row=0, column=5, padx=(6, 0))
+        reload.grid(row=0, column=6, padx=(6, 0))
         folder = ttk.Button(buttons, text="Open profiles folder", command=on_open_folder)
-        folder.grid(row=0, column=6, padx=(6, 0))
+        folder.grid(row=0, column=7, padx=(6, 0))
         self._status_bar.hint(self._button, self._button_hint)
         self._status_bar.hint(self._app_settings, self._app_settings_hint)
+        self._status_bar.hint(self._integration, self._integration_hint)
         self._status_bar.hint(
             self._copy, lambda: "Copy a bundled profile to your folder and show it there, to edit it in an editor."
         )
@@ -192,6 +194,7 @@ class ProfilesTab:
         fit_columns(self._tree, COLUMNS)
         self._status_bar.set_text(self.frame, summary_text(items))
         self._show_selected()
+        self._follow_integrations()
 
     def _selected_id(self) -> str | None:
         selection = self._tree.selection()
@@ -210,12 +213,7 @@ class ProfilesTab:
         if item is not None:
             self._details.insert("1.0", details_text(item))
         self._details.configure(state="disabled")
-        integrations = integrations_of(item, self._integrations)
-        self._groups.show(integrations)
-        if integrations:
-            self._groups.frame.grid()
-        else:
-            self._groups.frame.grid_remove()
+        self._integration.configure(state="normal" if integrations_of(item, self._integrations) else "disabled")
         self._app_settings.configure(state="normal" if self._can_open_app_settings(item) else "disabled")
         self._copy.configure(state="normal" if item is not None and item.origin == "bundled" else "disabled")
         self._remove.configure(state="normal" if item is not None and item.origin != "bundled" else "disabled")
@@ -246,6 +244,45 @@ class ProfilesTab:
         if item is not None and item.state == "broken":
             return "A broken profile has no settings; fix its file, or remove it."
         return "Change this app's voice, languages and the rest, also while it isn't running."
+
+    def _integration_hint(self) -> str:
+        return integrations_hint(integrations_of(self._selected(), self._integrations))
+
+    def _open_integration(self) -> None:
+        item = self._selected()
+        integrations = integrations_of(item, self._integrations)
+        if item is None or not integrations or self._integration_window is not None:
+            return
+        self._integration_profile = item.id
+        self._integration_window = IntegrationWindow(
+            self.frame,
+            f"{name_text(item)}: {'integrations' if len(integrations) > 1 else 'integration'}",
+            integrations,
+            self._on_integration,
+            self._integration_closed,
+        )
+
+    def close_integration(self) -> None:
+        """Closes the integration window, if it is open."""
+        if self._integration_window is not None:
+            self._integration_window.close()
+
+    def _integration_closed(self) -> None:
+        self._integration_window = None
+        self._integration_profile = None
+
+    def _follow_integrations(self) -> None:
+        """Shows the open integration window the new state, or closes it if its profile is gone or
+        needs other integrations now."""
+        window = self._integration_window
+        if window is None:
+            return
+        profile = self._items.get(self._integration_profile or "")
+        integrations = integrations_of(profile, self._integrations)
+        if [integration.id for integration in integrations] == window.ids:
+            window.show(integrations)
+        else:
+            window.close()
 
     def _remove_hint(self) -> str:
         item = self._selected()

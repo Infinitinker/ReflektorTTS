@@ -377,7 +377,9 @@ class Application:
         self._show_error(message)
 
     def _show_error(self, message: str) -> None:
-        messagebox.showerror("ReflektorTTS", message, parent=self._root)
+        # Over a window that holds the grab (the integration window), so it is the one blocked.
+        grabbing = self._root.grab_current()  # type: ignore[no-untyped-call]  # Untyped in typeshed.
+        messagebox.showerror("ReflektorTTS", message, parent=grabbing or self._root)
 
     def _start_download(self, item: DownloadItem) -> None:
         def start() -> None:

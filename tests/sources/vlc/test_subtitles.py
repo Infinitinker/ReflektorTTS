@@ -140,4 +140,4 @@ def test_subtitles_only_in_formats_not_read_say_which_are_read(tmp_path: Path) -
     with pytest.raises(VlcError) as raised:
         found(media, "en")
 
-    assert str(raised.value) == "movie.en.stl is in a format ReflektorTTS cannot read: convert it to movie.srt."
+    assert str(raised.value) == "movie.en.stl is in a format that cannot be read: convert it to movie.srt."

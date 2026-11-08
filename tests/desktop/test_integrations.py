@@ -5,8 +5,8 @@ import pytest
 from reflektortts.desktop.integrations import (
     IntegrationItem,
     action,
-    action_hint,
     failure_text,
+    integrations_hint,
     integrations_of,
     parse_integrations,
     state_text,
@@ -55,7 +55,15 @@ def test_the_state_and_the_button_follow_the_integration(
     item = IntegrationItem("remote", "Remote integration", "", state, reason)
 
     assert (state_text(item), action(item)) == (text, button)
-    assert "the remote integration" in action_hint(item).lower()
+
+
+def test_the_integration_button_names_what_it_opens() -> None:
+    other = IntegrationItem("other", "Other integration", "", "disabled", None)
+
+    assert integrations_hint([]) == "This app needs no change in its own settings to be read."
+    assert integrations_hint([ITEM, other]) == (
+        "Enable or disable the Remote integration and the Other integration, which this app needs to be read."
+    )
 
 
 def test_a_failed_change_is_introduced_with_the_integration_s_name() -> None:

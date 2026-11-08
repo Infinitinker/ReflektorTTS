@@ -40,7 +40,7 @@ ReflektorTTS reads an app's text aloud as it appears on screen, and can translat
 | **Grand Theft Auto 2** | 1999, the 9.6 freeware release | Subtitles |
 | **Grand Theft Auto: San Andreas** | 2004, Steam | Subtitles and the help box, with a glossary that keeps names like Sweet and Big Smoke untranslated and pronounces them right in Polish |
 | **Mad Max** | 2015, Steam | Subtitles, in the game language you choose |
-| **VLC media player** | 3, installed from videolan.org | The subtitles of the video playing, from its subtitle file (`.srt`, `.vtt`, `.ass`, `.ssa` or `.sbv`), in time with VLC; enable the VLC integration in the Profiles tab first, see [VLC](docs/profiles.md#vlc-source-type-vlc) |
+| **VLC media player** | 3, installed from videolan.org | The subtitles of the video playing, from its subtitle file (`.srt`, `.vtt`, `.ass`, `.ssa` or `.sbv`), in time with VLC; enable the VLC integration first (Profiles tab, **Integration…**), see [VLC](docs/profiles.md#vlc-source-type-vlc) |
 
 Each app is described by a profile, so more apps can be added without changing ReflektorTTS itself; see [Profiles](#profiles).
 

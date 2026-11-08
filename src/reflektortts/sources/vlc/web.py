@@ -114,7 +114,7 @@ def parse_status(data: Any, port: int) -> PlayerStatus:
         version = data.get("version")
         raise VlcError(
             f"This VLC version ({version if isinstance(version, str) else 'unknown'}) is not supported yet: "
-            "ReflektorTTS reads VLC 3."
+            "VLC 3 is."
         )
     try:
         status = PlayerStatus(

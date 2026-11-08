@@ -27,9 +27,9 @@ logger = logging.getLogger(__name__)
 
 NAME = "VLC integration"
 DESCRIPTION = (
-    "Turns on VLC's web interface for this computer only, with a random password kept in VLC's settings, "
-    "so ReflektorTTS can follow what VLC plays; any program on this computer that knows the password can "
-    "control VLC. Disable puts back the VLC settings ReflektorTTS changed. VLC must be closed for both."
+    "Turns on VLC's web interface for this computer only, so what VLC plays can be followed. Its random "
+    "password is kept in VLC's settings: any program on this computer that knows it can control VLC. "
+    "Disable puts back the settings Enable changed. VLC must be closed for both."
 )
 
 VLC_PROCESSES = frozenset({"vlc.exe", "vlc"})
@@ -43,7 +43,7 @@ PASSWORD = "http-password"
 
 CLOSE_VLC = "Close VLC first, then try again: VLC writes back its own settings when it closes."
 TURN_OFF_IN_VLC = "Tools > Preferences, Show settings: All, then Interface > Main interfaces: clear Web"
-NOT_OURS = f"VLC's web interface was turned on in VLC, not by ReflektorTTS: turn it off in VLC ({TURN_OFF_IN_VLC})."
+NOT_OURS = f"VLC's web interface was turned on in VLC itself: turn it off there ({TURN_OFF_IN_VLC})."
 
 
 class DamagedRecordsError(Exception):
@@ -147,7 +147,7 @@ class VlcIntegration:
         except DamagedRecordsError as error:
             if self.state().status is IntegrationStatus.ENABLED:
                 raise IntegrationError(
-                    f"ReflektorTTS's record of what it changed in VLC's settings is damaged ({error}): "
+                    f"The record of what Enable changed in VLC's settings is damaged ({error}): "
                     f"{self._state_file}. Turn VLC's web interface off in VLC ({TURN_OFF_IN_VLC})."
                 ) from error
             logger.warning("Dropping the damaged record of VLC settings in %s: %s", self._state_file, error)
@@ -247,7 +247,7 @@ class VlcIntegration:
             write_json_object(self._state_file, {"changes": records})
         except OSError as error:
             raise IntegrationError(
-                f"Cannot save what ReflektorTTS changes in VLC's settings ({error.strerror}): {self._state_file}."
+                f"Cannot save what Enable changes in VLC's settings ({error.strerror}): {self._state_file}."
             ) from error
 
 
