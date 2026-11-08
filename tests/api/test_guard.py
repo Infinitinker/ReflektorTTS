@@ -4,7 +4,7 @@ import aiohttp
 import pytest
 from aiohttp.test_utils import TestClient
 
-from tests.api.test_server import FakeCore, with_client
+from tests.api.test_server import MAD_MAX_SETTINGS, SETTINGS_PATH, FakeCore, with_client
 
 
 def test_requests_from_web_pages_are_refused() -> None:
@@ -21,6 +21,32 @@ def test_requests_from_web_pages_are_refused() -> None:
 
     with_client(core, test)
     assert not core.current.paused
+
+
+@pytest.mark.parametrize(
+    ("method", "path", "body"),
+    [
+        ("GET", SETTINGS_PATH, None),
+        ("PATCH", SETTINGS_PATH, {"ducking": False}),
+        ("PATCH", "/v1/profiles/mad-max-2015/sources", {"name": "messages", "enabled": False}),
+        (
+            "PATCH",
+            "/v1/profiles/mad-max-2015/stages",
+            {"key": "messages/0:tracker", "output": "text", "enabled": False},
+        ),
+    ],
+)
+def test_web_pages_can_neither_read_nor_change_a_profile_s_settings(
+    method: str, path: str, body: dict[str, Any] | None
+) -> None:
+    core = FakeCore()
+
+    async def test(client: TestClient[Any, Any]) -> None:
+        response = await client.request(method, path, json=body, headers={"Origin": "https://example.invalid"})
+        assert response.status == 403
+
+    with_client(core, test)
+    assert core.view == MAD_MAX_SETTINGS
 
 
 def test_a_web_page_cannot_listen_to_the_events() -> None:
@@ -49,24 +75,24 @@ def test_a_body_that_is_not_json_is_refused(content_type: str) -> None:
     core = FakeCore()
 
     async def test(client: TestClient[Any, Any]) -> None:
-        response = await client.patch("/v1/settings", data='{"ducking": false}', headers={"Content-Type": content_type})
+        response = await client.patch(SETTINGS_PATH, data='{"ducking": false}', headers={"Content-Type": content_type})
         assert (response.status, await response.json()) == (
             415,
             {"error": 'Send the body as JSON, with "Content-Type: application/json".'},
         )
 
     with_client(core, test)
-    assert core.current.ducking
+    assert core.view == MAD_MAX_SETTINGS
 
 
 def test_the_clients_own_requests_pass() -> None:
     core = FakeCore()
 
     async def test(client: TestClient[Any, Any]) -> None:
-        assert (await client.patch("/v1/settings", json={"ducking": False})).status == 200
+        assert (await client.patch(SETTINGS_PATH, json={"ducking": False})).status == 200
         assert (await client.post("/v1/pause")).status == 200
         async with client.ws_connect("/v1/events") as socket:
             assert (await socket.receive_json())["type"] == "status"
 
     with_client(core, test)
-    assert not core.current.ducking
+    assert not core.view.ducking

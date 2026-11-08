@@ -44,6 +44,7 @@ def test_the_bundled_profiles_are_valid_and_do_not_clash() -> None:
         "grand-theft-auto-2-1999",
         "grand-theft-auto-san-andreas-2004",
         "mad-max-2015",
+        "vlc-media-player-2001",
     ]
 
 

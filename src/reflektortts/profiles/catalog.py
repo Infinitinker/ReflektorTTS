@@ -78,6 +78,8 @@ class ProfileState(StrEnum):
     NOT_RUNNING = "not_running"
     UNSUPPORTED = "unsupported"
     """Its app runs, in a build the profile does not list."""
+    NOT_SET_UP = "not_set_up"
+    """Every source of it needs an integration that is not enabled, so its app is not read."""
     DISABLED = "disabled"
     NOT_USED = "not_used"
     CLASH = "clash"

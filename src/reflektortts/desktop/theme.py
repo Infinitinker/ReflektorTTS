@@ -23,6 +23,14 @@ def heading_font() -> tkfont.Font:
     return font
 
 
+def title_font() -> tkfont.Font:
+    """The default font, bold and much larger, for the app's name; needs the Tk root to exist."""
+    font = tkfont.nametofont("TkDefaultFont").copy()
+    size = int(font.actual("size"))
+    font.configure(weight="bold", size=size + 8 if size > 0 else size - 11)
+    return font
+
+
 def group_background() -> str:
     """The background inside a group box (ttk.LabelFrame), for widgets that should blend into it."""
     return str(ttk.Style().lookup("TLabelframe", "background"))

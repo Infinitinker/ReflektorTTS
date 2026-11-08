@@ -57,7 +57,10 @@ class Runner:
     and switched-off stages are skipped.
 
     A failing source, stage or sink is reported once through on_error and does not stop
-    the others; the runner keeps trying it and logs when it works again.
+    the others; the runner keeps trying it, and when it works again, logs it and tells
+    on_works_again its kind and origin, as they were reported. If it fails again with another
+    message before then, on_still_failing gets the new error, so a status can say what is wrong
+    now; the error is not reported again, as a message can change on every read (an address).
     """
 
     def __init__(
@@ -67,13 +70,18 @@ class Runner:
         on_error: Callable[[ErrorEvent], None] = log_error,
         clock: Callable[[], float] = time.monotonic,
         languages: Callable[[], Languages] = lambda: Languages(DEFAULT_INPUT_LANGUAGE, DEFAULT_OUTPUT_LANGUAGE),
+        on_works_again: Callable[[str, str], None] = lambda kind, origin: None,
+        on_still_failing: Callable[[ErrorEvent], None] = lambda error: None,
     ) -> None:
         self._routes = routes
         self._sinks = sinks
         self._on_error = on_error
+        self._on_works_again = on_works_again
+        self._on_still_failing = on_still_failing
         self._clock = clock
         self._languages = languages
-        self._failing: set[tuple[str, str]] = set()
+        self._failing: dict[tuple[str, str], str] = {}
+        """The message each failing source, stage or sink, by kind and origin, failed with last."""
 
     def run(self, stop: threading.Event) -> None:
         """Polls until stop is set."""
@@ -141,11 +149,18 @@ class Runner:
             self._worked("sink.error", sink.name)
 
     def _failed(self, kind: str, origin: str, error: Exception) -> None:
-        if (kind, origin) not in self._failing:
-            self._failing.add((kind, origin))
-            self._on_error(ErrorEvent(kind, origin, str(error)))
+        message = str(error)
+        last = self._failing.get((kind, origin))
+        if last == message:
+            return
+        self._failing[(kind, origin)] = message
+        if last is None:
+            self._on_error(ErrorEvent(kind, origin, message))
+        else:
+            logger.debug("%s still fails: %s", origin, message)
+            self._on_still_failing(ErrorEvent(kind, origin, message))
 
     def _worked(self, kind: str, origin: str) -> None:
-        if (kind, origin) in self._failing:
-            self._failing.discard((kind, origin))
+        if self._failing.pop((kind, origin), None) is not None:
             logger.info("%s works again", origin)
+            self._on_works_again(kind, origin)

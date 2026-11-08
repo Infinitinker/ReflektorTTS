@@ -4,11 +4,19 @@ import logging
 import threading
 from collections.abc import Callable
 
-from reflektortts.events import DownloadEvent, ErrorEvent, PreviewEvent, Status, SubtitleEvent, TextEvent
+from reflektortts.events import (
+    DownloadEvent,
+    ErrorEvent,
+    PreviewEvent,
+    ProfileSettingsView,
+    Status,
+    SubtitleEvent,
+    TextEvent,
+)
 
 logger = logging.getLogger(__name__)
 
-Event = TextEvent | SubtitleEvent | ErrorEvent | DownloadEvent | PreviewEvent | Status
+Event = TextEvent | SubtitleEvent | ErrorEvent | DownloadEvent | PreviewEvent | Status | ProfileSettingsView
 Listener = Callable[[Event], None]
 
 

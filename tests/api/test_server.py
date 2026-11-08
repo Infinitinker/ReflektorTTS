@@ -4,7 +4,7 @@ import threading
 import time
 import urllib.request
 from collections.abc import Awaitable, Callable
-from dataclasses import replace
+from dataclasses import asdict, replace
 from pathlib import Path
 from typing import Any
 
@@ -17,7 +17,7 @@ from reflektortts.api.server import (
     STAGES_HELP,
     ApiError,
     ApiServer,
-    NoAppError,
+    BrokenProfileError,
     SourceError,
     StageError,
     UnknownProfileError,
@@ -31,11 +31,19 @@ from reflektortts.events import (
     DownloadEvent,
     ErrorEvent,
     Output,
+    ProfileSettingsView,
     SourceStages,
     StageState,
     Status,
     SubtitleEvent,
     TextEvent,
+)
+from reflektortts.integrations import (
+    IntegrationError,
+    IntegrationState,
+    IntegrationStatus,
+    IntegrationView,
+    UnknownIntegrationError,
 )
 from reflektortts.languages import LanguageError, check_language
 from reflektortts.profiles.catalog import (
@@ -50,7 +58,8 @@ from reflektortts.profiles.catalog import (
 )
 from reflektortts.profiles.loader import ProfileError
 from reflektortts.profiles.model import App, Executable, Match, Profile, SourceSettings, StageSettings
-from reflektortts.tts.engine import VoiceError, VoiceInfo
+from reflektortts.settings import SettingsChange
+from reflektortts.tts.engine import VoiceError, VoiceInfo, find_voice
 from reflektortts.tts.service import NewLine
 
 ADAM = VoiceInfo(
@@ -86,6 +95,24 @@ TRACKER = StageState(
     warning="Needed.",
     enabled={Output.TEXT: True, Output.SPEECH: True},
 )
+MAD_MAX_SETTINGS = ProfileSettingsView(
+    profile="mad-max-2015",
+    app_title="Mad Max",
+    running=False,
+    voice="piper:a",
+    input_language="en",
+    output_language="pl",
+    ducking=True,
+    duck_volume=0.3,
+    speech_rate=1.0,
+    new_line="wait",
+    subtitles=False,
+    subtitle_size="medium",
+    subtitle_position="top",
+    sources=(SourceStages("messages", "memory", True, (TRACKER,)),),
+)
+SETTINGS_PATH = "/v1/profiles/mad-max-2015/settings"
+DISABLED = IntegrationStatus.DISABLED
 
 
 class FakeCore:
@@ -101,7 +128,7 @@ class FakeCore:
         self.removed_profiles: list[str] = []
         self.reloads = 0
         self.current = Status(
-            app=AppInfo("Grand Theft Auto 2", 42),
+            app=AppInfo("Grand Theft Auto 2", 42, "grand-theft-auto-2-1999"),
             voice="piper:a",
             input_language="pl",
             output_language="en",
@@ -115,6 +142,11 @@ class FakeCore:
             subtitle_position="top",
             sources=(SourceStages("messages", "memory", True, (TRACKER,)),),
         )
+        self.view = MAD_MAX_SETTINGS
+        self.changes: list[SettingsChange] = []
+        self.integration = IntegrationView(
+            "remote", "Remote integration", "Turns on the app's remote control.", IntegrationState(DISABLED)
+        )
 
     def status(self) -> Status:
         return self.current
@@ -122,38 +154,46 @@ class FakeCore:
     def voices(self) -> list[VoiceInfo]:
         return [ADAM]
 
-    def set_voice(self, voice: str) -> Status:
-        if voice != ADAM.id:
-            raise VoiceError(f'There is no voice "{voice}".')
-        self.current = replace(self.current, voice=voice)
-        return self.current
-
     def preview_voice(self, voice: str) -> None:
         if voice != ADAM.id:
             raise VoiceError(f'There is no voice "{voice}".')
         self.previewed.append(voice)
 
-    def set_input_language(self, language: str) -> Status:
-        check_language(language)
-        self.current = replace(self.current, input_language=language)
-        return self.current
+    def profile_settings(self, profile_id: str) -> ProfileSettingsView:
+        self.check(profile_id)
+        return self.view
 
-    def set_output_language(self, language: str) -> Status:
-        check_language(language)
-        self.current = replace(self.current, output_language=language)
-        return self.current
+    def change_profile_settings(self, profile_id: str, change: SettingsChange) -> ProfileSettingsView:
+        self.check(profile_id)
+        for language in (change.input_language, change.output_language):
+            if language is not None:
+                check_language(language)
+        if change.voice is not None:
+            find_voice(change.voice, self.voices())
+        self.changes.append(change)
+        self.view = replace(self.view, **{name: value for name, value in asdict(change).items() if value is not None})
+        return self.view
 
-    def set_ducking(self, enabled: bool, volume: float) -> Status:
-        self.current = replace(self.current, ducking=enabled, duck_volume=volume)
-        return self.current
+    def set_source_enabled(self, profile_id: str, name: str, enabled: bool) -> ProfileSettingsView:
+        self.check(profile_id)
+        if name != "messages":
+            raise SourceError(f'Mad Max has no source "{name}".')
+        self.view = replace(self.view, sources=(replace(self.view.sources[0], enabled=enabled),))
+        return self.view
 
-    def set_speech(self, rate: float, new_line: NewLine) -> Status:
-        self.current = replace(self.current, speech_rate=rate, new_line=new_line)
-        return self.current
+    def set_stage_enabled(self, profile_id: str, key: str, output: Output, enabled: bool) -> ProfileSettingsView:
+        self.check(profile_id)
+        if key != TRACKER.key:
+            raise StageError(f'Mad Max has no stage "{key}".')
+        stage = replace(TRACKER, enabled=TRACKER.enabled | {output: enabled})
+        self.view = replace(self.view, sources=(replace(self.view.sources[0], stages=(stage,)),))
+        return self.view
 
-    def set_subtitles(self, enabled: bool, size: str, position: str) -> Status:
-        self.current = replace(self.current, subtitles=enabled, subtitle_size=size, subtitle_position=position)
-        return self.current
+    def check(self, profile_id: str) -> None:
+        if profile_id == "broken-2000":
+            raise BrokenProfileError('The profile "broken-2000" cannot be read.')
+        if profile_id != MAD_MAX.id:
+            raise UnknownProfileError(f'There is no profile "{profile_id}".')
 
     def set_paused(self, paused: bool) -> Status:
         self.current = replace(self.current, paused=paused)
@@ -161,21 +201,6 @@ class FakeCore:
 
     def stop_line(self) -> Status:
         self.stopped_lines += 1
-        return self.current
-
-    def set_source_enabled(self, name: str, enabled: bool) -> Status:
-        if name != "messages":
-            raise SourceError(f'Grand Theft Auto 2 has no source "{name}".')
-        self.current = replace(self.current, sources=(replace(self.current.sources[0], enabled=enabled),))
-        return self.current
-
-    def set_stage_enabled(self, key: str, output: Output, enabled: bool) -> Status:
-        if self.current.app is None:
-            raise NoAppError("No app is being read.")
-        if key != TRACKER.key:
-            raise StageError(f'Grand Theft Auto 2 has no stage "{key}".')
-        stage = replace(TRACKER, enabled=TRACKER.enabled | {output: enabled})
-        self.current = replace(self.current, sources=(replace(self.current.sources[0], stages=(stage,)),))
         return self.current
 
     def downloads(self, refresh: bool) -> Listing:
@@ -228,6 +253,18 @@ class FakeCore:
         self.reloads += 1
         return self.current
 
+    def integrations(self) -> list[IntegrationView]:
+        return [self.integration]
+
+    def set_integration_enabled(self, integration_id: str, enabled: bool) -> IntegrationView:
+        if integration_id != self.integration.id:
+            raise UnknownIntegrationError(f'There is no integration "{integration_id}".')
+        if enabled and self.integration.state.status is IntegrationStatus.UNAVAILABLE:
+            raise IntegrationError("Close the app first, then try again.")
+        status = IntegrationStatus.ENABLED if enabled else DISABLED
+        self.integration = replace(self.integration, state=IntegrationState(status))
+        return self.integration
+
     def subscribe(self, listener: Listener) -> Callable[[], None]:
         return self.bus.subscribe(listener)
 
@@ -240,13 +277,50 @@ def with_client(core: FakeCore, test: Callable[[TestClient[Any, Any]], Awaitable
     asyncio.run(run())
 
 
+SOURCES_JSON = [
+    {
+        "name": "messages",
+        "type": "memory",
+        "enabled": True,
+        "stages": [
+            {
+                "key": "messages/0:tracker",
+                "type": "tracker",
+                "summary": "waits until a line settles",
+                "warning": "Needed.",
+                "enabled": {"text": True, "speech": True},
+                "inactive": None,
+            }
+        ],
+    }
+]
+MAD_MAX_SETTINGS_JSON = {
+    "type": "profile_settings",
+    "profile": "mad-max-2015",
+    "app": {"title": "Mad Max"},
+    "running": False,
+    "voice": "piper:a",
+    "input_language": "en",
+    "output_language": "pl",
+    "ducking": True,
+    "duck_volume": 0.3,
+    "speech_rate": 1.0,
+    "new_line": "wait",
+    "subtitles": False,
+    "subtitle_size": "medium",
+    "subtitle_position": "top",
+    "sources": SOURCES_JSON,
+}
+
+
 def test_status() -> None:
     async def test(client: TestClient[Any, Any]) -> None:
         response = await client.get("/v1/status")
         assert await response.json() == {
             "type": "status",
-            "app": {"title": "Grand Theft Auto 2", "pid": 42},
+            "app": {"title": "Grand Theft Auto 2", "pid": 42, "profile": "grand-theft-auto-2-1999"},
             "unsupported": None,
+            "source_error": None,
             "voice": "piper:a",
             "input_language": "pl",
             "output_language": "en",
@@ -258,26 +332,45 @@ def test_status() -> None:
             "subtitles": False,
             "subtitle_size": "medium",
             "subtitle_position": "top",
-            "sources": [
-                {
-                    "name": "messages",
-                    "type": "memory",
-                    "enabled": True,
-                    "stages": [
-                        {
-                            "key": "messages/0:tracker",
-                            "type": "tracker",
-                            "summary": "waits until a line settles",
-                            "warning": "Needed.",
-                            "enabled": {"text": True, "speech": True},
-                            "inactive": None,
-                        }
-                    ],
-                }
-            ],
+            "sources": SOURCES_JSON,
         }
 
     with_client(FakeCore(), test)
+
+
+def test_the_status_gives_the_last_source_error_of_the_app_being_read() -> None:
+    core = FakeCore()
+    core.current = replace(core.current, source_error=ErrorEvent("source.error", "messages", "Cannot read."))
+
+    async def test(client: TestClient[Any, Any]) -> None:
+        status = await (await client.get("/v1/status")).json()
+        assert status["source_error"] == {"source": "messages", "message": "Cannot read."}
+
+    with_client(core, test)
+
+
+def test_a_profile_s_settings_are_shown_by_its_id() -> None:
+    async def test(client: TestClient[Any, Any]) -> None:
+        response = await client.get(SETTINGS_PATH)
+        assert (response.status, await response.json()) == (200, MAD_MAX_SETTINGS_JSON)
+        unknown = await client.get("/v1/profiles/nope/settings")
+        assert (unknown.status, await unknown.json()) == (404, {"error": 'There is no profile "nope".'})
+        broken = await client.get("/v1/profiles/broken-2000/settings")
+        assert (broken.status, await broken.json()) == (409, {"error": 'The profile "broken-2000" cannot be read.'})
+
+    with_client(FakeCore(), test)
+
+
+def test_a_profile_s_settings_come_as_events_when_they_change() -> None:
+    core = FakeCore()
+
+    async def test(client: TestClient[Any, Any]) -> None:
+        async with client.ws_connect("/v1/events") as socket:
+            await socket.receive_json()  # The status first.
+            core.bus.publish(MAD_MAX_SETTINGS)
+            assert await socket.receive_json() == MAD_MAX_SETTINGS_JSON
+
+    with_client(core, test)
 
 
 def test_downloads_are_listed_with_their_state_and_errors() -> None:
@@ -357,17 +450,6 @@ def test_a_download_is_started_and_removed_by_id() -> None:
     assert core.started == core.removed == [GOSIA.id]
 
 
-def test_switching_a_stage_with_no_app_being_read_is_a_conflict() -> None:
-    core = FakeCore()
-    core.current = replace(core.current, app=None)
-
-    async def test(client: TestClient[Any, Any]) -> None:
-        response = await client.patch("/v1/stages", json={"key": TRACKER.key, "output": "text", "enabled": False})
-        assert (response.status, await response.json()) == (409, {"error": "No app is being read."})
-
-    with_client(core, test)
-
-
 def test_a_voice_is_previewed_by_id() -> None:
     core = FakeCore()
 
@@ -426,64 +508,53 @@ def test_voices() -> None:
     with_client(FakeCore(), test)
 
 
-def test_changing_all_settings_together() -> None:
+def test_changing_all_settings_together_is_one_change() -> None:
+    core = FakeCore()
+
     async def test(client: TestClient[Any, Any]) -> None:
-        response = await client.patch(
-            "/v1/settings", json={"input_language": "en", "output_language": "pl", "voice": "windows:Microsoft Adam"}
-        )
-        body = await response.json()
-        assert (body["input_language"], body["output_language"], body["voice"]) == (
-            "en",
+        body = {"input_language": "pl", "output_language": "en", "voice": "windows:Microsoft Adam", "speech_rate": 2}
+        response = await client.patch(SETTINGS_PATH, json=body)
+        answer = await response.json()
+        assert response.status == 200
+        assert (answer["type"], answer["input_language"], answer["output_language"], answer["voice"]) == (
+            "profile_settings",
             "pl",
+            "en",
             "windows:Microsoft Adam",
         )
 
-    with_client(FakeCore(), test)
+    with_client(core, test)
+    assert core.changes == [
+        SettingsChange(voice="windows:Microsoft Adam", input_language="pl", output_language="en", speech_rate=2.0)
+    ]
 
 
 def test_ducking_can_be_changed_alone_or_with_its_level() -> None:
     async def test(client: TestClient[Any, Any]) -> None:
-        body = await (await client.patch("/v1/settings", json={"duck_volume": 0.5})).json()
+        body = await (await client.patch(SETTINGS_PATH, json={"duck_volume": 0.5})).json()
         assert (body["ducking"], body["duck_volume"]) == (True, 0.5)
-        body = await (await client.patch("/v1/settings", json={"ducking": False})).json()
+        body = await (await client.patch(SETTINGS_PATH, json={"ducking": False})).json()
         assert (body["ducking"], body["duck_volume"]) == (False, 0.5)
 
     with_client(FakeCore(), test)
 
 
-def test_settings_changed_at_the_same_time_are_both_kept() -> None:
-    core = FakeCore()
-    set_ducking = core.set_ducking
-
-    def slow_set_ducking(enabled: bool, volume: float) -> Status:
-        time.sleep(0.2)
-        return set_ducking(enabled, volume)
-
-    core.set_ducking = slow_set_ducking  # type: ignore[method-assign]
-
-    async def test(client: TestClient[Any, Any]) -> None:
-        await asyncio.gather(
-            client.patch("/v1/settings", json={"ducking": False}),
-            client.patch("/v1/settings", json={"duck_volume": 0.5}),
-        )
-        assert (core.current.ducking, core.current.duck_volume) == (False, 0.5)
-
-    with_client(core, test)
-
-
 def test_speech_rate_and_cutting_off_can_be_changed() -> None:
+    core = FakeCore()
+
     async def test(client: TestClient[Any, Any]) -> None:
-        body = await (await client.patch("/v1/settings", json={"speech_rate": 1.5})).json()
+        body = await (await client.patch(SETTINGS_PATH, json={"speech_rate": 1.5})).json()
         assert (body["speech_rate"], body["new_line"]) == (1.5, "wait")
-        body = await (await client.patch("/v1/settings", json={"new_line": "speed_up"})).json()
+        body = await (await client.patch(SETTINGS_PATH, json={"new_line": "speed_up"})).json()
         assert (body["speech_rate"], body["new_line"]) == (1.5, "speed_up")
 
-    with_client(FakeCore(), test)
+    with_client(core, test)
+    assert core.changes[-1].new_line is NewLine.SPEED_UP
 
 
 def test_subtitles_can_be_switched_on_and_set_up() -> None:
     async def test(client: TestClient[Any, Any]) -> None:
-        body = await (await client.patch("/v1/settings", json={"subtitles": True, "subtitle_size": "large"})).json()
+        body = await (await client.patch(SETTINGS_PATH, json={"subtitles": True, "subtitle_size": "large"})).json()
         assert (body["subtitles"], body["subtitle_size"], body["subtitle_position"]) == (True, "large", "top")
 
     with_client(FakeCore(), test)
@@ -510,32 +581,46 @@ def test_subtitles_can_be_switched_on_and_set_up() -> None:
     ],
 )
 def test_bad_settings_are_rejected_with_a_message(body: Any, message: str) -> None:
-    async def test(client: TestClient[Any, Any]) -> None:
-        if isinstance(body, str):
-            response = await client.patch("/v1/settings", data=body, headers={"Content-Type": "application/json"})
-        else:
-            response = await client.patch("/v1/settings", json=body)
-        assert response.status == 400
-        assert await response.json() == {"error": message}
-
-    with_client(FakeCore(), test)
-
-
-def test_a_settings_change_with_one_bad_field_changes_nothing() -> None:
     core = FakeCore()
 
     async def test(client: TestClient[Any, Any]) -> None:
-        response = await client.patch("/v1/settings", json={"ducking": False, "voice": "piper:missing"})
+        if isinstance(body, str):
+            response = await client.patch(SETTINGS_PATH, data=body, headers={"Content-Type": "application/json"})
+        else:
+            response = await client.patch(SETTINGS_PATH, json=body)
         assert response.status == 400
+        assert await response.json() == {"error": message}
 
     with_client(core, test)
-    assert core.current.ducking
+    assert core.changes == []
+
+
+@pytest.mark.parametrize(
+    ("path", "body"),
+    [
+        ("settings", {"ducking": False}),
+        ("sources", {"name": "messages", "enabled": False}),
+        ("stages", {"key": TRACKER.key, "output": "text", "enabled": False}),
+    ],
+)
+def test_changing_an_unknown_or_broken_profile_is_refused(path: str, body: dict[str, Any]) -> None:
+    core = FakeCore()
+
+    async def test(client: TestClient[Any, Any]) -> None:
+        unknown = await client.patch(f"/v1/profiles/nope/{path}", json=body)
+        assert (unknown.status, await unknown.json()) == (404, {"error": 'There is no profile "nope".'})
+        broken = await client.patch(f"/v1/profiles/broken-2000/{path}", json=body)
+        assert broken.status == 409
+
+    with_client(core, test)
+    assert core.view == MAD_MAX_SETTINGS
 
 
 def test_switching_a_source_off() -> None:
     async def test(client: TestClient[Any, Any]) -> None:
-        response = await client.patch("/v1/sources", json={"name": "messages", "enabled": False})
-        assert (await response.json())["sources"][0]["enabled"] is False
+        response = await client.patch("/v1/profiles/mad-max-2015/sources", json={"name": "messages", "enabled": False})
+        answer = await response.json()
+        assert (answer["type"], answer["sources"][0]["enabled"]) == ("profile_settings", False)
 
     with_client(FakeCore(), test)
 
@@ -543,14 +628,14 @@ def test_switching_a_source_off() -> None:
 @pytest.mark.parametrize(
     ("body", "message"),
     [
-        ({"name": "signs", "enabled": False}, 'Grand Theft Auto 2 has no source "signs".'),
+        ({"name": "signs", "enabled": False}, 'Mad Max has no source "signs".'),
         ({"name": "messages", "enabled": "no"}, SOURCES_HELP),
         ({"enabled": True}, SOURCES_HELP),
     ],
 )
 def test_bad_source_requests_are_rejected_with_a_message(body: dict[str, Any], message: str) -> None:
     async def test(client: TestClient[Any, Any]) -> None:
-        response = await client.patch("/v1/sources", json=body)
+        response = await client.patch("/v1/profiles/mad-max-2015/sources", json=body)
         assert response.status == 400
         assert await response.json() == {"error": message}
 
@@ -560,7 +645,7 @@ def test_bad_source_requests_are_rejected_with_a_message(body: dict[str, Any], m
 def test_switching_a_stage_off_for_speech() -> None:
     async def test(client: TestClient[Any, Any]) -> None:
         body = {"key": "messages/0:tracker", "output": "speech", "enabled": False}
-        response = await client.patch("/v1/stages", json=body)
+        response = await client.patch("/v1/profiles/mad-max-2015/stages", json=body)
         assert (await response.json())["sources"][0]["stages"][0]["enabled"] == {"text": True, "speech": False}
 
     with_client(FakeCore(), test)
@@ -569,10 +654,7 @@ def test_switching_a_stage_off_for_speech() -> None:
 @pytest.mark.parametrize(
     ("body", "message"),
     [
-        (
-            {"key": "messages/9:x", "output": "text", "enabled": False},
-            'Grand Theft Auto 2 has no stage "messages/9:x".',
-        ),
+        ({"key": "messages/9:x", "output": "text", "enabled": False}, 'Mad Max has no stage "messages/9:x".'),
         ({"key": "messages/0:tracker", "output": "text", "enabled": "no"}, STAGES_HELP),
         ({"key": "messages/0:tracker", "output": "sound", "enabled": False}, STAGES_HELP),
         ({"key": "messages/0:tracker", "enabled": False}, STAGES_HELP),
@@ -581,9 +663,17 @@ def test_switching_a_stage_off_for_speech() -> None:
 )
 def test_bad_stage_requests_are_rejected_with_a_message(body: dict[str, Any], message: str) -> None:
     async def test(client: TestClient[Any, Any]) -> None:
-        response = await client.patch("/v1/stages", json=body)
+        response = await client.patch("/v1/profiles/mad-max-2015/stages", json=body)
         assert response.status == 400
         assert await response.json() == {"error": message}
+
+    with_client(FakeCore(), test)
+
+
+@pytest.mark.parametrize("path", ["/v1/settings", "/v1/sources", "/v1/stages"])
+def test_the_routes_for_only_the_app_being_read_are_gone(path: str) -> None:
+    async def test(client: TestClient[Any, Any]) -> None:
+        assert (await client.patch(path, json={"ducking": False})).status == 404
 
     with_client(FakeCore(), test)
 
@@ -700,3 +790,72 @@ def test_profiles_are_imported_copied_removed_and_reloaded() -> None:
     assert core.imported == [("mine-2000", False), ("mad-max-2015", True)]
     assert core.removed_profiles == ["mad-max-2015"]
     assert core.reloads == 1
+
+
+def test_integrations_are_listed_with_their_state() -> None:
+    core = FakeCore()
+    core.integration = replace(
+        core.integration, state=IntegrationState(IntegrationStatus.UNAVAILABLE, "The app is not installed.")
+    )
+
+    async def test(client: TestClient[Any, Any]) -> None:
+        listed = await client.get("/v1/integrations")
+        assert (listed.status, await listed.json()) == (
+            200,
+            {
+                "integrations": [
+                    {
+                        "id": "remote",
+                        "name": "Remote integration",
+                        "description": "Turns on the app's remote control.",
+                        "state": "unavailable",
+                        "reason": "The app is not installed.",
+                    }
+                ]
+            },
+        )
+
+    with_client(core, test)
+
+
+def test_an_integration_is_enabled_and_disabled_by_id() -> None:
+    core = FakeCore()
+
+    async def test(client: TestClient[Any, Any]) -> None:
+        enabled = await client.patch("/v1/integrations/remote", json={"enabled": True})
+        assert (enabled.status, (await enabled.json())["state"]) == (200, "enabled")
+        disabled = await client.patch("/v1/integrations/remote", json={"enabled": False})
+        assert (disabled.status, await disabled.json()) == (
+            200,
+            {
+                "id": "remote",
+                "name": "Remote integration",
+                "description": "Turns on the app's remote control.",
+                "state": "disabled",
+                "reason": None,
+            },
+        )
+
+    with_client(core, test)
+
+
+@pytest.mark.parametrize("body", [{}, {"enabled": "yes"}, []])
+def test_bad_integration_requests_are_rejected_with_a_message(body: Any) -> None:
+    async def test(client: TestClient[Any, Any]) -> None:
+        response = await client.patch("/v1/integrations/remote", json=body)
+        assert (response.status, await response.json()) == (400, {"error": 'Send {"enabled": true or false}.'})
+
+    with_client(FakeCore(), test)
+
+
+def test_an_unknown_integration_or_one_that_cannot_change_now_is_refused() -> None:
+    core = FakeCore()
+    core.integration = replace(core.integration, state=IntegrationState(IntegrationStatus.UNAVAILABLE, "Not now."))
+
+    async def test(client: TestClient[Any, Any]) -> None:
+        unknown = await client.patch("/v1/integrations/nope", json={"enabled": True})
+        assert (unknown.status, await unknown.json()) == (404, {"error": 'There is no integration "nope".'})
+        refused = await client.patch("/v1/integrations/remote", json={"enabled": True})
+        assert (refused.status, await refused.json()) == (409, {"error": "Close the app first, then try again."})
+
+    with_client(core, test)

@@ -8,6 +8,7 @@ from types import TracebackType
 
 from reflektortts.arguments import parse_arguments
 from reflektortts.desktop.application import Application
+from reflektortts.desktop.session import announce_running
 from reflektortts.logs import log_to_file
 from reflektortts.user_dirs import config_dir, log_dir
 
@@ -24,9 +25,10 @@ def log_callback_error(kind: type[BaseException], error: BaseException, trace: T
 def main(argv: list[str] | None = None) -> int:
     # In ReflektorTTS.exe, the speech process starts as another run of the exe; this lets it.
     multiprocessing.freeze_support()
-    args = parse_arguments("reflektortts-desktop", argv)
+    args = parse_arguments("reflektortts-desktop", argv, desktop=True)
     log_to_file(log_dir() / LOG_FILE)
     logger.info("Started; settings in %s, logs in %s", config_dir(), log_dir())
+    announce_running()
     root = tk.Tk()
     root.report_callback_exception = log_callback_error
     Application(root, args).start()

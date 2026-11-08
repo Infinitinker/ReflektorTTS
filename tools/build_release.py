@@ -1,25 +1,30 @@
-"""Builds a portable release of ReflektorTTS: build/release/ReflektorTTS-<version>-windows-x64.zip,
-with one ReflektorTTS folder inside. Unpacked, it runs without installing anything. Next to it,
-ReflektorTTS-<version>-sources.zip holds the source code the release offers (see tools/sources.py);
-both are uploaded to the release's page.
+"""Builds a release of ReflektorTTS into build/release, three files uploaded to the release's page:
+- ReflektorTTS-<version>-windows-x64-setup.exe, the installer, made by Inno Setup from
+  tools/installer.iss;
+- ReflektorTTS-<version>-windows-x64.zip, the same files to unpack and run without installing,
+  with one ReflektorTTS folder inside;
+- ReflektorTTS-<version>-sources.zip, the source code the release offers (see tools/sources.py).
 
-The folder holds ReflektorTTS.exe (the desktop app with its own Python, built by PyInstaller), the
-32- and 64-bit overlay builds, LICENSE.txt, COPYRIGHT.txt, THIRD_PARTY_NOTICES.txt and README.txt.
+The folder holds ReflektorTTS.exe (the desktop app with its own Python, built by PyInstaller),
+reflektortts-panel.exe next to it (the settings window, from the 64-bit native build), the 32- and
+64-bit overlay builds, LICENSE.txt, COPYRIGHT.txt, THIRD_PARTY_NOTICES.txt and README.txt.
 
 PyInstaller does not see what ReflektorTTS finds only while it runs, so it is told: plugins are
 found through entry points (the package's metadata) and imported by name, the profiles, schemas
 and icon are data files, and some libraries bring native parts or data of their own.
 
 A release is built from a commit, which its README.txt names, so every change must be committed.
-Needs git, the release extra and both overlay builds (see overlay/README.md):
+Needs git, Inno Setup 7 (ISCC.exe in its usual folder, or set ISCC to it), the release extra and
+both native builds, with the overlays and the settings window (see native/README.md):
     pip install -e .[release]
 Run from the repository root:
     python tools/build_release.py           (a release)
     python tools/build_release.py --draft   (to test: allows uncommitted changes and missing license
-                                             texts, marked in the zip's name)
+                                             texts, marked in the files' names)
 """
 
 import argparse
+import os
 import shutil
 import subprocess
 from importlib.metadata import metadata, version
@@ -34,8 +39,10 @@ ENTRY = Path("src/reflektortts/desktop/__main__.py")
 ICON = Path("src/reflektortts/desktop/icon.ico")
 BUILD = Path("build/release")
 NAME = "ReflektorTTS"
-OVERLAY_BUILDS = {"x86": Path("overlay/build/bin"), "x64": Path("overlay/build64/bin")}
+OVERLAY_BUILDS = {"x86": Path("native/build/bin"), "x64": Path("native/build64/bin")}
 OVERLAY_FILES = ("reflektortts-overlay.dll", "reflektortts-inject.exe")
+PANEL = Path("native/build64/bin/reflektortts-panel.exe")
+"""The settings window, which the desktop app finds next to ReflektorTTS.exe."""
 COLLECT = {
     "--copy-metadata": ["reflektortts"],
     "--collect-submodules": ["reflektortts", "num2words", "winrt"],
@@ -75,6 +82,11 @@ offers English and Polish voices), the pages of Piper's web server, Pillow's AVI
 ICO and PNG are used; Pillow skips formats it cannot import), and the path of the folder the build
 was installed from."""
 COPYRIGHT = Path("COPYRIGHT")
+INSTALLER = Path("tools/installer.iss")
+ISCC_FOLDERS = {"ProgramW6432": "", "ProgramFiles": "", "ProgramFiles(x86)": "", "LOCALAPPDATA": "Programs"}
+"""Where Inno Setup 7's installer puts it, by environment variable: in Program Files for all users
+(ProgramW6432 is the 64-bit one also for a 32-bit Python), or in %LOCALAPPDATA%\\Programs for the
+current user."""
 
 README = """ReflektorTTS {version}
 Your apps, read aloud.
@@ -85,6 +97,8 @@ Starting
 
   Start an app ReflektorTTS has a profile for (the window's Profiles tab lists them): its
   text is read aloud. In apps with the overlay, Ctrl+Shift+R opens the ReflektorTTS panel.
+  The Profiles tab's App settings... button opens the same settings in a window, for any
+  app, also while it isn't running.
 
 Voices and translation
   Windows voices work right away. More voices and translation models are downloaded only
@@ -92,8 +106,9 @@ Voices and translation
 
 Your data
   Settings, downloaded voices and models, your own profiles and the logs are kept in
-  %LOCALAPPDATA%\\ReflektorTTS, not in this folder. To update, replace this folder with a
-  newer release. To remove ReflektorTTS, delete this folder and that one.
+  %LOCALAPPDATA%\\ReflektorTTS, not in this folder. If you installed ReflektorTTS, run a
+  newer release's installer to update it, and Windows Settings > Apps removes it. From the zip, replace this
+  folder with a newer release to update, and delete this folder and that one to remove it.
 
 Antivirus
   The overlay works by loading into the app, as in-game overlays do, which antivirus
@@ -121,9 +136,8 @@ Source code
 
 def version_info(release: str, copyright: str) -> str:
     """The exe's Windows version resource. Windows names the app by its file description, e.g. in
-    notifications; without one it shows the file name, ReflektorTTS.exe. Its four numbers are the
-    release's first three, padded with zeros, and a zero, also for pre-releases (0.2.0rc1 is 0.2.0.0)."""
-    numbers = (*(Version(release).release + (0, 0))[:3], 0)
+    notifications; without one it shows the file name, ReflektorTTS.exe."""
+    numbers = version_numbers(release)
     strings = {
         "FileDescription": NAME,
         "ProductName": NAME,
@@ -140,6 +154,13 @@ def version_info(release: str, copyright: str) -> str:
         f"kids=[StringFileInfo([StringTable('040904B0', [{table}])]), "
         "VarFileInfo([VarStruct('Translation', [1033, 1200])])])\n"
     )
+
+
+def version_numbers(release: str) -> tuple[int, int, int, int]:
+    """The four numbers of a Windows version: the release's first three, padded with zeros, and a
+    zero, also for pre-releases (0.2.0rc1 is 0.2.0.0)."""
+    major, minor, patch = (*Version(release).release, 0, 0)[:3]
+    return major, minor, patch, 0
 
 
 def source_address() -> str:
@@ -166,6 +187,18 @@ def source_commit(draft: bool) -> str:
 
 def git(*arguments: str) -> str:
     return subprocess.run(["git", *arguments], check=True, capture_output=True, text=True).stdout.strip()
+
+
+def iscc() -> Path:
+    """Inno Setup's compiler: the ISCC environment variable, or where Inno Setup 7 installs it."""
+    if chosen := os.environ.get("ISCC"):
+        return Path(chosen)
+    for variable, below in ISCC_FOLDERS.items():
+        if variable in os.environ:
+            compiler = Path(os.environ[variable], below, "Inno Setup 7", "ISCC.exe")
+            if compiler.is_file():
+                return compiler
+    raise SystemExit("Install Inno Setup 7 (https://jrsoftware.org/isdl.php), or set ISCC to its ISCC.exe.")
 
 
 def write_hooks(folder: Path) -> Path:
@@ -220,15 +253,37 @@ def remove_unused(folder: Path) -> None:
                 path.unlink()
 
 
+def build_installer(compiler: Path, folder: Path, release: str, copyright: str, name: str) -> Path:
+    """Compiles tools/installer.iss into build/release/<name>.exe, installing folder."""
+    numbers = ".".join(str(number) for number in version_numbers(release))
+    defines = {
+        "AppVersion": release,
+        "NumericVersion": numbers,
+        "Copyright": copyright,
+        "SourceDir": folder.resolve(),
+        "OutputDir": BUILD.resolve(),
+        "IconFile": ICON.resolve(),
+    }
+    arguments = [str(compiler), "/Q", f"/F{name}", *(f"/D{key}={value}" for key, value in defines.items())]
+    subprocess.run([*arguments, str(INSTALLER)], check=True)
+    return BUILD / f"{name}.exe"
+
+
 def copy_overlay(folder: Path) -> None:
     for name, build in OVERLAY_BUILDS.items():
         missing = [file for file in OVERLAY_FILES if not (build / file).is_file()]
         if missing:
-            raise SystemExit(f"Build the overlay first (see overlay/README.md): {build} has no {', '.join(missing)}.")
+            raise SystemExit(f"Build the overlay first (see native/README.md): {build} has no {', '.join(missing)}.")
         target = folder / "overlay" / name
         target.mkdir(parents=True, exist_ok=True)
         for file in OVERLAY_FILES:
             shutil.copy2(build / file, target / file)
+
+
+def copy_panel(folder: Path) -> None:
+    if not PANEL.is_file():
+        raise SystemExit(f"Build the settings window first (see native/README.md): {PANEL} is missing.")
+    shutil.copy2(PANEL, folder / PANEL.name)
 
 
 def main() -> None:
@@ -238,6 +293,7 @@ def main() -> None:
     release = version("reflektortts")
     source = source_address()
     commit = source_commit(draft)
+    compiler = iscc()
     copyright = copyright_line()
     third_party = notices("reflektortts", draft)
     packages = shipped_distributions("reflektortts")
@@ -248,6 +304,7 @@ def main() -> None:
     folder = build_exe(release, copyright)
     remove_unused(folder)
     copy_overlay(folder)
+    copy_panel(folder)
     (folder / "THIRD_PARTY_NOTICES.txt").write_text(third_party, "utf-8", newline="\r\n")
     for name in ("LICENSE", "COPYRIGHT"):
         (folder / f"{name}.txt").write_text(Path(name).read_text("utf-8"), "utf-8", newline="\r\n")
@@ -256,9 +313,10 @@ def main() -> None:
 
     archive = BUILD / f"{NAME}-{release}-windows-x64{mark}"
     shutil.make_archive(str(archive), "zip", root_dir=folder.parent, base_dir=NAME)
+    installer = build_installer(compiler, folder, release, copyright, f"{NAME}-{release}-windows-x64-setup{mark}")
     sources_archive = BUILD / f"{NAME}-{release}-sources{mark}.zip"
     write_sources(sources_archive, NAME, release, commit, packages)
-    print(f"Built {archive}.zip and {sources_archive}")
+    print(f"Built {installer}, {archive}.zip and {sources_archive}")
 
 
 if __name__ == "__main__":

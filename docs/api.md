@@ -6,15 +6,16 @@ Requests and responses are JSON (UTF-8). There is no authentication, but web pag
 
 ## Status
 
-Settings belong to the app being read: the status shows that app's, and changes are saved for it. An app read for the first time starts with the defaults. While no app is being read, the status shows the defaults, and changes apply until an app starts but are not saved.
+Settings belong to each app's profile (see [Profile settings](#profile-settings)): the status shows those of the app being read. An app read for the first time starts with the defaults. While no app is being read, the status shows the defaults.
 
 The status object, returned by several requests and sent as an event:
 
 ```json
 {
   "type": "status",
-  "app": { "title": "Grand Theft Auto 2", "pid": 4824 },
+  "app": { "title": "Grand Theft Auto 2", "pid": 4824, "profile": "grand-theft-auto-2-1999" },
   "unsupported": null,
+  "source_error": null,
   "voice": "windows:Microsoft Adam",
   "input_language": "en",
   "output_language": "pl",
@@ -48,9 +49,10 @@ The status object, returned by several requests and sent as an event:
 
 | Field | Meaning |
 |---|---|
-| `app` | The app being read, or `null` while waiting for one |
+| `app` | The app being read: its `title`, process ID (`pid`) and `profile`, the ID of its profile, to change its settings with; or `null` while waiting for one |
 | `unsupported` | An app running in a build its profile does not list, which is neither read nor given the overlay: its `title` and its executable's `sha256` (or `null` if it could not be read); otherwise `null` |
-| `voice` | The current voice, as `engine:name` |
+| `source_error` | Why a source of the app being read fails, as the last `error` event of kind `source.error` said, or the message the source fails with now, if it changed since: the source's name in the profile (`source`) and the `message` for the user. It stays until that source works again, when the status changes to the error of another failing source, if any, or `null`; the next app starts with `null` |
+| `voice` | The current voice, as `engine:name`; with no app, the installed voice a new app would start with |
 | `input_language` | The language of the app's text (ISO 639-1 code); English unless the user chose another |
 | `output_language` | The language lines are prepared, spoken and shown in (ISO 639-1 code) |
 | `paused` | Whether reading is paused |
@@ -63,7 +65,7 @@ The status object, returned by several requests and sent as an event:
 | `subtitle_position` | `top` or `bottom` of the screen |
 | `sources` | The stages of the app being read, per source in the app's profile, with whether each is on; empty while waiting for an app |
 
-A source's `name` is its name in the profile, `type` its plugin, and `enabled` whether the user has it switched on; `name` identifies it for `PATCH /v1/sources`. A stage's `type` is its name in the profile and `summary` says in a few words what it does; `enabled` says whether the stage is on for the `text` shown (subtitles, `line` events) and for `speech`: as the user switched it, else as the app's profile starts it. `warning` (or `null`) is shown while the stage is off for either, if reading breaks without it. `inactive` says why the stage does nothing with the current languages (e.g. "Input and output language are the same" for `translate`), or is `null` if it works with them; such a stage is skipped whatever its `enabled`, which keeps the user's choice for when the languages change. `key` identifies the stage for `PATCH /v1/stages`.
+A source's `name` is its name in the profile, `type` its plugin, and `enabled` whether the user has it switched on; `name` identifies it for `PATCH /v1/profiles/<id>/sources`. A stage's `type` is its name in the profile and `summary` says in a few words what it does; `enabled` says whether the stage is on for the `text` shown (subtitles, `line` events) and for `speech`: as the user switched it, else as the app's profile starts it. `warning` (or `null`) is shown while the stage is off for either, if reading breaks without it. `inactive` says why the stage does nothing with the current languages (e.g. "Input and output language are the same" for `translate`), or is `null` if it works with them; such a stage is skipped whatever its `enabled`, which keeps the user's choice for when the languages change. `key` identifies the stage for `PATCH /v1/profiles/<id>/stages`.
 
 ## Requests
 
@@ -84,7 +86,7 @@ Returns the voices available now, from every speech engine that works on this sy
 }
 ```
 
-`id` is what `PATCH /v1/settings` takes; `language` is a BCP 47 tag, so a UI can offer only the voices that speak the output language; `engine_title` is the engine's name as shown to users. Only installed voices are listed; ReflektorTTS never downloads one by itself.
+`id` is what `PATCH /v1/profiles/<id>/settings` takes as `voice`; `language` is a BCP 47 tag, so a UI can offer only the voices that speak the output language; `engine_title` is the engine's name as shown to users. Only installed voices are listed; ReflektorTTS never downloads one by itself.
 
 ### `POST /v1/voices/preview`
 
@@ -97,37 +99,6 @@ Returns the languages the pipeline supports, with their names in their own langu
 ```json
 { "languages": [{ "code": "en", "name": "English" }, { "code": "pl", "name": "Polski" }] }
 ```
-
-### `PATCH /v1/settings`
-
-Changes settings and saves them for the app being read (see Status). Send any of the fields below. A request is applied in full or not at all: an unknown field or a wrong value answers 400, naming the field, and changes nothing.
-
-```json
-{ "input_language": "en", "output_language": "pl", "voice": "windows:Microsoft Adam" }
-```
-
-- `input_language`: a `code` from `/v1/languages`.
-- `output_language`: a `code` from `/v1/languages`. Lines read from then on are prepared for it. If the current voice does not speak it, the core switches to the voice last chosen for that language, or else the first voice that speaks it; with no such voice, the voice stays.
-- `voice`: an `id` from `/v1/voices`. While an app is read, switching starts a new speech process and the next line is spoken with the new voice; otherwise the voice is only remembered, and loaded when an app starts. The voice is also remembered for its language.
-- `ducking`: `true` or `false`, whether the app's sound is lowered while lines are spoken.
-- `duck_volume`: a number from 0 to 1, the app's volume while lines are spoken as a fraction of its own; applies at once, also while lowered.
-- `speech_rate`: a number from 0.5 to 2, how fast lines are spoken relative to the voice's own pace; applies from the next line.
-- `new_line`: what a new line does while another is spoken. `wait`, the default, queues it, with at most 3 lines waiting and the oldest dropped first; `cut_off` makes it cut off the one being spoken (and drop any waiting); `speed_up` queues it too, and a line that waited starts 25% faster, and 25% more for every line still waiting after it, up to 2×, so the voice catches up. `POST /v1/stop` then moves on to the next waiting line, and pausing drops the waiting ones.
-- `subtitles`: `true` or `false`, whether lines are shown as subtitles over the app. Switching them off hides the one shown.
-- `subtitle_size`: `small`, `medium` or `large`.
-- `subtitle_position`: `top` or `bottom`. Games usually show their own text at the bottom, so the default is `top`.
-
-The ducking and subtitle fields are applied first, then the others in the order listed, so an explicit `voice` wins over the one a new output language picks. Returns the status.
-
-### `PATCH /v1/sources`
-
-Switches a source of the app being read on or off. A switched-off source is not read until switched on again; its stages keep their own settings. The choice is saved per app:
-
-```json
-{ "name": "subtitles", "enabled": false }
-```
-
-Returns the status.
 
 ### `GET /v1/profiles`
 
@@ -153,7 +124,7 @@ Lists every profile, bundled and the user's own, in ID order:
 ```
 
 - `origin`: `bundled`, `custom` (the user's own) or `override` (the user's own, replacing the bundled profile with its ID).
-- `state`: `reading`, `not_running`, `unsupported` (its app runs in a build the profile does not list), `disabled`, `not_used` (another profile, the user's own, matches the same app), `clash` (another of the user's own does) or `broken` (the file cannot be read as a profile; `title`, `year` and `overlay` are then `null`). `reason` says why for `not_used`, `clash` and `broken`.
+- `state`: `reading`, `not_running`, `unsupported` (its app runs in a build the profile does not list), `not_set_up` (every source of it needs an [integration](#integrations) that is not enabled, so its app is not read), `disabled`, `not_used` (another profile, the user's own, matches the same app), `clash` (another of the user's own does) or `broken` (the file cannot be read as a profile; `title`, `year` and `overlay` are then `null`). `reason` says why for `not_set_up`, `not_used`, `clash` and `broken`.
 
 ### `PATCH /v1/profiles`
 
@@ -175,16 +146,6 @@ Deletes the user's own profile file; a bundled profile with the same ID is used 
 
 Reads the profile files again, e.g. after the user edited one, and returns the status. A changed profile applies the next time its app starts; one no longer used stops being read at once.
 
-### `PATCH /v1/stages`
-
-Switches a stage of the app being read on or off, for the text shown (`"output": "text"`) or for speech (`"output": "speech"`). The choice is saved per app, applies to the next line read, and from then on replaces where the profile starts the stage:
-
-```json
-{ "key": "subtitles/3:normalize", "output": "text", "enabled": false }
-```
-
-Returns the status.
-
 ### `POST /v1/pause`
 
 Stops the line being spoken, drops the lines waiting their turn, and ignores new lines until resumed. Returns the status.
@@ -196,6 +157,109 @@ Resumes reading. Returns the status.
 ### `POST /v1/stop`
 
 Stops the line being spoken; the next waiting line, or the next line read, is spoken as usual. Returns the status.
+
+## Profile settings
+
+Each profile has its own settings, saved in the settings folder (`settings/profiles/<id>.json`); a profile the user changed nothing for has the defaults. They can be read and changed whether or not the profile's app runs: changes to the app being read apply at once, as the status shows; those to any other profile apply when its app starts. The app being read is `app.profile` in the status. Every request below answers 404 for an unknown profile ID and 409 for a profile whose file cannot be read (state `broken` in `GET /v1/profiles`).
+
+The profile settings object, returned by these requests and sent as an event:
+
+```json
+{
+  "type": "profile_settings",
+  "profile": "grand-theft-auto-2-1999",
+  "app": { "title": "Grand Theft Auto 2" },
+  "running": true,
+  "voice": "windows:Microsoft Adam",
+  "input_language": "en",
+  "output_language": "pl",
+  "ducking": true,
+  "duck_volume": 0.3,
+  "speech_rate": 1.0,
+  "new_line": "wait",
+  "subtitles": true,
+  "subtitle_size": "medium",
+  "subtitle_position": "top",
+  "sources": [ ... ]
+}
+```
+
+`profile` is the profile's ID, `app.title` its app's title, and `running` whether that app is being read now. The other fields mean what they mean in the status, for this profile: `voice` is the voice its app is read with (the one chosen for it if that is installed and speaks the output language, else an installed voice that does, if any), and `sources` are its sources and stages, shaped as in the status, with `inactive` as the profile's own languages decide.
+
+### `GET /v1/profiles/<id>/settings`
+
+Returns the profile's settings.
+
+### `PATCH /v1/profiles/<id>/settings`
+
+Changes the profile's settings and saves them. Send any of the fields below. A request is applied in full or not at all: an unknown field or a wrong value answers 400, naming the field, and changes nothing.
+
+```json
+{ "input_language": "en", "output_language": "pl", "voice": "windows:Microsoft Adam" }
+```
+
+- `input_language`: a `code` from `/v1/languages`.
+- `output_language`: a `code` from `/v1/languages`. Lines read from then on are prepared for it. If the profile's voice does not speak it, the voice becomes the one last chosen for that language, or else the first voice that speaks it; with no such voice, the voice stays.
+- `voice`: an `id` from `/v1/voices`. While the profile's app is read, switching starts a new speech process and the next line is spoken with the new voice; otherwise the voice is loaded when the app starts. The voice is also remembered for its language, in every profile.
+- `ducking`: `true` or `false`, whether the app's sound is lowered while lines are spoken.
+- `duck_volume`: a number from 0 to 1, the app's volume while lines are spoken as a fraction of its own; while the app is read, applies at once, also while lowered.
+- `speech_rate`: a number from 0.5 to 2, how fast lines are spoken relative to the voice's own pace; applies from the next line.
+- `new_line`: what a new line does while another is spoken. `wait`, the default, queues it, with at most 3 lines waiting and the oldest dropped first; `cut_off` makes it cut off the one being spoken (and drop any waiting); `speed_up` queues it too, and a line that waited starts 25% faster, and 25% more for every line still waiting after it, up to 2×, so the voice catches up. `POST /v1/stop` then moves on to the next waiting line, and pausing drops the waiting ones.
+- `subtitles`: `true` or `false`, whether lines are shown as subtitles over the app. Switching them off hides the one shown.
+- `subtitle_size`: `small`, `medium` or `large`.
+- `subtitle_position`: `top` or `bottom`. Games usually show their own text at the bottom, so the default is `top`.
+
+An explicit `voice` wins over the one a new output language picks. Returns the profile's settings.
+
+### `PATCH /v1/profiles/<id>/sources`
+
+Switches a source of the profile on or off. A switched-off source is not read until switched on again; its stages keep their own settings:
+
+```json
+{ "name": "subtitles", "enabled": false }
+```
+
+Returns the profile's settings; a source the profile does not have answers 400.
+
+### `PATCH /v1/profiles/<id>/stages`
+
+Switches a stage of the profile on or off, for the text shown (`"output": "text"`) or for speech (`"output": "speech"`). The choice applies to the next line read, and from then on replaces where the profile starts the stage:
+
+```json
+{ "key": "subtitles/3:normalize", "output": "text", "enabled": false }
+```
+
+Returns the profile's settings; a stage the profile does not have answers 400.
+
+## Integrations
+
+Changes a source needs made in an app's own settings before it can read the app, e.g. VLC's web interface switched on; see [plugins.md](plugins.md#integrations). A profile whose sources all need one that is not enabled has the state `not_set_up`, and is not read.
+
+### `GET /v1/integrations`
+
+Lists every integration, by ID, with its state now:
+
+```json
+{
+  "integrations": [
+    {
+      "id": "vlc",
+      "name": "VLC integration",
+      "description": "Turns on VLC's web interface for this computer only, ...",
+      "state": "disabled",
+      "reason": null
+    }
+  ]
+}
+```
+
+- `id`: the type of the source plugin that offers it; a profile needs the integrations of its sources' `type`s (see `GET /v1/profiles`).
+- `name`: what the user calls it, read after "the"; `description`: what enabling it changes and disabling it puts back.
+- `state`: `enabled`, `disabled` or `unavailable` (it cannot be enabled now; `reason` says why, for the user; otherwise `null`).
+
+### `PATCH /v1/integrations/<id>`
+
+Enables or disables an integration: `{"enabled": true}`. Returns the integration as `GET /v1/integrations` lists it, and a `status` event follows, after which clients fetch the profiles again: a profile it sets up is read from the next check on, within a few seconds, and an app read through it stops being read once it is disabled. An unknown ID answers 404; one that cannot be changed now (unavailable, or e.g. while the app runs) 409, with what to do, e.g. `{"error": "Close VLC first, then try again."}`.
 
 ## Downloads
 
@@ -253,7 +317,7 @@ A request that is wrong as sent returns **HTTP 400** with a message for the user
 { "error": "There is no voice \"piper:missing\". Available: piper:en_US-ljspeech-medium, windows:Microsoft Adam." }
 ```
 
-Every other failure uses the same format: **404** for a path, or a profile or download in the path, that does not exist; **405** for a method a path does not take (the message lists the ones it does); **409** for something that cannot be done as things are now: switching a source or stage while no app is being read, importing a profile with an ID the user already has, copying a profile that is not bundled or already copied, removing a bundled profile, starting a download that is already running, removing one that is downloading or not installed; and **500** for an unexpected error inside ReflektorTTS, whose details are in its log.
+Every other failure uses the same format: **404** for a path, or a profile, integration or download in the path, that does not exist; **405** for a method a path does not take (the message lists the ones it does); **409** for something that cannot be done as things are now: showing or changing the settings of a profile whose file cannot be read, importing a profile with an ID the user already has, copying a profile that is not bundled or already copied, removing a bundled profile, enabling or disabling an integration that cannot be changed now, starting a download that is already running, removing one that is downloading or not installed; and **500** for an unexpected error inside ReflektorTTS, whose details are in its log.
 
 ## Requests from web pages
 
@@ -271,10 +335,11 @@ On connecting, the client receives the current status. After that, every event t
 
 | `type` | Sent when | Other fields |
 |---|---|---|
-| `status` | Anything in the status object changes: the app (also an unsupported one), voice, languages, pause, ducking, speech or subtitle settings, a source or stage switch, or a voice or model installed or removed | As in the status object |
+| `status` | Anything in the status object changes: the app (also an unsupported one), voice, languages, pause, ducking, speech or subtitle settings, a source or stage switch, a source failing or working again, or a voice or model installed or removed; also after an integration is enabled or disabled, or the profiles change | As in the status object |
+| `profile_settings` | A profile's settings are changed through one of the [profile settings](#profile-settings) requests; if its app is being read, a `status` event comes too. Only these requests send it: a client keeping a profile's settings open fetches them again after a `status` event, since an app starting or stopping, or a voice installed or removed, can change `running` or `voice` | As in the profile settings object |
 | `line` | A line has passed the stages for the text shown | `source`: the source's name in the profile; `text`: the line |
 | `subtitle` | The subtitle to show over the app changes, while subtitles are on | `text`: the subtitle, or `""` to hide it. The core decides how long each one stays: while it is spoken plus a moment, and at least as long as it takes to read |
-| `error` | A source, stage or sink fails (reported once until it works again) | `kind`: `source.error`, `stage.error` or `sink.error`; `origin`: which one; `message`: for the user |
+| `error` | A source, stage or sink fails (reported once until it works again, even if its message changes meanwhile; for a source, the status's `source_error` follows the message and says when it works again) | `kind`: `source.error`, `stage.error` or `sink.error`; `origin`: which one; `message`: for the user |
 | `download` | A download moves on, a few times a second at most | `id`; `state`: `downloading`, `installed`, `failed` or `removed`; `done` and `total` bytes (`total` may be `null`); `message`: why it failed, for the user |
 | `preview` | A voice preview starts (also while its voice loads) or ends: spoken, cut off by another preview, or its voice could not be loaded | `voice`; `playing`: `true` when it starts, `false` when it ends. A preview cut off by another one gets no `false`: the other's `true` replaces it |
 

@@ -7,15 +7,19 @@ there: the status feed and the tray menu hand their work over through a queue.
 import json
 import logging
 import queue
+import sys
 import threading
 import tkinter as tk
+import webbrowser
 from collections.abc import Callable
+from dataclasses import replace
 from pathlib import Path
 from tkinter import filedialog, messagebox
 from typing import Any
 
 from reflektortts.api.server import PORT, ApiError
 from reflektortts.arguments import Arguments
+from reflektortts.desktop.about import about
 from reflektortts.desktop.api_client import (
     REFRESH_TIMEOUT_SECONDS,
     ApiClientError,
@@ -24,15 +28,20 @@ from reflektortts.desktop.api_client import (
     reflektortts_answers,
     request_json,
 )
+from reflektortts.desktop.autostart import autostart_supported, system_autostart
 from reflektortts.desktop.catalog import DownloadItem, DownloadList, DownloadProgress, other_voices, parse_list
 from reflektortts.desktop.core_thread import CoreThread
-from reflektortts.desktop.folders import open_folder, show_file
+from reflektortts.desktop.dock import dock_of
+from reflektortts.desktop.folders import open_folder, show_file, where_files_are
+from reflektortts.desktop.integrations import IntegrationItem, failure_text, parse_integrations
+from reflektortts.desktop.panel_window import PanelWindows, find_program
 from reflektortts.desktop.profiles import ProfileItem, file_name, name_text, parse_profiles
+from reflektortts.desktop.state import load_state, save_state
 from reflektortts.desktop.status import CoreStatus, describe
 from reflektortts.desktop.tray import Tray
 from reflektortts.desktop.window import Window
 from reflektortts.settings import SETTINGS_FOLDER
-from reflektortts.user_dirs import config_dir, log_dir
+from reflektortts.user_dirs import config_dir, log_dir, state_dir
 
 logger = logging.getLogger(__name__)
 
@@ -47,12 +56,21 @@ class Application:
         self._stopped = False
         self._quitting = False
         """Set by quit: the window is gone, so nothing may touch it any more."""
-        self._told_about_tray = False
+        self._state = load_state(state_dir())
+        self._autostart = system_autostart()
+        self._hidden = args.hidden
         self._refreshed = False
         """Whether the download lists were fetched since the window was opened."""
         self._language_names: dict[str, str] = {}
+        self._voice_titles: dict[str, str] = {}
+        """Voices by their ID, e.g. "Microsoft Adam (Windows)", as the core lists them."""
+        self._fetching_names = False
+        self._names_for: str | None = None
+        """The voice the names were last fetched for, so a voice the core does not list is asked about once."""
         self._items: dict[str, DownloadItem] = {}
         self._core = CoreThread(args.profiles, config_dir(), args.overlay)
+        self._panels = PanelWindows(find_program(args.overlay))
+        """The settings windows, one per profile, opened from the Profiles tab."""
         self._feed = StatusFeed(
             lambda status: self._later(lambda: self._show(status)),
             lambda progress: self._later(lambda: self._download_progress(progress)),
@@ -62,6 +80,10 @@ class Application:
             on_open=lambda: self._later(self._window_show),
             on_pause_toggle=lambda: self._later(self._toggle_pause),
             on_quit=lambda: self._later(self._quit),
+            start_with_windows=self._start_with_windows,
+            on_start_with_windows_toggle=lambda: self._later(
+                lambda: self._set_start_with_windows(not self._start_with_windows())
+            ),
         )
         self._window = Window(
             root,
@@ -74,8 +96,11 @@ class Application:
             on_remove=self._remove_download,
             on_preview=self._preview,
             language_name=lambda code: self._language_names.get(code, code),
+            voice_title=lambda voice: self._voice_titles.get(voice, voice),
             on_profiles_opened=self._profiles_opened,
             on_enable_profile=self._enable_profile,
+            on_app_settings=self._open_app_settings,
+            app_settings_missing=self._panels.missing,
             on_copy_profile=self._copy_profile,
             on_remove_profile=self._remove_profile,
             on_import_profile=self._import_profile,
@@ -83,13 +108,28 @@ class Application:
                 "POST", "/profiles/reload", None, "The profiles could not be read again"
             ),
             on_open_profiles=lambda: open_folder(args.profiles),
+            on_integration=self._change_integration,
+            on_start_with_windows=self._set_start_with_windows,
+            on_quit=self._quit,
+            on_open_link=self._open_link,
+            about=about(),
+            files_text=where_files_are(),
+            autostart_supported=autostart_supported(),
         )
+        self._window.settings.show_start_with_windows(self._start_with_windows())
 
     def start(self) -> None:
+        if sys.platform == "win32":
+            # Windows asks before logging off or shutting down (Tk calls that saving yourself):
+            # quitting then puts a lowered app's volume back. Tk tells nothing more, so if the user
+            # cancels the shutdown, ReflektorTTS has quit all the same.
+            self._root.protocol("WM_SAVE_YOURSELF", self._quit)
         self._core.start()
         self._feed.start()
         self._tray.start()
         self._root.after(POLL_MS, self._run_tasks)
+        if self._hidden:
+            self._window.hide()
 
     def _later(self, task: Callable[[], None]) -> None:
         """Runs task on Tkinter's thread; safe to call from any thread."""
@@ -117,8 +157,39 @@ class Application:
         # follows while it is shown.
         if status is not None and self._window.profiles_shown():
             self._in_background(self._fetch_profiles)
+        if status is not None and status.voice != self._names_for and not self._fetching_names:
+            # The status names its voice and languages by ID; the core knows their names.
+            self._names_for = status.voice
+            self._fetching_names = True
+            self._in_background(self._fetch_names)
         self._window.show_status(status)
         self._tray.show_status(describe(status), status is not None and status.paused, status is not None)
+
+    def _fetch_names(self) -> None:
+        """Runs in the background; the status is shown again with the names on Tkinter's thread."""
+        try:
+            languages = request_json("GET", "/languages")["languages"]
+            names = {language["code"]: language["name"] for language in languages}
+            voices = request_json("GET", "/voices")["voices"]
+            titles = {voice["id"]: f"{voice['name']} ({voice['engine_title']})" for voice in voices}
+        except (ApiClientError, KeyError, TypeError) as error:
+            logger.warning("Cannot get the names of the voices and languages: %s", error)
+            self._later(self._names_failed)
+            return
+
+        def show() -> None:
+            self._fetching_names = False
+            self._language_names = names
+            self._voice_titles = titles
+            if not self._stopped:
+                self._window.show_status(self._status)
+
+        self._later(show)
+
+    def _names_failed(self) -> None:
+        """The next status tries again."""
+        self._fetching_names = False
+        self._names_for = None
 
     def _core_stopped(self) -> None:
         self._stopped = True
@@ -127,7 +198,7 @@ class Application:
             # Whatever holds the port may not be ReflektorTTS; asking it takes a moment.
             self._in_background(self._check_port)
             return
-        message = "ReflektorTTS stopped: open the logs folder to see why."
+        message = "Stopped: open the logs folder, in the Settings tab, to see why."
         self._window.show_stopped(message)
         self._tray.show_status(message, paused=False, connected=False)
 
@@ -168,19 +239,34 @@ class Application:
         self._in_background(self._fetch_profiles)
 
     def _fetch_profiles(self) -> None:
-        """Runs in the background; the list is shown on Tkinter's thread."""
+        """Runs in the background; the list is shown on Tkinter's thread, with the integrations."""
         try:
             items = parse_profiles(request_json("GET", "/profiles"))
+            integrations = parse_integrations(request_json("GET", "/integrations"))
         except ApiClientError as error:
             message = str(error)
             self._later(lambda: self._window.profiles.show_message(f"The profiles could not be loaded: {message}"))
             return
-        self._later(lambda: self._window.profiles.show(items))
+        self._later(lambda: self._window.profiles.show(items, integrations))
+
+    def _change_integration(self, item: IntegrationItem, enabled: bool) -> None:
+        body = {"enabled": enabled}
+        self._profile_request("PATCH", f"/integrations/{item.id}", body, failure_text(item, enabled))
 
     def _enable_profile(self, item: ProfileItem, enabled: bool) -> None:
         action = "enabled" if enabled else "disabled"
         body = {"id": item.id, "enabled": enabled}
         self._profile_request("PATCH", "/profiles", body, f"{name_text(item)} could not be {action}")
+
+    def _open_app_settings(self, item: ProfileItem) -> None:
+        """Opens the profile's settings window beside this one, or brings it to the front; it talks to
+        the core itself."""
+        try:
+            self._panels.open(item.id, lambda: dock_of(self._root))
+        except OSError as error:
+            logger.exception("Cannot open the settings window for %s", item.id)
+            reason = error.strerror or str(error)
+            self._show_error(f"The settings window for {name_text(item)} could not be opened: {reason}")
 
     def _copy_profile(self, item: ProfileItem) -> None:
         """Copies a bundled profile and shows the copy, ready to edit."""
@@ -291,7 +377,9 @@ class Application:
         self._show_error(message)
 
     def _show_error(self, message: str) -> None:
-        messagebox.showerror("ReflektorTTS", message, parent=self._root)
+        # Over a window that holds the grab (the integration window), so it is the one blocked.
+        grabbing = self._root.grab_current()  # type: ignore[no-untyped-call]  # Untyped in typeshed.
+        messagebox.showerror("ReflektorTTS", message, parent=grabbing or self._root)
 
     def _start_download(self, item: DownloadItem) -> None:
         def start() -> None:
@@ -345,21 +433,50 @@ class Application:
         threading.Thread(target=work, name="api request", daemon=True).start()
 
     def _window_show(self) -> None:
+        # Task Manager may have changed it meanwhile.
+        self._window.settings.show_start_with_windows(self._start_with_windows())
+        self._tray.refresh()
         self._window.show()
 
     def _hide(self) -> None:
         self._window.hide()
         self._refreshed = False
-        if not self._told_about_tray:
-            self._told_about_tray = True
-            self._tray.notify(
-                "Still running", "ReflektorTTS keeps reading apps from here. Right-click its icon to quit."
-            )
+        if not self._state.told_about_tray:
+            self._state = replace(self._state, told_about_tray=True)
+            try:
+                save_state(self._state, state_dir())
+            except OSError as error:
+                logger.warning("Cannot remember that the tray notice was shown: %s", error)
+            self._tray.notify("Still running", "Keeps reading apps from here. Right-click the icon to quit.")
+
+    def _open_link(self, url: str) -> None:
+        """Opens a web page in the user's browser."""
+        if not webbrowser.open(url):
+            logger.warning("No web browser could open %s", url)
+            self._show_error(f"No web browser could be opened. The page is {url}")
+
+    def _start_with_windows(self) -> bool | None:
+        """Whether ReflektorTTS starts with Windows; None where it cannot. Called on any thread."""
+        return None if self._autostart is None else self._autostart.enabled()
+
+    def _set_start_with_windows(self, enabled: bool) -> None:
+        if self._autostart is None:
+            return
+        try:
+            self._autostart.enable(enabled)
+        except OSError as error:
+            logger.exception("Cannot change whether ReflektorTTS starts with Windows")
+            self._show_error(f"Start with Windows could not be changed: {error.strerror}")
+        self._window.settings.show_start_with_windows(self._start_with_windows())
+        self._tray.refresh()
 
     def _quit(self) -> None:
+        if self._quitting:
+            return
         self._quitting = True
         self._window.hide()
         self._tray.stop()
+        self._panels.close_all()
         self._feed.stop()
         if not self._core.stopped():
             self._core.stop()

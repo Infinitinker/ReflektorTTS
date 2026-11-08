@@ -1,6 +1,7 @@
 from typing import Any
 
 from reflektortts.desktop.profiles import (
+    STATES,
     ExecutableItem,
     ProfileItem,
     SourceItem,
@@ -63,3 +64,12 @@ def test_the_details_give_the_reason_first_then_executables_and_sources() -> Non
 
     assert details_text(gta2) == "gta2.exe: any version\nmessages (memory): tracker, replace"
     assert details_text(broken) == "mine-2000.json: must contain a JSON object."
+
+
+def test_a_profile_not_set_up_is_named_so_and_not_counted_as_used() -> None:
+    reason = "Not read until the VLC integration is enabled."
+    [vlc] = parse_profiles({"profiles": [GTA2 | {"state": "not_set_up", "reason": reason}]})
+
+    assert STATES[vlc.state] == "Not set up"
+    assert summary_text([vlc]) == "1 profiles, 0 used"
+    assert details_text(vlc).startswith(f"{reason}\n\n")

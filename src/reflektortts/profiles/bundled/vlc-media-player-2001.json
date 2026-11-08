@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "app": {
+    "title": "VLC media player",
+    "year": 2001
+  },
+  "match": {
+    "executables": [{ "name": "vlc.exe" }, { "name": "vlc" }]
+  },
+  "sources": [
+    {
+      "type": "vlc",
+      "name": "subtitles",
+      "poll_interval_ms": 200,
+      "stages": [
+        { "type": "tracker", "stable_ms": 0, "min_letters": 2 },
+        {
+          "type": "replace",
+          "rules": [
+            { "pattern": "\\[[^\\]]*\\]", "replace": "" },
+            { "pattern": "\\([^)]*\\)", "replace": "" },
+            { "pattern": "[♪♫][^♪♫]*[♪♫]?", "replace": "" },
+            { "pattern": "\\s-+\\s+", "replace": " " },
+            { "pattern": "^\\s*-+\\s*", "replace": "" },
+            { "pattern": "\\s{2,}", "replace": " " }
+          ]
+        },
+        { "type": "translate" },
+        { "type": "normalize", "text": false }
+      ]
+    }
+  ]
+}

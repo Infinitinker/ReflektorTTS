@@ -7,25 +7,43 @@ from typing import Any
 
 import pytest
 
-from reflektortts.api.server import NoAppError, SourceError, StageError, UnknownProfileError
+from reflektortts.api.server import BrokenProfileError, SourceError, StageError, UnknownProfileError
 from reflektortts.apps.detector import ProcessInfo, RunningApp
 from reflektortts.bus import Event
-from reflektortts.core import Core, build_routes, read_app
+from reflektortts.core import Core, build_routes, load_integrations, missing_integrations, read_app
 from reflektortts.ducking.records import DuckRecords
 from reflektortts.ducking.volume import OpenAppVolume
-from reflektortts.events import AppInfo, DownloadEvent, ErrorEvent, Output, Status, TextEvent, UnsupportedApp
+from reflektortts.events import (
+    AppInfo,
+    DownloadEvent,
+    ErrorEvent,
+    Output,
+    ProfileSettingsView,
+    Status,
+    TextEvent,
+    UnsupportedApp,
+)
 from reflektortts.glossary import Glossaries, GlossaryTerm
+from reflektortts.integrations import (
+    Integration,
+    IntegrationError,
+    IntegrationState,
+    IntegrationStatus,
+    IntegrationView,
+    UnknownIntegrationError,
+)
 from reflektortts.languages import LanguageError, Languages
 from reflektortts.pipeline.plugins import SourcePlugin, StagePlugin
 from reflektortts.pipeline.runner import Chain, Route
 from reflektortts.profiles.catalog import CatalogEntry, Origin, ProfileFiles, ProfileState, ProfileStore
 from reflektortts.profiles.loader import PluginSchemas
 from reflektortts.profiles.model import App, Executable, Match, Profile, SourceSettings, StageSettings
-from reflektortts.settings import ProfileSettings, load_profile_settings, load_shared
+from reflektortts.settings import ProfileSettings, SettingsChange, load_profile_settings, load_shared
 from reflektortts.sinks.tts.narrator import Narrator
 from reflektortts.sinks.tts.preview import VoicePreview
 from reflektortts.tts.engine import DEFAULT_VOICE, VoiceError, VoiceInfo
 from reflektortts.tts.service import NewLine
+from tests.fake_integration import FakeIntegration
 from tests.sinks.tts.test_narrator import Clients
 
 
@@ -238,6 +256,7 @@ def make_core(
     voices: list[VoiceInfo] | None = None,
     previews: Clients | None = None,
     profiles: ProfileFiles | None = None,
+    integrations: Mapping[str, Integration] | None = None,
 ) -> Core:
     return Core(
         profiles=profiles or FixedProfiles(GTA2),
@@ -249,30 +268,58 @@ def make_core(
         duck_records=DuckRecords(tmp_path / "lowered-apps.json"),
         download_sources={},
         preview_factory=lambda on_change: VoicePreview(on_change, (previews or Clients()).start, lambda work: work()),
+        sources=SOURCES,
+        integrations={} if integrations is None else integrations,
     )
 
 
-def test_a_new_voice_is_saved_for_the_game_and_remembered_for_its_language(tmp_path: Path) -> None:
-    core = make_core(tmp_path, Clients())
+def change(core: Core, profile: Profile = GTA2, **fields: Any) -> ProfileSettingsView:
+    return core.change_profile_settings(profile.id, SettingsChange(**fields))
+
+
+def test_a_voice_chosen_for_the_app_being_read_is_used_saved_and_remembered_for_its_language(
+    tmp_path: Path,
+) -> None:
+    clients = Clients()
+    core = make_core(tmp_path, clients)
     core._enter(playing(GTA2))
-    core.set_output_language("pl")
+    change(core, output_language="pl")
     events: list[Event] = []
     core.subscribe(events.append)
 
-    status = core.set_voice("windows:Microsoft Paulina")
+    view = change(core, voice=PAULINA.id)
 
-    assert status.voice == "windows:Microsoft Paulina"
-    assert events == [status]
-    assert saved_for(tmp_path, GTA2).voice == "windows:Microsoft Paulina"
-    assert load_shared(tmp_path).voices_by_language == {"pl": "windows:Microsoft Paulina"}
+    assert (view.profile, view.app_title, view.running, view.voice) == (GTA2.id, "Grand Theft Auto 2", True, PAULINA.id)
+    assert core.status().voice == PAULINA.id
+    assert clients.started[-1].voice == PAULINA.id and not clients.started[-1].closed
+    assert events == [core.status(), view]
+    assert saved_for(tmp_path, GTA2).voice == PAULINA.id
+    assert load_shared(tmp_path).voices_by_language == {"pl": PAULINA.id}
 
 
-def test_without_a_game_the_defaults_apply_and_changes_are_not_saved(tmp_path: Path) -> None:
+def test_a_profile_whose_app_does_not_run_is_changed_and_saved_but_nothing_is_applied(tmp_path: Path) -> None:
+    clients = Clients()
+    core = make_core(tmp_path, clients)
+    events: list[Event] = []
+    core.subscribe(events.append)
+
+    view = change(core, speech_rate=1.5, output_language="pl")
+
+    assert (view.running, view.speech_rate, view.output_language, view.voice) == (False, 1.5, "pl", ADAM.id)
+    assert events == [view]
+    assert core.profile_settings(GTA2.id) == view
+    saved = saved_for(tmp_path, GTA2)
+    assert (saved.speech_rate, saved.output_language, saved.voice) == (1.5, "pl", ADAM.id)
+    assert (core.status().speech_rate, core.status().output_language) == (1.0, "en")
+    assert clients.started == []
+    core._enter(playing(GTA2))
+    assert (core.status().speech_rate, core.status().voice) == (1.5, ADAM.id)
+
+
+def test_without_an_app_the_status_shows_the_defaults(tmp_path: Path) -> None:
     core = make_core(tmp_path, Clients())
 
-    status = core.set_speech(1.5, NewLine.WAIT)
-
-    assert status == Status(
+    assert core.status() == Status(
         app=None,
         voice=DEFAULT_VOICE,
         input_language="en",
@@ -280,21 +327,69 @@ def test_without_a_game_the_defaults_apply_and_changes_are_not_saved(tmp_path: P
         paused=False,
         ducking=True,
         duck_volume=0.3,
-        speech_rate=1.5,
+        speech_rate=1.0,
         new_line="wait",
         subtitles=False,
         subtitle_size="medium",
         subtitle_position="top",
     )
+
+
+def test_the_status_names_the_profile_of_the_app_being_read(tmp_path: Path) -> None:
+    core = make_core(tmp_path, Clients())
+
+    core._enter(playing(GTA2))
+
+    assert core.status().app == AppInfo("Grand Theft Auto 2", 42, GTA2.id)
+
+
+def test_a_profile_s_settings_are_shown_with_its_sources_also_before_its_app_runs(tmp_path: Path) -> None:
+    core = make_core(tmp_path, Clients())
+
+    view = core.profile_settings(GTA2.id)
+
+    assert (view.running, view.voice, view.output_language) == (False, DEFAULT_VOICE, "en")
+    assert [(source.source, source.enabled) for source in view.sources] == [("messages", True)]
+    assert [stage.key for stage in view.sources[0].stages] == ["messages/0:suffix", "messages/1:suffix"]
     assert not (tmp_path / "settings" / "profiles").exists()
-    assert make_core(tmp_path, Clients()).status().speech_rate == 1.0
+
+
+def test_unknown_and_broken_profiles_have_no_settings(tmp_path: Path) -> None:
+    profiles = FixedProfiles(GTA2)
+    error = "broken-2000.json: must contain a JSON object."
+    profiles.catalog.append(CatalogEntry("broken-2000", Origin.CUSTOM, Path("broken-2000.json"), None, error))
+    core = make_core(tmp_path, Clients(), profiles=profiles)
+
+    with pytest.raises(UnknownProfileError, match='no profile "nope"'):
+        core.profile_settings("nope")
+    with pytest.raises(UnknownProfileError, match='no profile "nope"'):
+        core.change_profile_settings("nope", SettingsChange(ducking=False))
+    with pytest.raises(BrokenProfileError, match=r'"broken-2000" cannot be read \(broken-2000\.json: must contain'):
+        core.set_source_enabled("broken-2000", "messages", False)
+    assert not (tmp_path / "settings" / "profiles").exists()
 
 
 def test_core_rejects_voices_that_are_not_available(tmp_path: Path) -> None:
     core = make_core(tmp_path, Clients())
 
     with pytest.raises(VoiceError, match=r'no voice "piper:missing"\. Available: piper:en_US'):
-        core.set_voice("piper:missing")
+        change(core, voice="piper:missing")
+
+
+def test_a_change_with_one_bad_setting_changes_nothing(tmp_path: Path) -> None:
+    core = make_core(tmp_path, Clients())
+    core._enter(playing(GTA2))
+    events: list[Event] = []
+    core.subscribe(events.append)
+
+    with pytest.raises(VoiceError):
+        change(core, ducking=False, voice="piper:missing")
+    with pytest.raises(LanguageError):
+        change(core, ducking=False, output_language="auto")
+
+    assert core.status().ducking
+    assert events == []
+    assert not (tmp_path / "settings" / "profiles").exists()
 
 
 def test_a_voice_is_previewed_in_its_language_without_touching_the_game_voice(tmp_path: Path) -> None:
@@ -313,58 +408,66 @@ def test_a_voice_is_previewed_in_its_language_without_touching_the_game_voice(tm
 
 def test_output_language_switches_to_the_voice_last_used_for_it(tmp_path: Path) -> None:
     core = make_core(tmp_path, Clients())
-    core.set_voice("windows:Microsoft Paulina")
-    core.set_voice("piper:en_US-ljspeech-medium")
+    change(core, voice=PAULINA.id)
+    change(core, voice=LJSPEECH.id)
 
-    status = core.set_output_language("pl")
+    view = change(core, output_language="pl")
 
-    assert (status.output_language, status.voice) == ("pl", "windows:Microsoft Paulina")
+    assert (view.output_language, view.voice) == ("pl", PAULINA.id)
 
 
 def test_output_language_without_a_remembered_voice_takes_the_first_that_speaks_it(tmp_path: Path) -> None:
     core = make_core(tmp_path, Clients())
 
-    assert core.set_output_language("pl").voice == "windows:Microsoft Adam"
+    assert change(core, output_language="pl").voice == ADAM.id
 
 
 def test_output_language_keeps_a_voice_that_already_speaks_it(tmp_path: Path) -> None:
     core = make_core(tmp_path, Clients())
-    core.set_voice("windows:Microsoft Paulina")
+    change(core, voice=PAULINA.id)
 
-    assert core.set_output_language("pl").voice == "windows:Microsoft Paulina"
+    assert change(core, output_language="pl").voice == PAULINA.id
 
 
 def test_output_language_without_any_voice_keeps_the_current_voice(tmp_path: Path) -> None:
     core = make_core(tmp_path, Clients(), voices=[LJSPEECH])
 
-    status = core.set_output_language("pl")
+    view = change(core, output_language="pl")
 
-    assert (status.output_language, status.voice) == ("pl", "piper:en_US-ljspeech-medium")
+    assert (view.output_language, view.voice) == ("pl", LJSPEECH.id)
+
+
+def test_a_voice_chosen_with_an_output_language_wins_over_the_one_the_language_picks(tmp_path: Path) -> None:
+    core = make_core(tmp_path, Clients())
+
+    view = change(core, output_language="pl", voice=PAULINA.id)
+
+    assert (view.output_language, view.voice) == ("pl", PAULINA.id)
 
 
 def test_languages_are_saved_and_checked(tmp_path: Path) -> None:
     core = make_core(tmp_path, Clients())
     core._enter(playing(GTA2))
 
-    core.set_input_language("pl")
-    core.set_output_language("pl")
+    change(core, input_language="pl", output_language="pl")
 
     assert core.languages() == Languages(input="pl", output="pl")
     saved = saved_for(tmp_path, GTA2)
     assert (saved.input_language, saved.output_language) == ("pl", "pl")
     with pytest.raises(LanguageError, match='no language "auto"'):
-        core.set_output_language("auto")
+        change(core, output_language="auto")
     with pytest.raises(LanguageError, match='no language "auto"'):
-        core.set_input_language("auto")
+        change(core, input_language="auto")
 
 
 def test_ducking_settings_are_saved(tmp_path: Path) -> None:
     core = make_core(tmp_path, Clients())
     core._enter(playing(GTA2))
 
-    status = core.set_ducking(False, 0.5)
+    view = change(core, ducking=False, duck_volume=0.5)
 
-    assert (status.ducking, status.duck_volume) == (False, 0.5)
+    assert (view.ducking, view.duck_volume) == (False, 0.5)
+    assert (core.status().ducking, core.status().duck_volume) == (False, 0.5)
     saved = saved_for(tmp_path, GTA2)
     assert (saved.ducking, saved.duck_volume) == (False, 0.5)
     core.close()
@@ -375,10 +478,10 @@ def test_speech_settings_are_saved_and_used_for_the_next_line(tmp_path: Path) ->
     core = make_core(tmp_path, clients)
     core._enter(playing(GTA2))
 
-    status = core.set_speech(1.5, NewLine.CUT_OFF)
+    view = change(core, speech_rate=1.5, new_line=NewLine.CUT_OFF)
     core._narrator.say("hi")
 
-    assert (status.speech_rate, status.new_line) == (1.5, "cut_off")
+    assert (view.speech_rate, view.new_line) == (1.5, "cut_off")
     saved = saved_for(tmp_path, GTA2)
     assert (saved.speech_rate, saved.new_line) == (1.5, NewLine.CUT_OFF)
     assert clients.started[0].how == [(1.5, NewLine.CUT_OFF)]
@@ -389,9 +492,10 @@ def test_subtitle_settings_are_saved(tmp_path: Path) -> None:
     core = make_core(tmp_path, Clients())
     core._enter(playing(GTA2))
 
-    status = core.set_subtitles(True, "large", "bottom")
+    view = change(core, subtitles=True, subtitle_size="large", subtitle_position="bottom")
 
-    assert (status.subtitles, status.subtitle_size, status.subtitle_position) == (True, "large", "bottom")
+    assert (view.subtitles, view.subtitle_size, view.subtitle_position) == (True, "large", "bottom")
+    assert core.status().subtitles
     saved = saved_for(tmp_path, GTA2)
     assert (saved.subtitles, saved.subtitle_size, saved.subtitle_position) == (True, "large", "bottom")
     core.close()
@@ -415,13 +519,14 @@ def test_stages_of_the_app_being_read_are_switched_per_output_and_stay_switched(
     core = make_core(tmp_path, Clients())
     core._enter(playing(GTA2))
 
-    status = core.set_stage_enabled("messages/1:suffix", Output.SPEECH, False)
+    view = core.set_stage_enabled(GTA2.id, "messages/1:suffix", Output.SPEECH, False)
 
-    assert [stage.enabled for stage in status.sources[0].stages] == [BOTH_ON, {Output.TEXT: True, Output.SPEECH: False}]
-    assert (status.sources[0].stages[0].type, status.sources[0].stages[0].summary) == ("suffix", "adds a suffix")
+    assert [stage.enabled for stage in view.sources[0].stages] == [BOTH_ON, {Output.TEXT: True, Output.SPEECH: False}]
+    assert (view.sources[0].stages[0].type, view.sources[0].stages[0].summary) == ("suffix", "adds a suffix")
+    assert core.status().sources == view.sources
     assert core.stage_switch("messages/1:suffix", Output.SPEECH) is False
     assert core.stage_switch("messages/1:suffix", Output.TEXT) is None
-    core.set_stage_enabled("messages/1:suffix", Output.TEXT, True)
+    core.set_stage_enabled(GTA2.id, "messages/1:suffix", Output.TEXT, True)
     assert saved_for(tmp_path, GTA2).stage_switches == {"messages/1:suffix": {Output.SPEECH: False, Output.TEXT: True}}
 
 
@@ -431,58 +536,73 @@ def test_the_user_can_switch_on_a_stage_its_profile_starts_off(tmp_path: Path) -
     core._enter(playing(replace(GTA2, sources=(replace(GTA2.sources[0], stages=(speech_only,)),))))
 
     assert core.status().sources[0].stages[0].enabled == {Output.TEXT: False, Output.SPEECH: True}
-    status = core.set_stage_enabled("messages/0:suffix", Output.TEXT, True)
-    assert status.sources[0].stages[0].enabled == BOTH_ON
+    view = core.set_stage_enabled(GTA2.id, "messages/0:suffix", Output.TEXT, True)
+    assert view.sources[0].stages[0].enabled == BOTH_ON
 
 
-def test_switching_stages_needs_a_game_and_a_known_stage(tmp_path: Path) -> None:
+def test_stages_of_a_profile_whose_app_does_not_run_are_switched_and_saved(tmp_path: Path) -> None:
     core = make_core(tmp_path, Clients())
+    events: list[Event] = []
+    core.subscribe(events.append)
 
-    with pytest.raises(NoAppError, match="No app is being read"):
-        core.set_stage_enabled("messages/0:suffix", Output.TEXT, False)
-    core._enter(playing(GTA2))
+    view = core.set_stage_enabled(GTA2.id, "messages/0:suffix", Output.TEXT, False)
+
+    assert view.sources[0].stages[0].enabled == {Output.TEXT: False, Output.SPEECH: True}
+    assert events == [view]
+    assert saved_for(tmp_path, GTA2).stage_switches == {"messages/0:suffix": {Output.TEXT: False}}
     with pytest.raises(StageError, match='has no stage "messages/9:x"'):
-        core.set_stage_enabled("messages/9:x", Output.TEXT, False)
+        core.set_stage_enabled(GTA2.id, "messages/9:x", Output.TEXT, False)
+    with pytest.raises(UnknownProfileError):
+        core.set_stage_enabled("nope", "messages/0:suffix", Output.TEXT, False)
 
 
 def test_sources_of_the_game_being_read_can_be_switched_off_and_stay_off(tmp_path: Path) -> None:
     core = make_core(tmp_path, Clients())
     core._enter(playing(GTA2))
 
-    status = core.set_source_enabled("messages", False)
+    view = core.set_source_enabled(GTA2.id, "messages", False)
 
-    assert (status.sources[0].type, status.sources[0].enabled) == ("fixed", False)
+    assert (view.sources[0].type, view.sources[0].enabled) == ("fixed", False)
     assert not core.is_source_enabled("messages")
     assert saved_for(tmp_path, GTA2).disabled_sources == ("messages",)
-    core.set_source_enabled("messages", True)
+    core.set_source_enabled(GTA2.id, "messages", True)
     assert saved_for(tmp_path, GTA2).disabled_sources == ()
     with pytest.raises(SourceError, match='has no source "signs"'):
-        core.set_source_enabled("signs", False)
+        core.set_source_enabled(GTA2.id, "signs", False)
+
+
+def test_sources_of_a_profile_whose_app_does_not_run_are_switched_and_saved(tmp_path: Path) -> None:
+    core = make_core(tmp_path, Clients())
+
+    view = core.set_source_enabled(GTA2.id, "messages", False)
+
+    assert (view.running, view.sources[0].enabled) == (False, False)
+    assert saved_for(tmp_path, GTA2).disabled_sources == ("messages",)
+    core._enter(playing(GTA2))
+    assert not core.is_source_enabled("messages")
 
 
 def test_each_game_keeps_its_own_settings(tmp_path: Path) -> None:
     core = make_core(tmp_path, Clients())
     core._enter(playing(MAD_MAX))
-    core.set_output_language("pl")
-    core.set_speech(1.5, NewLine.WAIT)
+    change(core, MAD_MAX, output_language="pl", speech_rate=1.5)
     core._leave()
     core._enter(playing(GTA2))
-    core.set_speech(0.8, NewLine.WAIT)
+    change(core, speech_rate=0.8)
     core._leave()
 
     core._enter(playing(MAD_MAX))
 
     assert (core.status().output_language, core.status().speech_rate) == ("pl", 1.5)
-    assert core.status().voice == "windows:Microsoft Adam"
+    assert core.status().voice == ADAM.id
     assert saved_for(tmp_path, GTA2).speech_rate == 0.8
 
 
 def test_a_game_played_for_the_first_time_starts_with_the_defaults(tmp_path: Path) -> None:
     core = make_core(tmp_path, Clients())
     core._enter(playing(GTA2))
-    core.set_input_language("pl")
-    core.set_voice("windows:Microsoft Paulina")
-    core.set_source_enabled("messages", False)
+    change(core, input_language="pl", voice=PAULINA.id)
+    core.set_source_enabled(GTA2.id, "messages", False)
     core._leave()
 
     core._enter(playing(MAD_MAX))
@@ -497,7 +617,7 @@ def test_a_voice_is_loaded_only_while_a_game_is_read(tmp_path: Path) -> None:
     clients = Clients()
     core = make_core(tmp_path, clients)
     core._enter(playing(MAD_MAX))
-    core.set_output_language("pl")
+    change(core, MAD_MAX, output_language="pl")
     core._leave()
     assert [client.voice for client in clients.started] == [DEFAULT_VOICE, "windows:Microsoft Adam"]
 
@@ -527,11 +647,11 @@ def test_without_a_voice_for_the_output_language_nothing_is_spoken(tmp_path: Pat
     core = make_core(tmp_path, clients, voices=[LJSPEECH])
     core._enter(playing(GTA2))
 
-    status = core.set_output_language("pl")
+    view = change(core, output_language="pl")
 
-    assert status.output_language == "pl"
+    assert view.output_language == "pl"
     assert [client.closed for client in clients.started] == [True]
-    core.set_output_language("en")
+    change(core, output_language="en")
     assert len(clients.started) == 2 and not clients.started[1].closed
 
 
@@ -540,7 +660,7 @@ def test_a_voice_installed_while_a_game_is_read_is_used_right_away(tmp_path: Pat
     installed = [LJSPEECH]
     core = make_core(tmp_path, clients, voices=installed)
     core._enter(playing(GTA2))
-    core.set_output_language("pl")
+    change(core, output_language="pl")
     assert not clients.started[-1].said and clients.started[-1].closed
     events: list[Event] = []
     core.subscribe(events.append)
@@ -563,7 +683,7 @@ def test_no_voice_is_loaded_while_waiting_for_a_app(tmp_path: Path) -> None:
 def test_the_defaults_apply_again_once_the_game_closes(tmp_path: Path) -> None:
     core = make_core(tmp_path, Clients())
     core._enter(playing(GTA2))
-    core.set_input_language("pl")
+    change(core, input_language="pl")
 
     core._leave()
 
@@ -614,15 +734,30 @@ def test_a_stage_that_does_nothing_with_the_languages_is_skipped() -> None:
     assert routes[0].chains[Output.SPEECH].is_enabled(0) is True
 
 
+POLISH_ONLY = app_with(SourceSettings("fixed", "messages", 0.25, {}, (StageSettings("polish", {}),))).profile
+
+
 def test_the_status_says_why_a_stage_does_nothing_and_keeps_its_tick(tmp_path: Path) -> None:
     core = make_core(tmp_path, Clients())
-    core._enter(app_with(SourceSettings("fixed", "messages", 0.25, {}, (StageSettings("polish", {}),))))
+    core._enter(playing(POLISH_ONLY))
 
     stage = core.status().sources[0].stages[0]
     assert (stage.enabled, stage.inactive) == (BOTH_ON, "Only Polish")
 
-    stage = core.set_output_language("pl").sources[0].stages[0]
+    stage = change(core, POLISH_ONLY, output_language="pl").sources[0].stages[0]
     assert (stage.enabled, stage.inactive) == (BOTH_ON, None)
+    assert core.status().sources[0].stages[0].inactive is None
+
+
+def test_a_profile_s_stages_are_shown_for_its_own_languages(tmp_path: Path) -> None:
+    core = make_core(tmp_path, Clients(), profiles=FixedProfiles(GTA2, POLISH_ONLY))
+    core._enter(playing(GTA2))
+
+    assert core.profile_settings(POLISH_ONLY.id).sources[0].stages[0].inactive == "Only Polish"
+    stage = change(core, POLISH_ONLY, output_language="pl").sources[0].stages[0]
+
+    assert stage.inactive is None
+    assert core.status().output_language == "en"
 
 
 def core_playing(tmp_path: Path, is_running: Callable[[int], bool], exit_grace_seconds: float) -> Core:
@@ -637,8 +772,10 @@ def core_playing(tmp_path: Path, is_running: Callable[[int], bool], exit_grace_s
         duck_records=DuckRecords(tmp_path / "lowered-apps.json"),
         exit_grace_seconds=exit_grace_seconds,
         download_sources={},
+        sources=SOURCES,
+        integrations={},
     )
-    core._app = AppInfo("App", 42)
+    core._app = AppInfo("App", 42, "app")
     return core
 
 
@@ -652,7 +789,9 @@ def test_source_errors_after_the_game_exits_are_not_reported(tmp_path: Path) -> 
     running.clear()
     core._report(ErrorEvent("source.error", "messages", "read failed"))
 
-    assert events == [ErrorEvent("source.error", "messages", "read failed")]
+    assert [event for event in events if isinstance(event, ErrorEvent)] == [
+        ErrorEvent("source.error", "messages", "read failed")
+    ]
 
 
 def test_source_errors_while_the_game_is_exiting_are_not_reported(tmp_path: Path) -> None:
@@ -676,12 +815,12 @@ def test_changes_made_at_the_same_time_are_all_kept(tmp_path: Path) -> None:
     def change_ducking() -> None:
         start.wait()
         for step in range(rounds):
-            core.set_ducking(True, step / rounds)
+            change(core, duck_volume=step / rounds)
 
     def change_speech() -> None:
         start.wait()
         for step in range(rounds):
-            core.set_speech(1.0 + step / rounds, NewLine.WAIT)
+            change(core, speech_rate=1.0 + step / rounds)
 
     threads = [threading.Thread(target=change_ducking), threading.Thread(target=change_speech)]
     for thread in threads:
@@ -755,3 +894,209 @@ def test_profiles_imported_copied_or_removed_count_at_once(tmp_path: Path) -> No
     assert len([event for event in events if isinstance(event, Status)]) == 3
     with pytest.raises(UnknownProfileError):
         core.remove_profile("mine-2001")
+
+
+def test_without_a_game_the_status_shows_the_voice_a_new_game_would_get(tmp_path: Path) -> None:
+    # The default voice is not installed; a new game would speak English with the installed one.
+    alan = VoiceInfo("piper:en_GB-alan-low", "piper", "en_GB-alan-low", "en-GB", "Piper")
+    core = make_core(tmp_path, Clients(), voices=[alan, ADAM])
+
+    assert core.status().voice == alan.id
+
+    core._enter(playing(GTA2))
+    core._leave()
+
+    assert core.status().voice == alan.id
+
+
+REMOTE = Profile(
+    "remote-app-2001",
+    App("Remote App", 2001),
+    Match((Executable("remote.exe"),)),
+    (SourceSettings("remote", "subtitles", 0.25, {}),),
+)
+
+
+def test_each_source_plugin_s_integration_is_created_once_with_a_file_of_its_own(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    given: list[Path] = []
+
+    def create(path: Path) -> FakeIntegration:
+        given.append(path)
+        return FakeIntegration()
+
+    def broken(path: Path) -> FakeIntegration:
+        raise RuntimeError("no settings folder")
+
+    plugins = {
+        "fixed": SourcePlugin("fixed", {}, create_source),
+        "remote": SourcePlugin("remote", {}, create_source, integration=create),
+        "broken": SourcePlugin("broken", {}, create_source, integration=broken),
+    }
+
+    integrations = load_integrations(plugins, tmp_path / "integrations")
+
+    assert list(integrations) == ["remote"]
+    assert given == [tmp_path / "integrations" / "remote.json"]
+    assert not (tmp_path / "integrations").exists()
+    assert "The integration of the broken source is not available" in caplog.text
+
+
+@pytest.mark.parametrize(
+    ("sources", "missing"),
+    [
+        (("remote",), ["remote"]),
+        (("remote", "remote"), ["remote"]),
+        (("remote", "fixed"), []),
+        (("remote", "ready"), []),
+        ((), []),
+    ],
+)
+def test_a_profile_waits_for_integrations_only_if_every_source_needs_one_not_enabled(
+    sources: tuple[str, ...], missing: list[str]
+) -> None:
+    profile = replace(
+        REMOTE, sources=tuple(SourceSettings(type, f"source {n}", 0.25, {}) for n, type in enumerate(sources))
+    )
+    states = {
+        "remote": IntegrationState(IntegrationStatus.DISABLED),
+        "ready": IntegrationState(IntegrationStatus.ENABLED),
+    }
+
+    assert missing_integrations(profile, states) == missing
+
+
+def test_a_profile_not_set_up_is_not_read_until_its_integration_is_enabled(tmp_path: Path) -> None:
+    remote = FakeIntegration()
+    core = make_core(tmp_path, Clients(), profiles=FixedProfiles(GTA2, REMOTE), integrations={"remote": remote})
+    events: list[Event] = []
+    core.subscribe(events.append)
+
+    assert [profile.id for profile in core._used()] == [GTA2.id]
+    [gta2, waiting] = core.profiles()
+    assert (gta2.state, gta2.choice.reason) == (ProfileState.NOT_RUNNING, None)
+    assert (waiting.state, waiting.choice.reason) == (
+        ProfileState.NOT_SET_UP,
+        "Not read until the Fake integration is enabled.",
+    )
+
+    view = core.set_integration_enabled("remote", True)
+
+    assert view == IntegrationView(
+        "remote", "Fake integration", FakeIntegration.description, IntegrationState(IntegrationStatus.ENABLED)
+    )
+    assert [type(event) for event in events] == [Status]
+    assert [profile.id for profile in core._used()] == [GTA2.id, REMOTE.id]
+    assert [view.state for view in core.profiles()] == [ProfileState.NOT_RUNNING, ProfileState.NOT_RUNNING]
+    core.set_integration_enabled("remote", False)
+    assert remote.calls == ["enable", "disable"]
+    assert [view.state for view in core.profiles()][1] == ProfileState.NOT_SET_UP
+
+
+def test_an_app_being_read_stops_once_its_integration_is_disabled(tmp_path: Path) -> None:
+    core = make_core(
+        tmp_path,
+        Clients(),
+        profiles=FixedProfiles(REMOTE),
+        integrations={"remote": FakeIntegration(IntegrationStatus.ENABLED)},
+    )
+    core._is_running = lambda pid: True
+    watching = core._watching(playing(REMOTE))
+
+    assert watching(42)
+    core.set_integration_enabled("remote", False)
+
+    assert not watching(42)
+
+
+def test_integrations_are_listed_and_one_that_cannot_be_checked_is_unavailable(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    remote, other = FakeIntegration(), FakeIntegration(IntegrationStatus.ENABLED)
+    remote.failure = OSError("Access is denied")
+    core = make_core(tmp_path, Clients(), profiles=FixedProfiles(REMOTE), integrations={"remote": remote, "a": other})
+
+    views = core.integrations()
+    core.integrations()
+
+    assert [view.id for view in views] == ["a", "remote"]
+    assert views[1].state == IntegrationState(IntegrationStatus.UNAVAILABLE, "Could not check: Access is denied")
+    assert caplog.text.count("Cannot check the state of the remote integration") == 1
+    assert [view.state for view in core.profiles()] == [ProfileState.NOT_SET_UP]
+
+
+def test_an_integration_that_cannot_change_now_changes_nothing(tmp_path: Path) -> None:
+    refusing = FakeIntegration()
+    refusing.refusal = "Close the app first, then try again."
+    unavailable = FakeIntegration(IntegrationStatus.UNAVAILABLE, "The app is not installed.")
+    integrations = {"refusing": refusing, "unavailable": unavailable}
+    core = make_core(tmp_path, Clients(), integrations=integrations)
+    events: list[Event] = []
+    core.subscribe(events.append)
+
+    with pytest.raises(IntegrationError, match="Close the app first"):
+        core.set_integration_enabled("refusing", True)
+    with pytest.raises(IntegrationError, match="The app is not installed."):
+        core.set_integration_enabled("unavailable", True)
+    with pytest.raises(UnknownIntegrationError, match='no integration "nope". Integrations: refusing, unavailable.'):
+        core.set_integration_enabled("nope", True)
+
+    assert events == []
+    assert unavailable.calls == []
+
+
+def test_the_status_shows_the_last_source_error_until_it_works_again_or_the_app_changes(tmp_path: Path) -> None:
+    core = make_core(tmp_path, Clients())
+    core._is_running = lambda pid: True
+    core._enter(playing(GTA2))
+    messages = ErrorEvent("source.error", "messages", "Cannot read the text.")
+    help_box = ErrorEvent("source.error", "help", "Cannot read the help box.")
+    events: list[Event] = []
+    core.subscribe(events.append)
+
+    core._report(messages)
+    core._report(help_box)
+    core._report(ErrorEvent("sink.error", "tts", "No sound device."))
+    assert core.status().source_error == help_box
+    core._works_again("source.error", "help")
+    assert core.status().source_error == messages
+    core._works_again("sink.error", "messages")
+    core._works_again("source.error", "unknown")
+    assert core.status().source_error == messages
+
+    statuses = [event.source_error for event in events if isinstance(event, Status)]
+    assert statuses == [messages, help_box, messages]
+    core._leave()
+    assert core.status().source_error is None
+
+
+def test_the_status_shows_why_a_failing_source_fails_now(tmp_path: Path) -> None:
+    core = make_core(tmp_path, Clients())
+    checks: list[int] = []
+
+    def running(pid: int) -> bool:
+        checks.append(pid)
+        return True
+
+    core._is_running = running
+    core._enter(playing(GTA2))
+    first = ErrorEvent("source.error", "messages", "No subtitles for A.")
+    help_box = ErrorEvent("source.error", "help", "Cannot read the help box.")
+    now = ErrorEvent("source.error", "messages", "No subtitles for B.")
+    core._report(first)
+    core._report(help_box)
+    events: list[Event] = []
+    core.subscribe(events.append)
+    checked = len(checks)
+
+    core._still_failing(now)
+    core._still_failing(ErrorEvent("source.error", "unknown", "Not reported."))
+    core._still_failing(ErrorEvent("stage.error", "messages", "Not a source."))
+
+    assert core.status().source_error == now
+    assert [event.source_error for event in events if isinstance(event, Status)] == [now]
+    assert not any(isinstance(event, ErrorEvent) for event in events)
+    assert len(checks) == checked
+    core._works_again("source.error", "messages")
+    assert core.status().source_error == help_box

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "reflektortts"
-version = "0.1.0"
+version = "0.2.0"
 description = "Your apps, read aloud: game dialogue and subtitles spoken and translated, lektor style."
 readme = "README.md"
 authors = [{ name = "Infinitinker" }]
@@ -59,6 +59,7 @@ reflektortts-desktop = "reflektortts.desktop.__main__:main"
 [project.entry-points."reflektortts.sources"]
 memory = "reflektortts.sources.memory.plugin:PLUGIN"
 avalanche = "reflektortts.sources.avalanche.plugin:PLUGIN"
+vlc = "reflektortts.sources.vlc.plugin:PLUGIN"
 
 [project.entry-points."reflektortts.downloads"]
 piper = "reflektortts.downloads.piper:PLUGIN"

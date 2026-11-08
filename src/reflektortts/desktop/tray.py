@@ -15,8 +15,16 @@ MAX_TITLE = 127
 
 
 class Tray:
+    """start_with_windows tells whether ReflektorTTS starts with Windows, or None if it cannot; the
+    menu then has no such item."""
+
     def __init__(
-        self, on_open: Callable[[], None], on_pause_toggle: Callable[[], None], on_quit: Callable[[], None]
+        self,
+        on_open: Callable[[], None],
+        on_pause_toggle: Callable[[], None],
+        on_quit: Callable[[], None],
+        start_with_windows: Callable[[], bool | None],
+        on_start_with_windows_toggle: Callable[[], None],
     ) -> None:
         self._paused = False
         self._connected = False
@@ -26,6 +34,12 @@ class Tray:
                 lambda item: "Resume reading" if self._paused else "Pause reading",
                 lambda: on_pause_toggle(),
                 enabled=lambda item: self._connected,
+            ),
+            pystray.MenuItem(
+                "Start with Windows",
+                lambda: on_start_with_windows_toggle(),
+                checked=lambda item: bool(start_with_windows()),
+                visible=start_with_windows() is not None,
             ),
             pystray.Menu.SEPARATOR,
             pystray.MenuItem("Quit", lambda: on_quit()),
@@ -45,6 +59,10 @@ class Tray:
         self._connected = connected
         title = f"ReflektorTTS: {text}"
         self._icon.title = title if len(title) <= MAX_TITLE else title[: MAX_TITLE - 1] + "…"
+        self._icon.update_menu()
+
+    def refresh(self) -> None:
+        """Shows the menu's checkmarks as they are now; Windows keeps the menu as it was last built."""
         self._icon.update_menu()
 
     def notify(self, title: str, message: str) -> None:

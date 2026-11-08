@@ -70,6 +70,8 @@ class PreviewEvent:
 class AppInfo:
     title: str
     pid: int
+    profile: str
+    """The ID of the app's profile, e.g. "grand-theft-auto-2-1999"."""
 
 
 @dataclass(frozen=True)
@@ -83,7 +85,7 @@ class UnsupportedApp:
 
 @dataclass(frozen=True)
 class StageState:
-    """One stage of the app being read, as the user sees it."""
+    """One stage of a profile, as the user sees it."""
 
     key: str
     """Identifies the stage within its profile, e.g. "subtitles/3:normalize"."""
@@ -95,12 +97,12 @@ class StageState:
     """Whether the stage is on, for the text shown and for speech: as the user switched it, else
     as its profile starts it."""
     inactive: str | None = None
-    """Why the stage does nothing with the user's languages, or None if it works with them."""
+    """Why the stage does nothing with the profile's languages, or None if it works with them."""
 
 
 @dataclass(frozen=True)
 class SourceStages:
-    """One source of the app being read and its stages, as the user sees them."""
+    """One source of a profile and its stages, as the user sees them."""
 
     source: str
     type: str
@@ -135,3 +137,31 @@ class Status:
     """The stages of the app being read, per source; empty while waiting for an app."""
     unsupported: UnsupportedApp | None = None
     """A running app in a build its profile does not list, which is not read."""
+    source_error: ErrorEvent | None = None
+    """The last error of a source of the app being read that has not worked since; None if there
+    is none, or no app is read."""
+
+
+@dataclass(frozen=True)
+class ProfileSettingsView:
+    """A profile's settings as the user sees them, whether or not its app runs; published whenever
+    they change. The fields mean what they mean in Status."""
+
+    profile: str
+    """The profile's ID."""
+    app_title: str
+    running: bool
+    """Whether the profile's app is being read now, so the settings apply at once."""
+    voice: str
+    """The voice the app is read with: the one chosen for it if that is installed and speaks the
+    output language, else an installed voice that does, if there is one."""
+    input_language: str
+    output_language: str
+    ducking: bool
+    duck_volume: float
+    speech_rate: float
+    new_line: str
+    subtitles: bool
+    subtitle_size: str
+    subtitle_position: str
+    sources: tuple[SourceStages, ...]

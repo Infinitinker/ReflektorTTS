@@ -8,8 +8,9 @@ A profile describes one app: how to recognize it, where to read its text, and ho
 - **Your own** profiles go in `%LOCALAPPDATA%\ReflektorTTS\profiles\` (or the folder given with `--profiles`). A file there with a bundled profile's name, e.g. `grand-theft-auto-2-1999.json`, replaces that profile completely, and keeps its settings; it no longer gets the bundled profile's fixes.
 - Of two profiles that match the same build of an app (the same executable name and a build in both, or no builds listed), your own is used and the bundled one is set aside. Two of your own clash: neither is used until one is disabled.
 - Any profile, bundled or your own, can be disabled; its app is then not read. A broken profile file is not used, and the reason is shown.
+- Some sources can read an app only once its own settings are changed, e.g. VLC's web interface switched on. ReflektorTTS makes that change when you enable the source's **integration**, and puts it back when you disable it. Until then a profile whose sources all need one is **not set up**, and its app is not read.
 
-The desktop app's Profiles tab lists them all with their state, and does the rest: **Copy to edit** copies a bundled profile to your folder (where it replaces the bundled one) and shows it there for your editor; **Remove** deletes your own file; **Import…** adds a profile file to your own once it is checked (a broken one is refused with the reason); **Reload** reads the files again after you edit them. A changed profile applies the next time its app starts.
+The desktop app's Profiles tab lists them all with their state, and does the rest. For a profile that needs an integration, **Integration…** opens a window with a group for it, named after it, which says what it changes and whether it is enabled, with a button that enables or disables it. **Copy to edit** copies a bundled profile to your folder (where it replaces the bundled one) and shows it there for your editor; **Remove** deletes your own file; **Import…** adds a profile file to your own once it is checked (a broken one is refused with the reason); **Reload** reads the files again after you edit them. A changed profile applies the next time its app starts.
 
 The profile format is not finalized yet. Its JSON Schema is `src/reflektortts/profiles/profile.schema.json`; a full guide to writing and contributing profiles will be added here once the format settles.
 
@@ -75,6 +76,30 @@ Reads subtitles in games on Avalanche Studios' engine (Mad Max). A subtitle ther
 - `pointers`: as in the memory source, one chain per build of the game, ending at the shown line's 32-bit ID (0 when no subtitle is shown).
 
 To find the chain, find the shown line's ID first: the subtitle's UI element holds it, and it changes with every line and is 0 between lines.
+
+### VLC source (`"type": "vlc"`)
+
+Reads the subtitles of what VLC media player 3 plays, from the video's subtitle file, in time with VLC: it follows VLC's playback time, its speed and its subtitle delay through VLC's web interface. It has no fields. The bundled profile, `vlc-media-player-2001.json`, uses it for any VLC build, without the overlay: VLC shows its own subtitles, and ReflektorTTS reads them aloud, translated if you choose; the app's settings are in the window **App settings…** opens. It drops the marks subtitles for the hard of hearing use (`[door slams]`, `(sighs)`), lines of music (`♪ … ♪`) and dialogue dashes before reading.
+
+To set it up:
+
+1. Close VLC.
+2. In the desktop window's Profiles tab, select VLC media player, click **Integration…**, then **Enable** in the VLC integration group. This turns on VLC's web interface for this computer only (127.0.0.1, also if it was set to listen on the network before), on VLC's own port (8080 unless you changed it), with a random password. Until then the profile is **Not set up**, and VLC is not read.
+3. Start VLC and play a video with its subtitles next to it, named like the video: `movie.en.srt` for English or `movie.pl.srt` for Polish next to `movie.mkv`, in the same folder or in a `subtitles` or `subs` folder in it, where VLC itself looks. SubRip (`.srt`), WebVTT (`.vtt`, `.webvtt`), Advanced SubStation Alpha and SubStation Alpha (`.ass`, `.ssa`) and YouTube SubViewer (`.sbv`) files are read.
+
+Of the files there, ReflektorTTS reads one whose name is the video's followed by words, one of which names the input language set in App settings… (`en`, `eng`, `english`; `pl`, `pol`, `polish`, `polski`), such as `Movie.2019.English.srt`; else the one named exactly like the video (`movie.srt`). The video's name must appear as whole words, so `Show - 10.en.srt` is not read for `Show - 1.mkv`. Of several such files, the one with the fewest extra words is read: `movie.en.srt` before `movie.en.sdh.srt`; of files that differ only in their format, such as `movie.en.srt` and `movie.en.vtt`, the `.srt`. A "forced" file, such as `movie.en.forced.srt`, holds only the lines spoken in a foreign language, so it is read only if there is no other. A file in another language, such as `movie.de.srt`, is never read. Files in other formats VLC shows, such as `.sub` or `.stl`, are not read. A video or song without any subtitle file is not read, quietly; one that has subtitle files but none to read is reported in the Status tab, with the file name to use.
+
+Good to know:
+
+- **The password** is kept in VLC's own settings file (`vlcrc`), as VLC needs it, and not by ReflektorTTS. VLC's web interface cannot be reached from other computers, but any program on this one that knows the password can control VLC through it.
+- If you set up VLC's web interface yourself, e.g. for a remote on your phone, the integration counts as enabled and changes nothing; ReflektorTTS reads VLC as long as the interface answers on 127.0.0.1 (no host set, or `0.0.0.0`, `127.0.0.1` or `localhost`).
+- **Disable** puts back what ReflektorTTS changed, except settings you changed since. VLC must be closed to enable or disable, since VLC writes back its settings when it closes.
+- **Disable the VLC integration before uninstalling ReflektorTTS** with the option to delete your settings: that deletes ReflektorTTS's record of what it changed (`integrations\vlc.json` in `%LOCALAPPDATA%\ReflektorTTS`), and VLC's web interface then stays on until you turn it off in VLC: **Tools > Preferences**, **Show settings: All**, then **Interface > Main interfaces**, and clear **Web**.
+- Only subtitle files are read, not subtitles inside the video file (as in many `.mkv` files). Only their text is read: styling, positions and drawings in `.ass` and `.ssa` files, and the reading aids over words in `.vtt` files (ruby text), are left out. Where several lines are shown at once (signs and dialogue in `.ass` files, often), the one that appeared last is read; lines that appear together are read together, and a line drawn twice at once (on two layers of an `.ass` file, for its border or glow) is read once.
+- VLC chooses the subtitles it shows by itself, and you can switch them while watching; ReflektorTTS cannot see which, so with several files the two may differ (VLC prefers `movie.srt`, even in `subs`, to `movie.en.srt`). One file per language avoids that.
+- In dense dialogue, or when VLC plays faster, speech falls behind the picture, because new lines wait their turn by default. Set **New lines** in App settings… to **Speed up to catch up** or **Cut off the current one**.
+- Only one VLC at a time can be read: the first one started gets the web interface's port. If another program uses that port, VLC's web interface does not start, and the Status tab says what to do.
+- VLC 3 installed from videolan.org (or your Linux distribution) is supported. A portable copy of VLC, and VLC from Snap or Flatpak, keep their settings elsewhere, and VLC 4 has not been tried yet.
 
 ## Naming
 
