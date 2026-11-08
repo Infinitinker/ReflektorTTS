@@ -94,5 +94,5 @@ strict = true
 files = ["src", "tests", "tools"]
 
 [[tool.mypy.overrides]]
-module = ["sounddevice", "num2words", "ctranslate2", "sacremoses", "subword_nmt.*", "sentencepiece", "pycaw.*", "comtypes", "pystray", "PyInstaller.*", "onnxruntime"]
+module = ["sounddevice", "num2words", "ctranslate2", "sacremoses", "subword_nmt.*", "sentencepiece", "pycaw.*", "comtypes", "pystray", "PyInstaller.*", "onnxruntime", "winrt.*"]
 ignore_missing_imports = true

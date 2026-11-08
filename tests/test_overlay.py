@@ -61,10 +61,11 @@ def test_injector_messages_are_read_as_utf8(
 def test_an_injector_blocked_by_antivirus_is_reported(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
+    class BlockedByAntivirus(OSError):
+        winerror = 225  # Only Windows' OSError has it, so it is set here, on every system.
+
     def blocked(command: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
-        error = OSError("The file contains a virus")
-        error.winerror = 225
-        raise error
+        raise BlockedByAntivirus("The file contains a virus")
 
     monkeypatch.setattr(subprocess, "run", blocked)
 

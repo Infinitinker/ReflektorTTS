@@ -62,8 +62,9 @@ class FakeContext:
     def __init__(self) -> None:
         self.processes: list[FakeProcess] = []
 
-    def Pipe(self, duplex: bool = True) -> tuple[Connection, Connection]:
-        return cast(tuple[Connection, Connection], multiprocessing.Pipe(duplex))
+    def Pipe(self, duplex: bool = True) -> tuple[Any, Any]:
+        """Real pipes, whose class differs by system (PipeConnection on Windows)."""
+        return multiprocessing.Pipe(duplex)
 
     def Process(self, target: object, args: tuple[Any, ...], name: str, daemon: bool) -> FakeProcess:
         self.processes.append(FakeProcess(target, args, name, daemon))

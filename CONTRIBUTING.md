@@ -55,7 +55,7 @@ Both take the same options:
 
 ### Checks
 
-Every pull request is checked on Windows and Linux by the `Checks` workflow. Run them yourself first:
+Every pull request is checked by the `Checks` workflow: lint and formatting once, types and tests on both Windows and Linux. Run them yourself first:
 
 ```powershell
 .venv\Scripts\python -m pytest
@@ -68,6 +68,12 @@ Every pull request is checked on Windows and Linux by the `Checks` workflow. Run
 ```
 ```powershell
 .venv\Scripts\python -m mypy
+```
+
+mypy checks the code as it runs on your system. To check it as it runs on the other one too, add `--platform linux` on Windows, or `--platform win32` on Linux:
+
+```powershell
+.venv\Scripts\python -m mypy --platform linux
 ```
 
 Tests live in `tests/`, mirroring `src/reflektortts/`, and run without a game, a GPU or the network. [docs/architecture.md](docs/architecture.md) explains how the code is organized, and [docs/plugins.md](docs/plugins.md) how to add sources, processing stages, speech engines and download sources as plugins.
@@ -89,11 +95,13 @@ The icon of ReflektorTTS is drawn in code by `tools/draw_icon.py`, into `src/ref
 It needs git, Inno Setup 7 (found where its installer puts it, or wherever the `ISCC` environment variable points), the `release` extra and both native builds, with the overlays and the settings window (see [native/README.md](native/README.md)), and every change committed:
 
 ```powershell
-.venv\Scripts\pip install -e .[release]
+.venv\Scripts\pip install -e .[release] -c tools\release-constraints.txt
 ```
 ```powershell
 .venv\Scripts\python tools\build_release.py
 ```
+
+`tools/release-constraints.txt` holds the exact version of every package a release is built with, so a release built on GitHub ships the versions it was tested with. After adding or upgrading a dependency and testing the app with it, refresh the file as its first lines say.
 
 A release is refused while a shipped package has no license text, or a shipped package under the GPL, LGPL or MPL has no source listed:
 
@@ -101,3 +109,8 @@ A release is refused while a shipped package has no license text, or a shipped p
 - Add where a package's source is, for its exact version, to `SOURCES` in `tools/sources.py`.
 
 `--draft` builds anyway, to test, from uncommitted changes too, marking what is missing and the files' names.
+
+Releases are built on GitHub by the `Release` workflow (`.github/workflows/release.yml`), the same way, on a clean Windows runner: it builds both native builds with MSYS2, installs Inno Setup and runs `tools/build_release.py`.
+
+- Pushing a tag `v<version>` on `main`, where `<version>` is the version in `pyproject.toml`, builds the release, records where each file was built (a provenance attestation, which `gh attestation verify <file> --repo Infinitinker/ReflektorTTS` checks), and drafts the release's page with the three files and their checksums. Write the release notes there, then publish it.
+- A pull request that changes the native code, `pyproject.toml`, the release tools or their constraints builds a release too, to check that it still builds. A run started by hand on the Actions tab builds one to try. Both keep the files on the run's page, without drafting a release.
