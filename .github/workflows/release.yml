@@ -1,0 +1,142 @@
+name: Release
+
+# A pushed tag v<version> builds the release and drafts its page, which a maintainer then completes
+# and publishes. Pull requests that change how a release is built build one too, to check it; a run
+# started by hand builds one to try. Those keep the files on the run's page for 90 days.
+on:
+  push:
+    tags: ["v*"]
+  pull_request:
+    paths:
+      - .github/workflows/release.yml
+      - native/**
+      - pyproject.toml
+      - tools/build_release.py
+      - tools/installer.iss
+      - tools/licenses/**
+      - tools/notices.py
+      - tools/release-constraints.txt
+      - tools/sources.py
+  workflow_dispatch:
+
+concurrency:
+  group: release-${{ github.ref }}
+  # A newer push to a pull request replaces its build; a release's build is never cut short.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+env:
+  # Inno Setup's installer, checked against the SHA-256 that its release on GitHub lists.
+  INNO_SETUP_URL: https://github.com/jrsoftware/issrc/releases/download/is-7_1_1/innosetup-7.1.1-x64.exe
+  INNO_SETUP_SHA256: 8a5a6711c3766a6e5fb74f280ba0e3551e719ce94538d901fdbd1f8f9920b3f0
+
+jobs:
+  build:
+    name: Build
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+
+      # Both toolchains, as in native/README.md: the 32-bit overlay is for 32-bit apps. MSYS2 calls
+      # MINGW32 deprecated, with no replacement for 32-bit builds, and only warns about it.
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          install: >-
+            git
+            mingw-w64-i686-toolchain mingw-w64-i686-cmake mingw-w64-i686-ninja
+            mingw-w64-x86_64-toolchain mingw-w64-x86_64-cmake mingw-w64-x86_64-ninja
+      - name: Build the 32-bit overlay
+        shell: msys2 {0}
+        env:
+          MSYSTEM: MINGW32
+        run: |
+          cmake -S native -B native/build -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake --build native/build
+      - name: Build the 64-bit overlay and the settings window
+        shell: msys2 {0}
+        run: |
+          cmake -S native -B native/build64 -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake --build native/build64
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: tools/release-constraints.txt
+      - name: Install
+        run: python -m pip install -e .[release] -c tools/release-constraints.txt
+      - name: Check the tag
+        if: github.ref_type == 'tag'
+        shell: bash
+        run: |
+          version=$(python -c "from importlib.metadata import version; print(version('reflektortts'))")
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::The tag is $GITHUB_REF_NAME, but the version in pyproject.toml is $version."
+            exit 1
+          fi
+
+      - name: Install Inno Setup
+        run: |
+          $installer = Join-Path $env:RUNNER_TEMP "innosetup.exe"
+          $folder = Join-Path $env:RUNNER_TEMP "InnoSetup"
+          Invoke-WebRequest $env:INNO_SETUP_URL -OutFile $installer
+          $hash = (Get-FileHash $installer -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($hash -ne $env:INNO_SETUP_SHA256) { throw "Inno Setup's installer has the SHA-256 $hash, not $env:INNO_SETUP_SHA256." }
+          $setup = Start-Process $installer -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/SP-", "/DIR=$folder" -Wait -PassThru
+          if ($setup.ExitCode -ne 0) { throw "Inno Setup's installer failed with exit code $($setup.ExitCode)." }
+          "ISCC=$(Join-Path $folder 'ISCC.exe')" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Build the release
+        run: python tools/build_release.py
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release
+          path: |
+            build/release/*-setup.exe
+            build/release/*.zip
+          if-no-files-found: error
+          compression-level: 0 # The installer and the zips are compressed already.
+
+  draft:
+    name: Draft the release
+    needs: build
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write # To create the release.
+      id-token: write # To sign the provenance attestations.
+      attestations: write # To store them.
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: release
+          path: release
+      # Records that these files were built by this workflow from this commit, so anyone can check a
+      # download with: gh attestation verify <file> --repo Infinitinker/ReflektorTTS
+      - uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: release/*
+      - name: Draft the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd release
+          {
+            echo "Describe the release here, then publish it."
+            echo
+            echo "## Checksums (SHA-256)"
+            echo
+            echo '```'
+            sha256sum -- *
+            echo '```'
+            echo
+            echo "Each file's build can be checked with the [GitHub CLI](https://cli.github.com/):"
+            echo "\`gh attestation verify <file> --repo $GITHUB_REPOSITORY\`."
+          } > "$RUNNER_TEMP/notes.md"
+          gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --draft --verify-tag \
+            --title "ReflektorTTS ${GITHUB_REF_NAME#v}" --notes-file "$RUNNER_TEMP/notes.md" -- *
