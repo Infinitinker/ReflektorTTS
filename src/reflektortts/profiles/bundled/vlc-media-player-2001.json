@@ -4,6 +4,7 @@
     "title": "VLC media player",
     "year": 2001
   },
+  "rating": "gold",
   "match": {
     "executables": [{ "name": "vlc.exe" }, { "name": "vlc" }]
   },

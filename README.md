@@ -35,14 +35,16 @@ ReflektorTTS reads an app's text aloud as it appears on screen, and can translat
 
 ## Supported apps
 
-| App | Edition | What is read |
-| --- | --- | --- |
-| **Grand Theft Auto 2** | 1999, the 9.6 freeware release | Subtitles |
-| **Grand Theft Auto: San Andreas** | 2004, Steam | Subtitles and the help box, with a glossary that keeps names like Sweet and Big Smoke untranslated and pronounces them right in Polish |
-| **Mad Max** | 2015, Steam | Subtitles, in the game language you choose |
-| **VLC media player** | 3, installed from videolan.org | The subtitles of the video playing, from its subtitle file (`.srt`, `.vtt`, `.ass`, `.ssa` or `.sbv`), in time with VLC; enable the VLC integration first (Profiles tab, **Integration…**), see [VLC](docs/profiles.md#vlc-source-type-vlc) |
+| App | Edition | Rating | What is read |
+| --- | --- | --- | --- |
+| **Grand Theft Auto 2** | 1999, the 9.6 freeware release | 🥉 Bronze | Subtitles |
+| **Grand Theft Auto III** | 2001, Steam | 🥉 Bronze | Subtitles, mission objectives, pager messages and the help box; no overlay, so set it up with **App settings…** in the Status tab while it is read, or in the Profiles tab. If the game starts only in Windows XP (Service Pack 3) compatibility mode, that mode runs it as administrator, so run ReflektorTTS as administrator too |
+| **Grand Theft Auto: Vice City** | 2002, Steam | 🥉 Bronze | Subtitles, mission objectives and the help box; no overlay, so set it up with **App settings…** in the Status tab while it is read, or in the Profiles tab. If the game starts only in Windows XP (Service Pack 3) compatibility mode, that mode runs it as administrator, so run ReflektorTTS as administrator too |
+| **Grand Theft Auto: San Andreas** | 2004, Steam | 🥉 Bronze | Subtitles and the help box, with a glossary that keeps names like Sweet and Big Smoke untranslated and pronounces them right in Polish |
+| **Mad Max** | 2015, Steam | 🥉 Bronze | Subtitles, in the game language you choose |
+| **VLC media player** | 3, installed from videolan.org | 🥇 Gold | The subtitles of the video playing, from its subtitle file (`.srt`, `.vtt`, `.ass`, `.ssa` or `.sbv`), in time with VLC; enable the VLC integration first (Profiles tab, **Integration…**), see [VLC](docs/profiles.md#vlc-source-type-vlc) |
 
-Each app is described by a profile, so more apps can be added without changing ReflektorTTS itself; see [Profiles](#profiles).
+The medal says how far a profile is tested: 🥉 Bronze, tried briefly; 🥈 Silver, the main texts read in the first part of the app; 🥇 Gold, through most of it; 💎 Platinum, every text, to the end. Each app is described by a profile, so more apps can be added without changing ReflektorTTS itself; see [Profiles](#profiles).
 
 ## Getting started
 
@@ -58,11 +60,19 @@ Rather not install anything? Download `ReflektorTTS-<version>-windows-x64.zip` i
 <table>
   <tr>
     <td><img src="docs/images/status.png" alt="The Status tab: what ReflektorTTS is doing, its voice, languages and the app's sound, with links to the project and its support pages"></td>
-    <td><img src="docs/images/voices.png" alt="The Voices tab, listing Piper voices to download"></td>
+    <td><img src="docs/images/profiles.png" alt="The Profiles tab, listing the bundled profiles with their rating medals and states, and the selected profile's details"></td>
   </tr>
   <tr>
     <td align="center">What ReflektorTTS is doing</td>
+    <td align="center">The apps it reads, rated by how far they are tested</td>
+  </tr>
+  <tr>
+    <td><img src="docs/images/voices.png" alt="The Voices tab, listing Piper voices to download, with the selected voice's model card and license"></td>
+    <td><img src="docs/images/translations.png" alt="The Translations tab, listing translation models between English and Polish to download, with the installed English to Polish model selected"></td>
+  </tr>
+  <tr>
     <td align="center">Voices to download</td>
+    <td align="center">Translation models to download</td>
   </tr>
 </table>
 
@@ -70,8 +80,8 @@ Rather not install anything? Download `ReflektorTTS-<version>-windows-x64.zip` i
 
 ReflektorTTS runs next to the clock: its icon there opens the window, pauses reading, switches **Start with Windows** on or off, or quits. Closing the window leaves ReflektorTTS running.
 
-- **Status** shows what ReflektorTTS is doing: the app it reads, or that it waits for one, and an app version its profile does not support yet, with the voice, the languages and what happens to the app's sound: the app's own settings, or with no app running, the ones a new app starts with. When ReflektorTTS cannot read the app, it says why and what to do, until it can again. It also pauses reading, quits ReflektorTTS, and links to the project page, bug reports and the support pages.
-- **Profiles** lists the profiles, bundled and your own, says which are used and why others are not, enables or disables them, and copies, removes or imports profile files. **App settings…** opens the selected app's settings in a window of their own beside the ReflektorTTS window, the same as in the game, whether or not the app is running: set up an app before you start it, or one without the overlay. Clicking it again brings that window to the front. An app that can be read only once its own settings are changed shows as **Not set up**, with a group under its details: **Enable** there makes the change, and **Disable** puts back what it changed.
+- **Status** shows what ReflektorTTS is doing: the app it reads, or that it waits for one, and an app version its profile does not support yet, with the voice, the languages and what happens to the app's sound: the app's own settings, or with no app running, the ones a new app starts with. When ReflektorTTS cannot read the app, it says why and what to do, until it can again. It also pauses reading, opens the settings of the app being read with **App settings…**, quits ReflektorTTS, and links to the project page, bug reports and the support pages.
+- **Profiles** lists the profiles, bundled and your own, with the medal for how far each is tested, says which are used and why others are not, enables or disables them, and copies, removes or imports profile files. **App settings…** opens the selected app's settings in a window of their own beside the ReflektorTTS window, the same as in the game, whether or not the app is running: set up an app before you start it, or one without the overlay. Clicking it again brings that window to the front. An app that can be read only once its own settings are changed shows as **Not set up**, with a group under its details: **Enable** there makes the change, and **Disable** puts back what it changed.
 - **Voices** and **Translations** download voices and translation models; see [Voices](#voices) and [Translation](#translation).
 - **Settings** has the **Start with Windows** switch: ReflektorTTS then starts, hidden next to the clock, when you sign in. A first install for you alone turns it on unless you untick it; Task Manager's Startup apps can turn it off too. It also opens the settings, logs and profiles folders.
 
@@ -87,7 +97,7 @@ In an app with the overlay, press **Ctrl+Shift+R** to open the ReflektorTTS pane
 
 It also shows the last line read. Everything chosen there is saved for each app, in `%LOCALAPPDATA%\ReflektorTTS\settings\profiles\`, one file per app; deleting an app's file resets it.
 
-The same settings, without pause and the last line read, open in a window of their own from **App settings…** in the Profiles tab, for any app, running or not.
+The same settings, without pause and the last line read, open in a window of their own from **App settings…**: in the Status tab for the app being read, in the Profiles tab for any app, running or not.
 
 ## Voices
 

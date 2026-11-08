@@ -14,7 +14,7 @@ from jsonschema.protocols import Validator
 
 from reflektortts.glossary import Glossaries, Glossary, GlossaryTerm
 from reflektortts.pipeline.plugins import source_plugins, stage_plugins
-from reflektortts.profiles.model import App, Executable, Match, Profile, SourceSettings, StageSettings
+from reflektortts.profiles.model import App, Executable, Match, Profile, Rating, SourceSettings, StageSettings
 
 logger = logging.getLogger(__name__)
 
@@ -163,6 +163,7 @@ def parse_profile(data: Any, profile_id: str, schemas: PluginSchemas | None = No
         sources=sources,
         overlay=overlay,
         glossary=_glossaries(data.get("glossary", {}), name),
+        rating=Rating(data["rating"]) if "rating" in data else None,
     )
 
 

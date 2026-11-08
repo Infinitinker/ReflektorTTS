@@ -1,0 +1,111 @@
+{
+  "version": 1,
+  "app": {
+    "title": "Grand Theft Auto III",
+    "year": 2001
+  },
+  "rating": "bronze",
+  "match": {
+    "executables": [
+      {
+        "name": "gta3.exe",
+        "sha256": ["9b1ddafadee27dca2970159be497c9a851061711ec79ec319340a1a35c0daa28"]
+      }
+    ]
+  },
+  "glossary": {
+    "en": [
+      { "term": "Claude", "pronounce": { "pl": "Klod" } },
+      { "term": "Luigi", "pronounce": { "pl": "Luidżi" } },
+      { "term": "Misty", "keep": true, "female": true, "pronounce": { "pl": "Misti" } },
+      { "term": "Joey", "pronounce": { "pl": "Dżołi" } },
+      { "term": "Leone", "pronounce": { "pl": "Leołne" } },
+      { "term": "8-Ball", "keep": true, "pronounce": { "pl": "Ejtbol" } },
+      { "term": "Love", "keep": true, "pronounce": { "pl": "Law" } },
+      { "term": "Liberty City", "pronounce": { "pl": "Liberty Syty" } },
+      { "term": "Hepburn Heights", "pronounce": { "pl": "Hepbern Hajts" } },
+      { "term": "SPANK", "keep": true, "pronounce": { "pl": "Spank" } },
+      { "term": "wiseguy", "means": "gangster" }
+    ]
+  },
+  "sources": [
+    {
+      "type": "memory",
+      "name": "subtitles",
+      "poll_interval_ms": 100,
+      "encoding": "utf-16le",
+      "pointers": [
+        {
+          "exe_sha256": "9b1ddafadee27dca2970159be497c9a851061711ec79ec319340a1a35c0daa28",
+          "address": "gta3.exe+33E458",
+          "offsets": []
+        }
+      ],
+      "stages": [
+        { "type": "tracker", "stable_ms": 200, "min_letters": 3 },
+        {
+          "type": "replace",
+          "rules": [
+            { "find": "~n~", "replace": " " },
+            { "pattern": "~[a-zA-Z]~", "replace": "" }
+          ]
+        },
+        { "type": "translate" },
+        { "type": "pronounce", "text": false },
+        { "type": "normalize", "text": false }
+      ]
+    },
+    {
+      "type": "memory",
+      "name": "help",
+      "poll_interval_ms": 100,
+      "encoding": "utf-16le",
+      "pointers": [
+        {
+          "exe_sha256": "9b1ddafadee27dca2970159be497c9a851061711ec79ec319340a1a35c0daa28",
+          "address": "gta3.exe+47B978",
+          "offsets": []
+        }
+      ],
+      "stages": [
+        { "type": "tracker", "stable_ms": 200, "min_letters": 3 },
+        {
+          "type": "replace",
+          "rules": [
+            { "find": "~n~", "replace": " " },
+            { "pattern": "~[a-zA-Z]~", "replace": "" }
+          ]
+        },
+        { "type": "translate" },
+        { "type": "pronounce", "text": false },
+        { "type": "normalize", "text": false }
+      ]
+    },
+    {
+      "type": "memory",
+      "name": "pager",
+      "poll_interval_ms": 100,
+      "encoding": "utf-16le",
+      "pointers": [
+        {
+          "exe_sha256": "9b1ddafadee27dca2970159be497c9a851061711ec79ec319340a1a35c0daa28",
+          "address": "gta3.exe+50293C",
+          "offsets": ["0"]
+        }
+      ],
+      "stages": [
+        { "type": "tracker", "stable_ms": 200, "min_letters": 3 },
+        {
+          "type": "replace",
+          "rules": [
+            { "find": "~n~", "replace": " " },
+            { "pattern": "~[a-zA-Z]~", "replace": "" }
+          ]
+        },
+        { "type": "translate" },
+        { "type": "pronounce", "text": false },
+        { "type": "normalize", "text": false }
+      ]
+    }
+  ]
+}

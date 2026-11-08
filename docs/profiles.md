@@ -10,7 +10,7 @@ A profile describes one app: how to recognize it, where to read its text, and ho
 - Any profile, bundled or your own, can be disabled; its app is then not read. A broken profile file is not used, and the reason is shown.
 - Some sources can read an app only once its own settings are changed, e.g. VLC's web interface switched on. ReflektorTTS makes that change when you enable the source's **integration**, and puts it back when you disable it. Until then a profile whose sources all need one is **not set up**, and its app is not read.
 
-The desktop app's Profiles tab lists them all with their state, and does the rest. For a profile that needs an integration, **Integration…** opens a window with a group for it, named after it, which says what it changes and whether it is enabled, with a button that enables or disables it. **Copy to edit** copies a bundled profile to your folder (where it replaces the bundled one) and shows it there for your editor; **Remove** deletes your own file; **Import…** adds a profile file to your own once it is checked (a broken one is refused with the reason); **Reload** reads the files again after you edit them. A changed profile applies the next time its app starts.
+The desktop app's Profiles tab lists them all with their medal (see `rating` below) and state, and does the rest. For a profile that needs an integration, **Integration…** opens a window with a group for it, named after it, which says what it changes and whether it is enabled, with a button that enables or disables it. **Copy to edit** copies a bundled profile to your folder (where it replaces the bundled one) and shows it there for your editor; **Remove** deletes your own file; **Import…** adds a profile file to your own once it is checked (a broken one is refused with the reason); **Reload** reads the files again after you edit them. A changed profile applies the next time its app starts.
 
 The profile format is not finalized yet. Its JSON Schema is `src/reflektortts/profiles/profile.schema.json`; a full guide to writing and contributing profiles will be added here once the format settles.
 
@@ -33,6 +33,13 @@ A profile is a JSON file saved as UTF-8 (with or without a byte order mark), as 
 - `version`: the profile format version. Older profiles are migrated automatically.
 - `app`: the app's `title` and original release `year`, for display.
 - `match`: how the app is recognized. `executables` lists its executables, because one app can ship several. Each has a `name` (the file name, e.g. `"gta2.exe"`) and, optionally, `sha256`: the SHA-256 of each build of that file the profile supports, in lowercase hex. With `sha256`, only those builds are read, and another build is reported as not supported yet, with its SHA-256, in the Status tab of the desktop app. Without it, any build with that name is read, which suits programs that update often.
+- `rating` (optional): how far the profile is tested, as a medal, shown in the Profiles tab with what it means. Rate your profile by what you checked yourself, not by what you expect:
+  - `bronze`: some of the app's texts are read, tried only briefly, so others may be missed.
+  - `silver`: the main texts (dialogue, subtitles) are read, tested in the first part of the app.
+  - `gold`: the main texts are read, tested through most of the app.
+  - `platinum`: every text the app shows is read, tested through all of it.
+
+  Without it, the profile is shown as not rated. Every bundled profile has one.
 - `overlay` (optional, default `false`): whether the overlay is loaded into the app. It needs `sha256` for every executable, so the overlay is only ever loaded into builds it was tested with.
 - `glossary` (optional): words and phrases of the app that translation and speech treat specially, by the input language they are written in (two-letter code, e.g. `"en"`). A line read in another language gets none of them, since terms of one language turn another into gibberish; a glossary for another language can be added next to it. Each language has one entry per `term` (as the app writes it, e.g. `"Big Smoke"`, or a list of the ways it writes it, e.g. `["Big Smoke", "Big smoke"]`; each is matched as written, and in capitals in shouted lines, so a lowercase "big smoke" is still smoke), with one or more of:
   - `keep`: `true` if the term is never translated, e.g. a name that is also a word, like `"Sweet"`, which would otherwise become "Słodki". Matched with the same capitals, so "sweet" is still translated. Add `"female": true` for a woman's name, so it is declined as one.

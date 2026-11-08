@@ -57,7 +57,7 @@ from reflektortts.profiles.catalog import (
     Standing,
 )
 from reflektortts.profiles.loader import ProfileError
-from reflektortts.profiles.model import App, Executable, Match, Profile, SourceSettings, StageSettings
+from reflektortts.profiles.model import App, Executable, Match, Profile, Rating, SourceSettings, StageSettings
 from reflektortts.settings import SettingsChange
 from reflektortts.tts.engine import VoiceError, VoiceInfo, find_voice
 from reflektortts.tts.service import NewLine
@@ -75,6 +75,7 @@ MAD_MAX = CatalogEntry(
         Match((Executable("MadMax.exe", ("cd71",)),)),
         (SourceSettings("avalanche", "subtitles", 0.1, {}, (StageSettings("tracker", {}),)),),
         overlay=True,
+        rating=Rating.BRONZE,
     ),
 )
 GOSIA = Entry(
@@ -749,6 +750,7 @@ def test_profiles_are_listed_and_switched() -> None:
                     "reason": None,
                     "file": str(Path("mad-max-2015.json")),
                     "overlay": True,
+                    "rating": "bronze",
                     "executables": [{"name": "MadMax.exe", "sha256": ["cd71"]}],
                     "sources": [{"name": "subtitles", "type": "avalanche", "stages": ["tracker"]}],
                 }

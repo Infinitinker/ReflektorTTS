@@ -4,6 +4,7 @@
     "title": "Mad Max",
     "year": 2015
   },
+  "rating": "bronze",
   "match": {
     "executables": [
       {

@@ -116,6 +116,7 @@ Lists every profile, bundled and the user's own, in ID order:
       "reason": null,
       "file": "...\\profiles\\bundled\\grand-theft-auto-2-1999.json",
       "overlay": true,
+      "rating": "bronze",
       "executables": [{ "name": "gta2.exe", "sha256": ["420af867..."] }],
       "sources": [{ "name": "subtitles", "type": "memory", "stages": ["tracker", "replace", "translate", "normalize"] }]
     }
@@ -123,6 +124,7 @@ Lists every profile, bundled and the user's own, in ID order:
 }
 ```
 
+- `rating`: how far the profile is tested, as its medal (`bronze`, `silver`, `gold` or `platinum`; see the profile format), or `null` if it is not rated or the file is broken.
 - `origin`: `bundled`, `custom` (the user's own) or `override` (the user's own, replacing the bundled profile with its ID).
 - `state`: `reading`, `not_running`, `unsupported` (its app runs in a build the profile does not list), `not_set_up` (every source of it needs an [integration](#integrations) that is not enabled, so its app is not read), `disabled`, `not_used` (another profile, the user's own, matches the same app), `clash` (another of the user's own does) or `broken` (the file cannot be read as a profile; `title`, `year` and `overlay` are then `null`). `reason` says why for `not_set_up`, `not_used`, `clash` and `broken`.
 

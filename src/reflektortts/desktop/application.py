@@ -20,7 +20,8 @@ from typing import Any
 from reflektortts.api.server import PORT, ApiError
 from reflektortts.arguments import Arguments
 from reflektortts.desktop.about import about
-from reflektortts.desktop.api_client import (
+from reflektortts.desktop.api.catalog import DownloadItem, DownloadList, DownloadProgress, other_voices, parse_list
+from reflektortts.desktop.api.client import (
     REFRESH_TIMEOUT_SECONDS,
     ApiClientError,
     StatusFeed,
@@ -28,16 +29,15 @@ from reflektortts.desktop.api_client import (
     reflektortts_answers,
     request_json,
 )
-from reflektortts.desktop.autostart import autostart_supported, system_autostart
-from reflektortts.desktop.catalog import DownloadItem, DownloadList, DownloadProgress, other_voices, parse_list
+from reflektortts.desktop.api.integrations import IntegrationItem, failure_text, parse_integrations
+from reflektortts.desktop.api.profiles import ProfileItem, file_name, name_text, parse_profiles
+from reflektortts.desktop.api.status import CoreStatus, describe
 from reflektortts.desktop.core_thread import CoreThread
-from reflektortts.desktop.dock import dock_of
-from reflektortts.desktop.folders import open_folder, show_file, where_files_are
-from reflektortts.desktop.integrations import IntegrationItem, failure_text, parse_integrations
-from reflektortts.desktop.panel_window import PanelWindows, find_program
-from reflektortts.desktop.profiles import ProfileItem, file_name, name_text, parse_profiles
-from reflektortts.desktop.state import load_state, save_state
-from reflektortts.desktop.status import CoreStatus, describe
+from reflektortts.desktop.panel.dock import dock_of
+from reflektortts.desktop.panel.launcher import PanelWindows, find_program
+from reflektortts.desktop.system.autostart import autostart_supported, system_autostart
+from reflektortts.desktop.system.folders import open_folder, show_file, where_files_are
+from reflektortts.desktop.system.state import load_state, save_state
 from reflektortts.desktop.tray import Tray
 from reflektortts.desktop.window import Window
 from reflektortts.settings import SETTINGS_FOLDER
@@ -70,7 +70,8 @@ class Application:
         self._items: dict[str, DownloadItem] = {}
         self._core = CoreThread(args.profiles, config_dir(), args.overlay)
         self._panels = PanelWindows(find_program(args.overlay))
-        """The settings windows, one per profile, opened from the Profiles tab."""
+        """The settings windows, one per profile, opened from the Profiles tab or, for the app being
+        read, the Status tab."""
         self._feed = StatusFeed(
             lambda status: self._later(lambda: self._show(status)),
             lambda progress: self._later(lambda: self._download_progress(progress)),
@@ -99,7 +100,8 @@ class Application:
             voice_title=lambda voice: self._voice_titles.get(voice, voice),
             on_profiles_opened=self._profiles_opened,
             on_enable_profile=self._enable_profile,
-            on_app_settings=self._open_app_settings,
+            on_app_settings=lambda item: self._open_app_settings(item.id, name_text(item)),
+            on_read_app_settings=self._open_app_settings,
             app_settings_missing=self._panels.missing,
             on_copy_profile=self._copy_profile,
             on_remove_profile=self._remove_profile,
@@ -162,7 +164,7 @@ class Application:
             self._names_for = status.voice
             self._fetching_names = True
             self._in_background(self._fetch_names)
-        self._window.show_status(status)
+        self._window.status.show(status)
         self._tray.show_status(describe(status), status is not None and status.paused, status is not None)
 
     def _fetch_names(self) -> None:
@@ -182,7 +184,7 @@ class Application:
             self._language_names = names
             self._voice_titles = titles
             if not self._stopped:
-                self._window.show_status(self._status)
+                self._window.status.show(self._status)
 
         self._later(show)
 
@@ -199,7 +201,7 @@ class Application:
             self._in_background(self._check_port)
             return
         message = "Stopped: open the logs folder, in the Settings tab, to see why."
-        self._window.show_stopped(message)
+        self._window.status.show_stopped(message)
         self._tray.show_status(message, paused=False, connected=False)
 
     def _check_port(self) -> None:
@@ -258,15 +260,15 @@ class Application:
         body = {"id": item.id, "enabled": enabled}
         self._profile_request("PATCH", "/profiles", body, f"{name_text(item)} could not be {action}")
 
-    def _open_app_settings(self, item: ProfileItem) -> None:
+    def _open_app_settings(self, profile: str, title: str) -> None:
         """Opens the profile's settings window beside this one, or brings it to the front; it talks to
-        the core itself."""
+        the core itself. title names the app in an error."""
         try:
-            self._panels.open(item.id, lambda: dock_of(self._root))
+            self._panels.open(profile, lambda: dock_of(self._root))
         except OSError as error:
-            logger.exception("Cannot open the settings window for %s", item.id)
+            logger.exception("Cannot open the settings window for %s", profile)
             reason = error.strerror or str(error)
-            self._show_error(f"The settings window for {name_text(item)} could not be opened: {reason}")
+            self._show_error(f"The settings window for {title} could not be opened: {reason}")
 
     def _copy_profile(self, item: ProfileItem) -> None:
         """Copies a bundled profile and shows the copy, ready to edit."""

@@ -8,7 +8,7 @@ from jsonschema import Draft202012Validator
 from reflektortts.glossary import GlossaryTerm
 from reflektortts.profiles import loader
 from reflektortts.profiles.loader import PluginSchemas, ProfileError, load_profile
-from reflektortts.profiles.model import App, Executable, Match, Profile, SourceSettings, StageSettings
+from reflektortts.profiles.model import App, Executable, Match, Profile, Rating, SourceSettings, StageSettings
 
 VALID: dict[str, Any] = {
     "version": 1,
@@ -42,6 +42,13 @@ def test_builds_are_listed_by_hash_and_the_overlay_is_off_unless_asked_for(tmp_p
     assert profile.match == Match((Executable("test.exe", (BUILD,)),))
     assert not profile.overlay
     assert load_profile(write(tmp_path, "app.json", data | {"overlay": True})).overlay
+
+
+def test_a_profile_is_rated_with_a_medal_or_not_at_all(tmp_path: Path) -> None:
+    assert load_profile(write(tmp_path, "app.json", VALID)).rating is None
+    assert load_profile(write(tmp_path, "app.json", VALID | {"rating": "silver"})).rating == Rating.SILVER
+    with pytest.raises(ProfileError, match=r"app.json: .*\$.rating"):
+        load_profile(write(tmp_path, "app.json", VALID | {"rating": "wood"}))
 
 
 def test_the_overlay_needs_the_builds_it_was_tested_with(tmp_path: Path) -> None:

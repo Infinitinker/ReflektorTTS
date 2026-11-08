@@ -1,0 +1,83 @@
+{
+  "version": 1,
+  "app": {
+    "title": "Grand Theft Auto: Vice City",
+    "year": 2002
+  },
+  "rating": "bronze",
+  "match": {
+    "executables": [
+      {
+        "name": "gta-vc.exe",
+        "sha256": ["8c2318d61bffaaff5e638449543dbf99ea932dca85f297c7190d2efd525b848f"]
+      }
+    ]
+  },
+  "glossary": {
+    "en": [
+      { "term": "Tommy", "pronounce": { "pl": "Tomi" } },
+      { "term": "Vercetti", "pronounce": { "pl": "Werczeti" } },
+      { "term": "Sonny", "pronounce": { "pl": "Sony" } },
+      { "term": "Rosenberg", "pronounce": { "pl": "Rołzenberg" } },
+      { "term": "Lance", "keep": true, "pronounce": { "pl": "Lens" } },
+      { "term": "Vance", "keep": true, "pronounce": { "pl": "Wens" } },
+      { "term": "Vice City", "pronounce": { "pl": "Wajs Syty" } },
+      { "term": "Mercedes", "keep": true, "female": true, "pronounce": { "pl": "Mersejdes" } },
+      { "term": "the greens", "means": "the money" }
+    ]
+  },
+  "sources": [
+    {
+      "type": "memory",
+      "name": "subtitles",
+      "poll_interval_ms": 100,
+      "encoding": "utf-16le",
+      "pointers": [
+        {
+          "exe_sha256": "8c2318d61bffaaff5e638449543dbf99ea932dca85f297c7190d2efd525b848f",
+          "address": "gta-vc.exe+413F30",
+          "offsets": []
+        }
+      ],
+      "stages": [
+        { "type": "tracker", "stable_ms": 200, "min_letters": 3 },
+        {
+          "type": "replace",
+          "rules": [
+            { "find": "~n~", "replace": " " },
+            { "pattern": "~[a-zA-Z]~", "replace": "" }
+          ]
+        },
+        { "type": "translate" },
+        { "type": "pronounce", "text": false },
+        { "type": "normalize", "text": false }
+      ]
+    },
+    {
+      "type": "memory",
+      "name": "help",
+      "poll_interval_ms": 100,
+      "encoding": "utf-16le",
+      "pointers": [
+        {
+          "exe_sha256": "8c2318d61bffaaff5e638449543dbf99ea932dca85f297c7190d2efd525b848f",
+          "address": "gta-vc.exe+538030",
+          "offsets": []
+        }
+      ],
+      "stages": [
+        { "type": "tracker", "stable_ms": 200, "min_letters": 3 },
+        {
+          "type": "replace",
+          "rules": [
+            { "find": "~n~", "replace": " " },
+            { "pattern": "~[a-zA-Z]~", "replace": "" }
+          ]
+        },
+        { "type": "translate" },
+        { "type": "pronounce", "text": false },
+        { "type": "normalize", "text": false }
+      ]
+    }
+  ]
+}
