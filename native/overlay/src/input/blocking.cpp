@@ -1,9 +1,9 @@
-#include "input_blocking.h"
+#include "input/blocking.h"
 
 #include <atomic>
 
-#include "dinput_hook.h"
-#include "win32_input_hook.h"
+#include "input/dinput_hook.h"
+#include "input/win32_hook.h"
 
 namespace reflektortts {
 namespace {

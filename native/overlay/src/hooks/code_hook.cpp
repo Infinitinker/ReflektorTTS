@@ -1,4 +1,4 @@
-#include "code_hook.h"
+#include "hooks/code_hook.h"
 
 #include <MinHook.h>
 
@@ -10,7 +10,7 @@
 #include <unordered_map>
 #include <vector>
 
-#include "describe_address.h"
+#include "diagnostics/describe_address.h"
 #include "log.h"
 
 namespace reflektortts {

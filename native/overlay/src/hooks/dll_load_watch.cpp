@@ -1,4 +1,4 @@
-#include "dll_load_watch.h"
+#include "hooks/dll_load_watch.h"
 
 namespace reflektortts {
 namespace {

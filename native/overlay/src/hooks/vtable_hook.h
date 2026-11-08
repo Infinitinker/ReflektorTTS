@@ -5,7 +5,7 @@
 #include <cstdio>
 #include <string>
 
-#include "code_hook.h"
+#include "hooks/code_hook.h"
 #include "log.h"
 
 namespace reflektortts {

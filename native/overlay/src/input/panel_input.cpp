@@ -1,4 +1,4 @@
-#include "input.h"
+#include "input/panel_input.h"
 
 #include <imgui.h>
 
@@ -7,7 +7,7 @@
 #include <unordered_map>
 #include <vector>
 
-#include "input_blocking.h"
+#include "input/blocking.h"
 
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND window, UINT message, WPARAM wparam, LPARAM lparam);
 

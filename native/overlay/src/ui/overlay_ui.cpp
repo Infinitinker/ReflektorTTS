@@ -1,13 +1,13 @@
-#include "ui.h"
+#include "ui/overlay_ui.h"
 
 #include <imgui.h>
 
 #include <cfloat>
 
 #include "api_client.h"
-#include "input.h"
+#include "input/panel_input.h"
 #include "settings_panel.h"
-#include "subtitles.h"
+#include "ui/subtitles.h"
 
 namespace reflektortts {
 namespace {

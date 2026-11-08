@@ -1,10 +1,10 @@
-#include "d3d12_queue_hook.h"
+#include "hooks/d3d12_queue_hook.h"
 
 #include <atomic>
 #include <string>
 
+#include "hooks/vtable_hook.h"
 #include "log.h"
-#include "vtable_hook.h"
 
 namespace reflektortts {
 namespace {

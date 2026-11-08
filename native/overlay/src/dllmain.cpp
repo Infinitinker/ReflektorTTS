@@ -4,14 +4,14 @@
 #include <utility>
 
 #include "api_client.h"
-#include "crash_log.h"
-#include "d3d11_renderer.h"
-#include "d3d12_queue_hook.h"
-#include "d3d12_renderer.h"
-#include "d3d9_hook.h"
-#include "d3d9_renderer.h"
-#include "dll_load_watch.h"
-#include "dxgi_hook.h"
+#include "diagnostics/crash_log.h"
+#include "hooks/d3d12_queue_hook.h"
+#include "hooks/d3d9_hook.h"
+#include "hooks/dll_load_watch.h"
+#include "hooks/dxgi_hook.h"
+#include "renderers/d3d11_renderer.h"
+#include "renderers/d3d12_renderer.h"
+#include "renderers/d3d9_renderer.h"
 #include "transport_winhttp.h"
 
 namespace {

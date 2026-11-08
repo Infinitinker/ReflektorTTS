@@ -26,24 +26,26 @@ target_link_libraries(imgui-backends-overlay PUBLIC imgui d3dcompiler dxgi dwmap
 # hooks only the APIs the game has loaded.
 add_library(reflektortts-overlay SHARED
     src/dllmain.cpp
-    src/crash_log.cpp
-    src/dll_load_watch.cpp
-    src/probe_window.cpp
-    src/dxgi_hook.cpp
-    src/d3d11_renderer.cpp
-    src/d3d12_queue_hook.cpp
-    src/d3d12_renderer.cpp
-    src/d3d9_hook.cpp
-    src/d3d9_renderer.cpp
-    src/overlay_frame.cpp
-    src/input.cpp
-    src/code_hook.cpp
-    src/input_blocking.cpp
-    src/win32_input_hook.cpp
-    src/dinput_hook.cpp
-    src/subtitles.cpp
-    src/ui.cpp)
+    src/diagnostics/crash_log.cpp
+    src/hooks/code_hook.cpp
+    src/hooks/dll_load_watch.cpp
+    src/hooks/probe_window.cpp
+    src/hooks/dxgi_hook.cpp
+    src/hooks/d3d12_queue_hook.cpp
+    src/hooks/d3d9_hook.cpp
+    src/renderers/overlay_frame.cpp
+    src/renderers/d3d11_renderer.cpp
+    src/renderers/d3d12_renderer.cpp
+    src/renderers/d3d9_renderer.cpp
+    src/input/panel_input.cpp
+    src/input/blocking.cpp
+    src/input/win32_hook.cpp
+    src/input/dinput_hook.cpp
+    src/ui/overlay_ui.cpp
+    src/ui/subtitles.cpp)
 set_target_properties(reflektortts-overlay PROPERTIES PREFIX "")
+# The overlay's own headers are included by their path from src/ ("hooks/code_hook.h").
+target_include_directories(reflektortts-overlay PRIVATE src)
 target_link_libraries(reflektortts-overlay PRIVATE reflektortts-shared imgui-backends-overlay minhook dxguid)
 
 add_executable(reflektortts-inject injector/inject.cpp)

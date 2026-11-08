@@ -1,4 +1,4 @@
-#include "probe_window.h"
+#include "hooks/probe_window.h"
 
 namespace reflektortts {
 namespace {

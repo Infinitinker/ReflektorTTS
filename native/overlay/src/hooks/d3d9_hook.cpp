@@ -1,4 +1,4 @@
-#include "d3d9_hook.h"
+#include "hooks/d3d9_hook.h"
 
 #include <array>
 #include <cstddef>
@@ -6,9 +6,9 @@
 #include <string>
 #include <utility>
 
+#include "hooks/probe_window.h"
+#include "hooks/vtable_hook.h"
 #include "log.h"
-#include "probe_window.h"
-#include "vtable_hook.h"
 
 namespace reflektortts {
 namespace {

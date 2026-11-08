@@ -1,13 +1,13 @@
-#include "dxgi_hook.h"
+#include "hooks/dxgi_hook.h"
 
 #include <d3d11.h>
 #include <dxgi1_2.h>
 
 #include <string>
 
+#include "hooks/probe_window.h"
+#include "hooks/vtable_hook.h"
 #include "log.h"
-#include "probe_window.h"
-#include "vtable_hook.h"
 
 namespace reflektortts {
 namespace {

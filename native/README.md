@@ -38,27 +38,28 @@ Mouse buttons are read directly while the panel is open, because games using Dir
 
 Blocking the app's input works like ReShade's default "block all input while the overlay is visible". The first time the panel opens, the overlay hooks every keyboard and mouse API the app has loaded (and on later openings, any loaded since), all through code hooks: the reads of DirectInput 8 and 1–7 devices, the message queue (`GetMessage`, `PeekMessage`: input messages for the app's window go to the panel and the app gets `WM_NULL`; other windows are left alone, since DirectInput reads the keyboard through raw input sent to a hidden window of its own), key state (`GetAsyncKeyState`, `GetKeyState`, `GetKeyboardState`), buffered raw input (`GetRawInputBuffer`) and the cursor (`GetCursorPos`, `SetCursorPos`, `ClipCursor`). The overlay's own calls are let through, recognized by their return address, so the panel keeps seeing real input. XInput gamepads are not blocked. Window messages reach the panel on the thread that draws, at the start of its next frame, since many games handle their window on another thread. The panel is laid out in window coordinates and scaled to the app's back buffer, so it lines up with the mouse when the image is scaled (the Direct3D 9 backend ignores that scale).
 
-The overlay's files, in `overlay/`:
+The overlay's files, in `overlay/`. Its own headers are included by their path from `src/` (`"hooks/code_hook.h"`), and each folder includes only from folders listed above it (`hooks/` from `diagnostics/`, `ui/` from `input/`), while `dllmain.cpp` ties them together.
 
 | Path | Job |
 |---|---|
 | `src/dllmain.cpp` | Installs the hooks for each graphics API the app loads, starts the API client |
-| `src/dll_load_watch.cpp` | Wakes the overlay when the app loads a DLL |
-| `src/vtable_hook.h` | Hooks a COM method found through a vtable: in its code, or by replacing the vtable entry |
-| `src/dxgi_hook.cpp` | Hooks `IDXGISwapChain::Present` and `Present1`, shared by Direct3D 11 and 12 |
-| `src/d3d12_queue_hook.cpp` | Finds the app's Direct3D 12 command queue on the swap chain's device, which the D3D12 renderer submits to |
-| `src/d3d9_hook.cpp` | Hooks `IDirect3DDevice9::Present` and `Reset` |
-| `src/d3d11_renderer.cpp`, `src/d3d12_renderer.cpp`, `src/d3d9_renderer.cpp` | Set up ImGui on the app's device and draw each frame, one file per API |
-| `src/overlay_frame.cpp` | Gives the overlay to one API, loads the font and builds each ImGui frame |
-| `src/input.cpp` | The panel hotkey, and mouse input for ImGui |
-| `src/input_blocking.cpp` | Turns blocking the app's input on and off with the panel |
-| `src/win32_input_hook.cpp` | Hooks the message queue, key state, raw input and cursor functions |
-| `src/dinput_hook.cpp` | Hooks keyboard and mouse reads of DirectInput 8 and 1–7 devices |
-| `src/code_hook.cpp` | Code hooks (MinHook), kept in place when another overlay cuts them out, and telling the overlay's own calls apart |
-| `src/crash_log.cpp` | Logs where the app crashed, with the call stack in 64-bit apps |
-| `src/ui.cpp` | The hint, and the panel's window |
-| `src/subtitles.cpp` | The subtitles over the app |
-| `src/probe_window.cpp` | Hidden window for the throwaway devices used to locate API methods |
+| `src/diagnostics/crash_log.cpp` | Logs where the app crashed, with the call stack in 64-bit apps |
+| `src/diagnostics/describe_address.h` | Names a code address as module and offset, for the log |
+| `src/hooks/code_hook.cpp` | Code hooks (MinHook), kept in place when another overlay cuts them out, and telling the overlay's own calls apart |
+| `src/hooks/vtable_hook.h` | Hooks a COM method found through a vtable: in its code, or by replacing the vtable entry |
+| `src/hooks/dll_load_watch.cpp` | Wakes the overlay when the app loads a DLL |
+| `src/hooks/probe_window.cpp` | Hidden window for the throwaway devices used to locate API methods |
+| `src/hooks/dxgi_hook.cpp` | Hooks `IDXGISwapChain::Present` and `Present1`, shared by Direct3D 11 and 12 |
+| `src/hooks/d3d12_queue_hook.cpp` | Finds the app's Direct3D 12 command queue on the swap chain's device, which the D3D12 renderer submits to |
+| `src/hooks/d3d9_hook.cpp` | Hooks `IDirect3DDevice9::Present` and `Reset` |
+| `src/input/panel_input.cpp` | The panel hotkey, and mouse input for ImGui |
+| `src/input/blocking.cpp` | Turns blocking the app's input on and off with the panel |
+| `src/input/win32_hook.cpp` | Hooks the message queue, key state, raw input and cursor functions |
+| `src/input/dinput_hook.cpp` | Hooks keyboard and mouse reads of DirectInput 8 and 1–7 devices |
+| `src/ui/overlay_ui.cpp` | The hint, and the panel's window |
+| `src/ui/subtitles.cpp` | The subtitles over the app |
+| `src/renderers/overlay_frame.cpp` | Gives the overlay to one API, loads the font and builds each ImGui frame |
+| `src/renderers/d3d11_renderer.cpp`, `src/renderers/d3d12_renderer.cpp`, `src/renderers/d3d9_renderer.cpp` | Set up ImGui on the app's device and draw each frame, one file per API |
 | `injector/inject.cpp` | Loads the DLL into a running app |
 
 ### Loading the overlay by hand

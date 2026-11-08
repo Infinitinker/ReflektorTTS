@@ -1,11 +1,11 @@
-#include "d3d11_renderer.h"
+#include "renderers/d3d11_renderer.h"
 
 #include <d3d11.h>
 #include <imgui.h>
 #include <imgui_impl_dx11.h>
 
 #include "log.h"
-#include "overlay_frame.h"
+#include "renderers/overlay_frame.h"
 
 namespace reflektortts {
 namespace {

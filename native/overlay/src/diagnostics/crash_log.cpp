@@ -1,4 +1,4 @@
-#include "crash_log.h"
+#include "diagnostics/crash_log.h"
 
 #include <windows.h>
 
@@ -6,7 +6,7 @@
 #include <cstdio>
 #include <string>
 
-#include "describe_address.h"
+#include "diagnostics/describe_address.h"
 #include "log.h"
 
 namespace reflektortts {

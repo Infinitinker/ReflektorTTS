@@ -1,10 +1,10 @@
-#include "d3d9_renderer.h"
+#include "renderers/d3d9_renderer.h"
 
 #include <imgui.h>
 #include <imgui_impl_dx9.h>
 
 #include "log.h"
-#include "overlay_frame.h"
+#include "renderers/overlay_frame.h"
 
 namespace reflektortts {
 namespace {

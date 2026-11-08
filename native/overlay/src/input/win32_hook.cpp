@@ -1,4 +1,4 @@
-#include "win32_input_hook.h"
+#include "input/win32_hook.h"
 
 #include <windows.h>
 
@@ -6,9 +6,9 @@
 #include <cstring>
 #include <mutex>
 
-#include "code_hook.h"
-#include "input.h"
-#include "input_blocking.h"
+#include "hooks/code_hook.h"
+#include "input/blocking.h"
+#include "input/panel_input.h"
 #include "log.h"
 
 namespace reflektortts {

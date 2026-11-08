@@ -1,14 +1,14 @@
-#include "overlay_frame.h"
+#include "renderers/overlay_frame.h"
 
 #include <imgui.h>
 #include <imgui_impl_win32.h>
 
 #include <string>
 
-#include "input.h"
+#include "input/panel_input.h"
 #include "log.h"
 #include "system_font.h"
-#include "ui.h"
+#include "ui/overlay_ui.h"
 
 namespace reflektortts {
 namespace {

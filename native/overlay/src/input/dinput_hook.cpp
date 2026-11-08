@@ -1,4 +1,4 @@
-#include "dinput_hook.h"
+#include "input/dinput_hook.h"
 
 #define DIRECTINPUT_VERSION 0x0800
 #include <dinput.h>
@@ -10,10 +10,10 @@
 #include <string>
 #include <utility>
 
-#include "code_hook.h"
-#include "input_blocking.h"
+#include "hooks/code_hook.h"
+#include "hooks/vtable_hook.h"
+#include "input/blocking.h"
 #include "log.h"
-#include "vtable_hook.h"
 
 namespace reflektortts {
 namespace {

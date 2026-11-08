@@ -1,4 +1,4 @@
-#include "d3d12_renderer.h"
+#include "renderers/d3d12_renderer.h"
 
 #include <d3d12.h>
 #include <dxgi1_4.h>
@@ -7,9 +7,9 @@
 
 #include <utility>
 
-#include "d3d12_queue_hook.h"
+#include "hooks/d3d12_queue_hook.h"
 #include "log.h"
-#include "overlay_frame.h"
+#include "renderers/overlay_frame.h"
 
 namespace reflektortts {
 namespace {
