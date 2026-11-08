@@ -1,8 +1,8 @@
 import pytest
 
 from reflektortts.desktop.api.status import CoreStatus
+from reflektortts.desktop.tabs.status import app_settings_hint, hint_color, read_app, status_color
 from reflektortts.desktop.widgets.theme import BUSY, DIM, GOOD
-from reflektortts.desktop.window import app_settings_hint, hint_color, read_app, status_color
 
 
 @pytest.mark.parametrize(

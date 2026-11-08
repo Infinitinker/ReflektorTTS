@@ -164,7 +164,7 @@ class Application:
             self._names_for = status.voice
             self._fetching_names = True
             self._in_background(self._fetch_names)
-        self._window.show_status(status)
+        self._window.status.show(status)
         self._tray.show_status(describe(status), status is not None and status.paused, status is not None)
 
     def _fetch_names(self) -> None:
@@ -184,7 +184,7 @@ class Application:
             self._language_names = names
             self._voice_titles = titles
             if not self._stopped:
-                self._window.show_status(self._status)
+                self._window.status.show(self._status)
 
         self._later(show)
 
@@ -201,7 +201,7 @@ class Application:
             self._in_background(self._check_port)
             return
         message = "Stopped: open the logs folder, in the Settings tab, to see why."
-        self._window.show_stopped(message)
+        self._window.status.show_stopped(message)
         self._tray.show_status(message, paused=False, connected=False)
 
     def _check_port(self) -> None:

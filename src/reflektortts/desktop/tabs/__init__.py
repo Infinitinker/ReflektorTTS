@@ -1,1 +1,1 @@
-"""The window's tabs other than Status (which window.py builds), and what only they use."""
+"""The window's tabs, and what only they use."""
