@@ -113,8 +113,7 @@ def parse_status(data: Any, port: int) -> PlayerStatus:
     if data["apiversion"] != API_VERSION:
         version = data.get("version")
         raise VlcError(
-            f"This VLC version ({version if isinstance(version, str) else 'unknown'}) is not supported yet: "
-            "VLC 3 is."
+            f"This VLC version ({version if isinstance(version, str) else 'unknown'}) is not supported yet: VLC 3 is."
         )
     try:
         status = PlayerStatus(
