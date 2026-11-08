@@ -1,7 +1,7 @@
 import pytest
 
-from reflektortts.desktop.status import CoreStatus
-from reflektortts.desktop.theme import BUSY, DIM, GOOD
+from reflektortts.desktop.api.status import CoreStatus
+from reflektortts.desktop.widgets.theme import BUSY, DIM, GOOD
 from reflektortts.desktop.window import app_settings_hint, hint_color, read_app, status_color
 
 

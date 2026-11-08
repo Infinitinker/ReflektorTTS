@@ -20,7 +20,8 @@ from typing import Any
 from reflektortts.api.server import PORT, ApiError
 from reflektortts.arguments import Arguments
 from reflektortts.desktop.about import about
-from reflektortts.desktop.api_client import (
+from reflektortts.desktop.api.catalog import DownloadItem, DownloadList, DownloadProgress, other_voices, parse_list
+from reflektortts.desktop.api.client import (
     REFRESH_TIMEOUT_SECONDS,
     ApiClientError,
     StatusFeed,
@@ -28,16 +29,15 @@ from reflektortts.desktop.api_client import (
     reflektortts_answers,
     request_json,
 )
-from reflektortts.desktop.autostart import autostart_supported, system_autostart
-from reflektortts.desktop.catalog import DownloadItem, DownloadList, DownloadProgress, other_voices, parse_list
+from reflektortts.desktop.api.integrations import IntegrationItem, failure_text, parse_integrations
+from reflektortts.desktop.api.profiles import ProfileItem, file_name, name_text, parse_profiles
+from reflektortts.desktop.api.status import CoreStatus, describe
 from reflektortts.desktop.core_thread import CoreThread
-from reflektortts.desktop.dock import dock_of
-from reflektortts.desktop.folders import open_folder, show_file, where_files_are
-from reflektortts.desktop.integrations import IntegrationItem, failure_text, parse_integrations
-from reflektortts.desktop.panel_window import PanelWindows, find_program
-from reflektortts.desktop.profiles import ProfileItem, file_name, name_text, parse_profiles
-from reflektortts.desktop.state import load_state, save_state
-from reflektortts.desktop.status import CoreStatus, describe
+from reflektortts.desktop.panel.dock import dock_of
+from reflektortts.desktop.panel.launcher import PanelWindows, find_program
+from reflektortts.desktop.system.autostart import autostart_supported, system_autostart
+from reflektortts.desktop.system.folders import open_folder, show_file, where_files_are
+from reflektortts.desktop.system.state import load_state, save_state
 from reflektortts.desktop.tray import Tray
 from reflektortts.desktop.window import Window
 from reflektortts.settings import SETTINGS_FOLDER

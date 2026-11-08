@@ -6,15 +6,10 @@ from collections.abc import Callable
 from tkinter import ttk
 
 from reflektortts.desktop.about import BUYCOFFEE, KO_FI, LICENSE, About
-from reflektortts.desktop.catalog import DownloadItem
-from reflektortts.desktop.clamped_label import ClampedLabel
-from reflektortts.desktop.downloads_tab import DownloadsTab
-from reflektortts.desktop.icon import icon_photo
-from reflektortts.desktop.integrations import IntegrationItem
-from reflektortts.desktop.profiles import ProfileItem
-from reflektortts.desktop.profiles_tab import ProfilesTab
-from reflektortts.desktop.settings_tab import SettingsTab
-from reflektortts.desktop.status import (
+from reflektortts.desktop.api.catalog import DownloadItem
+from reflektortts.desktop.api.integrations import IntegrationItem
+from reflektortts.desktop.api.profiles import ProfileItem
+from reflektortts.desktop.api.status import (
     CoreStatus,
     describe,
     hint,
@@ -22,9 +17,14 @@ from reflektortts.desktop.status import (
     settings_caption,
     sound_text,
 )
-from reflektortts.desktop.status_bar import StatusBar
-from reflektortts.desktop.theme import BUSY, DIM, GOOD, heading_font, title_font
-from reflektortts.desktop.widgets import button_width
+from reflektortts.desktop.icon import icon_photo
+from reflektortts.desktop.tabs.downloads import DownloadsTab
+from reflektortts.desktop.tabs.profiles import ProfilesTab
+from reflektortts.desktop.tabs.settings import SettingsTab
+from reflektortts.desktop.widgets.clamped_label import ClampedLabel
+from reflektortts.desktop.widgets.status_bar import StatusBar
+from reflektortts.desktop.widgets.tables import button_width
+from reflektortts.desktop.widgets.theme import BUSY, DIM, GOOD, heading_font, title_font
 from reflektortts.downloads.source import Kind
 
 SIZE = (800, 600)

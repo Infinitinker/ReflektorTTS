@@ -20,8 +20,8 @@
 #define AppExe "ReflektorTTS.exe"
 #define Repository "https://github.com/Infinitinker/ReflektorTTS"
 #define AppGuid "AC5D9BAE-0B1A-425C-845D-8B09802D303D"
-; The same start with Windows entry as src/reflektortts/desktop/autostart.py, which the app's own
-; switch changes.
+; The same start with Windows entry as src/reflektortts/desktop/system/autostart.py, which the
+; app's own switch changes.
 #define RunKey "Software\Microsoft\Windows\CurrentVersion\Run"
 #define StartupApprovedKey "Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run"
 
@@ -56,7 +56,7 @@ WizardStyle=modern
 ShowLanguageDialog=auto
 Compression=lzma2/ultra64
 SolidCompression=yes
-; Setup and Uninstall ask the user to quit a running ReflektorTTS (src/reflektortts/desktop/session.py
+; Setup and Uninstall ask the user to quit a running ReflektorTTS (src/reflektortts/desktop/system/session.py
 ; holds the mutexes AppMutexes names). Setup then offers to close other programs that use its files, such as a game with
 ; the overlay loaded, which a silent install closes without asking. ReflektorTTS is started again from
 ; the last page, not by Windows.

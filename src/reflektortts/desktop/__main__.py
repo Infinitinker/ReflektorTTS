@@ -8,7 +8,7 @@ from types import TracebackType
 
 from reflektortts.arguments import parse_arguments
 from reflektortts.desktop.application import Application
-from reflektortts.desktop.session import announce_running
+from reflektortts.desktop.system.session import announce_running
 from reflektortts.logs import log_to_file
 from reflektortts.user_dirs import config_dir, log_dir
 

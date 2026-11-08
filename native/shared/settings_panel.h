@@ -16,7 +16,7 @@ enum class PanelPlace {
 // The overlay panel's width, its window padding included. The panel's own window opens wide
 // enough to show the contents as wide as there, with room for a scrollbar besides. The desktop app
 // knows that window's width too, to choose the side it opens on: change PANEL_WIDTH in
-// src/reflektortts/desktop/dock.py with it.
+// src/reflektortts/desktop/panel/dock.py with it.
 inline constexpr float kSettingsPanelWidth = 420.0f;
 
 // The settings panel's contents, in the current ImGui window: a header with the connection state,
