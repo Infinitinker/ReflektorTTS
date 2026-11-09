@@ -35,16 +35,7 @@ ReflektorTTS reads an app's text aloud as it appears on screen, and can translat
 
 ## Supported apps
 
-| App | Edition | Rating | What is read |
-| --- | --- | --- | --- |
-| **Grand Theft Auto 2** | 1999, the 9.6 freeware release | 🥉 Bronze | Subtitles |
-| **Grand Theft Auto III** | 2001, Steam | 🥉 Bronze | Subtitles, mission objectives, pager messages and the help box; no overlay, so set it up with **App settings…** in the Status tab while it is read, or in the Profiles tab. If the game starts only in Windows XP (Service Pack 3) compatibility mode, that mode runs it as administrator, so run ReflektorTTS as administrator too |
-| **Grand Theft Auto: Vice City** | 2002, Steam | 🥉 Bronze | Subtitles, mission objectives and the help box; no overlay, so set it up with **App settings…** in the Status tab while it is read, or in the Profiles tab. If the game starts only in Windows XP (Service Pack 3) compatibility mode, that mode runs it as administrator, so run ReflektorTTS as administrator too |
-| **Grand Theft Auto: San Andreas** | 2004, Steam | 🥉 Bronze | Subtitles and the help box, with a glossary that keeps names like Sweet and Big Smoke untranslated and pronounces them right in Polish |
-| **Mad Max** | 2015, Steam | 🥉 Bronze | Subtitles, in the game language you choose |
-| **VLC media player** | 3, installed from videolan.org | 🥇 Gold | The subtitles of the video playing, from its subtitle file (`.srt`, `.vtt`, `.ass`, `.ssa` or `.sbv`), in time with VLC; enable the VLC integration first (Profiles tab, **Integration…**), see [VLC](docs/profiles.md#vlc-source-type-vlc) |
-
-The medal says how far a profile is tested: 🥉 Bronze, tried briefly; 🥈 Silver, the main texts read in the first part of the app; 🥇 Gold, through most of it; 💎 Platinum, every text, to the end. Each app is described by a profile, so more apps can be added without changing ReflektorTTS itself; see [Profiles](#profiles).
+ReflektorTTS reads games such as Grand Theft Auto III, Vice City, San Andreas and Mad Max, and the subtitles of videos in VLC media player. [SUPPORTED_APPS.md](SUPPORTED_APPS.md) lists every app it reads, which edition, what is read in it, and a medal for how far it is tested. More apps can be added without changing ReflektorTTS itself; see [Profiles](#profiles).
 
 ## Getting started
 
@@ -157,6 +148,7 @@ Profiles for more games, fixes and ideas are welcome: see [CONTRIBUTING.md](CONT
 
 Further documentation:
 
+- [SUPPORTED_APPS.md](SUPPORTED_APPS.md): the apps ReflektorTTS reads, and how far each is tested
 - [docs/profiles.md](docs/profiles.md): profiles and their format
 - [native/README.md](native/README.md): the native code: the overlay, and the code it shares
 - [docs/architecture.md](docs/architecture.md): how ReflektorTTS is built, and what is planned
