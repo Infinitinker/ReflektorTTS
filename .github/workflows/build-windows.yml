@@ -1,8 +1,8 @@
 name: Build Windows app
 
 # Builds the Windows release files: the installer, the portable zip and the sources zip, each kept on
-# the run's page under its release file name. The Release workflow (release.yml) calls it and drafts
-# the release from them; run on its own, it shows early that a change still builds.
+# the run's page under its release file name, and checks them. The Release workflow (release.yml)
+# calls it and drafts the release from them; run on its own, it shows early that a change still builds.
 #
 # It runs on every push to dev and main (a merged pull request is a push to main), from the Release
 # workflow, on demand, and for pull requests other than those from this repository's dev and main,
@@ -31,14 +31,16 @@ env:
 
 jobs:
   build:
-    # A fork can have a branch named dev too, so forks are always built. Called from release.yml,
-    # it always builds, also for a pull request from dev.
+    # A fork can have a branch named dev too, so forks are always built.
     if: >-
-      github.event_name != 'pull_request' || github.workflow == 'Release' ||
+      github.event_name != 'pull_request' ||
       github.event.pull_request.head.repo.fork || (github.head_ref != 'dev' && github.head_ref != 'main')
     name: Build (windows-x64)
     runs-on: windows-latest
     timeout-minutes: 60
+    outputs:
+      # The three files, so the check downloads exactly these, whatever else the run builds.
+      artifacts: ${{ steps.setup.outputs.artifact-id }},${{ steps.portable.outputs.artifact-id }},${{ steps.sources.outputs.artifact-id }}
     steps:
       - uses: actions/checkout@v7
 
@@ -87,18 +89,62 @@ jobs:
         run: python tools/build_release.py
       # Each file on its own and unzipped, so the run's page offers the files themselves. Each step
       # fails unless its pattern matches exactly one file.
-      - uses: actions/upload-artifact@v7
+      - id: setup
+        uses: actions/upload-artifact@v7
         with:
           path: build/release/*-windows-x64-setup.exe
           archive: false
           if-no-files-found: error
-      - uses: actions/upload-artifact@v7
+      - id: portable
+        uses: actions/upload-artifact@v7
         with:
           path: build/release/*-windows-x64.zip
           archive: false
           if-no-files-found: error
-      - uses: actions/upload-artifact@v7
+      - id: sources
+        uses: actions/upload-artifact@v7
         with:
           path: build/release/*-sources.zip
           archive: false
           if-no-files-found: error
+
+  files:
+    name: Check the files
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: pyproject.toml
+          sparse-checkout-cone-mode: false
+      - name: Read the version
+        id: version
+        run: |
+          version=$(python3 -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      # skip-decompress keeps each file as uploaded: otherwise the two zips would arrive unpacked.
+      - uses: actions/download-artifact@v8
+        with:
+          artifact-ids: ${{ needs.build.outputs.artifacts }}
+          merge-multiple: true
+          skip-decompress: true
+          path: ${{ runner.temp }}/release
+      - name: Check the files
+        working-directory: ${{ runner.temp }}/release
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          ls -l
+          expected=$(printf '%s\n' "ReflektorTTS-$VERSION-windows-x64-setup.exe" \
+            "ReflektorTTS-$VERSION-windows-x64.zip" "ReflektorTTS-$VERSION-sources.zip" | LC_ALL=C sort)
+          if [ "$(ls -1 | LC_ALL=C sort)" != "$expected" ]; then
+            echo "::error::Expected exactly these files:" $expected
+            exit 1
+          fi
+          for file in $expected; do
+            [ -f "$file" ] || { echo "::error::$file did not arrive as a file."; exit 1; }
+          done
+          for zip in *.zip; do
+            unzip -tq "$zip" || { echo "::error::$zip is not a whole zip."; exit 1; }
+          done

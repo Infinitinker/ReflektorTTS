@@ -1,31 +1,19 @@
 name: Release
 
 # A pushed tag v<version> on main builds the release and drafts its page, which a maintainer then
-# completes and publishes. Pull requests that change how a release is built build and check one too;
-# a run started by hand builds and checks one to try. Those keep the files on the run's page for
-# 90 days. Each system's build is a workflow of its own (build-windows.yml), which runs on its own
-# for pushes and pull requests too.
+# completes and publishes. A run started by hand (Actions > Release > Run workflow, on any branch)
+# does the same without drafting, to try a release before tagging it; it keeps the files on the
+# run's page for 90 days. Each system's build is a workflow of its own (build-windows.yml), which also
+# checks its files, and which builds every push and pull request on its own.
 on:
   push:
     tags: ["v*"]
-  pull_request:
-    paths:
-      - .github/workflows/release.yml
-      - .github/workflows/build-*.yml
-      - native/**
-      - pyproject.toml
-      - tools/build_release.py
-      - tools/installer.iss
-      - tools/licenses/**
-      - tools/notices.py
-      - tools/release-constraints.txt
-      - tools/sources.py
   workflow_dispatch:
 
+# A release's build is never cut short.
 concurrency:
   group: release-${{ github.ref }}
-  # A newer push to a pull request replaces its build; a release's build is never cut short.
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  cancel-in-progress: false
 
 permissions:
   contents: read
@@ -68,41 +56,9 @@ jobs:
     needs: version
     uses: ./.github/workflows/build-windows.yml
 
-  files:
-    name: Check the files
-    needs: [version, windows]
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      # skip-decompress keeps each file as uploaded: otherwise the two zips would arrive unpacked.
-      - uses: actions/download-artifact@v8
-        with:
-          pattern: ReflektorTTS-*
-          merge-multiple: true
-          skip-decompress: true
-          path: release
-      - name: Check the files
-        working-directory: release
-        env:
-          VERSION: ${{ needs.version.outputs.version }}
-        run: |
-          ls -l
-          expected=$(printf '%s\n' "ReflektorTTS-$VERSION-windows-x64-setup.exe" \
-            "ReflektorTTS-$VERSION-windows-x64.zip" "ReflektorTTS-$VERSION-sources.zip" | LC_ALL=C sort)
-          if [ "$(ls -1 | LC_ALL=C sort)" != "$expected" ]; then
-            echo "::error::Expected exactly these files:" $expected
-            exit 1
-          fi
-          for file in $expected; do
-            [ -f "$file" ] || { echo "::error::$file did not arrive as a file."; exit 1; }
-          done
-          for zip in *.zip; do
-            unzip -tq "$zip" || { echo "::error::$zip is not a whole zip."; exit 1; }
-          done
-
   draft:
     name: Draft the release
-    needs: [version, files]
+    needs: [version, windows]
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -111,6 +67,7 @@ jobs:
       id-token: write # To sign the provenance attestations.
       attestations: write # To store them.
     steps:
+      # skip-decompress keeps each file as uploaded: otherwise the two zips would arrive unpacked.
       - uses: actions/download-artifact@v8
         with:
           pattern: ReflektorTTS-*

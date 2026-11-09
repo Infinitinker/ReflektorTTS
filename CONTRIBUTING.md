@@ -111,9 +111,9 @@ A release is refused while a shipped package has no license text, or a shipped p
 
 `--draft` builds anyway, to test, from uncommitted changes too, marking what is missing and the files' names.
 
-Releases are built on GitHub the same way, on a clean Windows runner, by the `Build Windows app` workflow (`.github/workflows/build-windows.yml`): it builds both native builds with MSYS2, installs Inno Setup and runs `tools/build_release.py`. It runs on every push to `dev` and `main` and for other pull requests, keeping the files on the run's page, so a change that breaks the release shows up before a release is made.
+Releases are built on GitHub the same way, on a clean Windows runner, by the `Build Windows app` workflow (`.github/workflows/build-windows.yml`): it builds both native builds with MSYS2, installs Inno Setup and runs `tools/build_release.py`, then checks that exactly the three release files arrived, under the version's name, with whole zips. It runs on every push to `dev` and `main` and for other pull requests, keeping the files on the run's page, so a change that breaks the release shows up before a release is made.
 
-The `Release` workflow (`.github/workflows/release.yml`) checks the version, calls that build, and checks that exactly the three release files arrived, under the version's name, with whole zips:
+The `Release` workflow (`.github/workflows/release.yml`) checks the version and calls that build:
 
 - Pushing a tag `v<version>` on `main`, where `<version>` is the version in `pyproject.toml`, does that, records where each file was built (a provenance attestation, which `gh attestation verify <file> --repo Infinitinker/ReflektorTTS` checks), and drafts the release's page with the three files and their checksums. Write the release notes there, then publish it. A tag that differs from the version, or is not on `main`, fails before anything is built.
-- A pull request that changes the native code, `pyproject.toml`, the release tools, their constraints or the workflows runs it too, and so does a run started by hand on the Actions tab; both keep the files on the run's page, without drafting a release.
+- Before tagging, run it by hand on `dev` (Actions > Release > Run workflow): it does everything but the draft, so a change to either workflow shows up before the tag does, and keeps the files on the run's page.
