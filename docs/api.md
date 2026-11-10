@@ -115,7 +115,7 @@ Lists every profile, bundled and the user's own, in ID order:
       "state": "reading",
       "reason": null,
       "file": "...\\profiles\\bundled\\grand-theft-auto-2-1999.json",
-      "overlay": true,
+      "overlay": false,
       "rating": "bronze",
       "executables": [{ "name": "gta2.exe", "sha256": ["420af867..."] }],
       "sources": [{ "name": "subtitles", "type": "memory", "stages": ["tracker", "replace", "translate", "normalize"] }]

@@ -4,7 +4,7 @@ ReflektorTTS reads these apps as soon as they start, with the profile it comes w
 
 | App | Edition | Rating | What is read | Overlay |
 | --- | --- | --- | --- | --- |
-| [Grand Theft Auto 2](#grand-theft-auto-2) | 1999, the 9.6 freeware release | 🥉 Bronze | Subtitles | Yes |
+| [Grand Theft Auto 2](#grand-theft-auto-2) | 1999, the 9.6 freeware release | 🥉 Bronze | Subtitles | No |
 | [Grand Theft Auto III](#grand-theft-auto-iii) | 2001, Steam | 🥉 Bronze | Subtitles, mission objectives, pager messages and the help box | No |
 | [Grand Theft Auto: Vice City](#grand-theft-auto-vice-city) | 2002, Steam | 🥉 Bronze | Subtitles, mission objectives and the help box | No |
 | [Grand Theft Auto: San Andreas](#grand-theft-auto-san-andreas) | 2004, Steam | 🥉 Bronze | Subtitles and the help box | Yes |
@@ -31,7 +31,7 @@ Every app keeps its own settings: the voice, the languages, the reading speed an
 - **Edition**: the 9.6 freeware release (`gta2.exe`). Other releases are not read yet; the Status tab says so when it meets one.
 - **Rating**: 🥉 Bronze.
 - **What is read**: subtitles.
-- **Overlay**: yes: change its settings in the in-game panel (**Ctrl+Shift+R**) or with **App settings…**, and switch on subtitles over the game there.
+- **Overlay**: none, since the game draws with DirectDraw, which the overlay does not support: no in-game panel, and no subtitles of ReflektorTTS's own. Change its settings with **App settings…**: in the Status tab while the game is read, or in the Profiles tab.
 
 ## Grand Theft Auto III
 

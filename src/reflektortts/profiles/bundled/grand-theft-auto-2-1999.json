@@ -13,7 +13,6 @@
       }
     ]
   },
-  "overlay": true,
   "sources": [
     {
       "type": "memory",
