@@ -52,8 +52,6 @@ SetupIconFile={#IconFile}
 UninstallDisplayIcon={app}\{#AppExe}
 UninstallDisplayName={#AppName}
 WizardStyle=modern
-; Setup speaks Polish on a Polish Windows and English elsewhere, without asking.
-ShowLanguageDialog=auto
 Compression=lzma2/ultra64
 SolidCompression=yes
 ; Setup and Uninstall ask the user to quit a running ReflektorTTS (src/reflektortts/desktop/system/session.py
@@ -66,15 +64,11 @@ RestartApplications=no
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
-Name: "polish"; MessagesFile: "compiler:Languages\Polish.isl"
 
 [CustomMessages]
 english.DeleteUserData=Also delete your ReflektorTTS settings, downloaded voices and translation models, your own profiles and the logs?%n%n%1
-polish.DeleteUserData=Usunąć też ustawienia ReflektorTTS, pobrane głosy i modele tłumaczenia, własne profile i logi?%n%n%1
 english.UserDataNotDeleted=Some files in %1 could not be deleted. Delete the folder yourself.
-polish.UserDataNotDeleted=Nie udało się usunąć niektórych plików z %1. Usuń ten folder ręcznie.
 english.StartWithWindows=Start ReflektorTTS when I sign in to Windows
-polish.StartWithWindows=Uruchamiaj ReflektorTTS po zalogowaniu do Windows
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
