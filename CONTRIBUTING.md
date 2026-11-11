@@ -95,7 +95,7 @@ What a language has besides, such as a voice preview sentence (`SAMPLES` in `src
 
 ### Branch protection
 
-Changes reach `main` only through pull requests: a branch ruleset (Settings > Rules > Rulesets, "Default branch protection") also blocks deleting it and force pushes. A pull request can be merged once these checks pass, each from the GitHub Actions app: `Lint`, `Windows Python checks` and `Linux Python checks` (the `Checks` workflow, `.github/workflows/checks.yml`), and `Windows build (x64)` (the `Build Windows app` workflow). The ruleset names the jobs, so renaming one means changing it there too.
+Changes reach `main` only through pull requests: a branch ruleset (Settings > Rules > Rulesets, "Default branch protection") also blocks deleting it and force pushes. A pull request can be merged once these checks pass, each from the GitHub Actions app: `Lint`, `Windows Python checks` and `Linux Python checks` (the `Checks` workflow, `.github/workflows/checks.yml`), and `Windows build (x64)` (the `Build Windows app` workflow, which builds pull requests but not pushes). The ruleset names the jobs, so renaming one means changing it there too.
 
 ### Building a release
 
@@ -123,7 +123,7 @@ A release is refused while a shipped package has no license text, or a shipped p
 
 `--draft` builds anyway, to test, from uncommitted changes too, marking what is missing and the files' names.
 
-Releases are built on GitHub the same way, on a clean Windows runner, by the `Build Windows app` workflow (`.github/workflows/build-windows.yml`): it builds both native builds with MSYS2, installs Inno Setup and runs `tools/build_release.py`, then checks that exactly the three release files arrived, under the version's name, with whole zips. It runs on every push to `dev` and `main` and for other pull requests, keeping the files on the run's page, so a change that breaks the release shows up before a release is made.
+Releases are built on GitHub the same way, on a clean Windows runner, by the `Build Windows app` workflow (`.github/workflows/build-windows.yml`): it builds both native builds with MSYS2, installs Inno Setup and runs `tools/build_release.py`, then checks that exactly the three release files arrived, under the version's name, with whole zips. It runs for every pull request, not for pushes, keeping the files on the run's page, and a pull request can be merged only once it passes, so a change that breaks the release never reaches `main`. To build `dev` without a pull request, run it by hand (Actions > Build Windows app > Run workflow).
 
 The `Release` workflow (`.github/workflows/release.yml`) checks the version and calls that build:
 

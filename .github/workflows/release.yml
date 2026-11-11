@@ -4,7 +4,7 @@ name: Release
 # completes and publishes. A run started by hand (Actions > Release > Run workflow, on any branch)
 # does the same without drafting, to try a release before tagging it; it keeps the files on the
 # run's page for 90 days. Each system's build is a workflow of its own (build-windows.yml), which also
-# checks its files, and which builds every push and pull request on its own.
+# checks its files, and which builds every pull request on its own.
 on:
   push:
     tags: ["v*"]

@@ -4,18 +4,18 @@ name: Build Windows app
 # the run's page under its release file name, and checks them. The Release workflow (release.yml)
 # calls it and drafts the release from them; run on its own, it shows early that a change still builds.
 #
-# It runs on every push to dev and main (a merged pull request is a push to main), from the Release
-# workflow, on demand, and for pull requests other than those from this repository's dev and main,
-# whose pushes are built already (so Dependabot's pull requests and other branches get a build too).
-# It is not a required status check: the Checks workflow (checks.yml) is.
+# It runs for every pull request (also Dependabot's and those from forks), from the Release workflow,
+# and on demand (Actions > Build Windows app > Run workflow, on any branch); not for pushes, so a
+# change is built once, in its pull request, rather than on every push to dev. Its build job is a
+# required status check of the main branch ruleset, with the Checks workflow's jobs ("Branch
+# protection" in CONTRIBUTING.md).
 on:
-  push:
-    branches: [main, dev]
   pull_request:
   workflow_dispatch:
   workflow_call:
 
-# A newer push cancels the build still going for the older one; a release's build is never cut short.
+# A newer push to a pull request cancels the build still going for the older one; a release's build
+# is never cut short.
 # Called from release.yml, github.workflow is "Release".
 concurrency:
   group: build-windows-${{ github.workflow }}-${{ github.ref }}
@@ -31,10 +31,6 @@ env:
 
 jobs:
   build:
-    # A fork can have a branch named dev too, so forks are always built.
-    if: >-
-      github.event_name != 'pull_request' ||
-      github.event.pull_request.head.repo.fork || (github.head_ref != 'dev' && github.head_ref != 'main')
     name: Windows build (x64)
     runs-on: windows-latest
     timeout-minutes: 60
