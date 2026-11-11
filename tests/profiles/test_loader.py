@@ -274,6 +274,8 @@ def test_glossaries_are_by_input_language(tmp_path: Path) -> None:
         ),
         ([{"term": [], "keep": True}], "$.glossary.en[0].term"),
         ([{"term": "", "keep": True}], "$.glossary.en[0].term"),
+        ([{"term": "Oslo", "pronounce": {"no": "Uslo"}}], 'Use "nb" (Norwegian Bokmål) instead of "no"'),
+        ([{"term": "Carl", "pronounce": {"xx": "Karl"}}], 'There is no language "xx"'),
     ],
 )
 def test_a_glossary_entry_that_cannot_be_used_is_refused(tmp_path: Path, entries: list[Any], message: str) -> None:
@@ -356,3 +358,10 @@ def test_a_source_whose_plugin_tells_builds_that_are_not_strings_is_refused(tmp_
 
     with pytest.raises(ProfileError, match="cannot tell which builds it is for"):
         load_profile(write(tmp_path, "app.json", data), BUILT_SCHEMAS)
+
+
+def test_a_glossary_in_a_language_not_known_by_that_code_is_refused(tmp_path: Path) -> None:
+    glossary = {"no": [{"term": "Oslo", "keep": True}]}
+
+    with pytest.raises(ProfileError, match=r'\$\.glossary\.no: Use "nb"'):
+        load_profile(write(tmp_path, "app.json", VALID | {"glossary": glossary}))

@@ -13,6 +13,7 @@ import jsonschema
 from jsonschema.protocols import Validator
 
 from reflektortts.glossary import Glossaries, Glossary, GlossaryTerm
+from reflektortts.languages import LanguageError, check_language
 from reflektortts.pipeline.plugins import source_plugins, stage_plugins
 from reflektortts.profiles.model import App, Executable, Match, Profile, Rating, SourceSettings, StageSettings
 
@@ -168,7 +169,16 @@ def parse_profile(data: Any, profile_id: str, schemas: PluginSchemas | None = No
 
 
 def _glossaries(glossaries: dict[str, list[dict[str, Any]]], name: str) -> Glossaries:
+    for language in glossaries:
+        _check_language(language, f"{name}: $.glossary.{language}")
     return {language: _glossary(entries, f"{name}: $.glossary.{language}") for language, entries in glossaries.items()}
+
+
+def _check_language(code: str, where: str) -> None:
+    try:
+        check_language(code)
+    except LanguageError as error:
+        raise ProfileError(f"{where}: {error}") from error
 
 
 def _glossary(entries: list[dict[str, Any]], path: str) -> Glossary:
@@ -185,6 +195,8 @@ def _glossary(entries: list[dict[str, Any]], path: str) -> Glossary:
             pronounce=entry.get("pronounce", {}),
         )
         where = f'{path}[{index}] ("{term.term}")'
+        for language in term.pronounce:
+            _check_language(language, f"{where}.pronounce")
         if not (term.keep or term.means or term.pronounce):
             raise ProfileError(f'{where}: says nothing to do with the term; give it "keep", "means" or "pronounce".')
         if term.keep and term.means:

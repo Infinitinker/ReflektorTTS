@@ -303,7 +303,8 @@ bool load_options() {
         std::vector<LanguageOption> language_options;
         if (!languages->is_null()) {
             for (const json& language : languages->at("languages")) {
-                language_options.push_back({language.at("code").get<std::string>(), language.at("name").get<std::string>()});
+                language_options.push_back({language.at("code").get<std::string>(), language.at("name").get<std::string>(),
+                                            language.at("english_name").get<std::string>()});
             }
         }
         update_state([&](CoreState& state) {

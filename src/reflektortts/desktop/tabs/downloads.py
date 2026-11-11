@@ -128,10 +128,10 @@ class DownloadsTab:
         self._show_selected()
 
     def show(self, items: list[DownloadItem]) -> None:
-        """Shows the entries, sorted by language, keeping the selection."""
+        """Shows the entries, sorted by their languages' names, keeping the selection."""
         selected = self._selected_id()
         self._tree.delete(*self._tree.get_children())
-        self._items = {item.id: item for item in sorted(items, key=lambda item: (item.languages, item.name))}
+        self._items = {item.id: item for item in sorted(items, key=lambda item: (self._languages(item), item.name))}
         for item in self._items.values():
             self._tree.insert("", "end", iid=item.id, values=self._row(item), tags=(item.state,))
         if selected in self._items:

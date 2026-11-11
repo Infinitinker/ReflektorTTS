@@ -9,6 +9,7 @@ import threading
 import time
 from pathlib import Path
 
+from reflektortts.languages import language_name
 from reflektortts.sources.avalanche.text_index import LANGUAGE_SUFFIXES, StoppedError, read_text
 
 logger = logging.getLogger(__name__)
@@ -35,7 +36,10 @@ class LineTexts:
         failed. That error is raised once; the language is not read again until the game restarts.
         """
         if language not in LANGUAGE_SUFFIXES:
-            raise UnsupportedLanguageError(f'The game has no text in "{language}".')
+            names = ", ".join(sorted(language_name(code) for code in LANGUAGE_SUFFIXES))
+            raise UnsupportedLanguageError(
+                f"The game has no text in {language_name(language)}: set the input language to one of {names}."
+            )
         with self._lock:
             start = language not in self._lines and language not in self._reading and language not in self._failed
             if start:

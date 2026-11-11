@@ -16,8 +16,8 @@ def package(source: str, target: str, link: str) -> dict[str, object]:
     return {
         "from_code": source,
         "to_code": target,
-        "from_name": {"en": "English", "pl": "Polish", "de": "German"}[source],
-        "to_name": {"en": "English", "pl": "Polish", "de": "German"}[target],
+        "from_name": source,
+        "to_name": target,
         "links": [link],
     }
 
@@ -26,7 +26,7 @@ def web() -> FakeWeb:
     index = [
         package("en", "pl", EN_PL),
         package("pl", "en", "https://example.invalid/translate-pl_en.argosmodel"),
-        package("en", "de", "https://example.invalid/translate-en_de.argosmodel"),
+        package("en", "xx", "https://example.invalid/translate-en_xx.argosmodel"),
     ]
     return FakeWeb({INDEX_URL: json.dumps(index).encode(), EN_PL: PACKAGE_BYTES})
 
@@ -35,7 +35,7 @@ def source(tmp_path: Path, fake: FakeWeb) -> ArgosModels:
     return ArgosModels(tmp_path / "cache", tmp_path / "models", fake.fetch, fake.download, fake.size)
 
 
-def test_models_between_supported_languages_are_listed_with_an_unknown_license(tmp_path: Path) -> None:
+def test_models_between_known_languages_are_listed_with_an_unknown_license(tmp_path: Path) -> None:
     entries = source(tmp_path, web()).entries(refresh=True)
 
     assert entries == [
@@ -84,3 +84,19 @@ def test_a_removed_model_is_no_longer_installed(tmp_path: Path) -> None:
     models.remove(en_pl)
 
     assert not models.entries(refresh=False)[0].installed
+
+
+def test_a_model_under_an_alias_is_listed_under_the_language_code_unless_one_is_there(tmp_path: Path) -> None:
+    index = [
+        package("en", "zt", "https://example.invalid/translate-en_zt.argosmodel"),
+        package("en", "zh", "https://example.invalid/translate-en_zh.argosmodel"),
+        package("pb", "en", "https://example.invalid/translate-pb_en.argosmodel"),
+    ]
+    fake = FakeWeb({INDEX_URL: json.dumps(index).encode()})
+
+    entries = source(tmp_path, fake).entries(refresh=False)
+
+    assert [(entry.id, entry.name) for entry in entries] == [
+        ("argos:en-zh", "English → Chinese"),
+        ("argos:pt-en", "Portuguese → English"),
+    ]

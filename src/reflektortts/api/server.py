@@ -290,7 +290,15 @@ async def get_voices(request: web.Request) -> web.Response:
 
 
 async def get_languages(request: web.Request) -> web.Response:
-    return web.json_response({"languages": [{"code": code, "name": name} for code, name in LANGUAGES.items()]})
+    languages = sorted(LANGUAGES.values(), key=lambda language: language.english_name)
+    return web.json_response(
+        {
+            "languages": [
+                {"code": language.code, "name": language.name, "english_name": language.english_name}
+                for language in languages
+            ]
+        }
+    )
 
 
 SETTINGS_HELP = (

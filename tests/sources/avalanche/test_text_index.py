@@ -26,6 +26,11 @@ def test_a_folder_without_archives_is_an_error(tmp_path: Path) -> None:
         read_text(tmp_path, "pl")
 
 
+def test_a_language_the_files_have_no_text_in_is_an_error(tmp_path: Path) -> None:
+    with pytest.raises(ArchiveError, match="no text in German: is the game complete"):
+        read_text(make_game(tmp_path), "de")
+
+
 def test_reading_stops_when_asked(tmp_path: Path) -> None:
     with pytest.raises(StoppedError):
         read_text(make_game(tmp_path), "pl", stopped=lambda: True)

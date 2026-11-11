@@ -90,15 +90,22 @@ Returns the voices available now, from every speech engine that works on this sy
 
 ### `POST /v1/voices/preview`
 
-`{"voice": "piper:pl_PL-gosia-medium"}` speaks a sample sentence in the voice's language, so the user can hear it. It runs apart from the app being read, if any: the app keeps its voice and its sound is not lowered. A new preview cuts off the one playing. Answers 202 at once, and `preview` events say when it starts and ends; 400 if the voice is not installed or speaks no supported language.
+`{"voice": "piper:pl_PL-gosia-medium"}` speaks a sample sentence in the voice's language, so the user can hear it. It runs apart from the app being read, if any: the app keeps its voice and its sound is not lowered. A new preview cuts off the one playing. Answers 202 at once, and `preview` events say when it starts and ends; 400 if the voice is not installed or speaks a language ReflektorTTS does not know. A voice in a language without a sample sentence says the language's name.
 
 ### `GET /v1/languages`
 
-Returns the languages the pipeline supports, with their names in their own language:
+Returns every language the input and output language can be set to: each ISO 639-1 language, sorted by its English name.
 
 ```json
-{ "languages": [{ "code": "en", "name": "English" }, { "code": "pl", "name": "Polski" }] }
+{
+  "languages": [
+    { "code": "en", "name": "English", "english_name": "English" },
+    { "code": "pl", "name": "Polski", "english_name": "Polish" }
+  ]
+}
 ```
+
+`code` is the ISO 639-1 code every other part of the API uses; Norwegian is listed once, as `nb` (Bokmål), which Norwegian voices and models are filed under. `name` is the language's name in itself and `english_name` its English name. That a language is listed does not mean there is a translation model or voice for it: `/v1/downloads` lists those.
 
 ### `GET /v1/profiles`
 
@@ -269,7 +276,7 @@ Voices and translation models the user can download, from download source plugin
 
 ### `GET /v1/downloads`
 
-Lists every source's entries in the languages ReflektorTTS supports, from the lists saved earlier; see `POST /v1/downloads/refresh` for fetching them again.
+Lists every source's entries, from the lists saved earlier; see `POST /v1/downloads/refresh` for fetching them again.
 
 ```json
 {

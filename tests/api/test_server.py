@@ -486,7 +486,9 @@ def test_download_progress_comes_as_events() -> None:
 def test_languages() -> None:
     async def test(client: TestClient[Any, Any]) -> None:
         languages = (await (await client.get("/v1/languages")).json())["languages"]
-        assert {"code": "pl", "name": "Polski"} in languages
+        assert {"code": "pl", "name": "Polski", "english_name": "Polish"} in languages
+        english_names = [language["english_name"] for language in languages]
+        assert english_names == sorted(english_names)
 
     with_client(FakeCore(), test)
 
@@ -573,8 +575,8 @@ def test_subtitles_can_be_switched_on_and_set_up() -> None:
         ({"ducking": "yes"}, f'"ducking" cannot be set to that. {SETTINGS_HELP}'),
         ({"duck_volume": 1.5}, f'"duck_volume" cannot be set to that. {SETTINGS_HELP}'),
         ({"duck_volume": True}, f'"duck_volume" cannot be set to that. {SETTINGS_HELP}'),
-        ({"output_language": "auto"}, 'There is no language "auto". Available: en, pl.'),
-        ({"input_language": "auto"}, 'There is no language "auto". Available: en, pl.'),
+        ({"output_language": "auto"}, 'There is no language "auto": use its two-letter ISO 639-1 code, such as "en".'),
+        ({"input_language": "auto"}, 'There is no language "auto": use its two-letter ISO 639-1 code, such as "en".'),
         ({"voice": 5}, f'"voice" cannot be set to that. {SETTINGS_HELP}'),
         ({"volume": 5, "ducking": True}, f'There is no setting "volume". {SETTINGS_HELP}'),
         ({}, SETTINGS_HELP),

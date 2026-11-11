@@ -9,6 +9,7 @@ import numpy as np
 from winrt.windows.media.speechsynthesis import SpeechSynthesizer, VoiceInformation
 from winrt.windows.storage.streams import DataReader
 
+from reflektortts.languages import language_tag
 from reflektortts.tts.engine import AudioChunk, EnginePlugin, VoiceError, VoiceInfo
 
 
@@ -67,7 +68,7 @@ def list_voices() -> list[VoiceInfo]:
             id=f"windows:{voice.display_name}",
             engine="windows",
             name=voice.display_name,
-            language=voice.language,
+            language=language_tag(voice.language),
             engine_title="Windows",
         )
         for voice in SpeechSynthesizer.all_voices

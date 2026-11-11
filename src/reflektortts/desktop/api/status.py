@@ -81,8 +81,7 @@ def settings_caption(status: CoreStatus | None) -> str:
 
 
 def languages_text(status: CoreStatus, language_name: Callable[[str], str]) -> str:
-    """The app's language and the one lines are prepared in, e.g. "English → Polski", each
-    language named in itself."""
+    """The app's language and the one lines are prepared in, e.g. "English → Polish"."""
     source, target = language_name(status.input_language), language_name(status.output_language)
     return source if source == target else f"{source} → {target}"
 

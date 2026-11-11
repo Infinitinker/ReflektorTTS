@@ -63,7 +63,7 @@ Every app keeps its own settings: the voice, the languages, the reading speed an
 
 - **Edition**: the Steam release (`MadMax.exe`). Other releases are not read yet; the Status tab says so when it meets one.
 - **Rating**: 🥉 Bronze.
-- **What is read**: subtitles, in the game language you choose as the input language, whatever language the game itself runs in: with English speech and Polish subtitles, for example, the English or the Polish line can be read. The game's text is read from its own files when it starts, which takes a few seconds.
+- **What is read**: subtitles, in the game language you choose as the input language (English, French, German, Italian, Japanese, Polish, Brazilian Portuguese, Russian or Spanish), whatever language the game itself runs in: with English speech and Polish subtitles, for example, the English or the Polish line can be read. The game's text is read from its own files when it starts, which takes a few seconds.
 - **Overlay**: yes: change its settings in the in-game panel (**Ctrl+Shift+R**) or with **App settings…**, and switch on subtitles over the game there.
 
 ## VLC media player

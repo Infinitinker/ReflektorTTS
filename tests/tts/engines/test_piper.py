@@ -83,3 +83,7 @@ def test_rate_shortens_the_voice_s_own_sound_length(monkeypatch: pytest.MonkeyPa
     list(PiperEngine(Path("voice.onnx")).synthesize("Hello", 2.0))
 
     assert voice.length_scales == [pytest.approx(0.6)]
+
+
+def test_a_norwegian_voice_speaks_bokmal() -> None:
+    assert piper_engine.voice_info("no_NO-talesyntese-medium").language == "nb-NO"

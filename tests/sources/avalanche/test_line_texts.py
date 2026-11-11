@@ -45,7 +45,9 @@ def test_a_failed_reading_is_reported_once_and_not_repeated(tmp_path: Path, read
 
 
 def test_a_language_the_game_has_no_text_in_is_an_error(tmp_path: Path) -> None:
-    with pytest.raises(UnsupportedLanguageError, match='no text in "xx"'):
+    with pytest.raises(
+        UnsupportedLanguageError, match='no text in "xx": set the input language to one of English, French'
+    ):
         LineTexts(tmp_path, background=False).lines("xx")
 
 

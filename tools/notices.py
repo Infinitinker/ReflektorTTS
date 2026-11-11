@@ -1,7 +1,7 @@
 """Collects the license notices of everything a release of ReflektorTTS ships: the Python packages
-it needs (followed through their installed metadata), Python itself, PyInstaller's parts, and the
-overlay's libraries. The notices follow the installed packages; a package without license text stops
-the release."""
+it needs (followed through their installed metadata), Python itself, PyInstaller's parts, data
+taken from other projects, and the overlay's libraries. The notices follow the installed packages;
+a package without license text stops the release."""
 
 import re
 import sys
@@ -18,6 +18,11 @@ itself), taken from each project's source: the license of a package that install
 notices of parts it contains without them, such as the native libraries compiled into it."""
 PACKAGED_WITH = ("pyinstaller", "pyinstaller-hooks-contrib")
 """Build tools whose parts end up in the release: PyInstaller's bootloader and run-time hooks."""
+DATA_NOTICES = (
+    ("Unicode CLDR 47 (the language names in languages.json)", "Unicode-3.0", KEPT_LICENSES / "unicode-cldr.txt"),
+    ("dotnet/runtime 9.0.0 (the code pages in languages.json)", "MIT", KEPT_LICENSES / "dotnet-runtime.txt"),
+)
+"""Data in ReflektorTTS taken from other projects: the language table tools/languages.py generates."""
 OVERLAY_NOTICES = Path("THIRD_PARTY_NOTICES")
 """The overlay's libraries, which CMake fetches; kept by hand in the repository."""
 COPYLEFT = re.compile(r"GPL|General Public|MPL|Mozilla Public", re.IGNORECASE)
@@ -108,6 +113,8 @@ def notices(root: str, draft: bool) -> str:
         name = f"{package.metadata['Name']} {package.version}"
         texts = license_texts(package) or ["LICENSE TEXT MISSING: a draft build; add it before releasing."]
         sections.append(_section(name, license_name(package), texts))
+    for name, license, path in DATA_NOTICES:
+        sections.append(_section(name, license, [path.read_text("utf-8").strip()]))
     overlay = OVERLAY_NOTICES.read_text("utf-8")
     sections.append(overlay[overlay.index(RULE) :].strip())
     return "\n\n\n".join(sections) + "\n"

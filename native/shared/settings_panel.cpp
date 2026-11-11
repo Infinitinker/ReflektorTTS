@@ -23,10 +23,18 @@ constexpr Choice kSubtitlePositions[] = {{"top", "Top"}, {"bottom", "Bottom"}};
 constexpr Choice kNewLines[] = {
     {"wait", "Wait their turn"}, {"cut_off", "Cut off the current one"}, {"speed_up", "Speed up to catch up"}};
 
+// A language as the combo shows it: its English name, then its own, e.g. "Polish (Polski)".
+std::string language_label(const LanguageOption& language) {
+    if (language.name == language.english_name) {
+        return language.name;
+    }
+    return language.english_name + " (" + language.name + ")";
+}
+
 std::string language_name(const CoreState& state, const std::string& code) {
     for (const LanguageOption& language : state.languages) {
         if (language.code == code) {
-            return language.name;
+            return language_label(language);
         }
     }
     return code;
@@ -79,7 +87,7 @@ void draw_language_combo(const char* label, const CoreState& state, const std::s
     }
     for (const LanguageOption& language : state.languages) {
         bool selected = language.code == current;
-        if (ImGui::Selectable((language.name + "##" + language.code).c_str(), selected) && !selected) {
+        if (ImGui::Selectable((language_label(language) + "##" + language.code).c_str(), selected) && !selected) {
             request(language.code);
         }
     }

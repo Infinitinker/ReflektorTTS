@@ -11,7 +11,7 @@ from reflektortts.languages import Languages
 from reflektortts.sources.vlc.errors import VlcError
 from reflektortts.sources.vlc.formats import read_cues
 from reflektortts.sources.vlc.formats.cues import Cues
-from reflektortts.sources.vlc.subtitles import LEGACY_ENCODINGS, SubtitleFile, find_subtitles
+from reflektortts.sources.vlc.subtitles import SubtitleFile, find_subtitles, legacy_encoding
 from reflektortts.sources.vlc.timing import PlaybackClock
 from reflektortts.sources.vlc.uri import uri_to_path
 from reflektortts.sources.vlc.web import NotAnsweringError, PlayerStatus, VlcClient
@@ -171,7 +171,7 @@ def _load(file: SubtitleFile, language: str) -> _Subtitles:
     path = file.path
     try:
         stamp = path.stat().st_mtime_ns
-        cues = read_cues(file.format, path.read_bytes(), LEGACY_ENCODINGS.get(language, "cp1252"))
+        cues = read_cues(file.format, path.read_bytes(), legacy_encoding(language))
     except OSError as error:
         raise VlcError(f"Cannot read the subtitles in {path.name} ({error.strerror}).") from error
     if not cues:

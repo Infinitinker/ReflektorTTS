@@ -42,10 +42,11 @@ from reflektortts.integrations import (
 from reflektortts.languages import (
     DEFAULT_INPUT_LANGUAGE,
     DEFAULT_OUTPUT_LANGUAGE,
-    SAMPLES,
+    LanguageError,
     Languages,
     check_language,
     primary_language,
+    sample,
 )
 from reflektortts.overlay import inject_overlay
 from reflektortts.pipeline.plugins import SourcePlugin, StagePlugin, inactive_reason, source_plugins, stage_plugins
@@ -379,11 +380,14 @@ class Core:
         return self._list_voices()
 
     def preview_voice(self, voice: str) -> None:
-        """Speaks a sample sentence in the voice's language, also while an app is read."""
+        """Speaks a sample sentence in the voice's language, or the language's name, also while an
+        app is read."""
         language = primary_language(find_voice(voice, self.voices()).language)
-        if language not in SAMPLES:
-            raise VoiceError(f'"{voice}" speaks {language}, a language ReflektorTTS does not support.')
-        self._preview.play(voice, SAMPLES[language])
+        try:
+            text = sample(language)
+        except LanguageError as error:
+            raise VoiceError(f'"{voice}" speaks "{language}", a language ReflektorTTS does not know.') from error
+        self._preview.play(voice, text)
 
     @_serialized
     def profile_settings(self, profile_id: str) -> ProfileSettingsView:

@@ -171,7 +171,7 @@ class Application:
         """Runs in the background; the status is shown again with the names on Tkinter's thread."""
         try:
             languages = request_json("GET", "/languages")["languages"]
-            names = {language["code"]: language["name"] for language in languages}
+            names = {language["code"]: language["english_name"] for language in languages}
             voices = request_json("GET", "/voices")["voices"]
             titles = {voice["id"]: f"{voice['name']} ({voice['engine_title']})" for voice in voices}
         except (ApiClientError, KeyError, TypeError) as error:
@@ -352,7 +352,7 @@ class Application:
         try:
             if not self._language_names:
                 languages = request_json("GET", "/languages")["languages"]
-                self._language_names = {language["code"]: language["name"] for language in languages}
+                self._language_names = {language["code"]: language["english_name"] for language in languages}
             if refresh:
                 answer = request_json("POST", "/downloads/refresh", timeout=REFRESH_TIMEOUT_SECONDS)
             else:

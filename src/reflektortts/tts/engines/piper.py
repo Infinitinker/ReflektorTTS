@@ -3,8 +3,14 @@
 from collections.abc import Iterator
 from pathlib import Path
 
+from reflektortts.languages import language_tag
 from reflektortts.tts.engine import AudioChunk, EnginePlugin, VoiceError, VoiceInfo
 from reflektortts.tts.voices import downloaded_voices, voices_dir
+
+SPOKEN_PHONEME_TYPES = frozenset({"espeak", "text", "hebrew"})
+"""How the voices ReflektorTTS can run turn text into sounds (their config's phoneme_type). Piper's
+readers for Chinese pinyin, Japanese and Thai voices need packages ReflektorTTS does not install,
+and newer types (Lithuanian) a newer Piper."""
 
 
 class PiperEngine:
@@ -37,7 +43,7 @@ def create(voice_name: str) -> PiperEngine:
 
 def voice_info(name: str) -> VoiceInfo:
     """Piper voice names start with the language, e.g. "en_US-ljspeech-medium"."""
-    language = name.split("-")[0].replace("_", "-")
+    language = language_tag(name.split("-")[0])
     return VoiceInfo(id=f"piper:{name}", engine="piper", name=name, language=language, engine_title="Piper")
 
 

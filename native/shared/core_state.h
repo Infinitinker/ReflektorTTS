@@ -15,7 +15,8 @@ struct VoiceOption {
 
 struct LanguageOption {
     std::string code;
-    std::string name;
+    std::string name;  // The language's own name, e.g. "Polski".
+    std::string english_name;
 };
 
 // What a line is prepared for; each stage is switched on and off for each.

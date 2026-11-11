@@ -48,7 +48,7 @@ class VoiceInfo:
     engine: str
     name: str
     language: str
-    """BCP 47 tag, e.g. "pl-PL"."""
+    """BCP 47 tag, its language as a code ReflektorTTS uses (languages.language_tag), e.g. "pl-PL"."""
     engine_title: str
     """The engine's name as shown to users, e.g. "Windows"."""
 

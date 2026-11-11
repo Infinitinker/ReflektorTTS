@@ -406,6 +406,16 @@ def test_a_voice_is_previewed_in_its_language_without_touching_the_game_voice(tm
         core.preview_voice("piper:missing")
 
 
+def test_a_voice_in_a_language_without_a_sample_says_the_language_s_name(tmp_path: Path) -> None:
+    previews = Clients()
+    pavel = VoiceInfo("windows:Microsoft Pavel", "windows", "Microsoft Pavel", "ru-RU", "Windows")
+    core = make_core(tmp_path, Clients(), voices=[pavel], previews=previews)
+
+    core.preview_voice(pavel.id)
+
+    assert [client.said for client in previews.started] == [["Русский"]]
+
+
 def test_output_language_switches_to_the_voice_last_used_for_it(tmp_path: Path) -> None:
     core = make_core(tmp_path, Clients())
     change(core, voice=PAULINA.id)
