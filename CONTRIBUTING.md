@@ -93,6 +93,10 @@ The languages ReflektorTTS knows, with their names, codes and code pages, are in
 
 What a language has besides, such as a voice preview sentence (`SAMPLES` in `src/reflektortts/languages.py`) or rules for spelling out numbers (`stages/normalize/languages/`), is added by hand.
 
+### Branch protection
+
+Changes reach `main` only through pull requests: a branch ruleset (Settings > Rules > Rulesets, "Default branch protection") also blocks deleting it and force pushes. A pull request can be merged once these checks pass, each from the GitHub Actions app: `Lint`, `Windows Python checks` and `Linux Python checks` (the `Checks` workflow, `.github/workflows/checks.yml`), and `Windows build (x64)` (the `Build Windows app` workflow). The ruleset names the jobs, so renaming one means changing it there too.
+
 ### Building a release
 
 `tools/build_release.py` builds three files into `build\release\`, all uploaded to the release's page on GitHub, under the tag `v<version>`:

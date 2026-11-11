@@ -1,6 +1,8 @@
 name: Checks
 
-# Pushes to the two long-lived branches, and pull requests, also from forks.
+# Pushes to the two long-lived branches, and pull requests, also from forks. The jobs have short,
+# fixed names, so they are required status checks of the main branch ruleset ("Branch protection" in
+# CONTRIBUTING.md).
 on:
   push:
     branches: [main, dev]
@@ -37,7 +39,7 @@ jobs:
   # mypy checks only the code paths of the system it runs on, and the Windows-only packages are
   # installed only on Windows, so types are checked on each system, like the tests.
   system:
-    name: ${{ matrix.name }}
+    name: ${{ matrix.name }} Python checks
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     strategy:

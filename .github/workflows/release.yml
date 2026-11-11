@@ -52,7 +52,7 @@ jobs:
           fi
 
   windows:
-    name: Windows
+    name: Windows app
     needs: version
     uses: ./.github/workflows/build-windows.yml
 
