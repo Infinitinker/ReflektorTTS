@@ -97,13 +97,15 @@ The same settings, without pause and the last line read, open in a window of the
 
 Select a voice to read its license and open its page, then **Download** it: it can be used right away, even in a game that is running. **Preview** lets you hear an installed voice first.
 
-Any language can be chosen as yours. Without a voice for it, lines are only translated and shown as subtitles.
+Any language can be chosen as yours. Without a voice for it, lines are only translated and shown as subtitles. The Voices tab lists Piper voices in over 40 languages.
 
 ## Translation
 
 Set the game's language in the panel's Input section and yours in Output; when they differ, each line is translated before it is spoken and shown. To hear the original instead, untick `translate` in the panel's Processing section.
 
-Translation uses the models of [Argos Translate](https://github.com/argosopentech/argos-translate), one per pair of languages, downloaded in the Translations tab. They run offline on the CPU, at about 0.1 s per line. The English–Polish model (about 80 MB), for example, is derived from an [OPUS-MT](https://github.com/Helsinki-NLP/Opus-MT) model by Jörg Tiedemann and Santhosh Thottingal and licensed CC-BY 4.0.
+Translation uses the models of [Argos Translate](https://github.com/argosopentech/argos-translate), one per pair of languages, downloaded in the Translations tab: English to and from about 50 languages, and Spanish to and from Portuguese. Two other languages can't be translated between yet, such as German to Polish. They run offline on the CPU, at about 0.1 s per line. The English–Polish model (about 80 MB), for example, is derived from an [OPUS-MT](https://github.com/Helsinki-NLP/Opus-MT) model by Jörg Tiedemann and Santhosh Thottingal and licensed CC-BY 4.0.
+
+The in-game subtitles and panel can't show every script yet: Chinese, Japanese, Korean, Thai, Indic and some other scripts show as boxes, and right-to-left text such as Arabic, Hebrew, Persian and Urdu shows reversed. Those languages are still read aloud. A glossary's kept names come back only in translations written in Latin letters.
 
 A profile's glossary helps the translation along: it keeps names that are also words untranslated ("Sweet" stays a name), gives slang its meaning ("hood" is not a car's hood), and says how names are pronounced ("Carl" is read "Karl" in Polish, while subtitles keep "Carl").
 

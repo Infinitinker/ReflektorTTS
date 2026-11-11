@@ -67,8 +67,6 @@ UNUSED = (
     "_internal/_sounddevice_data/portaudio-binaries/libportaudio32bit.dll",
     "_internal/_sounddevice_data/portaudio-binaries/libportaudioarm64.dll",
     "_internal/_sounddevice_data/portaudio-binaries/libportaudio.dylib",
-    "_internal/piper/hebrew/*.onnx",
-    "_internal/piper/tashkeel/*.onnx",
     "_internal/piper/img",
     "_internal/piper/templates",
     "_internal/PIL/_avif.*.pyd",
@@ -77,8 +75,7 @@ UNUSED = (
 )
 """Files and folders the collected packages bring that ReflektorTTS does not use, removed from the
 build: NVIDIA's cuDNN (translation runs on the CPU), PortAudio builds for ASIO (with Steinberg's SDK)
-and other systems, Piper's models that add vowel marks to Hebrew and Arabic text (ReflektorTTS
-offers English and Polish voices), the pages of Piper's web server, Pillow's AVIF and WebP formats (only the icon's
+and other systems, the pages of Piper's web server, Pillow's AVIF and WebP formats (only the icon's
 ICO and PNG are used; Pillow skips formats it cannot import), and the path of the folder the build
 was installed from."""
 COPYRIGHT = Path("COPYRIGHT")
