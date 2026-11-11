@@ -2,7 +2,7 @@
 
 Everything here is in physical pixels of the screen, which the settings window takes on its command
 line (see native/README.md). Tk's own measures cannot be used for that on Windows: Python and
-ReflektorTTS.exe are not DPI aware, so at a display scale above 100% Windows scales the window up
+reflektortts.exe are not DPI aware, so at a display scale above 100% Windows scales the window up
 and gives Tk smaller, scaled-down measures. There the window's place comes from Windows instead
 (win32_windows.py), and where Windows cannot tell, the settings window opens centered instead;
 elsewhere Tk's measures are physical pixels.

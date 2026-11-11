@@ -46,7 +46,7 @@ ReflektorTTS reads games such as Grand Theft Auto III, Vice City, San Andreas an
 
 For better voices, or to translate, download them in the window's **Voices** and **Translations** tabs.
 
-Rather not install anything? Download `ReflektorTTS-<version>-windows-x64.zip` instead, unpack it anywhere and run `ReflektorTTS.exe`.
+Rather not install anything? Download `ReflektorTTS-<version>-windows-x64.zip` instead, unpack it anywhere and run `reflektortts.exe`.
 
 <table>
   <tr>

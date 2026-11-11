@@ -60,18 +60,26 @@ def test_run_from_source_the_first_overlay_folder_with_the_program_has_it(
     assert find_program([x86]) is None
 
 
-def test_in_a_release_the_program_is_next_to_the_exe(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    program = program_in(tmp_path / "ReflektorTTS")
+def test_in_a_release_the_program_is_in_the_panel_folder(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    program = program_in(tmp_path / "ReflektorTTS" / "panel")
     monkeypatch.setattr(sys, "frozen", True, raising=False)
-    monkeypatch.setattr(sys, "executable", str(tmp_path / "ReflektorTTS" / "ReflektorTTS.exe"))
+    monkeypatch.setattr(sys, "executable", str(tmp_path / "ReflektorTTS" / "reflektortts.exe"))
     overlay = program_in(tmp_path / "ReflektorTTS" / "overlay" / "x64")
 
     assert find_program([overlay.parent]) == program
 
 
+def test_in_a_release_a_program_next_to_the_exe_is_not_used(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    program_in(tmp_path / "ReflektorTTS")
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    monkeypatch.setattr(sys, "executable", str(tmp_path / "ReflektorTTS" / "reflektortts.exe"))
+
+    assert find_program([]) is None
+
+
 def test_in_a_release_without_the_program_there_is_none(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(sys, "frozen", True, raising=False)
-    monkeypatch.setattr(sys, "executable", str(tmp_path / "ReflektorTTS.exe"))
+    monkeypatch.setattr(sys, "executable", str(tmp_path / "reflektortts.exe"))
 
     assert find_program([]) is None
     assert PanelWindows(None).missing is not None

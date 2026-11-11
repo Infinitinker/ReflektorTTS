@@ -1,6 +1,6 @@
 """Starting ReflektorTTS, hidden in the tray, when the user signs in to Windows: an entry under the
 user's Run key, the one Task Manager lists under Startup apps and can disable too. Only
-ReflektorTTS.exe from a release can be started that way; run from source, or elsewhere than on
+reflektortts.exe from a release can be started that way; run from source, or elsewhere than on
 Windows, it is not available."""
 
 import logging
@@ -34,7 +34,7 @@ class Autostart:
         self._command = f'"{executable}" {HIDDEN}'
 
     def enabled(self) -> bool:
-        """Whether Windows starts this ReflektorTTS.exe at sign-in: the entry runs it, and Task
+        """Whether Windows starts this reflektortts.exe at sign-in: the entry runs it, and Task
         Manager has not disabled the entry."""
         command = self._registry.read(RUN_KEY, NAME)
         if not isinstance(command, str) or command.casefold() != self._command.casefold():
@@ -90,7 +90,7 @@ def autostart_supported() -> bool:
 
 
 def system_autostart() -> Autostart | None:
-    """This ReflektorTTS.exe's autostart, or None where it is not available."""
+    """This reflektortts.exe's autostart, or None where it is not available."""
     if sys.platform == "win32" and getattr(sys, "frozen", False):
         return Autostart(WindowsRegistry(), Path(sys.executable))
     return None

@@ -5,9 +5,9 @@
   with one ReflektorTTS folder inside;
 - ReflektorTTS-<version>-sources.zip, the source code the release offers (see tools/sources.py).
 
-The folder holds ReflektorTTS.exe (the desktop app with its own Python, built by PyInstaller),
-reflektortts-panel.exe next to it (the settings window, from the 64-bit native build), the 32- and
-64-bit overlay builds, LICENSE.txt, COPYRIGHT.txt, THIRD_PARTY_NOTICES.txt and README.txt.
+The folder holds reflektortts.exe (the desktop app with its own Python, built by PyInstaller), the
+settings window in its panel folder (reflektortts-panel.exe, from the 64-bit native build), the 32-
+and 64-bit overlay builds, LICENSE.txt, COPYRIGHT.txt, THIRD_PARTY_NOTICES.txt and README.txt.
 
 PyInstaller does not see what ReflektorTTS finds only while it runs, so it is told: plugins are
 found through entry points (the package's metadata) and imported by name, the profiles, schemas
@@ -39,10 +39,16 @@ ENTRY = Path("src/reflektortts/desktop/__main__.py")
 ICON = Path("src/reflektortts/desktop/icon.ico")
 BUILD = Path("build/release")
 NAME = "ReflektorTTS"
+"""The release's name: its files' names, its folder's and the product name in the exe."""
+EXE = "reflektortts"
+"""The program's file name, without .exe: lowercase, as the package's name."""
 OVERLAY_BUILDS = {"x86": Path("native/build/bin"), "x64": Path("native/build64/bin")}
 OVERLAY_FILES = ("reflektortts-overlay.dll", "reflektortts-inject.exe")
 PANEL = Path("native/build64/bin/reflektortts-panel.exe")
-"""The settings window, which the desktop app finds next to ReflektorTTS.exe."""
+PANEL_FOLDER = "panel"
+"""The settings window goes into this folder next to reflektortts.exe, where the desktop app finds it
+(RELEASE_FOLDER in desktop/panel/launcher.py), so the one program next to reflektortts.exe is not
+mistaken for one to start."""
 COLLECT = {
     "--copy-metadata": ["reflektortts"],
     "--collect-submodules": ["reflektortts", "num2words", "winrt"],
@@ -89,7 +95,7 @@ README = """ReflektorTTS {version}
 Your apps, read aloud.
 
 Starting
-  Run ReflektorTTS.exe. Its icon appears next to the clock: right-click it to open the
+  Run reflektortts.exe. Its icon appears next to the clock: right-click it to open the
   window, pause reading or quit. Closing the window leaves ReflektorTTS running.
 
   Start an app ReflektorTTS has a profile for (the window's Profiles tab lists them): its
@@ -133,13 +139,13 @@ Source code
 
 def version_info(release: str, copyright: str) -> str:
     """The exe's Windows version resource. Windows names the app by its file description, e.g. in
-    notifications; without one it shows the file name, ReflektorTTS.exe."""
+    notifications; without one it shows the file name, reflektortts.exe."""
     numbers = version_numbers(release)
     strings = {
         "FileDescription": NAME,
         "ProductName": NAME,
-        "InternalName": NAME,
-        "OriginalFilename": f"{NAME}.exe",
+        "InternalName": EXE,
+        "OriginalFilename": f"{EXE}.exe",
         "FileVersion": release,
         "ProductVersion": release,
         "LegalCopyright": copyright,
@@ -212,14 +218,15 @@ def write_hooks(folder: Path) -> Path:
 
 
 def build_exe(release: str, copyright: str) -> Path:
-    """Runs PyInstaller; returns the folder it built."""
+    """Runs PyInstaller; returns the folder it built, named as the release (PyInstaller names it as
+    the exe)."""
     BUILD.mkdir(parents=True, exist_ok=True)
     version_file = BUILD / "version.txt"
     version_file.write_text(version_info(release, copyright), "utf-8")
     hooks = write_hooks(BUILD / "hooks")
     arguments = [
         str(ENTRY),
-        f"--name={NAME}",
+        f"--name={EXE}",
         "--windowed",
         "--onedir",
         "--noconfirm",
@@ -235,7 +242,7 @@ def build_exe(release: str, copyright: str) -> Path:
     for option, packages in COLLECT.items():
         arguments += [f"{option}={package}" for package in packages]
     PyInstaller.__main__.run(arguments)
-    return BUILD / "dist" / NAME
+    return (BUILD / "dist" / EXE).rename(BUILD / "dist" / NAME)
 
 
 def remove_unused(folder: Path) -> None:
@@ -280,7 +287,9 @@ def copy_overlay(folder: Path) -> None:
 def copy_panel(folder: Path) -> None:
     if not PANEL.is_file():
         raise SystemExit(f"Build the settings window first (see native/README.md): {PANEL} is missing.")
-    shutil.copy2(PANEL, folder / PANEL.name)
+    target = folder / PANEL_FOLDER
+    target.mkdir(exist_ok=True)
+    shutil.copy2(PANEL, target / PANEL.name)
 
 
 def main() -> None:

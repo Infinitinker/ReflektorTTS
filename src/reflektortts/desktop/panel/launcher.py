@@ -17,6 +17,9 @@ from reflektortts.desktop.panel.dock import Dock
 from reflektortts.desktop.panel.win32_windows import bring_to_front
 
 PROGRAM = "reflektortts-panel.exe" if sys.platform == "win32" else "reflektortts-panel"
+RELEASE_FOLDER = "panel"
+"""Where a release keeps the program, in a folder next to reflektortts.exe, so that the one program
+in the release's own folder is the one users start (tools/build_release.py puts it there)."""
 
 logger = logging.getLogger(__name__)
 
@@ -41,10 +44,10 @@ def start_process(command: list[str]) -> Process:
 
 
 def find_program(overlay: Sequence[Path]) -> Path | None:
-    """The settings window's program: in a release (a frozen ReflektorTTS.exe), next to
-    ReflektorTTS.exe; run from source, in the first overlay build folder that has it (the 64-bit
-    build makes it). None where it is not found."""
-    folders = [Path(sys.executable).parent] if getattr(sys, "frozen", False) else list(overlay)
+    """The settings window's program: in a release (a frozen reflektortts.exe), in the panel folder
+    next to reflektortts.exe; run from source, in the first overlay build folder that has it (the
+    64-bit build makes it). None where it is not found."""
+    folders = [Path(sys.executable).parent / RELEASE_FOLDER] if getattr(sys, "frozen", False) else list(overlay)
     return next((folder / PROGRAM for folder in folders if (folder / PROGRAM).is_file()), None)
 
 
@@ -52,7 +55,7 @@ def missing_text() -> str:
     """Why there is no settings window, in a sentence for the status bar."""
     if getattr(sys, "frozen", False):
         return (
-            f"The settings window, {PROGRAM}, is missing from ReflektorTTS's folder: "
+            f"The settings window, {PROGRAM}, is missing from the panel folder in ReflektorTTS's folder: "
             "install or unpack ReflektorTTS again."
         )
     if sys.platform != "win32":

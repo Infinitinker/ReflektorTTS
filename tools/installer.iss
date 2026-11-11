@@ -17,7 +17,7 @@
 #endif
 
 #define AppName "ReflektorTTS"
-#define AppExe "ReflektorTTS.exe"
+#define AppExe "reflektortts.exe"
 #define Repository "https://github.com/Infinitinker/ReflektorTTS"
 #define AppGuid "AC5D9BAE-0B1A-425C-845D-8B09802D303D"
 ; The same start with Windows entry as src/reflektortts/desktop/system/autostart.py, which the
@@ -88,6 +88,10 @@ Root: HKCU; Subkey: "{#RunKey}"; ValueType: string; ValueName: "{#AppName}"; Val
 [InstallDelete]
 ; PyInstaller's files change between releases; old ones must not stay mixed in with the new.
 Type: filesandordirs; Name: "{app}\_internal"
+; Up to 0.3.0, the settings window was next to the exe, which is now the only program there, and
+; the exe was ReflektorTTS.exe: deleted first, so the new one gets its lowercase name.
+Type: files; Name: "{app}\reflektortts-panel.exe"
+Type: files; Name: "{app}\ReflektorTTS.exe"
 
 [Files]
 Source: "{#SourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs

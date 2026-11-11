@@ -6,7 +6,7 @@ import pytest
 
 from reflektortts.desktop.system.autostart import APPROVED_KEY, NAME, RUN_KEY, Autostart
 
-EXE = Path(r"C:\Users\me\AppData\Local\Programs\ReflektorTTS\ReflektorTTS.exe")
+EXE = Path(r"C:\Users\me\AppData\Local\Programs\ReflektorTTS\reflektortts.exe")
 COMMAND = f'"{EXE}" --hidden'
 DISABLED_BY_TASK_MANAGER = bytes([3]) + bytes(11)
 ENABLED_BY_TASK_MANAGER = bytes([2]) + bytes(11)
@@ -44,7 +44,7 @@ def test_enabling_adds_a_hidden_start_of_this_exe_and_disabling_removes_it() -> 
 
 def test_an_entry_for_another_copy_does_not_count() -> None:
     registry = FakeRegistry()
-    registry.write(RUN_KEY, NAME, r'"D:\Old\ReflektorTTS\ReflektorTTS.exe" --hidden')
+    registry.write(RUN_KEY, NAME, r'"D:\Old\ReflektorTTS\reflektortts.exe" --hidden')
 
     assert not Autostart(registry, EXE).enabled()
 

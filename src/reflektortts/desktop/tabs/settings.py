@@ -78,4 +78,4 @@ class SettingsTab:
     def _autostart_hint(self) -> str:
         if self._available:
             return "Start hidden next to the clock when you sign in to Windows."
-        return "Only ReflektorTTS.exe from a release can start with Windows."
+        return "Only reflektortts.exe from a release can start with Windows."
