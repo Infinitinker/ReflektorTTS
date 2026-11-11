@@ -93,6 +93,58 @@ The languages ReflektorTTS knows, with their names, codes and code pages, are in
 
 What a language has besides, such as a voice preview sentence (`SAMPLES` in `src/reflektortts/languages.py`) or rules for spelling out numbers (`stages/normalize/languages/`), is added by hand.
 
+### Linux checks on Windows (WSL)
+
+On Windows, the Linux checks can run in WSL 2 with Ubuntu 24.04, in a clone of their own inside WSL: a `.venv` made on Windows doesn't run on Linux, and files on the Windows drives are slow to reach from WSL. Ubuntu 24.04 comes with Python 3.12, so these steps get 3.13 with [uv](https://docs.astral.sh/uv/), which installs it without touching the system's Python (any other Python 3.13 with tkinter works too). uv's Python has a Tk built without Xft, which draws text beyond Latin-1, such as "…" or "ł", as wrong symbols: the checks pass all the same, and ReflektorTTS logs a warning about it. In the Ubuntu shell, install PortAudio, which plays sound, Xvfb, which gives the window's tests a display, and stalonetray, a tray for the end-to-end test, as the Linux runners do:
+
+```bash
+sudo apt-get update && sudo apt-get install -y libportaudio2 xvfb stalonetray
+```
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+```bash
+~/.local/bin/uv python install 3.13
+```
+
+Clone your Windows checkout, so commits you haven't pushed are checked too, and set it up; replace the path with your checkout's, where `C:\` is `/mnt/c/`, and `dev` with the branch you work on. Later, `git pull` in the clone brings in that branch's newer commits, and `git fetch` then `git checkout <branch>` another branch:
+
+```bash
+git clone --branch dev /mnt/c/path/to/ReflektorTTS ~/ReflektorTTS
+```
+```bash
+cd ~/ReflektorTTS && "$(~/.local/bin/uv python find 3.13)" -m venv .venv && .venv/bin/pip install -e ".[dev]"
+```
+
+Then, in `~/ReflektorTTS`, check the types and run the tests as the `Linux Python checks` job does:
+
+```bash
+.venv/bin/python -m mypy
+```
+```bash
+xvfb-run -a .venv/bin/python -m pytest
+```
+
+and the end-to-end test (below), with a tray on the screen first, as the `Linux E2E tests` job does:
+
+```bash
+xvfb-run -a -s "-screen 0 1920x1080x24" sh -c 'stalonetray & .venv/bin/python -m tests.e2e.wait_for_tray && .venv/bin/python -m pytest -m e2e'
+```
+
+### End-to-end tests
+
+One smoke test, in `tests/e2e/`, runs the desktop app from source as a user does, and follows it through the local API as any client could. The app starts and lists the bundled profiles and the languages; it enables the VLC integration and finds a fake VLC (`tests/e2e/fake_vlc.py`, a small web server that answers as VLC's web interface does, run as a program named `vlc.exe` or `vlc`); it reads the subtitle of the video that VLC plays through the VLC profile's stages, notices VLC closing, and logs no errors. The usual test run leaves it out, so run it on its own:
+
+```powershell
+.venv\Scripts\python -m pytest -m e2e
+```
+
+- **Close ReflektorTTS and VLC first.** The test stops at once if either runs: the app's port is fixed, and a running VLC would be read instead of the fake one.
+- **Your own files are never touched.** The app and VLC get per-user folders of their own, inside the output folder, so your settings, profiles, downloads and VLC's settings stay as they are. The window opens for a few seconds, and if Windows has a voice for English, it reads the test line aloud.
+- **The output** goes to the folder in `E2E_OUTPUT`, or else `build\e2e`. The folder is deleted with everything in it before each run, so give `E2E_OUTPUT` a folder of its own. It holds `report.json` (the steps that passed and how long each took, the one that failed and why, and what the test saw), what the app and the fake VLC printed (`reflektortts-console.log`, `fake-vlc.log`), the per-user folders of the run in `home`, with the app's logs, and, on a CI runner only, a screenshot of the screen (`screen.png`).
+
+The `E2E tests` workflow (`.github/workflows/e2e.yml`) runs the test for every push to `main` and `dev` and for every pull request, in two jobs, `Windows E2E tests` and `Linux E2E tests` (Xvfb, with stalonetray as the tray). Each keeps the output folder as an artifact, with the report in the job summary. You need not run the test before every commit; run it after changes to how the app starts, finds apps or reads VLC.
+
 ### Branch protection
 
 Changes reach `main` only through pull requests: a branch ruleset (Settings > Rules > Rulesets, "Default branch protection") also blocks deleting it and force pushes. A pull request can be merged once these checks pass, each from the GitHub Actions app: `Lint`, `Windows Python checks` and `Linux Python checks` (the `Checks` workflow, `.github/workflows/checks.yml`), and `Windows build (x64)` (the `Build Windows app` workflow, which builds pull requests but not pushes). The ruleset names the jobs, so renaming one means changing it there too.

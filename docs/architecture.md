@@ -89,7 +89,7 @@ A failing source, stage or sink is reported once as a `source.error`, `stage.err
 | `user_dirs.py` | The per-user folders (`%LOCALAPPDATA%\ReflektorTTS` on Windows) |
 | `overlay.py` | Loads the overlay into an app |
 | `native/` (repository root) | The C++ code, in three parts: `shared/`, a library with the API client and the settings panel's drawing; `overlay/`, the overlay DLL loaded into apps, and its injector; and `panel/`, the settings window: the same settings panel for one profile, in a window of its own (SDL3), started by the desktop app as `reflektortts-panel --profile <id>` with `--dock-*` arguments that open it beside the desktop window, for apps running or not and apps without the overlay. See [native/README.md](../native/README.md) |
-| `tests/` (repository root) | Tests, mirroring `src/reflektortts/` |
+| `tests/` (repository root) | Tests, mirroring `src/reflektortts/`; `tests/e2e/` holds the end-to-end smoke test of the desktop app, which the usual test run leaves out (see CONTRIBUTING.md) |
 | `tools/` (repository root) | Developer tools, not part of ReflektorTTS: `draw_icon.py` draws the ReflektorTTS icon, `languages.py` generates the language table, `build_release.py` builds a release (the installer, from `installer.iss`, and the portable zip), `notices.py` collects the licenses it ships, and `sources.py` the source code it offers |
 
 How the folders are organized:

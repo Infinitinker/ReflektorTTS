@@ -27,7 +27,7 @@ The goal is clean code, modularity, portability, and that other people can insta
 - No dead code, commented-out code or speculative abstractions. Build interfaces from the existing cases (OCR, memory, clipboard) and validate them on the next one (STT); don't design for imagined ones.
 - Errors are explicit: raise specific exceptions, and never swallow them silently. A failing source or plugin must not take down the core; report it as a `source.error` event.
 - Use `logging`, not `print`.
-- Tests live in `tests/`, mirroring `src/reflektortts/` (e.g. `tests/stages/test_tracker.py`), together with their fakes; nothing test-only goes in `src/`. They run without a running app, GPU or network. Hardware- and app-dependent parts sit behind interfaces so they can be faked.
+- Tests live in `tests/`, mirroring `src/reflektortts/` (e.g. `tests/stages/test_tracker.py`), together with their fakes; nothing test-only goes in `src/`. They run without a running app, GPU or network. Hardware- and app-dependent parts sit behind interfaces so they can be faked. The exception is the end-to-end smoke test in `tests/e2e/`, which runs the desktop app from source against a fake VLC, only when asked for (`pytest -m e2e`).
 
 ### Modularity
 - Sources, processing stages and outputs are plugins behind the `Source`, `Stage` and `Sink` protocols. Adding a plugin must not require changes in the core or the UI.
