@@ -10,7 +10,7 @@ from typing import Any
 
 from reflektortts.events import TextEvent
 from reflektortts.glossary import Glossaries
-from reflektortts.languages import Languages
+from reflektortts.languages import Languages, separates_words
 from reflektortts.pipeline.plugins import StagePlugin, load_schema
 from reflektortts.stages.translate.engine import Engine, load_engine
 from reflektortts.stages.translate.glossary import GlossaryRules
@@ -61,7 +61,7 @@ class Translate:
     def _rules_for(self, language: str) -> GlossaryRules:
         """The glossary rules for lines in an input language, made the first time they are needed."""
         if language not in self._rules:
-            self._rules[language] = GlossaryRules(self._glossaries.get(language, ()))
+            self._rules[language] = GlossaryRules(self._glossaries.get(language, ()), separates_words(language))
         return self._rules[language]
 
     def _translate(self, pair: Pair, text: str, rules: GlossaryRules) -> str:

@@ -5,6 +5,7 @@ from typing import Any
 
 from reflektortts.events import TextEvent
 from reflektortts.glossary import Glossaries
+from reflektortts.letters import letter_count
 from reflektortts.pipeline.plugins import StagePlugin, load_schema
 
 # Lines that are mostly symbols or digits are garbage or HUD readouts, not dialogue.
@@ -41,7 +42,7 @@ class Tracker:
         return event
 
     def _looks_like_a_line(self, text: str) -> bool:
-        letters = sum(character.isalpha() for character in text)
+        letters = letter_count(text)
         visible = sum(not character.isspace() for character in text)
         return letters >= self._min_letters and letters >= MIN_LETTER_SHARE * visible
 

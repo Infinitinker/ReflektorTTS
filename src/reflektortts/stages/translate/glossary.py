@@ -11,7 +11,8 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from functools import partial
 
-from reflektortts.glossary import Glossary, GlossaryTerm, TermFinder
+from reflektortts.glossary import Glossary, GlossaryTerm, TermFinder, word_bounded
+from reflektortts.letters import LATIN_LETTER, letter_count
 from reflektortts.stages.translate.languages import OutputLanguage
 
 # English names, for English input: the English-Polish model keeps them and declines them with an
@@ -27,12 +28,12 @@ def _stem(stand_in: str, female: bool) -> str:
     return stand_in[:-1] if female else stand_in
 
 
-def _whole_words(terms: Sequence[str], flags: re.RegexFlag = re.NOFLAG) -> re.Pattern[str] | None:
+def _whole_words(terms: Sequence[str], separates_words: bool, flags: re.RegexFlag) -> re.Pattern[str] | None:
     """Matches any of the terms as whole words, the longest first; None if there are none."""
     if not terms:
         return None
     longest_first = sorted(set(terms), key=len, reverse=True)
-    return re.compile(r"(?<!\w)(?:" + "|".join(map(re.escape, longest_first)) + r")(?!\w)", flags)
+    return re.compile(word_bounded("|".join(map(re.escape, longest_first)), separates_words), flags)
 
 
 def _in_case_of(text: str, matched: str) -> str:
@@ -74,18 +75,21 @@ class Prepared:
 
 
 class GlossaryRules:
-    """What translation does with a profile's glossary terms."""
+    """What translation does with a profile's glossary terms, in lines of the glossary's language,
+    which may be written without spaces between words."""
 
-    def __init__(self, glossary: Glossary) -> None:
+    def __init__(self, glossary: Glossary, separates_words: bool = True) -> None:
         self._kept = TermFinder(term for term in glossary if term.keep)
-        self._keep = self._kept.whole_words()
+        self._keep = self._kept.whole_words(separates_words)
         self._meanings: dict[str, str] = {}
         for term in glossary:
             if term.means is not None:
                 self._meanings.update(dict.fromkeys((spelling.lower() for spelling in term.spellings), term.means))
-        self._means = _whole_words(list(self._meanings), re.IGNORECASE)
+        self._means = _whole_words(list(self._meanings), separates_words, re.IGNORECASE)
         # The skip count sets aside kept terms and those only pronounced differently, such as names.
-        self._set_aside = TermFinder(term for term in glossary if term.keep or term.pronounce).whole_words()
+        self._set_aside = TermFinder(term for term in glossary if term.keep or term.pronounce).whole_words(
+            separates_words
+        )
         self.key = tuple((term.spellings, term.keep, term.female, term.means) for term in glossary)
         """Tells glossaries apart in a cache of translations."""
 
@@ -93,7 +97,7 @@ class GlossaryRules:
         """Letters of the line outside its kept and pronounced terms."""
         if self._set_aside is not None:
             text = self._set_aside.sub("", text)
-        return sum(character.isalpha() for character in text)
+        return letter_count(text)
 
     def prepare(self, text: str) -> Prepared:
         if self._means is not None:
@@ -123,7 +127,10 @@ class GlossaryRules:
                 name = free[term.female].pop(0)
                 names[spellings] = name
                 stem = _stem(name, term.female)
-                pattern = rf"(?:(?<!\w)(?P<before>\w+)(?P<gap>\s+))?(?<!\w)(?P<stand_in>{stem}(?P<ending>\w*))"
+                pattern = (
+                    rf"(?:(?<!\w)(?P<before>\w+)(?P<gap>\s+))?"
+                    rf"(?<!{LATIN_LETTER})(?P<stand_in>{stem}(?P<ending>{LATIN_LETTER}*))"
+                )
                 stand_ins.append(_StandIn(term, re.compile(pattern, re.IGNORECASE)))
             return names[spellings].upper() if shouted else names[spellings]
 

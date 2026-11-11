@@ -43,6 +43,12 @@ def test_lines_with_too_few_letters_are_ignored() -> None:
     assert feed(Tracker(stable_seconds=0.5, min_letters=4), readings) == ["Okay!"]
 
 
+def test_letters_with_marks_of_their_own_count_as_letters() -> None:
+    readings = [(0.0, "मैं ठीक हूँ।"), (1.0, "मैं ठीक हूँ।")]
+
+    assert feed(Tracker(stable_seconds=0.5, min_letters=4), readings) == ["मैं ठीक हूँ।"]
+
+
 def test_lines_that_are_mostly_symbols_are_ignored() -> None:
     readings = [
         (0.0, "Ab#$%^&*()!@"),
