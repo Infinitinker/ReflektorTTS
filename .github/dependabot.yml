@@ -1,10 +1,12 @@
-# Once a month, one pull request with new versions of the actions the workflows use. Python packages
-# are left out: their versions are pinned in tools/release-constraints.txt, and upgrading one means
-# testing the app and updating tools/sources.py too (see "Building a release" in CONTRIBUTING.md).
+# Once a month, one pull request to dev with new versions of the actions the workflows use. Python
+# packages are left out: their versions are pinned in tools/release-constraints.txt, and upgrading
+# one means testing the app and updating tools/sources.py too (see "Building a release" in
+# CONTRIBUTING.md).
 version: 2
 updates:
   - package-ecosystem: github-actions
     directory: /
+    target-branch: dev
     schedule:
       interval: monthly
       time: "06:00"
