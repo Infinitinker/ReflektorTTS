@@ -1,5 +1,3 @@
-import sys
-
 import pytest
 
 from reflektortts.tts.engine import EnginePlugin, Voice, VoiceError, load_engine_plugin, parse_voice
@@ -29,6 +27,5 @@ def test_piper_engine_is_registered() -> None:
     assert plugin.name == "piper"
 
 
-@pytest.mark.skipif(sys.platform != "win32", reason="Windows voices exist only on Windows")
 def test_windows_engine_is_registered() -> None:
     assert load_engine_plugin("windows").name == "windows"

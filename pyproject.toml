@@ -37,6 +37,7 @@ dependencies = [
     "psutil>=7.2",
     "pycaw>=20260927; sys_platform == 'win32'",
     "pystray>=0.19.5",
+    "python-xlib>=0.33; sys_platform == 'linux'",
     "regex>=2026.9",
     "sacremoses>=0.2",
     "sentencepiece>=0.2.2",
@@ -94,5 +95,5 @@ strict = true
 files = ["src", "tests", "tools"]
 
 [[tool.mypy.overrides]]
-module = ["sounddevice", "num2words", "ctranslate2", "sacremoses", "subword_nmt.*", "sentencepiece", "pycaw.*", "comtypes", "pystray", "PyInstaller.*", "onnxruntime", "winrt.*"]
+module = ["sounddevice", "num2words", "ctranslate2", "sacremoses", "subword_nmt.*", "sentencepiece", "pycaw.*", "comtypes", "pystray", "PyInstaller.*", "onnxruntime", "winrt.*", "Xlib.*"]
 ignore_missing_imports = true

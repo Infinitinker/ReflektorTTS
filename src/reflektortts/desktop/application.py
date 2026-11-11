@@ -38,6 +38,7 @@ from reflektortts.desktop.panel.launcher import PanelWindows, find_program
 from reflektortts.desktop.system.autostart import autostart_supported, system_autostart
 from reflektortts.desktop.system.folders import open_folder, show_file, where_files_are
 from reflektortts.desktop.system.state import load_state, save_state
+from reflektortts.desktop.system.tray_host import tray_available
 from reflektortts.desktop.tray import Tray
 from reflektortts.desktop.window import Window
 from reflektortts.settings import SETTINGS_FOLDER
@@ -58,7 +59,9 @@ class Application:
         """Set by quit: the window is gone, so nothing may touch it any more."""
         self._state = load_state(state_dir())
         self._autostart = system_autostart()
-        self._hidden = args.hidden
+        self._has_tray = tray_available()
+        """Without a tray there is no icon to open the window from again, so the window is never hidden."""
+        self._hidden = args.hidden and self._has_tray
         self._refreshed = False
         """Whether the download lists were fetched since the window was opened."""
         self._language_names: dict[str, str] = {}
@@ -91,7 +94,7 @@ class Application:
             on_pause_toggle=self._toggle_pause,
             on_open_logs=lambda: open_folder(log_dir()),
             on_open_settings=lambda: open_folder(config_dir() / SETTINGS_FOLDER),
-            on_close=self._hide,
+            on_close=self._close,
             on_downloads_opened=self._downloads_opened,
             on_download=self._start_download,
             on_remove=self._remove_download,
@@ -117,6 +120,7 @@ class Application:
             about=about(),
             files_text=where_files_are(),
             autostart_supported=autostart_supported(),
+            has_tray=self._has_tray,
         )
         self._window.settings.show_start_with_windows(self._start_with_windows())
 
@@ -128,7 +132,8 @@ class Application:
             self._root.protocol("WM_SAVE_YOURSELF", self._quit)
         self._core.start()
         self._feed.start()
-        self._tray.start()
+        if self._has_tray:
+            self._tray.start()
         self._root.after(POLL_MS, self._run_tasks)
         if self._hidden:
             self._window.hide()
@@ -440,10 +445,17 @@ class Application:
         self._tray.refresh()
         self._window.show()
 
+    def _close(self) -> None:
+        """Closing the window hides it, and the tray icon opens it again; with no tray, it quits."""
+        if self._has_tray:
+            self._hide()
+        else:
+            self._quit()
+
     def _hide(self) -> None:
         self._window.hide()
         self._refreshed = False
-        if not self._state.told_about_tray:
+        if self._tray.can_notify and not self._state.told_about_tray:
             self._state = replace(self._state, told_about_tray=True)
             try:
                 save_state(self._state, state_dir())

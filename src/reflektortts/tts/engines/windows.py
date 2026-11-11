@@ -1,19 +1,26 @@
-"""Speech engine using the voices built into Windows (Windows.Media.SpeechSynthesis)."""
+"""Speech engine using the voices built into Windows (Windows.Media.SpeechSynthesis).
+
+The engine is registered on every system, but winrt is installed only on Windows: it is imported
+only when Windows voices are listed or used, and other systems simply have no Windows voices.
+"""
 
 import asyncio
 import io
+import sys
 import wave
 from collections.abc import Iterable, Iterator
+from typing import TYPE_CHECKING
 
 import numpy as np
-from winrt.windows.media.speechsynthesis import SpeechSynthesizer, VoiceInformation
-from winrt.windows.storage.streams import DataReader
 
 from reflektortts.languages import language_tag
 from reflektortts.tts.engine import AudioChunk, EnginePlugin, VoiceError, VoiceInfo
 
+if TYPE_CHECKING:
+    from winrt.windows.media.speechsynthesis import VoiceInformation
 
-def find_voice(name: str, voices: Iterable[VoiceInformation]) -> VoiceInformation:
+
+def find_voice(name: str, voices: "Iterable[VoiceInformation]") -> "VoiceInformation":
     """Finds a voice by its display name; the "Microsoft " prefix may be left out."""
     wanted = {name.lower(), f"microsoft {name}".lower()}
     available = list(voices)
@@ -40,7 +47,10 @@ def wav_to_chunk(wav_bytes: bytes) -> AudioChunk:
     return AudioChunk(samples=samples.astype(np.int16), sample_rate=rate)
 
 
-async def _synthesize_wav(voice: VoiceInformation, text: str, rate: float) -> bytes:
+async def _synthesize_wav(voice: "VoiceInformation", text: str, rate: float) -> bytes:
+    from winrt.windows.media.speechsynthesis import SpeechSynthesizer
+    from winrt.windows.storage.streams import DataReader
+
     synthesizer = SpeechSynthesizer()
     synthesizer.voice = voice
     synthesizer.options.speaking_rate = rate
@@ -56,6 +66,8 @@ class WindowsEngine:
     """Speaks with a voice installed in Windows. Windows synthesizes a whole line at once."""
 
     def __init__(self, voice_name: str) -> None:
+        from winrt.windows.media.speechsynthesis import SpeechSynthesizer
+
         self._voice = find_voice(voice_name, SpeechSynthesizer.all_voices)
 
     def synthesize(self, text: str, rate: float) -> Iterator[AudioChunk]:
@@ -63,6 +75,11 @@ class WindowsEngine:
 
 
 def list_voices() -> list[VoiceInfo]:
+    """The voices installed in Windows; none on other systems."""
+    if sys.platform != "win32":
+        return []
+    from winrt.windows.media.speechsynthesis import SpeechSynthesizer
+
     return [
         VoiceInfo(
             id=f"windows:{voice.display_name}",

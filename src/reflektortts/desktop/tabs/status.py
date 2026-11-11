@@ -77,7 +77,9 @@ class StatusTab:
         about: About,
         language_name: Callable[[str], str],
         voice_title: Callable[[str], str],
+        has_tray: bool,
     ) -> None:
+        """has_tray: whether closing the window leaves ReflektorTTS running in the tray, or quits it."""
         self._language_name = language_name
         self._voice_title = voice_title
         self._app_settings_missing = app_settings_missing
@@ -100,10 +102,12 @@ class StatusTab:
         )
         quit_button = ttk.Button(header, text="Quit", command=on_quit)
         quit_button.grid(row=0, column=2, rowspan=2, sticky="e")
-        status_bar.hint(
-            quit_button,
-            lambda: "Stop reading and close completely. Closing the window keeps it running next to the clock.",
+        quit_hint = (
+            "Stop reading and close completely. Closing the window keeps it running next to the clock."
+            if has_tray
+            else "Stop reading and close completely, as closing the window does."
         )
+        status_bar.hint(quit_button, lambda: quit_hint)
 
         now = ttk.LabelFrame(self.frame, text="Now", padding=NOW_PADDING)
         now.grid(row=1, column=0, sticky="ew")

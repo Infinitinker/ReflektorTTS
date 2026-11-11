@@ -155,6 +155,7 @@ def list_voices() -> list[VoiceInfo]: ...
 - Yield audio as soon as a part is ready (Piper yields per sentence), so speech starts early. The player plays it in short blocks so a new line can cut it off.
 - Raise `VoiceError` with a helpful message when a voice cannot be used, e.g. listing the installed voices and where to get more.
 - Engines run in the TTS process, but the core imports the plugin module to list voices. **Keep that import cheap**: import heavy libraries (models, runtimes) inside `create` or the engine class, as `tts/engines/piper.py` does.
+- An engine that works on some systems only is registered on every one: it imports its system's libraries inside `list_voices` and `create`, and its `list_voices` returns no voices on the others, as `tts/engines/windows.py` does. Any other failure to list voices is logged as a warning, and the engine is skipped.
 - List only installed voices, and never download one in `create`: downloads are a download source's job.
 
 ## Download sources

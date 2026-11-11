@@ -56,6 +56,7 @@ class Window:
         about: About,
         files_text: str,
         autostart_supported: bool,
+        has_tray: bool,
     ) -> None:
         self._root = root
         root.title("ReflektorTTS")
@@ -82,6 +83,7 @@ class Window:
             about,
             language_name,
             voice_title,
+            has_tray,
         )
         self._notebook.add(self.status.frame, text="Status")
         self.profiles = ProfilesTab(
