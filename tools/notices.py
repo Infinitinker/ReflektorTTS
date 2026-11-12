@@ -91,7 +91,7 @@ NATIVE_NOTICES = (
         "Microsoft Visual C++ runtime",
         "Microsoft Visual C++ Redistributable terms",
         "msvc-runtime.txt",
-        "The runtime of the Python packages' native libraries, which tools/build_release.py takes from the "
+        "The runtime of Python and its packages' native libraries, which tools/build_release.py takes from the "
         "Visual C++ Redistributable installed on the build machine (tools/msvc_runtime.py).",
         "https://learn.microsoft.com/cpp/windows/redistributing-visual-cpp-files",
     ),

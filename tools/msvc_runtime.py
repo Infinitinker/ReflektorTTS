@@ -1,14 +1,14 @@
 """Microsoft's Visual C++ runtime in a release: where its DLLs come from, and which version they must be.
 
-onnxruntime, CTranslate2 and sentencepiece import the Visual C++ runtime (RUNTIME), so a release ships
-it. PyInstaller takes those DLLs, and the Universal C Runtime's, wherever its search finds them first,
-PATH included, which made a release depend on what else the build machine had installed (a JDK's older
-copies, say). So the release build runs PyInstaller with PATH holding only the Windows folders
-(system_path), leaves out the Universal C Runtime, which Windows 10 and later include, and puts in the
-four runtime DLLs from one place: the Visual C++ redistributable installed on the build machine, in
-System32. They must all be one version, at least as new as the newest Visual C++ toolset that built a
-shipped binary importing them, since the runtime is compatible only with programs built by the same
-toolset or an older one.
+Python and the native libraries of its packages (onnxruntime, CTranslate2, sentencepiece and more)
+import the Visual C++ runtime (RUNTIME), so a release ships it. PyInstaller takes those DLLs, and the
+Universal C Runtime's, wherever its search finds them first, PATH included, which made a release depend
+on what else the build machine had installed (a JDK's older copies, say). So the release build runs
+PyInstaller with PATH holding only the Windows folders (system_path), leaves out the Universal C
+Runtime, which Windows 10 and later include, and puts in the four runtime DLLs from one place: the
+Visual C++ redistributable installed on the build machine, in System32. They must all be one version, at
+least as new as the newest Visual C++ toolset that built a shipped binary importing them, since the
+runtime is compatible only with programs built by the same toolset or an older one.
 """
 
 import os

@@ -2,7 +2,7 @@ Microsoft Visual C++ runtime
 Copyright (c) Microsoft Corporation. All rights reserved.
 
 The release ships these files of the Microsoft Visual C++ runtime, which
-onnxruntime, CTranslate2, sentencepiece and NumPy need:
+Python and the native libraries of its packages need:
 
     _internal/vcruntime140.dll
     _internal/vcruntime140_1.dll

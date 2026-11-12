@@ -22359,7 +22359,7 @@ DEALINGS IN THE SOFTWARE.
 
 ### Microsoft Visual C++ runtime (Microsoft Visual C++ Redistributable terms)
 
-The runtime of the Python packages' native libraries, which tools/build_release.py takes from the Visual C++ Redistributable installed on the build machine (tools/msvc_runtime.py).
+The runtime of Python and its packages' native libraries, which tools/build_release.py takes from the Visual C++ Redistributable installed on the build machine (tools/msvc_runtime.py).
 
 Source: https://learn.microsoft.com/cpp/windows/redistributing-visual-cpp-files
 
@@ -22368,7 +22368,7 @@ Microsoft Visual C++ runtime
 Copyright (c) Microsoft Corporation. All rights reserved.
 
 The release ships these files of the Microsoft Visual C++ runtime, which
-onnxruntime, CTranslate2, sentencepiece and NumPy need:
+Python and the native libraries of its packages need:
 
     _internal/vcruntime140.dll
     _internal/vcruntime140_1.dll
