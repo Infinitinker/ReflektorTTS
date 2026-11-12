@@ -265,7 +265,7 @@ void draw_error(const CoreState& state) {
 void draw_settings_panel(const CoreState& state, PanelPlace place) {
     draw_header(state);
     if (!state.connected) {
-        ImGui::TextWrapped("Not connected to ReflektorTTS. Is it running?");
+        ImGui::TextWrapped("Not connected to ReflektorTTS: is it running?");
     } else if (!state.settings_error.empty()) {
         ImGui::PushStyleColor(ImGuiCol_Text, kErrorColor);
         ImGui::TextWrapped("%s", state.settings_error.c_str());

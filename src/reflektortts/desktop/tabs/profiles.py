@@ -255,7 +255,7 @@ class ProfilesTab:
         if item is None:
             return ""
         if item.state == "broken":
-            return "A broken profile is not used; fix its file, or remove it."
+            return "A broken profile is not used: fix its file, or remove it."
         if item.state == "disabled":
             return "Use this profile again."
         return "Stop using this profile: its app is not read until it is enabled again."
@@ -268,7 +268,7 @@ class ProfilesTab:
             return self._app_settings_missing
         item = self._selected()
         if item is not None and item.state == "broken":
-            return "A broken profile has no settings; fix its file, or remove it."
+            return "A broken profile has no settings: fix its file, or remove it."
         return "Change this app’s voice, languages and the rest, also while it isn’t running."
 
     def _integration_hint(self) -> str:
@@ -313,7 +313,7 @@ class ProfilesTab:
     def _remove_hint(self) -> str:
         item = self._selected()
         if item is not None and item.origin == "override":
-            return "Delete your own file; the bundled profile is used again."
+            return "Delete your own file: the bundled profile is used again."
         return "Delete your own profile file."
 
     def _open_app_settings(self) -> None:

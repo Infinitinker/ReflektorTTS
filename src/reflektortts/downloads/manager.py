@@ -92,7 +92,7 @@ class Downloads:
         entry = self._find(entry_id)
         with self._lock:
             if entry_id in self._running:
-                raise DownloadStateError(f"{entry.name} is downloading; wait until it is done.")
+                raise DownloadStateError(f"{entry.name} is downloading: wait until it is done.")
         if not entry.installed:
             raise DownloadStateError(f"{entry.name} is not installed.")
         try:

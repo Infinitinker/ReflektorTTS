@@ -94,7 +94,7 @@ class WindowsProcessMemory:
             ):
                 raise ProcessMemoryError(
                     f"Cannot list the app’s modules (Windows error {ctypes.get_last_error()}). "
-                    "The app may still be starting; try again in a moment."
+                    "The app may still be starting: try again in a moment."
                 )
             if needed.value <= ctypes.sizeof(handles):
                 break

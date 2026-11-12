@@ -198,15 +198,15 @@ def _glossary(entries: list[dict[str, Any]], path: str) -> Glossary:
         for language in term.pronounce:
             _check_language(language, f"{where}.pronounce")
         if not (term.keep or term.means or term.pronounce):
-            raise ProfileError(f'{where}: says nothing to do with the term; give it "keep", "means" or "pronounce".')
+            raise ProfileError(f'{where}: says nothing to do with the term: give it "keep", "means" or "pronounce".')
         if term.keep and term.means:
-            raise ProfileError(f'{where}: a term is either kept or given a meaning; remove "keep" or "means".')
+            raise ProfileError(f'{where}: a term is either kept or given a meaning: remove "keep" or "means".')
         if term.female and not term.keep:
-            raise ProfileError(f'{where}: "female" applies only to a kept term; add "keep": true or remove it.')
+            raise ProfileError(f'{where}: "female" applies only to a kept term: add "keep": true or remove it.')
         seen = [spelling for other in terms for spelling in other.spellings]
         for spelling in term.spellings:
             if spelling in seen:
-                raise ProfileError(f'{where}: "{spelling}" is in the glossary twice; keep it in one entry.')
+                raise ProfileError(f'{where}: "{spelling}" is in the glossary twice: keep it in one entry.')
             seen.append(spelling)
         terms.append(term)
     return tuple(terms)
