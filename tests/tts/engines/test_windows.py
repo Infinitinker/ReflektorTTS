@@ -10,7 +10,7 @@ import numpy as np
 import pytest
 
 from reflektortts.tts.engine import VoiceError
-from reflektortts.tts.engines.windows import find_voice, list_voices, wav_to_chunk
+from reflektortts.tts.engines.windows import INSTALLED_NOTE, find_voice, list_voices, wav_to_chunk
 
 
 def wav(samples: list[int], channels: int = 1, rate: int = 16000, width: int = 2) -> bytes:
@@ -62,3 +62,16 @@ def test_other_systems_have_no_windows_voices(monkeypatch: pytest.MonkeyPatch) -
     monkeypatch.setattr(sys, "platform", "linux")
 
     assert list_voices() == []
+
+
+def test_windows_voices_say_where_they_come_from(monkeypatch: pytest.MonkeyPatch) -> None:
+    adam = SimpleNamespace(display_name="Microsoft Adam", language="pl-PL")
+    synthesizer = SimpleNamespace(SpeechSynthesizer=SimpleNamespace(all_voices=[adam]))
+    monkeypatch.setattr(sys, "platform", "win32")
+    monkeypatch.setitem(sys.modules, "winrt.windows.media.speechsynthesis", synthesizer)
+
+    [voice] = list_voices()
+
+    assert (voice.id, voice.language, voice.engine_title) == ("windows:Microsoft Adam", "pl-PL", "Windows")
+    assert voice.installed_note == INSTALLED_NOTE
+    assert "Settings > Time & language > Speech" in INSTALLED_NOTE
