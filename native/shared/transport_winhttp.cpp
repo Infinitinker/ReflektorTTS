@@ -174,8 +174,8 @@ private:
 }  // namespace
 
 std::unique_ptr<Transport> make_winhttp_transport(const wchar_t* user_agent) {
-    HINTERNET session = WinHttpOpen(user_agent, WINHTTP_ACCESS_TYPE_NO_PROXY, WINHTTP_NO_PROXY_NAME,
-                                    WINHTTP_NO_PROXY_BYPASS, 0);
+    HINTERNET session =
+        WinHttpOpen(user_agent, WINHTTP_ACCESS_TYPE_NO_PROXY, WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0);
     if (session == nullptr) {
         log_message("Cannot start WinHTTP, so ReflektorTTS cannot be reached");
         return nullptr;

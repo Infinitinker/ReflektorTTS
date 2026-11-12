@@ -50,9 +50,9 @@ void STDMETHODCALLTYPE execute_command_lists_detour(ID3D12CommandQueue* queue, U
 // Direct command queues share their class's vtable, so a throwaway queue gives us the app's.
 void** find_command_queue_vtable() {
     HMODULE d3d12 = GetModuleHandleW(L"d3d12.dll");
-    auto create = d3d12 == nullptr ? nullptr
-                                   : reinterpret_cast<decltype(&D3D12CreateDevice)>(
-                                         GetProcAddress(d3d12, "D3D12CreateDevice"));
+    auto create = d3d12 == nullptr
+                      ? nullptr
+                      : reinterpret_cast<decltype(&D3D12CreateDevice)>(GetProcAddress(d3d12, "D3D12CreateDevice"));
     if (create == nullptr) {
         log_message("d3d12.dll is not loaded");
         return nullptr;

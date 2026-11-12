@@ -200,9 +200,7 @@ public:
     }
     Frames(const Frames&) = delete;
     Frames& operator=(const Frames&) = delete;
-    ~Frames() {
-        SDL_RemoveEventWatch(&Frames::on_event, this);
-    }
+    ~Frames() { SDL_RemoveEventWatch(&Frames::on_event, this); }
 
     // Follows the display's scale and the window's title, then draws a frame; does nothing while
     // the window is minimized or a frame is being drawn already.

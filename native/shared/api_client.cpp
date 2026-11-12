@@ -84,8 +84,10 @@ std::optional<std::string> optional_text(const json& value) {
 std::vector<SourceStages> read_sources(const json& sources) {
     std::vector<SourceStages> result;
     for (const json& source : sources) {
-        SourceStages entry{source.at("name").get<std::string>(), source.at("type").get<std::string>(),
-                           source.at("enabled").get<bool>(), {}};
+        SourceStages entry{source.at("name").get<std::string>(),
+                           source.at("type").get<std::string>(),
+                           source.at("enabled").get<bool>(),
+                           {}};
         for (const json& stage : source.at("stages")) {
             entry.stages.push_back({stage.at("key").get<std::string>(), stage.at("type").get<std::string>(),
                                     stage.at("summary").get<std::string>(), optional_text(stage.at("warning")),
@@ -158,8 +160,8 @@ std::string encode_path_segment(const std::string& text) {
     std::string encoded;
     for (char c : text) {
         auto byte = static_cast<unsigned char>(c);
-        bool unreserved = (byte >= 'a' && byte <= 'z') || (byte >= 'A' && byte <= 'Z') || (byte >= '0' && byte <= '9') ||
-                          byte == '-' || byte == '.' || byte == '_' || byte == '~';
+        bool unreserved = (byte >= 'a' && byte <= 'z') || (byte >= 'A' && byte <= 'Z') ||
+                          (byte >= '0' && byte <= '9') || byte == '-' || byte == '.' || byte == '_' || byte == '~';
         if (unreserved) {
             encoded += c;
         } else {
@@ -307,7 +309,8 @@ bool load_options() {
         std::vector<LanguageOption> language_options;
         if (!languages->is_null()) {
             for (const json& language : languages->at("languages")) {
-                language_options.push_back({language.at("code").get<std::string>(), language.at("name").get<std::string>(),
+                language_options.push_back({language.at("code").get<std::string>(),
+                                            language.at("name").get<std::string>(),
                                             language.at("english_name").get<std::string>()});
             }
         }

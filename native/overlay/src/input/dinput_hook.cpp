@@ -27,10 +27,10 @@ using ReleaseFn = ULONG(STDMETHODCALLTYPE*)(void* object);
 using GetCapabilitiesFn = HRESULT(STDMETHODCALLTYPE*)(void* device, DIDEVCAPS* capabilities);
 using GetDeviceStateFn = HRESULT(STDMETHODCALLTYPE*)(void* device, DWORD size, void* data);
 using GetDeviceDataFn = HRESULT(STDMETHODCALLTYPE*)(void* device, DWORD object_size, DIDEVICEOBJECTDATA* data,
-                                                     DWORD* count, DWORD flags);
+                                                    DWORD* count, DWORD flags);
 using CreateDeviceFn = HRESULT(STDMETHODCALLTYPE*)(void* input, REFGUID kind, void** device, IUnknown* outer);
 using CreateDeviceExFn = HRESULT(STDMETHODCALLTYPE*)(void* input, REFGUID kind, REFIID iid, void** device,
-                                                      IUnknown* outer);
+                                                     IUnknown* outer);
 using CreateInputFn = HRESULT(WINAPI*)(HINSTANCE instance, DWORD version, REFIID iid, void** input, IUnknown* outer);
 
 constexpr int kReleaseIndex = 2;
@@ -212,9 +212,9 @@ void install_dinput_hooks() {
     int before = g_hooked_count;
     bool dinput8 = hook_version(L"dinput8.dll", "DirectInput8Create", 0x0800,
                                 {{&IID_IDirectInput8A, nullptr}, {&IID_IDirectInput8W, nullptr}});
-    bool dinput = hook_version(L"dinput.dll", "DirectInputCreateEx", 0x0700,
-                               {{&IID_IDirectInput7A, &IID_IDirectInputDevice7A},
-                                {&IID_IDirectInput7W, &IID_IDirectInputDevice7W}});
+    bool dinput = hook_version(
+        L"dinput.dll", "DirectInputCreateEx", 0x0700,
+        {{&IID_IDirectInput7A, &IID_IDirectInputDevice7A}, {&IID_IDirectInput7W, &IID_IDirectInputDevice7W}});
     if (g_hooked_count > before) {
         const char* versions = dinput8 && dinput ? "8 and 1-7" : dinput8 ? "8" : "1-7";
         log_message(std::string("Blocking keyboard and mouse input through DirectInput ") + versions +

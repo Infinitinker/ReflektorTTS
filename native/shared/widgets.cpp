@@ -56,7 +56,8 @@ void draw_flow_arrow() {
     ImVec2 top = ImGui::GetCursorScreenPos();
     float center = top.x + ImGui::GetContentRegionAvail().x * 0.5f;
     ImGui::GetWindowDrawList()->AddTriangleFilled(ImVec2(center - size, top.y), ImVec2(center + size, top.y),
-                                                  ImVec2(center, top.y + size), ImGui::GetColorU32(ImGuiCol_TextDisabled));
+                                                  ImVec2(center, top.y + size),
+                                                  ImGui::GetColorU32(ImGuiCol_TextDisabled));
     ImGui::Dummy(ImVec2(0.0f, size));
 }
 

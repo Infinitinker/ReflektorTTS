@@ -1,9 +1,9 @@
 // Loads the overlay DLL into a running game.
 // Usage: reflektortts-inject (<process.exe> | --pid <id>) [path\to\reflektortts-overlay.dll]
 
+#include <windows.h>
 #include <fcntl.h>
 #include <io.h>
-#include <windows.h>
 #include <tlhelp32.h>
 
 #include <cstdio>
@@ -95,8 +95,8 @@ bool load_library_in(HANDLE process, DWORD process_id, const std::filesystem::pa
     }
     bool started = false;
     if (WriteProcessMemory(process, remote_path, path.c_str(), size, nullptr)) {
-        auto load_library = reinterpret_cast<LPTHREAD_START_ROUTINE>(
-            GetProcAddress(GetModuleHandleW(L"kernel32.dll"), "LoadLibraryW"));
+        auto load_library =
+            reinterpret_cast<LPTHREAD_START_ROUTINE>(GetProcAddress(GetModuleHandleW(L"kernel32.dll"), "LoadLibraryW"));
         HANDLE thread = CreateRemoteThread(process, nullptr, 0, load_library, remote_path, 0, nullptr);
         if (thread != nullptr) {
             WaitForSingleObject(thread, INFINITE);
@@ -135,12 +135,12 @@ int wmain(int argc, wchar_t** argv) {
         std::fwprintf(stderr, L"%ls is not running: start the game first.\n", process_name.c_str());
         return kFailed;
     }
-    HANDLE process = OpenProcess(PROCESS_CREATE_THREAD | PROCESS_QUERY_INFORMATION | PROCESS_VM_OPERATION |
-                                     PROCESS_VM_WRITE | PROCESS_VM_READ,
-                                 FALSE, process_id);
+    HANDLE process = OpenProcess(
+        PROCESS_CREATE_THREAD | PROCESS_QUERY_INFORMATION | PROCESS_VM_OPERATION | PROCESS_VM_WRITE | PROCESS_VM_READ,
+        FALSE, process_id);
     if (process == nullptr) {
-        std::fwprintf(stderr, L"Cannot open %ls (error %lu): is it running as administrator?\n",
-                      process_name.c_str(), GetLastError());
+        std::fwprintf(stderr, L"Cannot open %ls (error %lu): is it running as administrator?\n", process_name.c_str(),
+                      GetLastError());
         return kFailed;
     }
     if (!same_bitness(process)) {

@@ -26,8 +26,8 @@ inline std::string describe_memory(const void* address) {
         GetModuleFileNameW(handle, module, MAX_PATH);
     }
     char text[512];
-    std::snprintf(text, sizeof(text), "error %lu, address %p, protection 0x%lx, type 0x%lx, module %ls", error,
-                  address, info.Protect, info.Type, module);
+    std::snprintf(text, sizeof(text), "error %lu, address %p, protection 0x%lx, type 0x%lx, module %ls", error, address,
+                  info.Protect, info.Type, module);
     return text;
 }
 

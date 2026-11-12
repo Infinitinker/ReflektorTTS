@@ -31,7 +31,8 @@ int main(int argc, char* argv[]) {
         PanelArguments arguments = parse_arguments(command_line.subspan(command_line.empty() ? 0 : 1));
         std::unique_ptr<Transport> transport = make_winhttp_transport(L"ReflektorTTS panel");
         if (!transport) {
-            report_startup_error("The settings window cannot connect to ReflektorTTS: WinHTTP, part of Windows, did not start.");
+            report_startup_error(
+                "The settings window cannot connect to ReflektorTTS: WinHTTP, part of Windows, did not start.");
             return 1;
         }
         start_api_client(std::move(transport), {arguments.profile, wake_window});

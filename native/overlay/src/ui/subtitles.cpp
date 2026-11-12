@@ -46,7 +46,7 @@ void draw_subtitle(const CoreState& state) {
     float margin = viewport->Size.y * kSubtitleMargin;
     float x = viewport->Pos.x + (viewport->Size.x - band.x) * 0.5f;
     float y = state.settings.subtitle_position == "bottom" ? viewport->Pos.y + viewport->Size.y - margin - band.y
-                                                  : viewport->Pos.y + margin;
+                                                           : viewport->Pos.y + margin;
     ImDrawList* draw = ImGui::GetBackgroundDrawList();
     draw->AddRectFilled(ImVec2(x, y), ImVec2(x + band.x, y + band.y), IM_COL32(0, 0, 0, 160), size * 0.25f);
     for (std::size_t i = 0; i < lines.size(); ++i) {

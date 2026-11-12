@@ -79,8 +79,8 @@ bool create_heap(D3D12_DESCRIPTOR_HEAP_TYPE type, UINT count, D3D12_DESCRIPTOR_H
     desc.Type = type;
     desc.NumDescriptors = count;
     desc.Flags = flags;
-    return SUCCEEDED(g_device->CreateDescriptorHeap(&desc, __uuidof(ID3D12DescriptorHeap),
-                                                    reinterpret_cast<void**>(heap)));
+    return SUCCEEDED(
+        g_device->CreateDescriptorHeap(&desc, __uuidof(ID3D12DescriptorHeap), reinterpret_cast<void**>(heap)));
 }
 
 bool init_imgui(DXGI_FORMAT format) {
