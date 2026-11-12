@@ -53,7 +53,7 @@ def test_a_damaged_archive_says_what_to_do_and_logs_why(tmp_path: Path, damage: 
             archive.close()
 
     assert str(raised.value).endswith(
-        "could not be read: check the game's files in Steam or GOG Galaxy, then start the game again."
+        "could not be read: check the game’s files in Steam or GOG Galaxy, then start the game again."
     )
     assert raised.value.__cause__ is not None
 

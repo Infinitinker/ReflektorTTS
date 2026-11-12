@@ -53,5 +53,5 @@ class AvalancheSource:
             raise MemoryReadError(
                 "The subtitle could not be read from the game: "
                 "if this lasts, the profile may not fit this version of it."
-            ) from MemoryReadError(f"The shown line's ID could not be read at {address:X}")
+            ) from MemoryReadError(f"The shown line’s ID could not be read at {address:X}")
         return int.from_bytes(raw, "little")

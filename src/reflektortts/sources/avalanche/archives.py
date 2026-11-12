@@ -27,7 +27,7 @@ class ArchiveError(Exception):
 
 def damaged(name: str) -> str:
     """What to do about a game file that cannot be read."""
-    return f"{name} could not be read: check the game's files in Steam or GOG Galaxy, then start the game again."
+    return f"{name} could not be read: check the game’s files in Steam or GOG Galaxy, then start the game again."
 
 
 @dataclass(frozen=True)
