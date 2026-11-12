@@ -1,5 +1,5 @@
 ; The ReflektorTTS installer, compiled by tools/build_release.py with Inno Setup 7 (ISCC.exe) from
-; the same folder as the portable zip. It installs for the current user, with no admin rights, into
+; the same folder as the Windows zip. It installs for the current user, with no admin rights, into
 ; %LOCALAPPDATA%\Programs\ReflektorTTS, or, if the user chooses and is an administrator, for all users
 ; into Program Files. Either way each user's settings, voices and logs stay in their own
 ; %LOCALAPPDATA%\ReflektorTTS.

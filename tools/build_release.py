@@ -293,7 +293,7 @@ def copy_panel(folder: Path) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Builds a portable release of ReflektorTTS.")
+    parser = argparse.ArgumentParser(description="Builds the release files of ReflektorTTS.")
     parser.add_argument("--draft", action="store_true", help="a build to test, not to publish")
     draft = parser.parse_args().draft
     release = version("reflektortts")

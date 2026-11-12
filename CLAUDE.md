@@ -7,7 +7,7 @@ The design is in `docs/architecture.md`; plugin contracts in `docs/plugins.md`, 
 ## Language and naming
 
 - Everything is written in English: code, comments, docs, commit messages, UI strings.
-- The name is **ReflektorTTS** in prose, UI and the per-user folders (`%LOCALAPPDATA%\ReflektorTTS`, set in `user_dirs.py`), and `reflektortts` with no dash or underscore everywhere else: PyPI package, import name, plugin entry-point groups (`reflektortts.sources`). The GitHub repository is `Infinitinker/ReflektorTTS`, written like the app's name.
+- The name is **ReflektorTTS** wherever it names the app: prose, UI, the per-user folders (`%LOCALAPPDATA%\ReflektorTTS`, set in `user_dirs.py`), the install folders, the release files (`ReflektorTTS-<version>-windows-x64-setup.exe` and the like) and the names other programs see (the autostart entry, the named mutexes, the User-Agent). It is `reflektortts`, with no dash or underscore, in the code's names and the program files: PyPI package, import name, plugin entry-point groups (`reflektortts.sources`), `reflektortts.exe` and `reflektortts-panel.exe`. The GitHub repository is `Infinitinker/ReflektorTTS`, written like the app's name.
 - Commit scopes: `core`, `api`, `desktop`, `overlay`, `panel`, `profiles`, `sources`, `stages`, `translation`, `tts`, `integrations`, `downloads`, `release`. Commits follow Conventional Commits, such as `fix(overlay): keep the panel on top`.
 
 ## Open source
@@ -25,8 +25,8 @@ The goal is clean code, modularity, portability, and that other people can insta
 - Small modules with one job each. If a file needs a section comment to separate unrelated parts, split it.
 - A plugin is a single module until it needs several files, then a package in its plugin folder. Code that runs in a separate process gets its own folder. See "How the folders are organized" in `docs/architecture.md`.
 - Type hints on all public functions and classes. Use dataclasses or protocols for data and contracts, not loose dicts passed around.
-- No dead code, commented-out code or speculative abstractions. Build interfaces from the existing cases (OCR, memory, clipboard) and validate them on the next one (STT); don't design for imagined ones.
-- Errors are explicit: raise specific exceptions, and never swallow them silently. A failing source or plugin must not take down the core; report it as a `source.error` event.
+- No dead code, commented-out code or speculative abstractions. Build interfaces from the existing cases (the `memory`, `avalanche` and `vlc` sources) and validate them on the next one (STT); don't design for imagined ones.
+- Errors are explicit: raise specific exceptions, and never swallow them silently. A failing plugin must not take down the core: a source, stage or sink that fails is reported as a `source.error`, `stage.error` or `sink.error` event, and a plugin that cannot be loaded is logged and skipped.
 - Use `logging`, not `print`.
 - Tests live in `tests/`, mirroring `src/reflektortts/` (e.g. `tests/stages/test_tracker.py`), together with their fakes; nothing test-only goes in `src/`. They run without a running app, GPU or network. Hardware- and app-dependent parts sit behind interfaces so they can be faked. The exception is the end-to-end smoke test in `tests/e2e/`, which runs the desktop app from source against a fake VLC, only when asked for (`pytest -m e2e`).
 
@@ -55,4 +55,4 @@ The goal is clean code, modularity, portability, and that other people can insta
 
 - Python development uses a plain `venv` in `.venv/` at the repo root (Python 3.13) with `pip`. Keep `pyproject.toml` standard (PEP 621, no package-manager-specific sections), so contributors can use any tool.
 - The C++ code (the overlay and what it shares, in `native/`) builds with CMake; see `native/README.md`.
-- Releases are an installer (Inno Setup 7, `tools/installer.iss`) and a portable zip, built by `tools/build_release.py` with PyInstaller (the `release` extra); see "Building a release" in `CONTRIBUTING.md`. A new runtime dependency may need PyInstaller told about it there (data files, native parts, modules imported by name), its license text must reach `THIRD_PARTY_NOTICES.txt` (`tools/notices.py`), and if it is under the GPL, LGPL or MPL, its source must be listed in `tools/sources.py`.
+- Releases are an installer (Inno Setup 7, `tools/installer.iss`) and a zip of the same files to run without installing, built by `tools/build_release.py` with PyInstaller (the `release` extra); see "Building a release" in `CONTRIBUTING.md`. A new runtime dependency may need PyInstaller told about it there (data files, native parts, modules imported by name), its license text must reach `THIRD_PARTY_NOTICES.txt` (`tools/notices.py`), and if it is under the GPL, LGPL or MPL, its source must be listed in `tools/sources.py`.
