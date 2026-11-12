@@ -1,3 +1,6 @@
+// Loads the system's interface font as ImGui's default font: unlike ImGui's built-in one, it has
+// accented letters.
+
 #pragma once
 
 namespace reflektortts {

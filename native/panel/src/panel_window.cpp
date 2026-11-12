@@ -1,3 +1,6 @@
+// Opens the SDL window and ImGui, and runs the frame loop: it draws only while something happens,
+// follows the display's scale, and keeps drawing while the user drags the window's edge.
+
 #include "panel_window.h"
 
 #include <SDL3/SDL.h>

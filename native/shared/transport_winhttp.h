@@ -1,3 +1,6 @@
+// The transport over WinHTTP, which comes with Windows: the API client's way to reach the core
+// there. Built on Windows only.
+
 #pragma once
 
 #include <memory>

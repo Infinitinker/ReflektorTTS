@@ -1,3 +1,6 @@
+// The hint shown for the first seconds, and the panel's window around the settings panel, drawn
+// while the panel is open, over the subtitles.
+
 #include "ui/overlay_ui.h"
 
 #include <imgui.h>

@@ -1,3 +1,6 @@
+// The API client: follows the core's events, either the app being read (the overlay) or one profile
+// (the panel's window), and sends commands and changes to the profile's settings.
+
 #pragma once
 
 #include <functional>

@@ -1,3 +1,6 @@
+// Loads the system's interface font, which has accented letters (Segoe UI on Windows), into ImGui's
+// font atlas.
+
 #include "system_font.h"
 
 #include <imgui.h>

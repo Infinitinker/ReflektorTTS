@@ -1,3 +1,6 @@
+// The subtitles over the app: the current line, centered at the top or bottom of the screen on a
+// dark band, in the size the settings ask for.
+
 #include "ui/subtitles.h"
 
 #include <imgui.h>

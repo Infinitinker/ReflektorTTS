@@ -1,3 +1,7 @@
+// Hooks keyboard and mouse reads of DirectInput 8 and 1-7 devices, found through throwaway devices:
+// while input is blocked, the app reads no keys pressed, a still mouse, and of buffered events only
+// key and button releases.
+
 #include "input/dinput_hook.h"
 
 #define DIRECTINPUT_VERSION 0x0800

@@ -1,3 +1,6 @@
+// The panel's command line: the profile to show and where to open (Dock), read by
+// parse_arguments(), and ArgumentError for one that is wrong.
+
 #pragma once
 
 #include <optional>

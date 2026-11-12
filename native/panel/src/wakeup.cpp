@@ -1,3 +1,6 @@
+// Wakes the frame loop when the API client's state changes, by posting an SDL event from the
+// client's threads; at most one waits at a time, and none is posted while SDL is not running.
+
 #include "wakeup.h"
 
 #include <atomic>

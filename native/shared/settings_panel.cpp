@@ -1,3 +1,7 @@
+// The settings panel's contents: the header, the Input, Output and Last line boxes, and the last
+// error; in the panel's window, without what only makes sense over the app (pausing, stopping the
+// line, the last line).
+
 #include "settings_panel.h"
 
 #include <imgui.h>

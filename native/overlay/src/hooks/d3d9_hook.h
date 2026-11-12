@@ -1,3 +1,6 @@
+// Hooking IDirect3DDevice9::Present and Reset, where Direct3D 9 apps show each frame and reset
+// their device.
+
 #pragma once
 
 #include <d3d9.h>

@@ -1,3 +1,6 @@
+// Scales ImGui to the display: the display's scale without the pixel density, which ImGui's SDL3
+// backend applies by itself, and ImGui's style and fonts scaled from their sizes at 100%.
+
 #include "ui_scale.h"
 
 namespace reflektortts {

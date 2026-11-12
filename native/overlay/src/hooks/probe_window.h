@@ -1,10 +1,12 @@
+// A hidden window for creating throwaway devices that reveal where API methods live: a device
+// needs a window, and the app's own is left alone.
+
 #pragma once
 
 #include <windows.h>
 
 namespace reflektortts {
 
-// A hidden window for creating throwaway devices that reveal where API methods live.
 class ProbeWindow {
 public:
     ProbeWindow();

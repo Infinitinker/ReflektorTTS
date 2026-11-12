@@ -1,3 +1,7 @@
+// The settings panel's Processing box: each stage of the profile, grouped by source, with a tick
+// for the text shown and one for speech, and a few words on what it does, or why it does nothing
+// with the chosen languages, or that reading needs it while it is off.
+
 #include "processing_section.h"
 
 #include <imgui.h>

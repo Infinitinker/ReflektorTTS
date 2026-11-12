@@ -1,3 +1,6 @@
+// The hidden window for the throwaway devices used to locate API methods: its window class is
+// registered with the window and removed with it.
+
 #include "hooks/probe_window.h"
 
 namespace reflektortts {

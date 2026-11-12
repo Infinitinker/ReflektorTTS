@@ -1,3 +1,6 @@
+// Drawing the overlay on a Direct3D 9 device, and keeping its device objects across a device
+// reset.
+
 #pragma once
 
 #include <d3d9.h>

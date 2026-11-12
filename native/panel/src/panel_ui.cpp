@@ -1,3 +1,6 @@
+// The ImGui window filling the SDL window, which draws the settings panel as it is shown in a
+// window of its own, and the SDL window's title.
+
 #include "panel_ui.h"
 
 #include <imgui.h>

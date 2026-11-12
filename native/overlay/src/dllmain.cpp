@@ -1,3 +1,6 @@
+// The overlay DLL's entry point: on a thread of its own, it installs the crash log, hooks each
+// graphics API as soon as the app loads its DLL, and starts the API client once a hook is in place.
+
 #include <windows.h>
 
 #include <memory>

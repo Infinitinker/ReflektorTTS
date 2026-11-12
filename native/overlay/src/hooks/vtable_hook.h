@@ -1,3 +1,6 @@
+// Hooks a COM method found through a vtable: in its code, so it chains with other overlays' hooks,
+// or, where that fails, by replacing the vtable entry.
+
 #pragma once
 
 #include <windows.h>

@@ -1,3 +1,6 @@
+// Fitting text to a width in ImGui: wrapping it between words, and cutting it with "..." where it
+// does not fit.
+
 #pragma once
 
 #include <imgui.h>

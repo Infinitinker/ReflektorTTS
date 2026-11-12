@@ -1,3 +1,6 @@
+// Sets up ImGui on the app's Direct3D 9 device and draws each frame on its back buffer, releasing
+// and recreating the overlay's device objects around a device reset.
+
 #include "renderers/d3d9_renderer.h"
 
 #include <imgui.h>

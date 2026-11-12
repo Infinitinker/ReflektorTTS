@@ -1,3 +1,6 @@
+// Reads the panel's command line: --profile <id> and the --dock-* arguments, all four or none. A
+// missing, unknown or wrong argument throws ArgumentError, which ends with how to start the panel.
+
 #include "arguments.h"
 
 #include <algorithm>

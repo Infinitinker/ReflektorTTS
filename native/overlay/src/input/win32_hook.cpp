@@ -1,3 +1,7 @@
+// Hooks the message queue, key state, raw input and cursor functions: while input is blocked, the
+// app's input messages go to the panel, it reads no keys pressed and no mouse movement, and it can
+// neither move nor trap the cursor. The overlay's own calls are let through.
+
 #include "input/win32_hook.h"
 
 #include <windows.h>

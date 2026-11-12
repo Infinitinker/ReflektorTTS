@@ -1,3 +1,6 @@
+// Tells the user why the panel cannot start: on standard error, which the desktop app reads, in
+// the log, and in a message box.
+
 #pragma once
 
 #include <string>

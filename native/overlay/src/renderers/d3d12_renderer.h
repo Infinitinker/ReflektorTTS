@@ -1,3 +1,6 @@
+// Drawing the overlay on a Direct3D 12 swap chain, called just before the app shows each
+// frame.
+
 #pragma once
 
 #include <dxgi.h>

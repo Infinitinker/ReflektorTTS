@@ -1,3 +1,6 @@
+// What a client knows about the core: the app (the one being read, or the panel's profile's), its
+// profile's settings, sources and stages, the voices and languages.
+
 #pragma once
 
 #include <optional>

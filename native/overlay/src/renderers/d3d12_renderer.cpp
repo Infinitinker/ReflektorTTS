@@ -1,3 +1,6 @@
+// Sets up ImGui on the app's Direct3D 12 device and draws each frame on the swap chain's back
+// buffer, recording its own command list and submitting it to the app's command queue.
+
 #include "renderers/d3d12_renderer.h"
 
 #include <d3d12.h>

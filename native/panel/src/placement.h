@@ -1,3 +1,6 @@
+// Where the panel's window opens and at what size: beside the desktop app's window or centered on
+// the main display, wide enough for the settings panel. That size is also its smallest.
+
 #pragma once
 
 #include <SDL3/SDL_video.h>

@@ -1,3 +1,6 @@
+// Code hooks (MinHook) on exported functions and COM methods, and telling the overlay's own calls
+// apart from the app's by their return address.
+
 #pragma once
 
 #include <windows.h>

@@ -1,3 +1,6 @@
+// The transport over WinHTTP, Windows only: the core's events over a WebSocket, requests and
+// commands over HTTP.
+
 #include "transport_winhttp.h"
 
 #include <windows.h>

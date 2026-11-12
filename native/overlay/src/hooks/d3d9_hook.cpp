@@ -1,3 +1,7 @@
+// Hooks IDirect3DDevice9::Present and Reset: on devices as the app creates them, through
+// IDirect3D9::CreateDevice and CreateDeviceEx, and on a device made before the overlay arrived,
+// through the vtable of a throwaway probe device.
+
 #include "hooks/d3d9_hook.h"
 
 #include <array>

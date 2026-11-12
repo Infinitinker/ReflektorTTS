@@ -1,3 +1,6 @@
+// The native code's log: one line at a time, to the debugger output on Windows and to standard
+// error elsewhere.
+
 #pragma once
 
 #include <string>

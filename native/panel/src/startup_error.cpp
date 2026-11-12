@@ -1,3 +1,6 @@
+// Tells the user why the panel cannot start, when its arguments are wrong or its window cannot
+// open: on standard error, in the log and in an SDL message box.
+
 #include "startup_error.h"
 
 #include <SDL3/SDL_messagebox.h>

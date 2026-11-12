@@ -1,3 +1,6 @@
+// Installs the crash log, which logs where the app crashed, so a crash the overlay may cause can
+// be traced from the log.
+
 #pragma once
 
 namespace reflektortts {

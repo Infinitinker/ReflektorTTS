@@ -1,3 +1,6 @@
+// The panel hotkey, and the window messages and mouse input that reach the panel (ImGui) instead
+// of the app while it is open.
+
 #pragma once
 
 #include <windows.h>

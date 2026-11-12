@@ -1,3 +1,6 @@
+// Wakes the overlay when the app loads a DLL, through the loader's DLL notifications
+// (LdrRegisterDllNotification), which ntdll.dll offers but MinGW's headers do not declare.
+
 #include "hooks/dll_load_watch.h"
 
 namespace reflektortts {

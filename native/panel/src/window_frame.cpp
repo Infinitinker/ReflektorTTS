@@ -1,3 +1,6 @@
+// Measures the window's visible frame around its client area: through DWM on Windows, without the
+// invisible resize borders, and from SDL's borders elsewhere.
+
 #include "window_frame.h"
 
 #include <string>

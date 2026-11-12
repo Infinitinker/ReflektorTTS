@@ -1,3 +1,6 @@
+// Names a code address as module and offset, for the log: unlike the address itself, it stays the
+// same between runs.
+
 #pragma once
 
 #include <windows.h>

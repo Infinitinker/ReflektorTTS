@@ -1,3 +1,6 @@
+// Fits text to a width in ImGui: wrapped into lines, cut after a number of lines, or cut to one
+// line, ending in "..." where it does not fit.
+
 #include "text_fit.h"
 
 #include <cstddef>

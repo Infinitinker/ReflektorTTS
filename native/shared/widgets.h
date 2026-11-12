@@ -1,3 +1,6 @@
+// Small ImGui helpers shared by the settings panel's boxes, and the colors it marks states and
+// errors with.
+
 #pragma once
 
 #include <imgui.h>

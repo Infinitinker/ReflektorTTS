@@ -1,3 +1,6 @@
+// Gives the overlay to one API, loads the font and builds each ImGui frame, and detaches the
+// renderer backend from a device the app has replaced without touching it.
+
 #include "renderers/overlay_frame.h"
 
 #include <imgui.h>

@@ -1,3 +1,6 @@
+// Finding the app's Direct3D 12 command queue, which the D3D12 renderer submits its drawing to:
+// a swap chain does not say which queue presents it.
+
 #pragma once
 
 #include <d3d12.h>

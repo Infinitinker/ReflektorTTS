@@ -1,3 +1,6 @@
+// Small ImGui helpers for the settings panel: dot labels, boxes, indented sections, the flow arrow
+// and combo boxes of choices.
+
 #include "widgets.h"
 
 namespace reflektortts {

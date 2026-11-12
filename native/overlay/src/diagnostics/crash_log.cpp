@@ -1,3 +1,6 @@
+// Logs where the app crashed, from an exception handler that runs before the app's own: the
+// exception, the module and offset of the crashing code, and the call stack in 64-bit apps.
+
 #include "diagnostics/crash_log.h"
 
 #include <windows.h>

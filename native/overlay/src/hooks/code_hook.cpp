@@ -1,3 +1,7 @@
+// Code hooks through MinHook, checked every half second and put back in front when another overlay
+// cuts them out of the chain (as RivaTuner Statistics Server does), and the overlay DLL's address
+// range, to tell its own calls apart.
+
 #include "hooks/code_hook.h"
 
 #include <MinHook.h>

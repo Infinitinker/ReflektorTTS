@@ -1,3 +1,6 @@
+// What the panel's window shows: the ImGui window with the settings panel, filling the SDL window,
+// and the SDL window's title.
+
 #pragma once
 
 #include <string>

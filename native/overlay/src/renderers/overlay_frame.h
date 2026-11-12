@@ -1,3 +1,6 @@
+// What the renderers share: giving the overlay to one graphics API, and building each ImGui frame
+// in window coordinates scaled to the back buffer.
+
 #pragma once
 
 #include <windows.h>

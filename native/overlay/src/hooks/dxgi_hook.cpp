@@ -1,3 +1,6 @@
+// Hooks IDXGISwapChain::Present and Present1, shared by Direct3D 11 and 12: the methods are found
+// through a throwaway Direct3D 11 swap chain on a probe window.
+
 #include "hooks/dxgi_hook.h"
 
 #include <d3d11.h>

@@ -1,3 +1,6 @@
+// Sets up ImGui on the app's Direct3D 11 device and draws each frame on the swap chain's back
+// buffer, following the swap chain and device the app presented with last.
+
 #include "renderers/d3d11_renderer.h"
 
 #include <d3d11.h>

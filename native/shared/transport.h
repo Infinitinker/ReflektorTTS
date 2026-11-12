@@ -1,3 +1,6 @@
+// How the API client reaches the core: where the API listens, a request, and the event stream. Each
+// OS has its own implementation; Windows has WinHTTP's (transport_winhttp.h).
+
 #pragma once
 
 #include <cstddef>

@@ -1,3 +1,7 @@
+// The API client: follows the core's events and keeps reconnecting, keeps the state a client knows
+// about the core, and sends commands and changes to its profile (/v1/profiles/<id>/...) on a
+// background thread.
+
 #include "api_client.h"
 
 #include <chrono>

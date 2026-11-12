@@ -1,3 +1,6 @@
+// Blocking the app's keyboard and mouse input while the panel is open, so the keys and clicks
+// meant for the panel do not reach the app.
+
 #pragma once
 
 #include <windows.h>

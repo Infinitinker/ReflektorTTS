@@ -1,3 +1,6 @@
+// Finds the app's Direct3D 12 command queue on the swap chain's device, by hooking
+// ID3D12CommandQueue::ExecuteCommandLists; the D3D12 renderer submits to that queue.
+
 #include "hooks/d3d12_queue_hook.h"
 
 #include <atomic>

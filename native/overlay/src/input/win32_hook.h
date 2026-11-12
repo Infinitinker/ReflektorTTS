@@ -1,3 +1,6 @@
+// Hooks on the Windows input functions apps read, which keep keys, clicks and the cursor from the
+// app while its input is blocked.
+
 #pragma once
 
 namespace reflektortts {

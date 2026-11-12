@@ -1,3 +1,7 @@
+// The panel hotkey, and mouse input for ImGui: the app's window procedure is replaced to route its
+// messages to the panel, which receives them on the thread that draws, and the mouse buttons are
+// read directly while the panel is open.
+
 #include "input/panel_input.h"
 
 #include <imgui.h>
