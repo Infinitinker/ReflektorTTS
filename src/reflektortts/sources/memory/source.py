@@ -64,7 +64,9 @@ class MemorySource:
         width = 2 if self._encoding.startswith("utf-16") else 1
         raw = self._memory.read(address, MAX_CHARS * width)
         if not raw:
-            raise MemoryReadError(f"Cannot read the app's text at {address:X}.")
+            raise MemoryReadError(
+                "The text could not be read from the app: if this lasts, the profile may not fit this version of it."
+            ) from MemoryReadError(f"Nothing could be read at {address:X}")
         # Checked before cleaning, which would turn control-character garbage into spaces.
         text = decode_terminated(raw, self._encoding)
         if not looks_like_text(text):

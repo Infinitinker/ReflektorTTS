@@ -233,6 +233,27 @@ def test_a_source_failing_for_another_reason_is_reported_as_still_failing() -> N
     assert still == [ErrorEvent("source.error", "vlc", "No subtitles for B.")]
 
 
+def caused(message: str, cause: str) -> Exception:
+    """An error for the user, raised from a lower-level one, as plugins raise them."""
+    try:
+        raise RuntimeError(message) from OSError(cause)
+    except RuntimeError as error:
+        return error
+
+
+def test_what_caused_a_failure_is_only_logged_once_per_message(caplog: pytest.LogCaptureFixture) -> None:
+    errors: list[ErrorEvent] = []
+    script: list[str | None | Exception] = [caused("VLC answered with an error.", "HTTP Error 500") for _ in range(3)]
+    runner = Runner([Route(ScriptedSource("vlc", script))], to_text(RecordingSink()), errors.append)
+
+    caplog.set_level("INFO")
+    for tick in range(3):
+        runner.poll(float(tick))
+
+    assert errors == [ErrorEvent("source.error", "vlc", "VLC answered with an error.")]
+    assert caplog.text.count("vlc fails because of: HTTP Error 500") == 1
+
+
 def test_failing_stage_drops_the_event_and_is_reported() -> None:
     errors: list[ErrorEvent] = []
     sink = RecordingSink()

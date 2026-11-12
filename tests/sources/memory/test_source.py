@@ -70,5 +70,9 @@ def test_empty_text_or_null_pointer_reads_as_nothing() -> None:
 def test_unreadable_text_is_an_error() -> None:
     memory = FakeMemory({0x400010: (0x9000).to_bytes(4, "little")}, {"gta2.exe": 0x400000})
 
-    with pytest.raises(MemoryReadError, match="9004"):
+    with pytest.raises(MemoryReadError, match="profile may not fit this version") as raised:
         MemorySource("messages", 0.25, "utf-16le", CHAIN, memory).read(ENGLISH)
+
+    # The address is for the log, which gets the cause, not for the user.
+    assert "9004" not in str(raised.value)
+    assert "9004" in str(raised.value.__cause__)

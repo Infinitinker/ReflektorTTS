@@ -157,7 +157,7 @@ class VlcSource:
     def _media(self, client: VlcClient, lookup: _Lookup) -> Path:
         playing = client.playlist_item(lookup.key[0])
         if playing is None:
-            raise VlcError("Cannot find what VLC is playing in its playlist.")
+            raise VlcError("Cannot find what VLC is playing in its playlist: play it again from the playlist.")
         path = uri_to_path(playing.uri)
         if path is None:
             lookup.retry_at = math.inf  # It stays a stream until the item changes.

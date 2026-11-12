@@ -80,8 +80,11 @@ def test_missing_module_is_an_error() -> None:
 
 
 def test_unreadable_pointer_is_an_error() -> None:
-    with pytest.raises(MemoryReadError, match="400010"):
+    with pytest.raises(MemoryReadError, match="profile may not fit this version") as raised:
         resolve(FakeMemory({}, {"gta2.exe": 0x400000}), Address("gta2.exe", 0x10), [0xE4])
+
+    assert "400010" not in str(raised.value)
+    assert "400010" in str(raised.value.__cause__)
 
 
 def test_64_bit_pointers() -> None:

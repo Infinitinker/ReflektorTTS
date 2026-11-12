@@ -73,7 +73,7 @@ def test_a_timeout_or_a_dropped_connection_counts_as_not_answering(failure: Exce
         (401, "did not accept the web interface password: close VLC and start it again"),
         (403, "has its web interface off: close VLC and start it again"),
         (404, "has its web interface off"),
-        (500, r"answered with an error \(HTTP 500\)"),
+        (500, "answered with an error: restart VLC"),
     ],
 )
 def test_refusals_say_what_to_do(code: int, message: str) -> None:

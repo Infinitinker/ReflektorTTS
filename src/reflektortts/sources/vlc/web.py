@@ -96,7 +96,7 @@ def _refused(code: int, port: int) -> VlcError:
     if code in (403, 404):
         # VLC 3 turns its web interface off, answering 403 and 404, if it started without a password.
         return VlcError("The VLC that is running has its web interface off: close VLC and start it again.")
-    return VlcError(f"VLC's web interface on 127.0.0.1:{port} answered with an error (HTTP {code}).")
+    return VlcError(f"VLC's web interface on port {port} answered with an error: restart VLC.")
 
 
 def _not_vlc(port: int) -> VlcError:
