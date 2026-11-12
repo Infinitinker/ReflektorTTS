@@ -268,10 +268,12 @@ class Application:
         the core itself. title names the app in an error."""
         try:
             self._panels.open(profile, lambda: dock_of(self._root))
-        except OSError as error:
+        except OSError:
             logger.exception("Cannot open the settings window for %s", profile)
-            reason = error.strerror or str(error)
-            self._show_error(f"The settings window for {title} could not be opened: {reason}")
+            self._show_error(
+                f"The settings window for {title} could not be opened: try again, and if it still does not "
+                "open, install or unpack ReflektorTTS again."
+            )
 
     def _copy_profile(self, item: ProfileItem) -> None:
         """Copies a bundled profile and shows the copy, ready to edit."""
@@ -482,9 +484,12 @@ class Application:
             return
         try:
             self._autostart.enable(enabled)
-        except OSError as error:
+        except OSError:
             logger.exception("Cannot change whether ReflektorTTS starts with Windows")
-            self._show_error(f"Start with Windows could not be changed: {error.strerror}")
+            self._show_error(
+                "Start with Windows could not be changed: try again, or turn it on or off in Windows "
+                "Settings > Apps > Startup."
+            )
         self._window.settings.show_start_with_windows(self._start_with_windows())
         self._tray.refresh()
 
