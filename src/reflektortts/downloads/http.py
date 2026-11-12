@@ -1,5 +1,6 @@
 """Fetching lists and files over HTTPS, for download sources."""
 
+import logging
 import urllib.error
 import urllib.request
 from collections.abc import Callable, Iterable
@@ -7,6 +8,8 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from reflektortts.downloads.source import DownloadError, Progress
+
+logger = logging.getLogger(__name__)
 
 USER_AGENT = "ReflektorTTS"
 """Some servers (argos-net.com) refuse Python's default User-Agent."""
@@ -34,7 +37,10 @@ def fetch(url: str) -> bytes:
             raise NotFoundError(f"{url} was not found: it may have moved. Try again later.") from error
         raise DownloadError(f"Could not fetch {url}: the server answered {error.code} {error.reason}.") from error
     except (urllib.error.URLError, OSError) as error:
-        raise DownloadError(f"Could not reach {url}: {error}. Check your internet connection.") from error
+        logger.warning("Could not reach %s: %s", url, error)
+        raise DownloadError(
+            f"Could not reach {url}. Check your internet connection, then close and open the window again."
+        ) from error
 
 
 def content_length(url: str) -> int | None:
@@ -65,4 +71,5 @@ def download(url: str, destination: Path, progress: Progress) -> None:
                 done += len(block)
                 progress(done, total)
     except (urllib.error.URLError, OSError) as error:
-        raise DownloadError(f"Could not download {url}: {error}. Check your internet connection.") from error
+        logger.warning("Could not download %s: %s", url, error)
+        raise DownloadError(f"Could not download {url}. Check your internet connection, then try again.") from error

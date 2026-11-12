@@ -29,7 +29,9 @@ class FakeSource:
 
     def entries(self, refresh: bool) -> list[Entry]:
         if self.failing:
-            raise DownloadError("Could not reach the voice list. Check your internet connection.")
+            raise DownloadError(
+                "Could not reach the voice list. Check your internet connection, then close and open the window again."
+            )
         return self.listed
 
     def download(self, entry: Entry, progress: Progress) -> None:
@@ -87,7 +89,9 @@ def test_a_source_that_cannot_list_is_reported_and_the_others_are_listed() -> No
     listing = downloads.listing(refresh=True)
 
     assert listing.entries == (Listed(entry("fake:a", installed=True), State.INSTALLED),)
-    assert listing.errors == ("Could not reach the voice list. Check your internet connection.",)
+    assert listing.errors == (
+        "Could not reach the voice list. Check your internet connection, then close and open the window again.",
+    )
 
 
 def test_unknown_or_running_downloads_cannot_start_or_be_removed() -> None:
