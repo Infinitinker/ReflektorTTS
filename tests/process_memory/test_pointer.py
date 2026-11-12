@@ -75,7 +75,9 @@ def test_null_pointer_means_no_text_yet() -> None:
 
 
 def test_missing_module_is_an_error() -> None:
-    with pytest.raises(ProcessMemoryError, match="gta2.exe is not loaded"):
+    with pytest.raises(
+        ProcessMemoryError, match="gta2.exe is not loaded in the app yet: if this lasts, the profile may not fit"
+    ):
         resolve(FakeMemory({}, {}), Address("gta2.exe", 0x10), [0xE4])
 
 
