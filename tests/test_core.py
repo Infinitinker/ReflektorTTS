@@ -9,7 +9,6 @@ from typing import Any
 
 import pytest
 
-from reflektortts.api.server import BrokenProfileError, SourceError, StageError, UnknownProfileError
 from reflektortts.apps.detector import ProcessInfo, RunningApp
 from reflektortts.bus import Event
 from reflektortts.core import Core, build_routes, load_integrations, missing_integrations, read_app
@@ -38,6 +37,7 @@ from reflektortts.languages import LanguageError, Languages
 from reflektortts.pipeline.plugins import SourcePlugin, StagePlugin
 from reflektortts.pipeline.runner import Chain, Route
 from reflektortts.profiles.catalog import CatalogEntry, Origin, ProfileFiles, ProfileState, ProfileStore
+from reflektortts.profiles.errors import BrokenProfileError, SourceError, StageError, UnknownProfileError
 from reflektortts.profiles.loader import PluginSchemas
 from reflektortts.profiles.model import App, Executable, Match, Profile, SourceSettings, StageSettings
 from reflektortts.settings import ProfileSettings, SettingsChange, load_profile_settings, load_shared

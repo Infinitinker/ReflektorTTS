@@ -6,7 +6,7 @@ import pytest
 from aiohttp.test_utils import TestClient
 
 from reflektortts.events import Status
-from tests.api.test_server import FakeCore, with_client
+from tests.api.fake_core import FakeCore, with_client
 
 
 class BrokenCore(FakeCore):

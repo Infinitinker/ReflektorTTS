@@ -22,7 +22,7 @@ from reflektortts.desktop.api.client import (
 )
 from reflektortts.desktop.api.status import CoreStatus
 from reflektortts.events import DownloadEvent, PreviewEvent
-from tests.api.test_server import GOSIA, FakeCore
+from tests.api.fake_core import GOSIA, FakeCore
 
 TIMEOUT = 5
 

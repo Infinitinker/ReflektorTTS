@@ -11,7 +11,7 @@ from typing import Any, Concatenate
 
 import psutil
 
-from reflektortts.api.server import ApiServer, BrokenProfileError, SourceError, StageError, UnknownProfileError
+from reflektortts.api.server import ApiServer
 from reflektortts.apps.detector import Builds, RunningApp, find_running_apps
 from reflektortts.bus import EventBus, Listener
 from reflektortts.downloads.manager import Downloads, Listing
@@ -62,6 +62,7 @@ from reflektortts.profiles.catalog import (
     Standing,
     choose,
 )
+from reflektortts.profiles.errors import BrokenProfileError, SourceError, StageError, UnknownProfileError
 from reflektortts.profiles.model import Profile, SourceSettings, StageSettings
 from reflektortts.settings import (
     ProfileSettings,

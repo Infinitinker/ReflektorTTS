@@ -6,7 +6,7 @@ import aiohttp
 import pytest
 from aiohttp.test_utils import TestClient
 
-from tests.api.test_server import MAD_MAX_SETTINGS, SETTINGS_PATH, FakeCore, with_client
+from tests.api.fake_core import MAD_MAX_SETTINGS, SETTINGS_PATH, FakeCore, with_client
 
 
 def test_requests_from_web_pages_are_refused() -> None:
