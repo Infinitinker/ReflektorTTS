@@ -58,8 +58,8 @@ Rather not install anything? Download `ReflektorTTS-<version>-windows-x64.zip` i
     <td align="center">The apps it reads, rated by how far they are tested</td>
   </tr>
   <tr>
-    <td><img src="docs/images/voices.png" alt="The Voices tab, listing Piper voices to download, with the selected voice's model card and license"></td>
-    <td><img src="docs/images/translations.png" alt="The Translations tab, listing Argos Translate models to download, with the installed English to Polish model selected"></td>
+    <td><img src="docs/images/voices.png" alt="The Voices tab, listing Piper voices to download in every language next to the installed Windows voices, with the installed Polish voice pl_PL-gosia-medium selected and its model card"></td>
+    <td><img src="docs/images/translations.png" alt="The Translations tab, listing Argos Translate models to download for every language, with the installed English to Polish model selected"></td>
   </tr>
   <tr>
     <td align="center">Voices to download</td>
