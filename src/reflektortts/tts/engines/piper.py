@@ -37,7 +37,7 @@ class PiperEngine:
 def create(voice_name: str) -> PiperEngine:
     """Speaks with an installed Piper voice such as "en_US-ljspeech-medium"; never downloads one."""
     if voice_name not in downloaded_voices():
-        raise VoiceError(f"The voice {voice_name} is not installed.")
+        raise VoiceError(f"The voice {voice_name} is not installed: download it in the Voices tab.")
     return PiperEngine(voices_dir() / f"{voice_name}.onnx")
 
 
