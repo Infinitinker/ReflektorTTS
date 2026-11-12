@@ -11,8 +11,8 @@
 namespace reflektortts {
 
 // Where the core's API listens: on this computer only, on a port of each ReflektorTTS's own
-// (reflektortts.identity.API_PORTS). The core gives a client it starts its port; a client told none
-// connects to the installed ReflektorTTS's.
+// (reflektortts.identity.API_PORTS). The core gives the overlay its port, and the desktop app gives
+// the settings window the same port; a client told none connects to the installed ReflektorTTS's.
 constexpr char kCoreHost[] = "127.0.0.1";
 constexpr int kDefaultCorePort = 47821;
 // The core's events are small; a bigger one is skipped, so a wrong server cannot fill memory.

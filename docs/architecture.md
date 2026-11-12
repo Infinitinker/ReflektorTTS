@@ -90,7 +90,7 @@ Each concept has one name, used in the interface, the code, file names, settings
 | Core: profiles, detection, pipeline, API | the ReflektorTTS process, on threads of its own | many small events; calls between processes would only add overhead |
 | TTS service | a child process of the core | speech models are heavy and can fail; the core never loads them |
 
-Each ReflektorTTS's API has a port of its own (`identity.py`): 47821 for an installed ReflektorTTS, 47822 for a run from source and 47823 for the end-to-end test's run, so they run side by side. The core gives its port to the overlay, through the injector, and to the settings windows, as an argument, when it starts them; started by hand without one, they connect to 47821.
+Each ReflektorTTS's API has a port of its own (`identity.py`): 47821 for an installed ReflektorTTS, 47822 for a run from source and 47823 for the end-to-end test's run, so they run side by side. The core gives its port to the overlay, through the injector, when it loads it into an app, and the desktop app gives the same port to the settings windows, as an argument, when it opens them; started by hand without one, they connect to 47821.
 
 ## How a line is read
 

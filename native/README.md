@@ -1,6 +1,6 @@
 # Native code
 
-ReflektorTTS's C++ code. All logic stays in the Python core: each part is a client of the core's [local API](../docs/api.md) (`http://127.0.0.1:47821/v1` for an installed ReflektorTTS; the core gives the overlay and the settings window its own port when it starts them, since a run from source has another), so it only draws and captures input (grabbing frames for OCR is planned). See also [docs/architecture.md](../docs/architecture.md).
+ReflektorTTS's C++ code. All logic stays in the Python core: each part is a client of the core's [local API](../docs/api.md) (`http://127.0.0.1:47821/v1` for an installed ReflektorTTS; a run from source has another, so the core gives the overlay its port, and the desktop app gives the settings window the same port), so it only draws and captures input (grabbing frames for OCR is planned). See also [docs/architecture.md](../docs/architecture.md).
 
 It comes in three parts:
 

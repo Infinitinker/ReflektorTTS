@@ -17,7 +17,8 @@ NAMES = {"dev": "ReflektorTTS Dev", "e2e": "ReflektorTTS E2E"}
 """The name of a run from source in each mode."""
 API_PORTS = {INSTALLED: 47821, NAMES["dev"]: 47822, NAMES["e2e"]: 47823}
 """The local API's port for each name. The native clients connect to the installed ReflektorTTS's
-unless the core that starts them gives them its own (native/shared/transport.h)."""
+unless told another: the core gives the overlay its port, and the desktop app gives the settings
+window the same port (native/shared/transport.h)."""
 
 
 class RunModeError(ValueError):
