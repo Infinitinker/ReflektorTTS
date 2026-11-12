@@ -4,8 +4,8 @@ PyInstaller's parts, data taken from other projects, and the native programs' li
 ships the file as THIRD-PARTY-NOTICES.txt.
 
 The notices follow the installed packages, so run it in the environment releases are built from (the
-release extra, installed with tools/release-constraints.txt; see "Building a release" in
-CONTRIBUTING.md), and commit the file whenever the dependencies change. A package without license
+release extra, installed with tools/release-constraints.txt; see "Dependencies and notices" in
+docs/releasing.md), and commit the file whenever the dependencies change. A package without license
 text stops it. Run from the repository root:
     python tools/notices.py           write THIRD-PARTY-NOTICES.md
     python tools/notices.py --check   fail unless it is up to date
