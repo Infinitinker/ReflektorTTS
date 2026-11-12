@@ -23,7 +23,7 @@ void draw_hint() {
     ImGui::Begin("##hint", nullptr,
                  ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_AlwaysAutoResize |
                      ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav);
-    ImGui::TextUnformatted("ReflektorTTS: Ctrl+Shift+R opens the panel");
+    ImGui::TextUnformatted("ReflektorTTS: Ctrl+Shift+R opens the panel.");
     ImGui::End();
 }
 
@@ -34,7 +34,7 @@ void draw_panel(const CoreState& state) {
                  ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings |
                      ImGuiWindowFlags_AlwaysAutoResize);
     draw_settings_panel(state, PanelPlace::Overlay);
-    ImGui::TextDisabled("Ctrl+Shift+R closes this panel");
+    ImGui::TextDisabled("Ctrl+Shift+R closes this panel.");
     ImGui::End();
 }
 
