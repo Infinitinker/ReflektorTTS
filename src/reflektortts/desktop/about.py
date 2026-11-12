@@ -7,7 +7,7 @@ from importlib.metadata import metadata, version
 KO_FI = "https://ko-fi.com/infinitinker"
 BUYCOFFEE = "https://buycoffee.to/infinitinker"
 """The support pages, as in .github/FUNDING.yml; buycoffee.to takes BLIK and Polish bank transfers."""
-LICENSE = "Free software under the GPL-3.0-or-later. Copyright (C) 2026 Infinitinker."
+LICENSE = "Free software under the GPL-3.0-or-later. Copyright © 2026 Infinitinker."
 
 
 @dataclass(frozen=True)

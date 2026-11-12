@@ -141,7 +141,7 @@ void draw_speech_pace(const ProfileSettings& settings) {
     // While dragging, the slider shows its own value; the core gets it, in steps of 0.1, on release.
     static float dragged_rate = 0.0f;
     float rate = dragged_rate > 0.0f ? dragged_rate : settings.speech_rate;
-    if (ImGui::SliderFloat("Reading speed", &rate, 0.5f, 2.0f, "%.1fx", ImGuiSliderFlags_AlwaysClamp)) {
+    if (ImGui::SliderFloat("Reading speed", &rate, 0.5f, 2.0f, "%.1f×", ImGuiSliderFlags_AlwaysClamp)) {
         dragged_rate = rate;
     }
     if (ImGui::IsItemDeactivatedAfterEdit()) {
@@ -255,7 +255,7 @@ void draw_error(const CoreState& state) {
     ImGui::PopTextWrapPos();
     ImGui::PopStyleColor();
     align_right(ImGui::GetFrameHeight());
-    if (ImGui::SmallButton("x")) {
+    if (ImGui::SmallButton("×")) {
         dismiss_error();
     }
 }
