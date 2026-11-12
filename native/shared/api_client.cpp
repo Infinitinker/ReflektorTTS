@@ -145,13 +145,14 @@ void apply_profile_settings(const json& view) {
     });
 }
 
-// The core's message for a request it refused, else the HTTP status.
+// The core's message for a request it refused; else, with the HTTP status in the log, what to do.
 std::string error_message(const HttpResponse& response) {
     json body = json::parse(response.body, nullptr, false);
     if (body.is_object() && body.contains("error") && body["error"].is_string()) {
         return body["error"].get<std::string>();
     }
-    return "The request failed (HTTP " + std::to_string(response.status) + ").";
+    log_message("The core refused a request with HTTP " + std::to_string(response.status));
+    return "ReflektorTTS did not take the change: try again.";
 }
 
 // Percent-encodes text for one segment of a URL path; a profile ID is a file name, so it can hold
@@ -195,7 +196,10 @@ bool load_profile_settings(const std::string& profile) {
         apply_profile_settings(json::parse(response->body));
     } catch (const json::exception& error) {
         log_message(std::string("Cannot read the profile's settings: ") + error.what());
-        update_state([](CoreState& state) { state.settings_error = "The settings ReflektorTTS sent cannot be read."; });
+        update_state([](CoreState& state) {
+            state.settings_error =
+                "The settings ReflektorTTS sent cannot be read: close the settings and open them again.";
+        });
     }
     return true;
 }
@@ -382,15 +386,16 @@ void request_loop() {
         try {
             std::optional<HttpResponse> response = g_client.transport->send(request.method, request.path, request.body);
             if (!response) {
-                error = "ReflektorTTS is not reachable.";
+                error = "ReflektorTTS does not answer: is it still running?";
             } else if (response->status != 200) {
                 error = error_message(*response);
             }
         } catch (const std::exception& failure) {
             log_message(std::string("A request to the core failed: ") + failure.what());
-            error = "The request failed.";
+            error = "The change could not be sent to ReflektorTTS: try again.";
         } catch (...) {
-            error = "The request failed.";
+            log_message("A request to the core failed");
+            error = "The change could not be sent to ReflektorTTS: try again.";
         }
         if (!error.empty()) {
             update_state([&](CoreState& state) { set_error(state, std::move(error)); });

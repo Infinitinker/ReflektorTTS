@@ -12,6 +12,7 @@
 
 #include "api_client.h"
 #include "arguments.h"
+#include "log.h"
 #include "panel_window.h"
 #include "startup_error.h"
 #include "transport_winhttp.h"
@@ -41,7 +42,9 @@ int main(int argc, char* argv[]) {
         report_startup_error(error.what());
         return kUsageExitCode;
     } catch (const std::exception& error) {
-        report_startup_error(std::string("The settings window stopped because of an error: ") + error.what());
+        log_message(std::string("The settings window stopped: ") + error.what());
+        report_startup_error(
+            "The settings window stopped because of an error: open it again from the ReflektorTTS window.");
         return 1;
     }
 }
