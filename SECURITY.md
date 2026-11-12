@@ -15,4 +15,4 @@ Please do not open a public issue. Report it privately through GitHub instead: o
 
 ## Supported versions
 
-ReflektorTTS has not had a release yet; fixes go into the latest version on the main branch.
+Only the latest release is supported: fixes go into the `main` branch and the next release.
