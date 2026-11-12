@@ -1,6 +1,6 @@
 name: Build Windows app
 
-# Builds the Windows release files: the installer, the portable zip and the sources zip, each kept on
+# Builds the Windows release files: the installer, the Windows zip and the sources zip, each kept on
 # the run's page under its release file name, and checks them. The Release workflow (release.yml)
 # calls it and drafts the release from them; run on its own, it shows early that a change still builds.
 #
@@ -36,7 +36,7 @@ jobs:
     timeout-minutes: 60
     outputs:
       # The three files, so the check downloads exactly these, whatever else the run builds.
-      artifacts: ${{ steps.setup.outputs.artifact-id }},${{ steps.portable.outputs.artifact-id }},${{ steps.sources.outputs.artifact-id }}
+      artifacts: ${{ steps.setup.outputs.artifact-id }},${{ steps.windows-zip.outputs.artifact-id }},${{ steps.sources.outputs.artifact-id }}
     steps:
       - uses: actions/checkout@v7
 
@@ -91,7 +91,7 @@ jobs:
           path: build/release/*-windows-x64-setup.exe
           archive: false
           if-no-files-found: error
-      - id: portable
+      - id: windows-zip
         uses: actions/upload-artifact@v7
         with:
           path: build/release/*-windows-x64.zip
