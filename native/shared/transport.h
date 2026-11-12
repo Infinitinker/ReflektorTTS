@@ -10,9 +10,11 @@
 
 namespace reflektortts {
 
-// Where the core's API listens. The port must match reflektortts.api.server.PORT.
+// Where the core's API listens: on this computer only, on a port of each ReflektorTTS's own
+// (reflektortts.identity.API_PORTS). The core gives a client it starts its port; a client told none
+// connects to the installed ReflektorTTS's.
 constexpr char kCoreHost[] = "127.0.0.1";
-constexpr int kCorePort = 47821;
+constexpr int kDefaultCorePort = 47821;
 // The core's events are small; a bigger one is skipped, so a wrong server cannot fill memory.
 constexpr std::size_t kMaxEventBytes = 1 << 20;
 // The same for answers to requests, such as the voice list.
@@ -32,7 +34,8 @@ public:
     virtual std::optional<std::string> receive() = 0;
 };
 
-// How a client reaches the core's API at kCoreHost:kCorePort; one implementation per OS.
+// How a client reaches the core's API at kCoreHost, on the port it was made for; one implementation
+// per OS.
 // Both functions may be called from several threads at once.
 class Transport {
 public:

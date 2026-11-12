@@ -23,13 +23,15 @@ import aiohttp
 import pytest
 from PIL import ImageGrab
 
-from reflektortts.api.server import HOST, PORT
+from reflektortts.api.server import HOST
 from reflektortts.desktop.system.tray_host import tray_available
+from reflektortts.identity import API_PORTS, NAMES
 from tests.e2e import folders
 from tests.e2e.programs import free_port, port_taken, start_fake_vlc, start_reflektortts, stop, vlc_running
 
 pytestmark = pytest.mark.e2e
 
+PORT = API_PORTS[NAMES["e2e"]]
 API = f"http://{HOST}:{PORT}/v1"
 PROFILE = "vlc-media-player-2001"
 SUBTITLE = "[Music] Hello from the end-to-end test."
@@ -105,7 +107,10 @@ def test_smoke() -> None:
 async def _run(report: Report) -> None:
     with report.step("prepares"):
         if port_taken(PORT):
-            raise AssertionError(f"ReflektorTTS is running (port {PORT} is taken): quit it, then run the test again.")
+            raise AssertionError(
+                f"Port {PORT} is taken, perhaps by ReflektorTTS E2E from an earlier run: quit it, then run "
+                "the test again."
+            )
         if vlc_running():
             raise AssertionError("VLC is running: close it, then run the test again.")
         report.seen["tray"] = tray_available()

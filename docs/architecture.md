@@ -72,7 +72,7 @@ Each concept has one name, used in the interface, the code, file names, settings
 ┌───────────────────┐  API /v1    │        ▼               │                │
 │ Overlay (C++ DLL) │◄──────────► │ API server (HTTP + WebSocket)           │
 │ draws the panel,  │ 127.0.0.1   │        ▲ commands      │ events         │
-│ captures input    │   :47821    │ Core: profiles, app detection,          │
+│ captures input    │ its port    │ Core: profiles, app detection,          │
 └───────────────────┘             │ settings, event bus                     │
         ▲ loaded by the core      │                                         │
         │ through the injector    │ Sources ──► Stages ──► Sinks            │
@@ -89,6 +89,8 @@ Each concept has one name, used in the interface, the code, file names, settings
 | Settings window (`reflektortts-panel`) | a process of its own, started by the desktop app for one profile | it draws the overlay's settings panel (C++), outside any app; it talks to the core through the API, like the overlay |
 | Core: profiles, detection, pipeline, API | the ReflektorTTS process, on threads of its own | many small events; calls between processes would only add overhead |
 | TTS service | a child process of the core | speech models are heavy and can fail; the core never loads them |
+
+Each ReflektorTTS's API has a port of its own (`identity.py`): 47821 for an installed ReflektorTTS, 47822 for a run from source and 47823 for the end-to-end test's run, so they run side by side. The core gives its port to the overlay, through the injector, and to the settings windows, as an argument, when it starts them; started by hand without one, they connect to 47821.
 
 ## How a line is read
 

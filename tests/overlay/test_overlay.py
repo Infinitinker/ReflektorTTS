@@ -10,5 +10,5 @@ def test_other_systems_read_the_app_without_the_overlay(
 ) -> None:
     monkeypatch.setattr("sys.platform", "linux")
 
-    assert inject_overlay(42, []) is False
+    assert inject_overlay(42, [], 47822) is False
     assert "not available on this system yet" in caplog.text

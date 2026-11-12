@@ -1,5 +1,5 @@
-// reflektortts-panel --profile <id> [--dock-...]: the settings panel of one profile in a window of
-// its own, whether or not its app runs. The desktop app starts it, beside its own window.
+// reflektortts-panel --profile <id> [--port <port>] [--dock-...]: the settings panel of one profile in
+// a window of its own, whether or not its app runs. The desktop app starts it, beside its own window.
 
 #include <SDL3/SDL_main.h>
 
@@ -30,7 +30,7 @@ int main(int argc, char* argv[]) {
     try {
         std::span<char* const> command_line(argv, argc > 0 ? static_cast<std::size_t>(argc) : 0);
         PanelArguments arguments = parse_arguments(command_line.subspan(command_line.empty() ? 0 : 1));
-        std::unique_ptr<Transport> transport = make_winhttp_transport(L"ReflektorTTS panel");
+        std::unique_ptr<Transport> transport = make_winhttp_transport(L"ReflektorTTS panel", arguments.port);
         if (!transport) {
             report_startup_error(
                 "The settings window cannot connect to ReflektorTTS: WinHTTP, part of Windows, did not start.");

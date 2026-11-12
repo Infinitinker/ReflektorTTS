@@ -53,7 +53,7 @@ APP = app_with()
 
 
 def watcher(core: FakeCore, running: set[int]) -> Watcher:
-    return Watcher(core, SOURCES, STAGES, (), lambda pid: pid in running, lambda app, still_running: None)
+    return Watcher(core, SOURCES, STAGES, (), 47822, lambda pid: pid in running, lambda app, still_running: None)
 
 
 def test_an_app_is_watched_while_it_runs_and_its_profile_is_used() -> None:

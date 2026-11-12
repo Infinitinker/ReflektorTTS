@@ -1,4 +1,4 @@
-// The panel's command line: the profile to show and where to open (Dock), read by
+// The panel's command line: the profile to show, the core's port and where to open (Dock), read by
 // parse_arguments(), and ArgumentError for one that is wrong.
 
 #pragma once
@@ -7,6 +7,8 @@
 #include <span>
 #include <stdexcept>
 #include <string>
+
+#include "transport.h"
 
 namespace reflektortts {
 
@@ -32,13 +34,14 @@ struct Dock {
 
 struct PanelArguments {
     std::string profile;  // The ID of the profile whose settings are shown.
+    int port = kDefaultCorePort;  // The port of the core's API.
     std::optional<Dock> dock;  // None: the panel opens centered, at its default size.
 };
 
-// Reads the arguments after the program's name: "--profile <id>", and optionally all four of
-// "--dock-side right|left --dock-x <x> --dock-y <y> --dock-height <height>", in any order. Throws
-// ArgumentError if the profile is missing, a dock argument is missing or wrong, or anything else is
-// given.
+// Reads the arguments after the program's name: "--profile <id>", optionally "--port <port>", and
+// optionally all four of "--dock-side right|left --dock-x <x> --dock-y <y> --dock-height <height>",
+// in any order. Throws ArgumentError if the profile is missing, the port or a dock argument is
+// missing or wrong, or anything else is given.
 PanelArguments parse_arguments(std::span<char* const> arguments);
 
 }  // namespace reflektortts

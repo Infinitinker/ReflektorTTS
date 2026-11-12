@@ -115,7 +115,8 @@ private:
 
 class WinHttpTransport : public Transport {
 public:
-    explicit WinHttpTransport(HINTERNET session) : session_(session), host_(widen(kCoreHost)) {}
+    WinHttpTransport(HINTERNET session, int port)
+        : session_(session), host_(widen(kCoreHost)), port_(static_cast<INTERNET_PORT>(port)) {}
 
     std::optional<HttpResponse> send(const std::string& method, const std::string& path,
                                      const std::string& body) override {
@@ -164,24 +165,23 @@ public:
     }
 
 private:
-    [[nodiscard]] HINTERNET connect() const {
-        return WinHttpConnect(session_.get(), host_.c_str(), static_cast<INTERNET_PORT>(kCorePort), 0);
-    }
+    [[nodiscard]] HINTERNET connect() const { return WinHttpConnect(session_.get(), host_.c_str(), port_, 0); }
 
     Handle session_;
     std::wstring host_;
+    INTERNET_PORT port_;
 };
 
 }  // namespace
 
-std::unique_ptr<Transport> make_winhttp_transport(const wchar_t* user_agent) {
+std::unique_ptr<Transport> make_winhttp_transport(const wchar_t* user_agent, int port) {
     HINTERNET session =
         WinHttpOpen(user_agent, WINHTTP_ACCESS_TYPE_NO_PROXY, WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0);
     if (session == nullptr) {
         log_message("Cannot start WinHTTP, so ReflektorTTS cannot be reached");
         return nullptr;
     }
-    return std::make_unique<WinHttpTransport>(session);
+    return std::make_unique<WinHttpTransport>(session, port);
 }
 
 }  // namespace reflektortts

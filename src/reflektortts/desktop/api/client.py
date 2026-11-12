@@ -12,13 +12,13 @@ from typing import Any
 
 import aiohttp
 
-from reflektortts.api.server import HOST, PORT
+from reflektortts.api.server import HOST
 from reflektortts.desktop.api.catalog import DownloadProgress, PreviewState, parse_preview, parse_progress
 from reflektortts.desktop.api.status import CoreStatus, parse_status
+from reflektortts.identity import api_port
 
 logger = logging.getLogger(__name__)
 
-BASE_URL = f"http://{HOST}:{PORT}/v1"
 RETRY_SECONDS = 1.0
 TIMEOUT_SECONDS = 5.0
 
@@ -45,19 +45,24 @@ REFRESH_TIMEOUT_SECONDS = 120.0
 """Refreshing the download lists fetches them from the internet."""
 
 
-def post(path: str, base_url: str = BASE_URL) -> None:
+def core_url() -> str:
+    """The address of this ReflektorTTS's local API, where each request goes unless given another."""
+    return f"http://{HOST}:{api_port()}/v1"
+
+
+def post(path: str, base_url: str | None = None) -> None:
     """Sends a command without a body, e.g. post("/pause")."""
     request_json("POST", path, base_url=base_url)
 
 
 def request_json(
-    method: str, path: str, body: Any = None, base_url: str = BASE_URL, timeout: float = TIMEOUT_SECONDS
+    method: str, path: str, body: Any = None, base_url: str | None = None, timeout: float = TIMEOUT_SECONDS
 ) -> Any:
     """Sends a request and returns its JSON answer. A refused request raises ApiClientError with
     the core's message for the user."""
     data = None if body is None else json.dumps(body).encode()
     request = urllib.request.Request(
-        f"{base_url}{path}", data=data, method=method, headers={"Content-Type": "application/json"}
+        f"{base_url or core_url()}{path}", data=data, method=method, headers={"Content-Type": "application/json"}
     )
     try:
         with LOCAL.open(request, timeout=timeout) as response:
@@ -75,8 +80,9 @@ def request_json(
     return json.loads(text) if text else None
 
 
-def reflektortts_answers(base_url: str = BASE_URL) -> bool:
-    """Whether a ReflektorTTS core answers at base_url, rather than another program or nothing."""
+def reflektortts_answers(base_url: str | None = None) -> bool:
+    """Whether a ReflektorTTS core answers at base_url (core_url by default), rather than another
+    program or nothing."""
     try:
         return parse_status(request_json("GET", "/status", base_url=base_url, timeout=2.0)) is not None
     except (ApiClientError, ValueError, KeyError, TypeError, AttributeError):
@@ -95,12 +101,12 @@ class StatusFeed:
         on_status: Callable[[CoreStatus | None], None],
         on_download: Callable[[DownloadProgress], None] = lambda progress: None,
         on_preview: Callable[[PreviewState], None] = lambda preview: None,
-        base_url: str = BASE_URL,
+        base_url: str | None = None,
     ) -> None:
         self._on_status = on_status
         self._on_download = on_download
         self._on_preview = on_preview
-        self._url = f"{base_url}/events"
+        self._url = f"{base_url or core_url()}/events"
         self._loop: asyncio.AbstractEventLoop | None = None
         self._stopping: asyncio.Event | None = None
         self._ready = threading.Event()

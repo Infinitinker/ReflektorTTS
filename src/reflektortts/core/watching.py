@@ -60,15 +60,18 @@ class Watcher:
         sources: Mapping[str, SourcePlugin],
         stages: Mapping[str, StagePlugin],
         overlay_dirs: Sequence[Path],
+        api_port: int,
         is_running: Callable[[int], bool],
         watch_sound: Callable[[ProcessInfo | None, bool], None],
     ) -> None:
-        """watch_sound is given the app whose sound to lower while it is read, or None, and
-        whether the app left still runs (see Ducker.watch)."""
+        """api_port is the local API's, which the overlay is told to connect to. watch_sound is
+        given the app whose sound to lower while it is read, or None, and whether the app left
+        still runs (see Ducker.watch)."""
         self._core = core
         self._sources = sources
         self._stages = stages
         self._overlay_dirs = overlay_dirs
+        self._api_port = api_port
         self._is_running = is_running
         self._watch_sound = watch_sound
         self._builds = Builds()
@@ -90,7 +93,7 @@ class Watcher:
             core.enter(app)
             self._watch_sound(app.process, False)
             if app.profile.overlay and self._overlay_dirs:
-                inject_overlay(app.process.pid, self._overlay_dirs)
+                inject_overlay(app.process.pid, self._overlay_dirs, self._api_port)
             routes = build_routes(
                 app,
                 self._sources,

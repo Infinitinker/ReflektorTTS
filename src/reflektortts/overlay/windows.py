@@ -15,7 +15,7 @@ TIMEOUT_S = 30
 BLOCKED_BY_ANTIVIRUS = {225, 1260}
 
 
-def inject(pid: int, overlay_dirs: Sequence[Path]) -> bool:
+def inject(pid: int, overlay_dirs: Sequence[Path], api_port: int) -> bool:
     """Tries each overlay build (e.g. 32-bit, then 64-bit) until one matches the app; see
     inject_overlay."""
     found = False
@@ -27,7 +27,7 @@ def inject(pid: int, overlay_dirs: Sequence[Path]) -> bool:
         found = True
         try:
             result = subprocess.run(
-                [str(injector), "--pid", str(pid)],
+                [str(injector), "--pid", str(pid), "--port", str(api_port)],
                 capture_output=True,
                 encoding="utf-8",
                 errors="replace",

@@ -16,7 +16,7 @@ from pathlib import Path
 from tkinter import filedialog, messagebox
 from typing import Any
 
-from reflektortts.api.server import PORT, ApiError
+from reflektortts.api.server import ApiError
 from reflektortts.arguments import Arguments
 from reflektortts.desktop.about import about
 from reflektortts.desktop.api.catalog import DownloadItem, DownloadList, DownloadProgress, other_voices, parse_list
@@ -41,6 +41,7 @@ from reflektortts.desktop.system.state import load_state, save_state
 from reflektortts.desktop.system.tray_host import tray_available
 from reflektortts.desktop.tray import Tray
 from reflektortts.desktop.window import Window
+from reflektortts.identity import api_port, app_name
 from reflektortts.settings import SETTINGS_FOLDER
 from reflektortts.user_dirs import config_dir, log_dir, state_dir
 
@@ -72,7 +73,7 @@ class Application:
         """The voice the names were last fetched for, so a voice the core does not list is asked about once."""
         self._items: dict[str, DownloadItem] = {}
         self._core = CoreThread(args.profiles, config_dir(), args.overlay)
-        self._panels = PanelWindows(find_program(args.overlay))
+        self._panels = PanelWindows(find_program(args.overlay), api_port())
         """The settings windows, one per profile, opened from the Profiles tab or, for the app being
         read, the Status tab."""
         self._feed = StatusFeed(
@@ -213,10 +214,10 @@ class Application:
     def _port_taken(self, by_reflektortts: bool) -> None:
         """The local API could not open its port: tells the user why, then quits."""
         if by_reflektortts:
-            message = "ReflektorTTS is already running: look for its icon next to the clock."
+            message = f"{app_name()} is already running: look for its icon next to the clock."
         else:
             message = (
-                f"ReflektorTTS cannot start: port {PORT} on this computer is used by another program, "
+                f"{app_name()} cannot start: port {api_port()} on this computer is used by another program, "
                 "or reserved by the system. Close the other program, or restart the computer, and start "
                 "ReflektorTTS again."
             )

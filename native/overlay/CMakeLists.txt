@@ -51,8 +51,10 @@ target_link_libraries(reflektortts-overlay PRIVATE reflektortts-shared imgui-bac
 add_executable(reflektortts-inject injector/inject.cpp)
 
 if(MINGW)
-    # The game folder has no MinGW runtime DLLs, so link them in. The DLL needs no exports
-    # (the injector only loads it), and release builds keep no symbol table.
-    target_link_options(reflektortts-overlay PRIVATE -static -Wl,--exclude-all-symbols $<$<CONFIG:Release>:-s>)
+    # The game folder has no MinGW runtime DLLs, so link them in. The DLL exports only the entry
+    # point the injector starts it with, by its plain name (--kill-at drops 32-bit stdcall's "@4"),
+    # and release builds keep no symbol table.
+    target_link_options(reflektortts-overlay PRIVATE -static -Wl,--exclude-all-symbols -Wl,--kill-at
+                        $<$<CONFIG:Release>:-s>)
     target_link_options(reflektortts-inject PRIVATE -static -municode $<$<CONFIG:Release>:-s>)
 endif()

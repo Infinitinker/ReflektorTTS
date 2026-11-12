@@ -44,6 +44,7 @@ from reflektortts.events import (
     Status,
     UnsupportedApp,
 )
+from reflektortts.identity import API_PORTS, INSTALLED, api_port
 from reflektortts.integrations import Integration, IntegrationView
 from reflektortts.languages import LanguageError, Languages, check_language, primary_language, sample
 from reflektortts.pipeline.plugins import SourcePlugin, StagePlugin, source_plugins, stage_plugins
@@ -137,6 +138,7 @@ class Core:
         profiles: ProfileFiles,
         settings_dir: Path,
         overlay_dirs: Sequence[Path] = (),
+        api_port: int = API_PORTS[INSTALLED],
         narrator_factory: Callable[[str, Callable[[bool], None]], Narrator] = start_narrator,
         list_voices: Callable[[], list[VoiceInfo]] = available_voices,
         is_running: Callable[[int], bool] = psutil.pid_exists,
@@ -150,7 +152,8 @@ class Core:
         integrations: Mapping[str, Integration] | None = None,
     ) -> None:
         """sources and stages default to the installed plugins, integrations to those of the
-        sources, with their files in the state folder."""
+        sources, with their files in the state folder. api_port is the local API's, which the
+        overlay is told to connect to."""
         self._lock = threading.RLock()
         """Held by every change; reentrant, since changes call each other and status()."""
         self._profile_files = profiles
@@ -188,7 +191,7 @@ class Core:
         downloads = load_download_sources() if download_sources is None else download_sources
         self._downloads = Downloads(downloads, self._downloaded)
         self._preview = preview_factory(self._bus.publish)
-        self._watcher = Watcher(self, sources, self._stages, overlay_dirs, is_running, self._ducker.watch)
+        self._watcher = Watcher(self, sources, self._stages, overlay_dirs, api_port, is_running, self._ducker.watch)
 
     @_serialized
     def status(self) -> Status:
@@ -574,8 +577,9 @@ class Core:
 def run(profiles_dir: Path, settings_dir: Path, overlay_dirs: Sequence[Path], stop: threading.Event) -> None:
     """Starts the core and its API, and runs until stop is set or the process is interrupted.
     profiles_dir holds the user's own profiles, next to the bundled ones."""
-    core = Core(ProfileStore(profiles_dir), settings_dir, overlay_dirs)
-    server = ApiServer(core)
+    port = api_port()
+    core = Core(ProfileStore(profiles_dir), settings_dir, overlay_dirs, port)
+    server = ApiServer(core, port)
     try:
         server.start()
         core.run(stop)

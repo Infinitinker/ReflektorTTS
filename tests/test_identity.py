@@ -4,7 +4,7 @@ import sys
 
 import pytest
 
-from reflektortts.identity import MODE_VARIABLE, RunModeError, app_name
+from reflektortts.identity import MODE_VARIABLE, RunModeError, api_port, app_name
 
 
 @pytest.mark.parametrize(
@@ -37,3 +37,18 @@ def test_a_mode_that_does_not_exist_says_which_do(monkeypatch: pytest.MonkeyPatc
 
     with pytest.raises(RunModeError, match='"Dev ": set it to dev or e2e'):
         app_name()
+
+
+@pytest.mark.parametrize(
+    ("frozen", "mode", "port"), [(True, "dev", 47821), (False, "dev", 47822), (False, "e2e", 47823)]
+)
+def test_each_reflektortts_has_a_port_of_its_own(
+    monkeypatch: pytest.MonkeyPatch, frozen: bool, mode: str, port: int
+) -> None:
+    if frozen:
+        monkeypatch.setattr(sys, "frozen", True, raising=False)
+    else:
+        monkeypatch.delattr(sys, "frozen", raising=False)
+    monkeypatch.setenv(MODE_VARIABLE, mode)
+
+    assert api_port() == port

@@ -1,8 +1,11 @@
-// The overlay DLL's entry point: on a thread of its own, it installs the crash log, hooks each
-// graphics API as soon as the app loads its DLL, and starts the API client once a hook is in place.
+// The overlay DLL's entry point, which the injector starts on a thread of its own in the app with the
+// core's port: it installs the crash log, hooks each graphics API as soon as the app loads its DLL,
+// and starts the API client once a hook is in place.
 
 #include <windows.h>
 
+#include <atomic>
+#include <cstdint>
 #include <memory>
 #include <utility>
 
@@ -55,7 +58,7 @@ bool app_just_started() {
 // loads the overlay as soon as it sees the app's process, often before the app has set up its
 // graphics, and apps may load another API later (after a launcher, or for a video), so each API
 // is hooked when its DLL arrives, however late. Each is tried once.
-DWORD WINAPI start_overlay(LPVOID) {
+DWORD run_overlay(int port) {
     install_crash_log();
     // A Direct3D 9 device may already exist only if its DLL was loaded before the overlay arrived
     // and the app was not just started.
@@ -85,7 +88,7 @@ DWORD WINAPI start_overlay(LPVOID) {
         }
         if (hooked && !client_started) {
             client_started = true;
-            if (std::unique_ptr<Transport> transport = make_winhttp_transport(L"ReflektorTTS overlay")) {
+            if (std::unique_ptr<Transport> transport = make_winhttp_transport(L"ReflektorTTS overlay", port)) {
                 start_api_client(std::move(transport));
             }
         }
@@ -98,18 +101,28 @@ DWORD WINAPI start_overlay(LPVOID) {
     return 0;
 }
 
+std::atomic_flag g_started;
+
 }  // namespace
 
-// The loader lock is held here, so hooking happens on a separate thread. The loader finds the
-// entry point by its name, so it keeps external linkage.
+// The overlay's one export, which the injector runs on a thread of its own in the app once the DLL
+// is loaded (reflektortts-inject.exe), rather than DllMain starting the overlay, so that it can pass
+// the port of the core's API as the thread's parameter: 0 for the installed ReflektorTTS's. The DLL
+// stays loaded while the app runs, so loading it again starts nothing more.
+// NOLINTNEXTLINE(misc-use-internal-linkage)
+extern "C" __declspec(dllexport) DWORD WINAPI reflektortts_start_overlay(LPVOID port) {
+    if (g_started.test_and_set()) {
+        return 0;
+    }
+    auto given = static_cast<int>(reinterpret_cast<std::intptr_t>(port));
+    return run_overlay(given != 0 ? given : kDefaultCorePort);
+}
+
+// The loader finds the entry point by its name, so it keeps external linkage.
 // NOLINTNEXTLINE(misc-use-internal-linkage)
 BOOL WINAPI DllMain(HINSTANCE module, DWORD reason, LPVOID) {
     if (reason == DLL_PROCESS_ATTACH) {
         DisableThreadLibraryCalls(module);
-        HANDLE thread = CreateThread(nullptr, 0, start_overlay, nullptr, 0, nullptr);
-        if (thread != nullptr) {
-            CloseHandle(thread);
-        }
     }
     return TRUE;
 }

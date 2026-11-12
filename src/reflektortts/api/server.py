@@ -12,8 +12,6 @@ from reflektortts.api.routes import create_app
 logger = logging.getLogger(__name__)
 
 HOST = "127.0.0.1"
-PORT = 47821
-"""Fixed so the overlay knows where to connect."""
 
 
 class ApiError(Exception):
@@ -23,7 +21,8 @@ class ApiError(Exception):
 class ApiServer:
     """Serves the API on a background thread with its own event loop."""
 
-    def __init__(self, core: CoreControl, host: str = HOST, port: int = PORT) -> None:
+    def __init__(self, core: CoreControl, port: int, host: str = HOST) -> None:
+        """port is this ReflektorTTS's (identity.api_port), or 0 for any free one."""
         self._core = core
         self._host = host
         self._port = port

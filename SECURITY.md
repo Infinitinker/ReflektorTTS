@@ -8,7 +8,7 @@ Please do not open a public issue. Report it privately through GitHub instead: o
 
 ## What is in scope
 
-- The local API on `127.0.0.1:47821`, including what a web page or another program on the same computer can make it do.
+- The local API on `127.0.0.1:47821` (47822 and 47823 for runs from source and the end-to-end test), including what a web page or another program on the same computer can make it do.
 - The overlay DLL and the injector that loads it into apps.
 - Downloads: lists, archives and the files they install.
 - Profiles, which other users share: anything a crafted profile can make ReflektorTTS do.

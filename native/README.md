@@ -1,6 +1,6 @@
 # Native code
 
-ReflektorTTS's C++ code. All logic stays in the Python core: each part is a client of the core's [local API](../docs/api.md) (`http://127.0.0.1:47821/v1`), so it only draws and captures input (grabbing frames for OCR is planned). See also [docs/architecture.md](../docs/architecture.md).
+ReflektorTTS's C++ code. All logic stays in the Python core: each part is a client of the core's [local API](../docs/api.md) (`http://127.0.0.1:47821/v1` for an installed ReflektorTTS; the core gives the overlay and the settings window its own port when it starts them, since a run from source has another), so it only draws and captures input (grabbing frames for OCR is planned). See also [docs/architecture.md](../docs/architecture.md).
 
 It comes in three parts:
 
@@ -44,7 +44,7 @@ The overlay's files, in `overlay/`. Its own headers are included by their path f
 
 | Path | Job |
 |---|---|
-| `src/dllmain.cpp` | Installs the hooks for each graphics API the app loads, starts the API client |
+| `src/dllmain.cpp` | The DLL's one export, `reflektortts_start_overlay`, which the injector starts with the core's port: installs the hooks for each graphics API the app loads, starts the API client |
 | `src/diagnostics/crash_log.cpp` | Logs where the app crashed, with the call stack in 64-bit apps |
 | `src/diagnostics/describe_address.h` | Names a code address as module and offset, for the log |
 | `src/hooks/code_hook.cpp` | Code hooks (MinHook), kept in place when another overlay cuts them out, and telling the overlay's own calls apart |
@@ -72,7 +72,7 @@ The core normally does this. For testing without the core, start the app and run
 native/build/bin/reflektortts-inject.exe gta2.exe
 ```
 
-or `--pid <id>` instead of the process name, with the injector from the build matching the app. It exits with 3 if the app and the build differ in bitness (32-bit vs 64-bit), which the core uses to try another build.
+or `--pid <id>` instead of the process name, with the injector from the build matching the app. `--port <port>`, after them, connects the overlay to a core on another port than the installed ReflektorTTS's 47821, such as a run from source's 47822; the core passes its own. The injector loads the DLL, then starts it through its one export, `reflektortts_start_overlay`, on a thread in the app, with the port as the thread's parameter. It exits with 3 if the app and the build differ in bitness (32-bit vs 64-bit), which the core uses to try another build.
 
 If the overlay does not appear, it writes what went wrong to the debugger output; read it with [DebugView](https://learn.microsoft.com/sysinternals/downloads/debugview).
 
@@ -83,8 +83,10 @@ If the overlay does not appear, it writes what went wrong to the debugger output
 The desktop app starts it for a profile, beside its own window:
 
 ```bash
-reflektortts-panel --profile grand-theft-auto-2-1999 --dock-side right --dock-x 1108 --dock-y 200 --dock-height 640
+reflektortts-panel --profile grand-theft-auto-2-1999 --port 47821 --dock-side right --dock-x 1108 --dock-y 200 --dock-height 640
 ```
+
+`--port <port>` is the port of the core's API; without it, the panel connects to the installed ReflektorTTS's, 47821. The desktop app passes its own.
 
 The `--dock-*` arguments go together, all four or none, and are in physical pixels of the screen, measured on the windows' visible frames (title bar included, Windows' invisible resize borders not):
 
@@ -113,7 +115,7 @@ It is built for Windows only, by the 64-bit build: other systems need a transpor
 | Path | Job |
 |---|---|
 | `src/main.cpp` | Reads the command line, starts the API client for the profile, runs the window |
-| `src/arguments.cpp` | Reads `--profile <id>` and the `--dock-*` arguments |
+| `src/arguments.cpp` | Reads `--profile <id>`, `--port <port>` and the `--dock-*` arguments |
 | `src/panel_window.cpp` | Opens the SDL window and ImGui, and runs the frame loop, also while the window is resized |
 | `src/placement.cpp` | Sizes the window and places it where it opens |
 | `src/window_frame.cpp` | Measures the window's visible frame: through DWM on Windows, SDL's borders elsewhere |
