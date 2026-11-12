@@ -190,7 +190,9 @@ class ProfilesTab:
     def show_message(self, message: str) -> None:
         """Shows a message in place of the profiles, e.g. while they load."""
         self._tree.delete(*self._tree.get_children())
-        self._tree.insert("", "end", iid="message", values=(message, "", "", "", ""), tags=("message",))
+        for index, line in enumerate(message.splitlines()):  # A row holds one line.
+            iid = "message" if index == 0 else f"message-{index}"
+            self._tree.insert("", "end", iid=iid, values=(line, "", "", "", ""), tags=("message",))
         self._items = {}
         self._fit_columns()
         self._status_bar.set_text(self.frame, "")

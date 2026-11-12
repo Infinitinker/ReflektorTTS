@@ -47,7 +47,7 @@ def test_a_profile_has_the_integrations_its_sources_need_once_each() -> None:
     [
         ("disabled", None, "Not enabled", ("Enable", True)),
         ("enabled", None, "Enabled", ("Disable", True)),
-        ("unavailable", "The app is not installed.", "Not available: The app is not installed.", ("Enable", False)),
+        ("unavailable", "The app is not installed.", "Not available\nThe app is not installed.", ("Enable", False)),
         ("unavailable", None, "Not available", ("Enable", False)),
     ],
 )

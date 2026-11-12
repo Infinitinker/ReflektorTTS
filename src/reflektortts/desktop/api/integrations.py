@@ -57,7 +57,7 @@ def state_text(item: IntegrationItem) -> str:
     if item.state == "enabled":
         return "Enabled"
     if item.state == "unavailable":
-        return f"Not available: {item.reason}" if item.reason else "Not available"
+        return f"Not available\n{item.reason}" if item.reason else "Not available"
     return "Not enabled"
 
 

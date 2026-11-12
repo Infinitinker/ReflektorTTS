@@ -50,6 +50,13 @@ logger = logging.getLogger(__name__)
 POLL_MS = 100
 
 
+def error_text(failure: str, message: str) -> str:
+    """An error for the user: what failed, then on a line of its own the core's message, which says why
+    and what to do, e.g. "The VLC integration could not be enabled." over "Close VLC first, then try
+    again: …"."""
+    return f"{failure}.\n{message}"
+
+
 class Application:
     def __init__(self, root: tk.Tk, args: Arguments) -> None:
         self._root = root
@@ -235,7 +242,7 @@ class Application:
                 post(path)
             except ApiClientError as error:
                 message = str(error)
-                self._later(lambda: self._show_error(f"ReflektorTTS could not be {action}: {message}"))
+                self._later(lambda: self._show_error(error_text(f"ReflektorTTS could not be {action}", message)))
 
         # In the background, like every request, so the window never waits for the core.
         self._in_background(toggle)
@@ -251,7 +258,9 @@ class Application:
             integrations = parse_integrations(request_json("GET", "/integrations"))
         except ApiClientError as error:
             message = str(error)
-            self._later(lambda: self._window.profiles.show_message(f"The profiles could not be loaded: {message}"))
+            self._later(
+                lambda: self._window.profiles.show_message(error_text("The profiles could not be loaded", message))
+            )
             return
         self._later(lambda: self._window.profiles.show(items, integrations))
 
@@ -284,7 +293,7 @@ class Application:
                 answer = request_json("POST", f"/profiles/{item.id}/copy")
             except ApiClientError as error:
                 message = str(error)
-                self._later(lambda: self._show_error(f"{name_text(item)} could not be copied: {message}"))
+                self._later(lambda: self._show_error(error_text(f"{name_text(item)} could not be copied", message)))
                 return
             show_file(Path(answer["file"]))
 
@@ -327,7 +336,7 @@ class Application:
                 if error.status == 409:
                     self._later(lambda: self._confirm_replace(message, path))
                 else:
-                    self._later(lambda: self._show_error(f"{Path(path).name} was not imported: {message}"))
+                    self._later(lambda: self._show_error(error_text(f"{Path(path).name} was not imported", message)))
 
         self._in_background(send)
 
@@ -344,7 +353,7 @@ class Application:
                 request_json(method, path, body)
             except ApiClientError as error:
                 message = str(error)
-                self._later(lambda: self._show_error(f"{failure}: {message}"))
+                self._later(lambda: self._show_error(error_text(failure, message)))
 
         self._in_background(send)
 
@@ -401,7 +410,7 @@ class Application:
                 request_json("POST", "/downloads", {"id": item.id})
             except ApiClientError as error:
                 message = str(error)
-                self._later(lambda: self._show_error(f"{item.name} could not be downloaded: {message}"))
+                self._later(lambda: self._show_error(error_text(f"{item.name} could not be downloaded", message)))
                 self._fetch_list(refresh=False)
 
         self._in_background(start)
@@ -415,7 +424,7 @@ class Application:
                 request_json("DELETE", f"/downloads/{item.id}")
             except ApiClientError as error:
                 message = str(error)
-                self._later(lambda: self._show_error(f"{item.name} could not be removed: {message}"))
+                self._later(lambda: self._show_error(error_text(f"{item.name} could not be removed", message)))
 
         self._in_background(remove)
 
@@ -426,7 +435,7 @@ class Application:
         if progress.state in ("installed", "removed", "failed"):
             self._in_background(lambda: self._fetch_list(refresh=False))
         if progress.state == "failed" and item is not None:
-            self._show_error(f"{item.name} could not be downloaded: {progress.message}")
+            self._show_error(error_text(f"{item.name} could not be downloaded", progress.message))
 
     def _preview(self, item: DownloadItem) -> None:
         def preview() -> None:
@@ -435,7 +444,7 @@ class Application:
             except ApiClientError as error:
                 message = str(error)
                 self._later(lambda: self._show_preview(item.id, False))
-                self._later(lambda: self._show_error(f"{item.name} could not be previewed: {message}"))
+                self._later(lambda: self._show_error(error_text(f"{item.name} could not be previewed", message)))
 
         self._in_background(preview)
 
