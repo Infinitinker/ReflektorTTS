@@ -25,7 +25,7 @@ def profile_state(
     choice: Choice, integrations: Mapping[str, IntegrationState], read: str | None, unsupported: str | None
 ) -> ProfileState:
     """read and unsupported are the IDs of the profile being read and of one whose app runs in a
-    version it does not support, if any."""
+    build it does not support, if any."""
     if choice.standing != Standing.USED:
         return ProfileState(choice.standing.value)
     if read == choice.entry.id:

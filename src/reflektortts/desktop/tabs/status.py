@@ -32,7 +32,7 @@ HINT_LINES = 2
 
 
 def status_color(status: CoreStatus | None) -> str:
-    """Green while an app is read, amber while paused or for an unsupported version; empty for the
+    """Green while an app is read, amber while paused or for an unsupported build; empty for the
     default color."""
     if status is None:
         return DIM

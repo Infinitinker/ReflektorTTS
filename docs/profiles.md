@@ -59,15 +59,15 @@ In the ReflektorTTS window's Profiles tab, select a bundled profile close to you
 
 `name` is the file name of the app's program: look in the app's folder, or in Task Manager's **Details** tab while it runs. Save the file as UTF-8, choose **Reload** in the Profiles tab, and start the app. The Status tab then says it is reading it; a profile with a mistake is shown as broken in the Profiles tab instead, with the reason.
 
-### 2. Note the app's version
+### 2. Note the app's build
 
-A game's text sits at different places in different versions of it (retail, patched, Steam), so a profile for a game names each version it was written for by its SHA-256, a fingerprint of its program file. To get it, list a made-up one, 64 zeros, and reload:
+A game's text sits at different places in different builds of it (retail, patched, Steam), so a profile for a game names each build it was written for by its SHA-256, a fingerprint of its program file. To get it, list a made-up one, 64 zeros, and reload:
 
 ```json
 "executables": [{ "name": "gta2.exe", "sha256": ["0000000000000000000000000000000000000000000000000000000000000000"] }]
 ```
 
-Start the app: the Status tab says this version is not supported yet and shows its SHA-256, and the log has it too, to copy (Settings tab, **Open logs folder**, `reflektortts.log`). Put it in place of the zeros. If you have PowerShell at hand, `Get-FileHash gta2.exe` in the app's folder shows it as well; write it in lowercase.
+Start the app: the Status tab says this version is not supported yet (the interface calls a build a version) and shows its SHA-256, and the log has it too, to copy (Settings tab, **Open logs folder**, `reflektortts.log`). Put it in place of the zeros. If you have PowerShell at hand, `Get-FileHash gta2.exe` in the app's folder shows it as well; write it in lowercase.
 
 ### 3. Find the text in memory
 
@@ -89,7 +89,7 @@ For a game on Avalanche Studios' engine (the `avalanche` source), look for the s
 
 ### 4. Add the source
 
-Add a `sources` list with a `memory` source, whose pointer chain names the version you found it in (`exe_sha256`, the SHA-256 from step 2):
+Add a `sources` list with a `memory` source, whose pointer chain names the build you found it in (`exe_sha256`, the SHA-256 from step 2):
 
 ```json
 "sources": [
@@ -111,7 +111,7 @@ Add a `sources` list with a `memory` source, whose pointer chain names the versi
 ]
 ```
 
-A game that shows text in several places, such as subtitles and a help box, gets one source for each, with its own `name`. Another version of the game gets its SHA-256 in `match` and its own entry in `pointers`.
+A game that shows text in several places, such as subtitles and a help box, gets one source for each, with its own `name`. Another build of the game gets its SHA-256 in `match` and its own entry in `pointers`.
 
 ### 5. Clean up the text
 
@@ -127,7 +127,7 @@ If names come out wrong, add a `glossary`: names to keep untranslated, slang to 
 
 Choose **Reload** after each change and start the app again: a changed profile applies the next time its app starts. Play through a few scenes and listen. The Status tab says when a source cannot read the app, and what to do; the log has the details. If lines are read twice or cut short, change the `tracker`'s `stable_ms`; if menus or other text are read as garbage, check the pointer chain again with Cheat Engine after restarting the game.
 
-Leave `overlay` off until the rest works. It loads the overlay into the app, so it needs the `sha256` of every version the profile lists, and should be tried in each.
+Leave `overlay` off until the rest works. It loads the overlay into the app, so it needs the `sha256` of every build the profile lists, and should be tried in each.
 
 ### 7. Rate and share
 

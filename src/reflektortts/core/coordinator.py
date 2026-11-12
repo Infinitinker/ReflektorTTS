@@ -424,7 +424,7 @@ class Core:
 
     @_serialized
     def set_unsupported(self, unsupported: UnsupportedApp | None, profile_id: str | None) -> None:
-        """An app runs in a version its profile does not support, until it exits."""
+        """An app runs in a build its profile does not support, until it exits."""
         self._unsupported = unsupported
         self._unsupported_profile = profile_id
         self._publish_status()
