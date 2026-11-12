@@ -1,12 +1,12 @@
 # Writing plugins
 
-ReflektorTTS reads text through **sources**, processes it with **stages**, and speaks it with **TTS engines**; **download sources** offer the voices and translation models the user can download. Each is a plugin that registers itself through a Python entry point, so adding one never needs changes in the core or the UI. The built-in plugins register the same way; read them as examples.
+ReflektorTTS reads text through **sources**, processes it with **stages**, and speaks it with **speech engines**; **download sources** offer the voices and translation models the user can download. Each is a plugin that registers itself through a Python entry point, so adding one never needs changes in the core or the UI. The built-in plugins register the same way; read them as examples.
 
 | Kind | Entry-point group | Contract | Built-in examples |
 |---|---|---|---|
 | Source | `reflektortts.sources` | `Source` in `pipeline/protocols.py` | `memory`, `avalanche`, `vlc` (`sources/`) |
 | Stage | `reflektortts.stages` | `Stage` in `pipeline/protocols.py` | `tracker`, `replace`, `translate`, `pronounce`, `normalize` (`stages/`) |
-| TTS engine | `reflektortts.tts_engines` | `TtsEngine` in `tts/engine.py` | `piper`, `windows` (`tts/engines/`) |
+| Speech engine | `reflektortts.tts_engines` | `TtsEngine` in `tts/engine.py` | `piper`, `windows` (`tts/engines/`) |
 | Download source | `reflektortts.downloads` | `DownloadSource` in `downloads/source.py` | `piper`, `argos` (`downloads/`) |
 
 Sinks (where finished lines go) follow the `Sink` contract but have no plugin group yet: the core uses its built-in `tts`, `subtitles` and `events` sinks, which the user sets up in the overlay rather than per app. A group will be added with the first sink a profile needs to choose.
@@ -135,7 +135,7 @@ def inactive_reason(languages: Languages) -> str | None: ...
 - Import heavy dependencies only when the stage first needs them, so the core starts fast. Models live in the user data folder and are never downloaded by the stage: it uses an installed one, or doesn't apply (`inactive_reason`), as `translate` does (`stages/translate/`).
 - Exceptions are reported once as `stage.error`; the event is dropped.
 
-## TTS engines
+## Speech engines
 
 ```python
 class TtsEngine(Protocol):
