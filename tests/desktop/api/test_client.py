@@ -12,7 +12,14 @@ import pytest
 
 from reflektortts.api.server import ApiServer
 from reflektortts.desktop.api.catalog import DownloadProgress, PreviewState, parse_list
-from reflektortts.desktop.api.client import ApiClientError, StatusFeed, post, reflektortts_answers, request_json
+from reflektortts.desktop.api.client import (
+    NO_ANSWER,
+    ApiClientError,
+    StatusFeed,
+    post,
+    reflektortts_answers,
+    request_json,
+)
 from reflektortts.desktop.api.status import CoreStatus
 from reflektortts.events import DownloadEvent, PreviewEvent
 from tests.api.test_server import GOSIA, FakeCore
@@ -45,9 +52,12 @@ def test_commands_reach_the_core(server: ApiServer, core: FakeCore) -> None:
     assert not core.current.paused
 
 
-def test_a_core_that_does_not_answer_is_an_error() -> None:
-    with pytest.raises(ApiClientError, match="did not respond"):
+def test_a_core_that_does_not_answer_is_an_error_that_says_what_to_do(caplog: pytest.LogCaptureFixture) -> None:
+    with pytest.raises(ApiClientError) as raised:
         post("/pause", "http://127.0.0.1:9/v1")
+
+    assert str(raised.value) == NO_ANSWER
+    assert "POST /pause got no answer" in caplog.text
 
 
 def test_requests_return_the_answer_or_the_cores_message(server: ApiServer, core: FakeCore) -> None:

@@ -227,12 +227,14 @@ class Application:
         if self._status is None:
             return
         path = "/resume" if self._status.paused else "/pause"
+        action = "resumed" if self._status.paused else "paused"
 
         def toggle() -> None:
             try:
                 post(path)
             except ApiClientError as error:
-                logger.warning("%s", error)
+                message = str(error)
+                self._later(lambda: self._show_error(f"ReflektorTTS could not be {action}: {message}"))
 
         # In the background, like every request, so the window never waits for the core.
         self._in_background(toggle)
@@ -301,10 +303,16 @@ class Application:
         )
         if not path:
             return
+        name = Path(path).name
         try:
             data = json.loads(Path(path).read_text("utf-8-sig"))
-        except (OSError, ValueError) as error:
-            self._show_error(f"{Path(path).name} cannot be read as a profile: {error}")
+        except OSError as error:
+            logger.warning("Cannot open %s: %s", path, error)
+            self._show_error(f"{name} could not be opened: check that the file is still there, then try again.")
+            return
+        except ValueError as error:
+            logger.warning("Cannot read %s as a profile: %s", path, error)
+            self._show_error(f"{name} cannot be read as a profile: choose a profile file, written in JSON.")
             return
         body = {"id": Path(path).stem, "profile": data, "replace": replace}
 

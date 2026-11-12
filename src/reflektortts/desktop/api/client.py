@@ -36,6 +36,11 @@ class ApiClientError(Exception):
         self.status = status
 
 
+NO_ANSWER = (
+    "ReflektorTTS did not answer. Try again, and if it still does not answer, quit and start ReflektorTTS again."
+)
+"""For a request the core did not answer, or answered without saying why it refused it."""
+
 REFRESH_TIMEOUT_SECONDS = 120.0
 """Refreshing the download lists fetches them from the internet."""
 
@@ -61,10 +66,12 @@ def request_json(
         try:
             message = json.loads(error.read())["error"]
         except (ValueError, KeyError, TypeError):
-            message = str(error)
+            logger.warning("%s %s was refused: %s", method, path, error)
+            message = NO_ANSWER
         raise ApiClientError(message, error.code) from error
     except (urllib.error.URLError, OSError, http.client.HTTPException) as error:
-        raise ApiClientError(f"ReflektorTTS did not respond: {error}") from error
+        logger.warning("%s %s got no answer: %s", method, path, error)
+        raise ApiClientError(NO_ANSWER) from error
     return json.loads(text) if text else None
 
 
