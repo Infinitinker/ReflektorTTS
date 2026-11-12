@@ -150,7 +150,7 @@ def create(voice_name: str) -> TtsEngine: ...
 def list_voices() -> list[VoiceInfo]: ...
 ```
 
-- Voices are written `engine:name`, e.g. `windows:Microsoft Adam`; `create` gets the part after the colon. A `VoiceInfo` also carries the engine's name as shown to users (`engine_title`, e.g. `Windows`).
+- Voices are written `engine:name`, e.g. `windows:Microsoft Adam`; `create` gets the part after the colon. A `VoiceInfo` also carries the engine's name as shown to users (`engine_title`, e.g. `Windows`) and, for voices installed outside ReflektorTTS, where they come from and how to add or remove them (`installed_note`, e.g. Windows' "Comes with Windows: add or remove Windows voices in Settings > Time & language > Speech."), which the desktop app shows in place of a license.
 - `rate` is the user's reading speed, a multiple of the voice's own pace from 0.5 to 2.
 - Yield audio as soon as a part is ready (Piper yields per sentence), so speech starts early. The player plays it in short blocks so a new line can cut it off.
 - Raise `VoiceError` with a helpful message when a voice cannot be used, e.g. listing the installed voices and where to get more.

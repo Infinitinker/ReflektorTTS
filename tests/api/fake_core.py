@@ -45,7 +45,12 @@ from reflektortts.settings import SettingsChange
 from reflektortts.tts.engine import VoiceError, VoiceInfo, find_voice
 
 ADAM = VoiceInfo(
-    id="windows:Microsoft Adam", engine="windows", name="Microsoft Adam", language="pl-PL", engine_title="Windows"
+    id="windows:Microsoft Adam",
+    engine="windows",
+    name="Microsoft Adam",
+    language="pl-PL",
+    engine_title="Windows",
+    installed_note="Comes with Windows.",
 )
 
 

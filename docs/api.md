@@ -80,13 +80,13 @@ Returns the voices available now, from every speech engine that works on this sy
 ```json
 {
   "voices": [
-    { "id": "piper:en_US-ljspeech-medium", "engine": "piper", "name": "en_US-ljspeech-medium", "language": "en-US", "engine_title": "Piper" },
-    { "id": "windows:Microsoft Adam", "engine": "windows", "name": "Microsoft Adam", "language": "pl-PL", "engine_title": "Windows" }
+    { "id": "piper:en_US-ljspeech-medium", "engine": "piper", "name": "en_US-ljspeech-medium", "language": "en-US", "engine_title": "Piper", "installed_note": null },
+    { "id": "windows:Microsoft Adam", "engine": "windows", "name": "Microsoft Adam", "language": "pl-PL", "engine_title": "Windows", "installed_note": "Comes with Windows: add or remove Windows voices in Settings > Time & language > Speech." }
   ]
 }
 ```
 
-`id` is what `PATCH /v1/profiles/<id>/settings` takes as `voice`; `language` is a BCP 47 tag, so a UI can offer only the voices that speak the output language; `engine_title` is the engine's name as shown to users. Only installed voices are listed; ReflektorTTS never downloads one by itself.
+`id` is what `PATCH /v1/profiles/<id>/settings` takes as `voice`; `language` is a BCP 47 tag, so a UI can offer only the voices that speak the output language; `engine_title` is the engine's name as shown to users; `installed_note`, or null, says where a voice installed outside ReflektorTTS comes from and how to add or remove it, which the desktop app shows in place of a license. Only installed voices are listed; ReflektorTTS never downloads one by itself.
 
 ### `POST /v1/voices/preview`
 

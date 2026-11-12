@@ -8,11 +8,8 @@ from typing import Any
 from reflektortts.languages import primary_language
 
 MB = 1024 * 1024
-OTHER_VOICE_LICENSES = {
-    "windows": "Comes with Windows: add or remove Windows voices in Settings > Time & language > Speech.",
-}
-"""In place of a license, where a voice installed by other means comes from, by its engine."""
 OTHER_VOICE_LICENSE = "Installed outside ReflektorTTS."
+"""In place of a license, for a voice installed by other means whose engine says nothing about it."""
 
 
 @dataclass(frozen=True)
@@ -86,7 +83,7 @@ def other_voices(
             name=voice["name"],
             languages=(primary_language(voice["language"]),),
             size=None,
-            license=OTHER_VOICE_LICENSES.get(voice["engine"], OTHER_VOICE_LICENSE),
+            license=voice.get("installed_note") or OTHER_VOICE_LICENSE,
             page="",
             state="installed",
             done=0,

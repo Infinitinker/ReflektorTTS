@@ -51,6 +51,9 @@ class VoiceInfo:
     """BCP 47 tag, its language as a code ReflektorTTS uses (languages.language_tag), e.g. "pl-PL"."""
     engine_title: str
     """The engine's name as shown to users, e.g. "Windows"."""
+    installed_note: str | None = None
+    """For a voice installed outside ReflektorTTS, where it comes from and how to add or remove it,
+    shown to users in place of a license; None where the engine has nothing to say."""
 
 
 def find_voice(voice: str, voices: Sequence[VoiceInfo]) -> VoiceInfo:

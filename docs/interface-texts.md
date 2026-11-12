@@ -31,7 +31,7 @@ The interface's texts are plain English strings, written in the code where they 
 
 - the desktop app's window and tray icon (Tkinter and pystray, in `src/reflektortts/desktop/`);
 - the overlay's hint and panel, and the settings window (ImGui, in `native/overlay/src/ui/`, `native/panel/src/` and `native/shared/`);
-- what plugins give users to read: a stage's `type`, `summary` and `warning_when_disabled`, the names of download sources and speech engines (`source_title`, `engine_title`), an integration's `name` and `description`, and the titles and descriptions in their settings' JSON Schema;
+- what plugins give users to read: a stage's `type`, `summary` and `warning_when_disabled`, the names of download sources and speech engines (`source_title`, `engine_title`), a voice's `installed_note`, an integration's `name` and `description`, and the titles and descriptions in their settings' JSON Schema;
 - the messages of errors raised for the user, which the desktop app and the overlay show as they are: a source's reading error, `IntegrationError`, `VoiceError`, `DownloadError`, and the local API's `{"error": "..."}` (see `docs/plugins.md` and `docs/api.md`);
 - the installer's own messages (`[CustomMessages]` in `tools/installer.iss`).
 

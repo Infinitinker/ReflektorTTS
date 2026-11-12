@@ -227,6 +227,7 @@ def test_voices() -> None:
                     "name": "Microsoft Adam",
                     "language": "pl-PL",
                     "engine_title": "Windows",
+                    "installed_note": "Comes with Windows.",
                 }
             ]
         }

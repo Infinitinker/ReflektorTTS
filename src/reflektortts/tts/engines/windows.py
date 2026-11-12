@@ -74,6 +74,9 @@ class WindowsEngine:
         yield wav_to_chunk(asyncio.run(_synthesize_wav(self._voice, text, rate)))
 
 
+INSTALLED_NOTE = "Comes with Windows: add or remove Windows voices in Settings > Time & language > Speech."
+
+
 def list_voices() -> list[VoiceInfo]:
     """The voices installed in Windows; none on other systems."""
     if sys.platform != "win32":
@@ -87,6 +90,7 @@ def list_voices() -> list[VoiceInfo]:
             name=voice.display_name,
             language=language_tag(voice.language),
             engine_title="Windows",
+            installed_note=INSTALLED_NOTE,
         )
         for voice in SpeechSynthesizer.all_voices
     ]
