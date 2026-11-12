@@ -1,7 +1,7 @@
 """Writes THIRD-PARTY-NOTICES.md, the license notices of everything a release of ReflektorTTS ships:
 Python itself, the Python packages it needs (followed through their installed metadata),
-PyInstaller's parts, data taken from other projects, and the native programs' libraries. A release
-ships the file as THIRD-PARTY-NOTICES.txt.
+PyInstaller's parts, data taken from other projects, the native programs' libraries and Microsoft's
+Visual C++ runtime. A release ships the file as THIRD-PARTY-NOTICES.txt.
 
 The notices follow the installed packages, so run it in the environment releases are built from (the
 release extra, installed with tools/release-constraints.txt; see "Dependencies and notices" in

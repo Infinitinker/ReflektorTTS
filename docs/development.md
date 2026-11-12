@@ -110,7 +110,7 @@ Tests live in `tests/`, mirroring `src/reflektortts/` (the tests for `src/reflek
 
 ### Licenses
 
-Every license of what a release ships (Python, the Python packages, PyInstaller's parts, the data in `languages.json` and the native programs' libraries) must be on the allow list in `tools/licenses.py`, or be named for that one component in its `EXCEPTIONS`, with the reason it may ship. The check reads the installed packages, so run it in the environment releases are built from, the `release` extra with the exact versions a release ships:
+Every license of what a release ships (Python, the Python packages, PyInstaller's parts, the data in `languages.json`, the native programs' libraries and Microsoft's Visual C++ runtime) must be on the allow list in `tools/licenses.py`, or be named for that one component in its `EXCEPTIONS`, with the reason it may ship. The check reads the installed packages, so run it in the environment releases are built from, the `release` extra with the exact versions a release ships:
 
 ```powershell
 .venv\Scripts\pip install -e .[release] -c tools\release-constraints.txt
