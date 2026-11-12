@@ -35,7 +35,7 @@ def user_folders() -> dict[str, str]:
 def log_folder() -> Path:
     """Where ReflektorTTS writes its logs in a run (log_dir in user_dirs.py)."""
     if sys.platform == "win32":
-        return HOME / "Local" / "ReflektorTTS" / "Logs"
+        return HOME / "Local" / "ReflektorTTS" / "logs"
     return HOME / "state" / "ReflektorTTS" / "log"
 
 

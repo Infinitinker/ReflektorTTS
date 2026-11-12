@@ -34,5 +34,5 @@ body:
       label: Log
       description: >
         The end of reflektortts.log, from the Settings tab's Open logs folder button
-        (%LOCALAPPDATA%\ReflektorTTS\Logs). Check it for anything you'd rather not share first.
+        (%LOCALAPPDATA%\ReflektorTTS\logs). Check it for anything you'd rather not share first.
       render: text

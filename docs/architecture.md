@@ -127,7 +127,7 @@ A failing source, stage or sink is reported once as a `source.error`, `stage.err
 | `letters.py` | Letters and words in any script, counting the vowel signs and other marks that scripts such as Hindi's write as characters of their own (Python's `\w` leaves them out) |
 | `api/` | The local API (`server.py`), the check that keeps web pages out (`guard.py`) and its error answers (`errors.py`) |
 | `settings.py` | Per-user settings: one file per app, and shared ones (the voice remembered for each language, the profiles disabled) |
-| `user_dirs.py` | The per-user folders (`%LOCALAPPDATA%\ReflektorTTS` on Windows) |
+| `user_dirs.py` | The per-user folders (`%LOCALAPPDATA%\ReflektorTTS` on Windows, with lowercase `logs` and `cache` inside it; platformdirs' folders on Linux) |
 | `overlay.py` | Loads the overlay into an app |
 | `native/` (repository root) | The C++ code, in three parts: `shared/`, a library with the API client and the settings panel's drawing; `overlay/`, the overlay DLL loaded into apps, and its injector; and `panel/`, the settings window: the same settings panel for one profile, in a window of its own (SDL3), started by the desktop app as `reflektortts-panel --profile <id>` with `--dock-*` arguments that open it beside the desktop window, for apps running or not and apps without the overlay. `CMakeLists.txt` builds them, and `CMakePresets.json` names the builds: `release` (64-bit), `release-x86` (32-bit), `debug`, and `ci`, which the C++ checks read. See [native/README.md](../native/README.md) |
 | `.clang-format`, `.clang-tidy` (repository root) | How the C++ code in `native/` is formatted, and what clang-tidy checks in it; each check left out says why |

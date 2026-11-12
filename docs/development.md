@@ -46,7 +46,7 @@ The desktop app, as users run it: double-click `start.bat` in the repository roo
 .venv\Scripts\reflektortts-desktop --overlay native\build\bin --overlay native\build64\bin
 ```
 
-Logs are written to `%LOCALAPPDATA%\ReflektorTTS\Logs`, which the Settings tab's **Open logs folder** button opens. To see the log while working on the code, run ReflektorTTS without the window, in a console, and stop it with Ctrl+C:
+Logs are written to `%LOCALAPPDATA%\ReflektorTTS\logs` (on Linux `~/.local/state/ReflektorTTS/log`), which the Settings tab's **Open logs folder** button opens. To see the log while working on the code, run ReflektorTTS without the window, in a console, and stop it with Ctrl+C:
 
 ```powershell
 .venv\Scripts\python -m reflektortts --overlay native\build\bin --overlay native\build64\bin
