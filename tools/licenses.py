@@ -36,10 +36,14 @@ ALLOWED = frozenset(
         "LGPL-3.0-or-later",
         "MIT",
         "MIT-0",
+        "MIT-CMU",
+        "PSF-2.0",
+        "Zlib",
     }
 )
 """The licenses everything ReflektorTTS ships may be under, as SPDX identifiers: the GPL-compatible
-ones CLAUDE.md's "Open source" names (MIT, BSD, Apache-2.0, LGPL, GPL)."""
+ones CLAUDE.md's "Open source" names (MIT, BSD, Apache-2.0, LGPL, GPL), and the permissive PSF-2.0
+(Python's), Zlib and MIT-CMU (Pillow's HPND)."""
 ALIASES = {
     "3-Clause BSD License": "BSD-3-Clause",
     "Apache 2.0": "Apache-2.0",
@@ -73,23 +77,18 @@ CONTAINED = {
 """The licenses of parts a package contains that its metadata does not name, by canonical package name,
 as its text in tools/licenses lists them."""
 EXCEPTIONS = (
-    Allowance("python", "PSF-2.0", "Python's own license, compatible with the GPL; the release runs on it."),
-    Allowance("aiohappyeyeballs", "PSF-2.0", "Python's license, compatible with the GPL."),
-    Allowance("typing-extensions", "PSF-2.0", "Python's license, compatible with the GPL."),
     Allowance(
         "regex",
         "CNRI-Python",
         "The code taken from Python's re module, under the CNRI license that is part of Python's own, whose "
         "choice of law was amended for works combined with GPL code.",
     ),
-    Allowance("pillow", "MIT-CMU", "A permissive MIT-style license (HPND), compatible with the GPL."),
     Allowance(
         "tqdm",
         "MPL-2.0",
         "Section 3.3 of the MPL-2.0 allows combining it with GPL code; its source is in the sources zip "
         "(tools/sources.py).",
     ),
-    Allowance("numpy", "Zlib", "A permissive license, compatible with the GPL."),
     Allowance("numpy", "CC0-1.0", "A public domain dedication, compatible with the GPL."),
     Allowance("colorama", "BSD License", "BSD-3-Clause, as its LICENSE.txt reads."),
     Allowance("mock", "BSD License", "BSD-2-Clause, as its LICENSE.txt reads."),
@@ -109,7 +108,6 @@ EXCEPTIONS = (
     Allowance("pyinstaller-hooks-contrib", "Apache Software License", "Apache-2.0, as its LICENSE reads."),
     *(Allowance("ctranslate2", license, INTEL_NVIDIA) for license in CONTAINED["ctranslate2"]),
     Allowance("unicode-cldr", "Unicode-3.0", "A permissive license, compatible with the GPL."),
-    Allowance("native-sdl", "Zlib", "A permissive license, compatible with the GPL."),
     Allowance(
         "native-mingw-w64",
         "several, below",
