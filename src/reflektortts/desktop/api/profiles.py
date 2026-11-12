@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from pathlib import PureWindowsPath
 from typing import Any
 
-ORIGINS = {"bundled": "Bundled", "custom": "Custom", "override": "Custom (replaces bundled)"}
+ORIGINS = {"bundled": "Bundled", "custom": "Your own", "override": "Your own (replaces bundled)"}
 STATES = {
     "reading": "Reading",
     "not_running": "Not running",
