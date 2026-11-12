@@ -42,8 +42,8 @@ ALLOWED = frozenset(
     }
 )
 """The licenses everything ReflektorTTS ships may be under, as SPDX identifiers: the GPL-compatible
-ones CLAUDE.md's "Open source" names (MIT, BSD, Apache-2.0, LGPL, GPL), and the permissive PSF-2.0
-(Python's), Zlib and MIT-CMU (Pillow's HPND)."""
+ones CLAUDE.md's "Open source" names (MIT, BSD, Apache-2.0, LGPL, GPL, or the permissive PSF-2.0,
+Zlib and MIT-CMU), where PSF-2.0 is Python's and MIT-CMU Pillow's HPND."""
 ALIASES = {
     "3-Clause BSD License": "BSD-3-Clause",
     "Apache 2.0": "Apache-2.0",
