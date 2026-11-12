@@ -13,6 +13,7 @@ from pathlib import Path
 import psutil
 
 from reflektortts.api.server import HOST
+from reflektortts.identity import MODE_VARIABLE
 from tests.e2e import fake_vlc
 from tests.e2e.folders import FAKE_VLC, ROOT, user_folders
 
@@ -35,8 +36,9 @@ def vlc_running() -> bool:
 
 
 def environment() -> dict[str, str]:
-    """This process's environment with the per-user folders of the run."""
-    return {**os.environ, **user_folders()}
+    """This process's environment with the per-user folders of the run, which ReflektorTTS runs in
+    as ReflektorTTS E2E."""
+    return {**os.environ, **user_folders(), MODE_VARIABLE: "e2e"}
 
 
 def start_reflektortts(log: Path) -> subprocess.Popen[bytes]:

@@ -9,10 +9,10 @@ import sys
 import tkinter as tk
 from collections.abc import Callable
 
+from reflektortts.identity import app_name
+
 logger = logging.getLogger(__name__)
 
-MUTEX_NAME = "ReflektorTTS"
-"""Must match AppMutex in tools/installer.iss."""
 SYNCHRONIZE = 0x00100000
 EVERYONE_MAY_SEE_IT = "D:(A;;GA;;;SY)(A;;GA;;;OW)(A;;0x00100000;;;WD)"
 """The mutexes' access rules (SDDL): full access for the system and the user who created them, and
@@ -38,13 +38,18 @@ class _SecurityAttributes(ctypes.Structure):
     ]
 
 
-def announce_running(name: str = MUTEX_NAME) -> bool:
+def announce_running(name: str | None = None) -> bool:
     """Creates, or opens if another user's ReflektorTTS created it, the mutex in this session and its
     Global\\ twin, seen from every session, and never closes them: Windows removes them only when
     every process holding them has ended, so the installer waits until ReflektorTTS's files are free.
-    Returns whether this process holds both."""
+    Returns whether this process holds both.
+
+    The name is this ReflektorTTS's (see identity.py) unless given: for the installed one
+    "ReflektorTTS", which AppMutex in tools/installer.iss must match, so the installer never waits
+    for a run from source."""
     if sys.platform != "win32":
         return False
+    name = name or app_name()
     kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
     advapi32 = ctypes.WinDLL("advapi32", use_last_error=True)
     kernel32.CreateMutexExW.restype = ctypes.c_void_p

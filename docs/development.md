@@ -46,7 +46,9 @@ The desktop app, as users run it: double-click `start.bat` in the repository roo
 .venv\Scripts\reflektortts-desktop --overlay native\build\bin --overlay native\build64\bin
 ```
 
-Logs are written to `%LOCALAPPDATA%\ReflektorTTS\logs` (on Linux `~/.local/state/ReflektorTTS/log`), which the Settings tab's **Open logs folder** button opens. To see the log while working on the code, run ReflektorTTS without the window, in a console, and stop it with Ctrl+C:
+Run from source, ReflektorTTS is **ReflektorTTS Dev**, apart from an installed ReflektorTTS: it keeps its settings, profiles, downloads and logs in `%LOCALAPPDATA%\ReflektorTTS Dev` (on Linux, the XDG folders named `ReflektorTTS Dev`, such as `~/.config/ReflektorTTS Dev`), so it starts with fresh settings and no downloads, and leaves the installed one's files alone. The installer does not take it for the installed ReflektorTTS, and it never adds itself to start with Windows. The `REFLEKTORTTS_MODE` environment variable picks the identity of a run from source (`identity.py`): `dev`, the default, which `start.bat` sets, or `e2e`, which the end-to-end test sets; a release is always the installed ReflektorTTS, whatever the variable says. Both use the local API's fixed port, so a run from source and an installed ReflektorTTS cannot run at the same time: quit one before starting the other.
+
+Logs are written to `%LOCALAPPDATA%\ReflektorTTS Dev\logs` (on Linux `~/.local/state/ReflektorTTS Dev/log`), which the Settings tab's **Open logs folder** button opens. To see the log while working on the code, run ReflektorTTS without the window, in a console, and stop it with Ctrl+C:
 
 ```powershell
 .venv\Scripts\python -m reflektortts --overlay native\build\bin --overlay native\build64\bin
@@ -55,7 +57,7 @@ Logs are written to `%LOCALAPPDATA%\ReflektorTTS\logs` (on Linux `~/.local/state
 Both take the same options:
 
 - `--overlay DIR`: folder with an overlay build. Repeat it to give both a 32-bit and a 64-bit build; the one matching the app is used. Without it, apps run without the overlay. A release finds its overlay builds next to `reflektortts.exe` by itself. The desktop app also finds the settings window (`reflektortts-panel.exe`, which the 64-bit build makes) in the first of these folders that has it; a release has it in the `panel` folder next to `reflektortts.exe`.
-- `--profiles DIR`: folder with your own profiles, used next to the bundled ones. Default: `profiles` in your user data folder (`%LOCALAPPDATA%\ReflektorTTS\profiles`).
+- `--profiles DIR`: folder with your own profiles, used next to the bundled ones. Default: `profiles` in the user data folder (`%LOCALAPPDATA%\ReflektorTTS Dev\profiles` from source, `%LOCALAPPDATA%\ReflektorTTS\profiles` in a release).
 
 ## Checks
 
@@ -179,7 +181,7 @@ One smoke test, in `tests/e2e/`, runs the desktop app from source as a user does
 ```
 
 - **Close ReflektorTTS and VLC first.** The test stops at once if either runs: the app's port is fixed, and a running VLC would be read instead of the fake one.
-- **Your own files are never touched.** The app and VLC get per-user folders of their own, inside the output folder, so your settings, profiles, downloads and VLC's settings stay as they are. The window opens for a few seconds, and if Windows has a voice for English, it reads the test line aloud.
+- **Your own files are never touched.** The app runs as ReflektorTTS E2E, and it and VLC get per-user folders of their own, inside the output folder, so your settings, profiles, downloads and VLC's settings stay as they are. The window opens for a few seconds, and if Windows has a voice for English, it reads the test line aloud.
 - **The output** goes to the folder in `E2E_OUTPUT`, or else `build\e2e`. The folder is deleted with everything in it before each run, so give `E2E_OUTPUT` a folder of its own. It holds `report.json` (the steps that passed and how long each took, the one that failed and why, and what the test saw), what the app and the fake VLC printed (`reflektortts-console.log`, `fake-vlc.log`), the per-user folders of the run in `home`, with the app's logs, and, on a CI runner only, a screenshot of the screen (`screen.png`).
 
 The `E2E tests` workflow (`.github/workflows/e2e.yml`) runs the test for every push to `main` and `dev` and for every pull request, in two jobs, `Windows E2E tests` and `Linux E2E tests` (Xvfb, with stalonetray as the tray), and on request (Actions > E2E tests > Run workflow, on any branch). Each keeps the output folder as an artifact, with the report in the job summary. You need not run the test before every commit; run it after changes to how the app starts, finds apps or reads VLC.

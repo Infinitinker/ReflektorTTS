@@ -6,8 +6,9 @@ from uuid import uuid4
 
 import pytest
 
-from reflektortts.desktop.system.autostart import APPROVED_KEY, NAME, RUN_KEY, Autostart
+from reflektortts.desktop.system.autostart import APPROVED_KEY, RUN_KEY, Autostart
 
+NAME = "ReflektorTTS"
 EXE = Path(r"C:\Users\me\AppData\Local\Programs\ReflektorTTS\reflektortts.exe")
 COMMAND = f'"{EXE}" --hidden'
 DISABLED_BY_TASK_MANAGER = bytes([3]) + bytes(11)
@@ -30,7 +31,7 @@ class FakeRegistry:
 
 def test_enabling_adds_a_hidden_start_of_this_exe_and_disabling_removes_it() -> None:
     registry = FakeRegistry()
-    autostart = Autostart(registry, EXE)
+    autostart = Autostart(registry, EXE, NAME)
     assert not autostart.enabled()
 
     autostart.enable(True)
@@ -48,21 +49,21 @@ def test_an_entry_for_another_copy_does_not_count() -> None:
     registry = FakeRegistry()
     registry.write(RUN_KEY, NAME, r'"D:\Old\ReflektorTTS\reflektortts.exe" --hidden')
 
-    assert not Autostart(registry, EXE).enabled()
+    assert not Autostart(registry, EXE, NAME).enabled()
 
 
 def test_the_path_is_compared_without_case() -> None:
     registry = FakeRegistry()
     registry.write(RUN_KEY, NAME, COMMAND.upper().replace("--HIDDEN", "--hidden"))
 
-    assert Autostart(registry, EXE).enabled()
+    assert Autostart(registry, EXE, NAME).enabled()
 
 
 def test_an_entry_disabled_in_task_manager_is_off_until_enabled_again() -> None:
     registry = FakeRegistry()
     registry.write(RUN_KEY, NAME, COMMAND)
     registry.values[(APPROVED_KEY, NAME)] = DISABLED_BY_TASK_MANAGER
-    autostart = Autostart(registry, EXE)
+    autostart = Autostart(registry, EXE, NAME)
     assert not autostart.enabled()
 
     autostart.enable(True)
@@ -76,7 +77,7 @@ def test_an_entry_enabled_in_task_manager_counts() -> None:
     registry.write(RUN_KEY, NAME, COMMAND)
     registry.values[(APPROVED_KEY, NAME)] = ENABLED_BY_TASK_MANAGER
 
-    assert Autostart(registry, EXE).enabled()
+    assert Autostart(registry, EXE, NAME).enabled()
 
 
 class FailingRegistry(FakeRegistry):
@@ -89,7 +90,7 @@ def test_a_failed_change_leaves_task_managers_mark_alone() -> None:
     registry.values[(APPROVED_KEY, NAME)] = DISABLED_BY_TASK_MANAGER
 
     with pytest.raises(OSError):
-        Autostart(registry, EXE).enable(True)
+        Autostart(registry, EXE, NAME).enable(True)
 
     assert registry.values == {(APPROVED_KEY, NAME): DISABLED_BY_TASK_MANAGER}
 

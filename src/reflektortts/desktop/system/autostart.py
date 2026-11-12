@@ -1,18 +1,18 @@
 """Starting ReflektorTTS, hidden in the tray, when the user signs in to Windows: an entry under the
 user's Run key, the one Task Manager lists under Startup apps and can disable too. Only
-reflektortts.exe from a release can be started that way; run from source, or elsewhere than on
-Windows, it is not available."""
+reflektortts.exe from a release can be started that way, under the installed ReflektorTTS's name; run
+from source, or elsewhere than on Windows, it is not available."""
 
 import logging
 import sys
 from pathlib import Path
 from typing import Protocol
 
+from reflektortts.identity import app_name
+
 RUN_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
 APPROVED_KEY = r"Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run"
 """Where Task Manager keeps an entry it disabled, under the same name."""
-NAME = "ReflektorTTS"
-"""The entry's name; tools/installer.iss writes and removes the same one."""
 HIDDEN = "--hidden"
 
 logger = logging.getLogger(__name__)
@@ -29,29 +29,32 @@ class UserRegistry(Protocol):
 
 
 class Autostart:
-    def __init__(self, registry: UserRegistry, executable: Path) -> None:
+    def __init__(self, registry: UserRegistry, executable: Path, name: str) -> None:
+        """name is the entry's: this ReflektorTTS's (see identity.py), which for a release is
+        "ReflektorTTS", the one tools/installer.iss writes and removes too."""
         self._registry = registry
         self._command = f'"{executable}" {HIDDEN}'
+        self._name = name
 
     def enabled(self) -> bool:
         """Whether Windows starts this reflektortts.exe at sign-in: the entry runs it, and Task
         Manager has not disabled the entry."""
-        command = self._registry.read(RUN_KEY, NAME)
+        command = self._registry.read(RUN_KEY, self._name)
         if not isinstance(command, str) or command.casefold() != self._command.casefold():
             return False
-        approved = self._registry.read(APPROVED_KEY, NAME)
+        approved = self._registry.read(APPROVED_KEY, self._name)
         # Task Manager marks a disabled entry with an odd first byte (3), an enabled one with an even one.
         return not (isinstance(approved, bytes) and approved[:1] and approved[0] % 2 == 1)
 
     def enable(self, enabled: bool) -> None:
         """Raises OSError if the registry cannot be changed."""
         if enabled:
-            self._registry.write(RUN_KEY, NAME, self._command)
+            self._registry.write(RUN_KEY, self._name, self._command)
         else:
-            self._registry.delete(RUN_KEY, NAME)
+            self._registry.delete(RUN_KEY, self._name)
         # Last, so a failure above leaves things as they were: Task Manager's mark would keep a new
         # entry disabled, and without the entry it means nothing.
-        self._registry.delete(APPROVED_KEY, NAME)
+        self._registry.delete(APPROVED_KEY, self._name)
 
 
 if sys.platform == "win32":
@@ -92,5 +95,5 @@ def autostart_supported() -> bool:
 def system_autostart() -> Autostart | None:
     """This reflektortts.exe's autostart, or None where it is not available."""
     if sys.platform == "win32" and getattr(sys, "frozen", False):
-        return Autostart(WindowsRegistry(), Path(sys.executable))
+        return Autostart(WindowsRegistry(), Path(sys.executable), app_name())
     return None

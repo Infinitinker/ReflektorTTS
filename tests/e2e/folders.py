@@ -12,6 +12,8 @@ import sys
 import time
 from pathlib import Path
 
+from reflektortts.identity import NAMES
+
 ROOT = Path(__file__).resolve().parents[2]
 
 OUTPUT = Path(os.environ.get("E2E_OUTPUT") or ROOT / "build" / "e2e").resolve()
@@ -35,8 +37,8 @@ def user_folders() -> dict[str, str]:
 def log_folder() -> Path:
     """Where ReflektorTTS writes its logs in a run (log_dir in user_dirs.py)."""
     if sys.platform == "win32":
-        return HOME / "Local" / "ReflektorTTS" / "logs"
-    return HOME / "state" / "ReflektorTTS" / "log"
+        return HOME / "Local" / NAMES["e2e"] / "logs"
+    return HOME / "state" / NAMES["e2e"] / "log"
 
 
 def vlcrc() -> Path:

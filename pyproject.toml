@@ -124,7 +124,8 @@ name = "The desktop app follows the core through the local API and imports none 
 type = "forbidden"
 source_modules = ["reflektortts.desktop"]
 # Left out, as what the desktop app shares with the core: the API's address and errors, the command
-# line, the logs, the per-user folders and settings files, the languages and the kinds of download.
+# line, which ReflektorTTS this is, the logs, the per-user folders and settings files, the languages
+# and the kinds of download.
 forbidden_modules = [
     "reflektortts.apps",
     "reflektortts.bus",

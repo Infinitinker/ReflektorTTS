@@ -10,6 +10,7 @@ from uuid import uuid4
 import pytest
 
 from reflektortts.desktop.system.session import announce_running, quit_on_sign_out
+from reflektortts.identity import MODE_VARIABLE
 
 
 def mutex_exists(name: str) -> bool:
@@ -33,6 +34,16 @@ def test_the_installer_can_see_reflektortts_running() -> None:
 
     assert mutex_exists(name)
     assert mutex_exists(f"Global\\{name}")
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="The installer's mutex exists only on Windows")
+def test_a_run_from_source_is_announced_under_its_own_name(monkeypatch: pytest.MonkeyPatch) -> None:
+    # The E2E name, as no installed ReflektorTTS or run from source holds it while the tests run.
+    monkeypatch.setenv(MODE_VARIABLE, "e2e")
+
+    assert announce_running()
+
+    assert mutex_exists("ReflektorTTS E2E")
 
 
 def test_outside_windows_nothing_is_announced(monkeypatch: pytest.MonkeyPatch) -> None:
