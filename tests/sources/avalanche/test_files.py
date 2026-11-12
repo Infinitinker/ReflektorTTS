@@ -29,8 +29,33 @@ def test_a_file_reads_whole_or_in_part_however_it_is_stored(tmp_path: Path, how:
 def test_a_table_of_another_kind_is_an_error(tmp_path: Path) -> None:
     (tmp_path / "game0.tab").write_bytes(bytes(16))
 
-    with pytest.raises(ArchiveError, match="not an archive table"):
+    with pytest.raises(ArchiveError, match="not an archive table .*: look for a profile for this version"):
         Archive(tmp_path / "game0.tab")
+
+
+@pytest.mark.parametrize("damage", ["no arc", "short arc", "short tab"])
+def test_a_damaged_archive_says_what_to_do_and_logs_why(tmp_path: Path, damage: str) -> None:
+    tab = tmp_path / "game0.tab"
+    write_archive(tab, [("data.bin", DATA, DEFLATE)])
+    arc = tab.with_suffix(".arc")
+    if damage == "no arc":
+        arc.unlink()
+    elif damage == "short arc":
+        arc.write_bytes(arc.read_bytes()[:10])
+    else:
+        tab.write_bytes(tab.read_bytes()[:6])
+
+    with pytest.raises(ArchiveError) as raised:
+        archive = Archive(tab)
+        try:
+            archive.read(archive.entries[hashlittle(b"data.bin")])
+        finally:
+            archive.close()
+
+    assert str(raised.value).endswith(
+        "could not be read: check the game's files in Steam or GOG Galaxy, then start the game again."
+    )
+    assert raised.value.__cause__ is not None
 
 
 def test_a_bundle_lists_its_files() -> None:

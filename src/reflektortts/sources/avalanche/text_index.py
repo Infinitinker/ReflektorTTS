@@ -10,7 +10,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 from reflektortts.languages import language_name
-from reflektortts.sources.avalanche.archives import Archive, ArchiveEntry, ArchiveError
+from reflektortts.sources.avalanche.archives import Archive, ArchiveEntry, ArchiveError, damaged
 from reflektortts.sources.avalanche.bundles import HEADER_SIZE, BundleError, bundle_files, is_bundle, table_size
 from reflektortts.sources.avalanche.lookup3 import hashlittle
 from reflektortts.sources.avalanche.stringlookup import StringLookupError, is_adf, read_stringlookup
@@ -48,11 +48,16 @@ def archive_tables(game_dir: Path) -> list[Path]:
 def read_text(game_dir: Path, language: str, stopped: Callable[[], bool] = lambda: False) -> dict[int, str]:
     """Line ID to text, for every line of dialogue in language (one of LANGUAGE_SUFFIXES)."""
     suffix = f"_{LANGUAGE_SUFFIXES[language]}{SUFFIX}"
-    tabs = archive_tables(game_dir)
+    try:
+        tabs = archive_tables(game_dir)
+    except OSError as error:
+        raise ArchiveError(damaged(game_dir.name)) from error
     if not tabs:
         raise ArchiveError(f"No game archives in {game_dir}: is this the game's folder?")
-    archives = [Archive(tab) for tab in tabs]
+    archives: list[Archive] = []
     try:
+        for tab in tabs:
+            archives.append(Archive(tab))
         files: dict[int, tuple[Archive, ArchiveEntry]] = {}
         tables: dict[str, dict[int, str]] = {}
         for archive in archives:
