@@ -59,7 +59,7 @@ Rather not install anything? Download `ReflektorTTS-<version>-windows-x64.zip` i
   </tr>
   <tr>
     <td><img src="docs/images/voices.png" alt="The Voices tab, listing Piper voices to download, with the selected voice's model card and license"></td>
-    <td><img src="docs/images/translations.png" alt="The Translations tab, listing translation models between English and Polish to download, with the installed English to Polish model selected"></td>
+    <td><img src="docs/images/translations.png" alt="The Translations tab, listing Argos Translate models to download, with the installed English to Polish model selected"></td>
   </tr>
   <tr>
     <td align="center">Voices to download</td>
