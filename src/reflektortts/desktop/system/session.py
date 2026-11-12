@@ -1,11 +1,13 @@
-"""How the running desktop app makes itself known to the installer, so it can update or remove
-ReflektorTTS: named mutexes, whose existence tells the installer ReflektorTTS is running, in this
-user's session or, for an install for all users, in anyone's. Elsewhere than on Windows this does
-nothing."""
+"""How the running desktop app fits into the user's Windows session: it quits when the user signs
+out or shuts down, and makes itself known to the installer, so it can update or remove ReflektorTTS,
+through named mutexes whose existence tells the installer ReflektorTTS is running, in this user's
+session or, for an install for all users, in anyone's. Elsewhere than on Windows this does nothing."""
 
 import ctypes
 import logging
 import sys
+import tkinter as tk
+from collections.abc import Callable
 
 logger = logging.getLogger(__name__)
 
@@ -18,6 +20,14 @@ for everyone else only waiting on them, which is all the installer does. With th
 only their creator could open them, and an installer run by an administrator, or another user's
 ReflektorTTS, would not see them."""
 SDDL_REVISION_1 = 1
+
+
+def quit_on_sign_out(root: tk.Tk, quit_app: Callable[[], None]) -> None:
+    """On Windows, calls quit_app when Windows asks before signing out or shutting down (Tk calls that
+    saving yourself), so quitting puts a lowered app's volume back. Tk tells nothing more, so if the
+    user cancels the shutdown, ReflektorTTS has quit all the same."""
+    if sys.platform == "win32":
+        root.protocol("WM_SAVE_YOURSELF", quit_app)
 
 
 class _SecurityAttributes(ctypes.Structure):

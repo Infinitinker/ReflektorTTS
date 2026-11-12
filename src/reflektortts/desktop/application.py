@@ -7,7 +7,6 @@ there: the status feed and the tray menu hand their work over through a queue.
 import json
 import logging
 import queue
-import sys
 import threading
 import tkinter as tk
 import webbrowser
@@ -37,6 +36,7 @@ from reflektortts.desktop.panel.dock import dock_of
 from reflektortts.desktop.panel.launcher import PanelWindows, find_program
 from reflektortts.desktop.system.autostart import autostart_supported, system_autostart
 from reflektortts.desktop.system.folders import open_folder, show_file, where_files_are
+from reflektortts.desktop.system.session import quit_on_sign_out
 from reflektortts.desktop.system.state import load_state, save_state
 from reflektortts.desktop.system.tray_host import tray_available
 from reflektortts.desktop.tray import Tray
@@ -125,11 +125,7 @@ class Application:
         self._window.settings.show_start_with_windows(self._start_with_windows())
 
     def start(self) -> None:
-        if sys.platform == "win32":
-            # Windows asks before logging off or shutting down (Tk calls that saving yourself):
-            # quitting then puts a lowered app's volume back. Tk tells nothing more, so if the user
-            # cancels the shutdown, ReflektorTTS has quit all the same.
-            self._root.protocol("WM_SAVE_YOURSELF", self._quit)
+        quit_on_sign_out(self._root, self._quit)
         self._core.start()
         self._feed.start()
         if self._has_tray:
