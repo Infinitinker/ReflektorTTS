@@ -12,6 +12,17 @@ namespace {
 // Ends text cut where it does not fit; Segoe UI, the font the overlay and the settings window use, has it.
 constexpr char kEllipsis[] = "…";
 
+// Drops the text's last UTF-8 character: its continuation bytes, then its first byte, so no first
+// byte is left without the rest of its character.
+void drop_last_character(std::string& text) {
+    while (!text.empty() && (static_cast<unsigned char>(text.back()) & 0xC0) == 0x80) {
+        text.pop_back();
+    }
+    if (!text.empty()) {
+        text.pop_back();
+    }
+}
+
 }  // namespace
 
 std::vector<std::string> wrap_lines(ImFont* font, float size, const std::string& text, float width) {
@@ -39,13 +50,7 @@ void clamped_wrapped_text(const std::string& text, int max_lines) {
         lines.resize(max_lines);
         std::string& last = lines.back();
         while (!last.empty() && ImGui::CalcTextSize((last + kEllipsis).c_str()).x > width) {
-            // Drop one UTF-8 character: its continuation bytes, then its first byte.
-            while (!last.empty() && (static_cast<unsigned char>(last.back()) & 0xC0) == 0x80) {
-                last.pop_back();
-            }
-            if (!last.empty()) {
-                last.pop_back();
-            }
+            drop_last_character(last);
         }
         last += kEllipsis;
     }
@@ -60,10 +65,7 @@ std::string fit_width(const std::string& text, float width) {
     }
     std::string cut = text;
     while (!cut.empty() && ImGui::CalcTextSize((cut + kEllipsis).c_str()).x > width) {
-        cut.pop_back();
-        while (!cut.empty() && (static_cast<unsigned char>(cut.back()) & 0xC0) == 0x80) {
-            cut.pop_back();  // The rest of a UTF-8 character.
-        }
+        drop_last_character(cut);
     }
     return cut + kEllipsis;
 }
