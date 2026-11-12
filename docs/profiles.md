@@ -14,7 +14,7 @@ The desktop app's Profiles tab lists them all with their medal (see `rating` bel
 
 [Writing a profile](#writing-a-profile) below walks through writing one, step by step, with no programming. The profile format is not final yet: [what may still change](#what-may-still-change) says which parts. Its JSON Schema is `src/reflektortts/profiles/profile.schema.json`.
 
-An editor that understands JSON Schema (e.g. Visual Studio Code) checks a profile as you type and suggests its fields when the profile names the schema in a `$schema` field:
+An editor that understands JSON Schema (e.g. [VSCodium](https://vscodium.com), an open-source editor) checks a profile as you type and suggests its fields when the profile names the schema in a `$schema` field:
 
 ```json
 {
@@ -30,7 +30,7 @@ ReflektorTTS ignores that field. The editor checks only the profile's own fields
 
 This guide takes you from an app ReflektorTTS does not know to a profile that reads it aloud. You need no programming, only:
 
-- a text editor: Notepad will do, and Visual Studio Code also checks the profile as you type (see `$schema` above);
+- a text editor: Notepad will do, and VSCodium also checks the profile as you type (see `$schema` above);
 - for a game, [Cheat Engine](https://www.cheatengine.org/), a free tool that finds where a game keeps its text in memory. Its installer may offer other software: decline it.
 
 The steps use Grand Theft Auto 2 as the example; its bundled profile, `grand-theft-auto-2-1999.json`, is where they end. For an app that ReflektorTTS reads in another way, such as VLC, copy its profile instead and change only what differs.
