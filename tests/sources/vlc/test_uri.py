@@ -1,3 +1,5 @@
+"""The file a VLC media URI names: Windows and POSIX file URIs, and media that are not files."""
+
 import sys
 from pathlib import Path
 

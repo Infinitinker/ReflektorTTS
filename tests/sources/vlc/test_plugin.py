@@ -1,3 +1,5 @@
+"""The VLC source plugin: its entry point, the integration it offers, and a source only for an installed VLC."""
+
 import sys
 from pathlib import Path
 

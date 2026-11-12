@@ -1,3 +1,5 @@
+"""The theme's check for Tk drawing its fonts without Xft."""
+
 import tkinter as tk
 from types import SimpleNamespace
 from typing import Any, cast

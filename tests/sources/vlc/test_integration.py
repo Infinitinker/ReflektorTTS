@@ -1,3 +1,5 @@
+"""The VLC integration: VLC's web interface turned on for this computer, and exactly what it changed put back."""
+
 import hashlib
 import json
 import os

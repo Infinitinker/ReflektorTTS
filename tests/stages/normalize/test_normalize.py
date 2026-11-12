@@ -1,3 +1,5 @@
+"""The normalize stage: numbers, times, units, dates and abbreviations spelled out in the output language."""
+
 import pytest
 
 from reflektortts.events import TextEvent

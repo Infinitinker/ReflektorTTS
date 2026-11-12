@@ -1,3 +1,5 @@
+"""The glossary around translation: kept terms swapped for stand-ins and put back, and where terms are found."""
+
 import pytest
 
 from reflektortts.glossary import GlossaryTerm

@@ -1,3 +1,5 @@
+"""The replace stage: literal and pattern rules, and patterns that are invalid or take too long."""
+
 import json
 from pathlib import Path
 

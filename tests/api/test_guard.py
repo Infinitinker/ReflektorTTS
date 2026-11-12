@@ -1,3 +1,5 @@
+"""The API's guard: requests from web pages and to other host names are refused, the clients' own pass."""
+
 from typing import Any
 
 import aiohttp

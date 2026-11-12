@@ -1,3 +1,5 @@
+"""Staging folders: removed when done, and the folders a cut-off download left behind removed."""
+
 from pathlib import Path
 
 from reflektortts.staging import remove_leftovers, staging_folder

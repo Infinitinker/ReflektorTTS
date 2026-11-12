@@ -1,3 +1,5 @@
+"""SubStation Alpha (.ass, .ssa) subtitles: dialogue lines, the order of their fields, and override blocks removed."""
+
 from reflektortts.sources.vlc.formats.ass import parse_ass
 from reflektortts.sources.vlc.formats.cues import Cue, collect
 

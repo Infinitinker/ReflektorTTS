@@ -1,3 +1,5 @@
+"""The API's error format: unknown paths and methods, and unexpected errors, are answered in JSON."""
+
 from typing import Any
 
 import pytest

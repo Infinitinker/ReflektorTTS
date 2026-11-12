@@ -1,3 +1,5 @@
+"""The named mutexes that tell the installer ReflektorTTS is running."""
+
 import ctypes
 import sys
 from uuid import uuid4

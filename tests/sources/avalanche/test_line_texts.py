@@ -1,3 +1,5 @@
+"""LineTexts: a game's lines read once per language, in the background, and a failed reading reported once."""
+
 import time
 from collections.abc import Callable
 from pathlib import Path

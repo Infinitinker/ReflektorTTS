@@ -1,3 +1,5 @@
+"""Starting ReflektorTTS when the user signs in: its entry under the Run key, and Task Manager's mark."""
+
 import sys
 from pathlib import Path
 from uuid import uuid4

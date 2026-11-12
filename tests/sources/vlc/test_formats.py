@@ -1,3 +1,5 @@
+"""The subtitle formats read: each by its extension and in any encoding, and other formats not read."""
+
 from pathlib import Path
 
 import pytest

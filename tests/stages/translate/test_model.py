@@ -1,3 +1,5 @@
+"""Translation models: installing an Argos Translate package, refusing a broken or unsafe one, and removing it."""
+
 import io
 import sys
 import zipfile

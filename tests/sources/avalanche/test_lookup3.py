@@ -1,3 +1,5 @@
+"""lookup3's hashlittle, against lookup3.c's own self-test and a file name in Mad Max's patch archive."""
+
 import pytest
 
 from reflektortts.sources.avalanche.lookup3 import hashlittle

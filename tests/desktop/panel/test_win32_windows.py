@@ -1,3 +1,5 @@
+"""What the desktop app asks Windows about windows: where a window is, and bringing one to the front."""
+
 import ctypes
 import logging
 import subprocess

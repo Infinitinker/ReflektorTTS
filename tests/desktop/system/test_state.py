@@ -1,3 +1,5 @@
+"""What the desktop app remembers about itself between runs."""
+
 from pathlib import Path
 
 from reflektortts.desktop.system.state import STATE_FILE, DesktopState, load_state, save_state

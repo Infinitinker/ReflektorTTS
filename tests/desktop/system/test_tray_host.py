@@ -1,3 +1,5 @@
+"""Whether the desktop has a tray: always on Windows, on Linux where a tray owns the tray selection."""
+
 import sys
 
 import pytest

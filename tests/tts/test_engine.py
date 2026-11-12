@@ -1,3 +1,5 @@
+"""Speech engines: a voice's engine and name read from text, and the Piper and Windows engines found."""
+
 import pytest
 
 from reflektortts.tts.engine import EnginePlugin, Voice, VoiceError, load_engine_plugin, parse_voice

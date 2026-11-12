@@ -1,3 +1,5 @@
+"""The Windows speech engine: WAV audio turned into chunks, and a voice found by its name."""
+
 import io
 import sys
 import wave

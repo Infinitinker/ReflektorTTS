@@ -1,3 +1,5 @@
+"""Translation models from Argos Translate's package index: listing, installing and removing them."""
+
 import json
 from pathlib import Path
 

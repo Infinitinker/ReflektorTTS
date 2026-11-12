@@ -1,3 +1,5 @@
+"""Loading profile files: parsing, migrating to the current version, and checking sources, stages and glossaries."""
+
 import json
 from pathlib import Path
 from typing import Any

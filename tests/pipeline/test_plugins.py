@@ -1,3 +1,5 @@
+"""The plugin registry: whether a stage is active for the languages, and plugins skipped for a bad schema or type."""
+
 from collections.abc import Mapping
 from typing import Any
 

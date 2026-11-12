@@ -1,3 +1,5 @@
+"""Opening the settings window: finding its program, and one window per profile, docked beside the app."""
+
 import sys
 from pathlib import Path
 

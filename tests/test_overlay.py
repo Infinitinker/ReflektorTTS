@@ -1,3 +1,5 @@
+"""Loading the overlay into an app: each build tried in turn, and why the injector failed, hung or was missing."""
+
 import subprocess
 import sys
 from pathlib import Path

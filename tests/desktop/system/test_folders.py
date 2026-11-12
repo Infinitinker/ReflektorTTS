@@ -1,3 +1,5 @@
+"""Opening folders and files in the file manager, and how the app's folders are shown to the user."""
+
 import sys
 from pathlib import Path
 

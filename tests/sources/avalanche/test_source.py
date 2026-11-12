@@ -1,3 +1,5 @@
+"""AvalancheSource: the subtitle shown in the game, read by its line ID in the input language."""
+
 import logging
 from pathlib import Path
 

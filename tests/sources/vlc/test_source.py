@@ -1,3 +1,5 @@
+"""VlcSource: the cue at VLC's playback time, VLC not answering or its web interface off, and the subtitle file."""
+
 import os
 import urllib.error
 from pathlib import Path

@@ -1,3 +1,5 @@
+"""The narrator: lines spoken with the current voice, pausing, stopping and switching voices, also after a crash."""
+
 from collections.abc import Callable
 
 from reflektortts.sinks.tts.client import TtsServiceError

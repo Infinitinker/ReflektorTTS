@@ -1,3 +1,5 @@
+"""MemorySource: the text at the end of a pointer chain, decoded, and told apart from memory garbage."""
+
 import pytest
 
 from reflektortts.languages import Languages

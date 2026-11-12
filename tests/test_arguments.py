@@ -1,3 +1,5 @@
+"""The command line options: only the desktop app can start hidden."""
+
 import pytest
 
 from reflektortts.arguments import parse_arguments

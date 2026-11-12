@@ -1,3 +1,5 @@
+"""The Piper speech engine: its installed voices, speech in chunks, its rate, and nothing downloaded."""
+
 from pathlib import Path
 from types import SimpleNamespace
 

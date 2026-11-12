@@ -1,3 +1,5 @@
+"""The tracker stage: a line is passed on once it has settled, and lines with too few letters are ignored."""
+
 from reflektortts.events import TextEvent
 from reflektortts.pipeline.plugins import stage_plugins
 from reflektortts.stages.tracker import PLUGIN, Tracker

@@ -1,3 +1,5 @@
+"""The core's side of the TTS service: the speaking events it passes on, the service's exit, and its process's log."""
+
 import multiprocessing
 from multiprocessing.connection import Connection
 from pathlib import Path

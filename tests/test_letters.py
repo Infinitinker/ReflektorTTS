@@ -1,3 +1,5 @@
+"""Letters and words of text in any script, counted and matched with their marks."""
+
 import re
 
 from reflektortts.letters import WORD, WORD_CHARACTER, ends_in_letter, letter_count

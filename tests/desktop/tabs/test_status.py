@@ -1,3 +1,5 @@
+"""The Status tab's colors and hints, and the app whose settings it opens."""
+
 import pytest
 
 from reflektortts.desktop.api.status import CoreStatus

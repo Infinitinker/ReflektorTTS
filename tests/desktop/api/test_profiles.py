@@ -1,3 +1,5 @@
+"""What the desktop app shows of the profiles: items, details, medals and profiles not set up."""
+
 from typing import Any
 
 from reflektortts.desktop.api.profiles import (

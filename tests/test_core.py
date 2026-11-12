@@ -1,3 +1,5 @@
+"""The core: its routes, the apps it reads, their settings and voices, integrations, and the status it shows."""
+
 import json
 import threading
 from collections.abc import Callable, Mapping

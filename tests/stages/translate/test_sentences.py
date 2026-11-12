@@ -1,3 +1,5 @@
+"""Splitting lines into sentences for translation."""
+
 import pytest
 
 from reflektortts.stages.translate.sentences import split_sentences

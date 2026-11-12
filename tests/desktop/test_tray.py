@@ -1,3 +1,5 @@
+"""The desktop app's tray icon: its title, cut short and in Latin-1 where needed, notifying and stopping."""
+
 from typing import Any
 
 import pystray

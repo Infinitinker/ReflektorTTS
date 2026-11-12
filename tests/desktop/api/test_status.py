@@ -1,3 +1,5 @@
+"""What the desktop app shows of the core's status, read from its status events."""
+
 import pytest
 
 from reflektortts.desktop.api.status import (

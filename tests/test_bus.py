@@ -1,3 +1,5 @@
+"""The event bus: events reach every listener, and a failing listener does not stop the others."""
+
 import pytest
 
 from reflektortts.bus import Event, EventBus

@@ -1,3 +1,5 @@
+"""Voice previews: a sample spoken through a TTS process of its own, cutting off what plays, and ending once spoken."""
+
 from collections.abc import Callable
 
 import pytest

@@ -1,3 +1,5 @@
+"""Fitting text into a fixed number of lines: wrapping, breaking long words and cutting with an ellipsis."""
+
 from reflektortts.desktop.widgets.text_fit import ELLIPSIS, FittedText, fit_lines
 
 

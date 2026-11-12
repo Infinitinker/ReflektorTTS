@@ -1,3 +1,5 @@
+"""Pointer chains in Cheat Engine notation: parsing them, picking one by the executable's hash, and following it."""
+
 import pytest
 
 from reflektortts.process_memory.memory import MemoryReadError, ProcessMemoryError

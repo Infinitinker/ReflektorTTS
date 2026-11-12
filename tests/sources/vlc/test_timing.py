@@ -1,3 +1,5 @@
+"""Where playback is, to a fraction of a second, from VLC's status: playing, without a length, and paused."""
+
 from dataclasses import replace
 
 import pytest

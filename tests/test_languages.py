@@ -1,3 +1,5 @@
+"""The languages ReflektorTTS knows: their codes and names, voices' tags, samples, and unknown codes refused."""
+
 import pytest
 
 from reflektortts.languages import (

@@ -1,3 +1,5 @@
+"""The profile catalog: the bundled profiles and the user's own, which of them are used, and adding or replacing one."""
+
 import json
 from pathlib import Path
 from typing import Any

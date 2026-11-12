@@ -1,3 +1,5 @@
+"""The pronounce stage: glossary terms respelled for the output language, keeping their endings."""
+
 import pytest
 
 from reflektortts.events import TextEvent

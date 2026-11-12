@@ -1,3 +1,5 @@
+"""The memory source plugin: its entry point, its settings, and the pointer chain picked by the app's build."""
+
 import pytest
 
 from reflektortts.apps.detector import ProcessInfo, RunningApp

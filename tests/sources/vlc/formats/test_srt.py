@@ -1,3 +1,5 @@
+"""SubRip (.srt) subtitles: cues found by their timing lines, with their lines joined and tags removed."""
+
 from reflektortts.sources.vlc.formats.srt import parse_srt
 
 BASIC = (

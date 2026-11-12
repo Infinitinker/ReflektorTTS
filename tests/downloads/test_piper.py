@@ -1,3 +1,5 @@
+"""Piper voices from their published list: listing, checking, installing and removing them, also offline."""
+
 import hashlib
 import json
 from pathlib import Path

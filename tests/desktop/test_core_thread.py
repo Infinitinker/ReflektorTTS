@@ -1,3 +1,5 @@
+"""Running the core on a background thread: until stopped, and why it stopped on its own."""
+
 import threading
 from collections.abc import Sequence
 from pathlib import Path

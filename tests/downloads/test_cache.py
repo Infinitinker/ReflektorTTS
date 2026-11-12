@@ -1,3 +1,5 @@
+"""Lists of downloads kept on disk: a list is saved whole, and a failed save leaves the old one."""
+
 import os
 from pathlib import Path
 

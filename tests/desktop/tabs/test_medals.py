@@ -1,3 +1,5 @@
+"""The medals the Profiles tab shows a profile's rating with."""
+
 from reflektortts.desktop.tabs.medals import GAP, medal_image
 
 

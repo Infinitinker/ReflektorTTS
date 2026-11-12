@@ -1,3 +1,5 @@
+"""The desktop app's API client: commands, answers, and the status feed, against a real API server."""
+
 import http.server
 import queue
 import socket

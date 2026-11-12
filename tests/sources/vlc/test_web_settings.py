@@ -1,3 +1,5 @@
+"""How VLC's web interface is set up in vlcrc: whether it is on and ready, its port, and the file changing."""
+
 import os
 from pathlib import Path
 

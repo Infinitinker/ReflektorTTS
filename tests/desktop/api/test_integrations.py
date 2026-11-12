@@ -1,3 +1,5 @@
+"""What the desktop app shows of the integrations: which a profile needs, their state and button."""
+
 from typing import Any
 
 import pytest

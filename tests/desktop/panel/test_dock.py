@@ -1,3 +1,5 @@
+"""Where the settings window opens: beside the desktop app's window, or centered where it cannot tell."""
+
 import sys
 
 import pytest

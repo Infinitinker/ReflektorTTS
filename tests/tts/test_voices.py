@@ -1,3 +1,5 @@
+"""Piper voices in the per-user data folder: a voice is installed only with both its files."""
+
 from pathlib import Path
 
 from reflektortts.tts.voices import downloaded_voices, voice_files

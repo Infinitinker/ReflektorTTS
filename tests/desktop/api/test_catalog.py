@@ -1,3 +1,5 @@
+"""What the desktop app shows of the downloads: entries, their state, sizes and the summary."""
+
 import pytest
 
 from reflektortts.desktop.api.catalog import (

@@ -1,3 +1,5 @@
+"""Finding a media file's subtitles in the input language where VLC 3 looks for them, and their code page."""
+
 from pathlib import Path
 
 import pytest

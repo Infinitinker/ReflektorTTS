@@ -1,3 +1,5 @@
+"""Reading a game's dialogue in one language from its archives: bundles, the patches that replace them, and stopping."""
+
 from pathlib import Path
 
 import pytest

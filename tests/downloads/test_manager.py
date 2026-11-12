@@ -1,3 +1,5 @@
+"""The downloads: several at once, their state and errors, and removing what is installed."""
+
 import queue
 import threading
 

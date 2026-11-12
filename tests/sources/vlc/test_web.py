@@ -1,3 +1,5 @@
+"""The client of VLC 3's web interface: what VLC plays, and why it does not answer or is refused."""
+
 import base64
 import http.client
 import urllib.error

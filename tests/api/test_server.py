@@ -1,3 +1,5 @@
+"""The /v1 API server: its routes, events and thread, against a fake core that the other API tests share."""
+
 import asyncio
 import json
 import threading

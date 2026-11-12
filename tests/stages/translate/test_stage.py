@@ -1,3 +1,5 @@
+"""The translate stage: lines translated sentence by sentence, with the glossary, and one model shared by all stages."""
+
 from collections import OrderedDict
 from collections.abc import Iterator, Sequence
 from pathlib import Path

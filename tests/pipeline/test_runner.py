@@ -1,3 +1,5 @@
+"""The runner: text from the sources through each output's stages to its sinks, and failures that stop only one part."""
+
 import threading
 from collections.abc import Callable
 

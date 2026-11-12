@@ -1,3 +1,5 @@
+"""The TTS process: lines spoken in order, cut off, caught up when they waited, and messages from the core."""
+
 import threading
 from collections.abc import Iterable, Iterator
 from multiprocessing.connection import Connection

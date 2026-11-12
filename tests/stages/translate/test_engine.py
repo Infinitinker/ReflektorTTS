@@ -1,3 +1,5 @@
+"""Preparing sentences for the translation model and putting its translation back: capitals, full stops and spaces."""
+
 import pytest
 
 from reflektortts.stages.translate.engine import join_pieces, join_sentences, prepare, restore
