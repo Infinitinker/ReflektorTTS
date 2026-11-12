@@ -15,8 +15,10 @@ and icon are data files, and some libraries bring native parts or data of their 
 
 A release is built from a commit, which its README.txt names, so every change must be committed,
 THIRD-PARTY-NOTICES.md included: it must be what tools/notices.py writes for the packages installed.
-Needs git, Inno Setup 7 (ISCC.exe in its usual folder, or set ISCC to it), the release extra and
-both native builds, with the overlays and the settings window (see native/README.md):
+Needs git, Inno Setup 7 (ISCC.exe in its usual folder, or set ISCC to it), the latest Visual C++
+Redistributable (x64), whose runtime DLLs the build takes from System32 (tools/msvc_runtime.py),
+the release extra and both native builds, with the overlays and the settings window (see
+native/README.md):
     pip install -e .[release] -c tools/release-constraints.txt
 Run from the repository root:
     python tools/build_release.py           (a release)
