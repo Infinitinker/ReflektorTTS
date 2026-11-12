@@ -62,7 +62,7 @@ def test_a_listing_from_the_api_becomes_items() -> None:
     )
     assert (name_text(gta2), overlay_text(gta2)) == ("Grand Theft Auto 2 (1999)", "Yes")
     assert (name_text(broken), overlay_text(broken)) == ("mine-2000.json", "")
-    assert summary_text([gta2, broken]) == "2 profiles, 1 used"
+    assert summary_text([gta2, broken]) == "Profiles: 2, used: 1"
 
 
 def test_the_details_give_the_reason_and_the_medal_first_then_executables_and_sources() -> None:
@@ -86,5 +86,5 @@ def test_a_profile_not_set_up_is_named_so_and_not_counted_as_used() -> None:
     [vlc] = parse_profiles({"profiles": [GTA2 | {"state": "not_set_up", "reason": reason}]})
 
     assert STATES[vlc.state] == "Not set up"
-    assert summary_text([vlc]) == "1 profiles, 0 used"
+    assert summary_text([vlc]) == "Profiles: 1, used: 0"
     assert details_text(vlc).startswith(f"{reason}\n\n{GOLD}\n\n")

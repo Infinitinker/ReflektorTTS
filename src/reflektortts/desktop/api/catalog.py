@@ -124,7 +124,7 @@ def size_text(size: int | None) -> str:
 
 def summary_text(items: Sequence[DownloadItem]) -> str:
     installed = sum(item.state == "installed" for item in items)
-    return f"{installed} of {len(items)} installed"
+    return f"Installed: {installed} of {len(items)}"
 
 
 def state_text(state: str, done: int = 0, total: int | None = None) -> str:

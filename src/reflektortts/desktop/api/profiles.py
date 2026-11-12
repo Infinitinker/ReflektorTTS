@@ -107,7 +107,7 @@ def rating_text(item: ProfileItem) -> tuple[str, str]:
 
 def summary_text(items: Sequence[ProfileItem]) -> str:
     used = sum(item.state in IN_USE for item in items)
-    return f"{len(items)} profiles, {used} used"
+    return f"Profiles: {len(items)}, used: {used}"
 
 
 def details_text(item: ProfileItem) -> str:

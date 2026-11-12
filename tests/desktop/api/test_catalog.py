@@ -77,7 +77,7 @@ def test_the_summary_counts_the_installed_entries() -> None:
             "id", "voice", "Voice", ("en",), None, None, "https://example.invalid", state, 0, None, "Piper"
         )
 
-    assert summary_text([item("installed"), item("available"), item("downloading")]) == "1 of 3 installed"
+    assert summary_text([item("installed"), item("available"), item("downloading")]) == "Installed: 1 of 3"
 
 
 def test_installed_voices_that_are_not_downloads_are_listed_but_not_removable() -> None:
