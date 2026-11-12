@@ -1,6 +1,7 @@
 """Downloading a file: what the user is told when the server, the connection or saving it fails."""
 
 import io
+import logging
 import urllib.error
 import urllib.request
 from email.message import Message
@@ -107,3 +108,13 @@ def test_a_full_disk_says_the_file_could_not_be_saved(monkeypatch: pytest.Monkey
 
     with pytest.raises(DownloadError, match=r"could not be saved in .* \(No space left on device\)"):
         download(tmp_path)
+
+
+def test_a_list_that_cannot_be_fetched_is_logged_only_where_it_is_shown(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    answering(monkeypatch, urllib.error.URLError("getaddrinfo failed"))
+
+    with caplog.at_level(logging.DEBUG), pytest.raises(DownloadError, match="close and open the window again"):
+        http.fetch(URL)
+    assert [record.levelno for record in caplog.records] == [logging.DEBUG]

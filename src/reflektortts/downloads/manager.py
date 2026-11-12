@@ -18,6 +18,7 @@ from reflektortts.downloads.source import (
     DownloadStateError,
     Entry,
     UnknownDownloadError,
+    details,
 )
 from reflektortts.events import DownloadEvent
 
@@ -70,6 +71,7 @@ class Downloads:
                 try:
                     entries.extend(source.entries(refresh))
                 except DownloadError as error:
+                    logger.warning("Could not list the downloads from %s: %s", name, details(error))
                     errors.append(str(error))
                 except Exception as error:
                     logger.exception("Download source %s failed", name)

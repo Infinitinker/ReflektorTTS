@@ -47,6 +47,11 @@ class DownloadError(Exception):
     """A list or a download could not be fetched, or a download is damaged; the message says what to do."""
 
 
+def details(error: DownloadError) -> str:
+    """The error's message, with the error it was raised from, for the log."""
+    return f"{error} ({error.__cause__})" if error.__cause__ is not None else str(error)
+
+
 class UnknownDownloadError(DownloadError):
     """There is no download with that ID."""
 

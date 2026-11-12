@@ -6,7 +6,7 @@ import tempfile
 from collections.abc import Callable
 from pathlib import Path
 
-from reflektortts.downloads.source import DownloadError
+from reflektortts.downloads.source import DownloadError, details
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +21,7 @@ def cached(path: Path, fetch: Callable[[], bytes], refresh: bool) -> bytes:
     except DownloadError as error:
         if not path.is_file():
             raise
-        logger.warning("%s Showing the list saved earlier.", error)
+        logger.warning("%s Showing the list saved earlier.", details(error))
         return path.read_bytes()
     save(path, data)
     return data

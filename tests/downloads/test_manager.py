@@ -1,5 +1,6 @@
 """The downloads: several at once, their state and errors, and removing what is installed."""
 
+import logging
 import queue
 import threading
 
@@ -31,7 +32,7 @@ class FakeSource:
         if self.failing:
             raise DownloadError(
                 "Could not reach the voice list. Check your internet connection, then close and open the window again."
-            )
+            ) from OSError("getaddrinfo failed")
         return self.listed
 
     def download(self, entry: Entry, progress: Progress) -> None:
@@ -80,6 +81,18 @@ def test_a_failed_download_says_why() -> None:
     downloads.start("fake:broken")
 
     assert until(events, "failed").message == "The downloaded voice is damaged. Try again."
+
+
+def test_a_source_that_cannot_list_is_logged_once_with_the_error_behind_it(caplog: pytest.LogCaptureFixture) -> None:
+    downloads = Downloads({"down": FakeSource(failing=True)}, lambda event: None)
+
+    with caplog.at_level(logging.DEBUG):
+        downloads.listing(refresh=True)
+
+    warnings = [record.getMessage() for record in caplog.records if record.levelno >= logging.WARNING]
+    assert len(warnings) == 1
+    assert warnings[0].startswith("Could not list the downloads from down: Could not reach the voice list.")
+    assert warnings[0].endswith("(getaddrinfo failed)")
 
 
 def test_a_source_that_cannot_list_is_reported_and_the_others_are_listed() -> None:

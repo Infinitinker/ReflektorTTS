@@ -38,7 +38,7 @@ def fetch(url: str) -> bytes:
             raise NotFoundError(f"{url} was not found: it may have moved. Try again later.") from error
         raise DownloadError(f"Could not fetch {url}: the server answered {error.code} {error.reason}.") from error
     except (urllib.error.URLError, OSError) as error:
-        logger.warning("Could not reach %s: %s", url, error)
+        logger.debug("Could not reach %s: %s", url, error)  # Logged where the error is shown or used.
         raise DownloadError(
             f"Could not reach {url}. Check your internet connection, then close and open the window again."
         ) from error
