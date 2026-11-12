@@ -156,7 +156,7 @@ forbidden_modules = [
 allow_indirect_imports = true
 ignore_imports = [
     # The desktop app starts the core and stops it on quit.
-    "reflektortts.desktop.core_thread -> reflektortts.core",
+    "reflektortts.desktop.core_thread -> reflektortts.core.coordinator",
 ]
 
 [[tool.importlinter.contracts]]
@@ -164,6 +164,16 @@ name = "The desktop app's folders import one way, from the app at the top down t
 type = "layers"
 containers = ["reflektortts.desktop"]
 layers = ["__main__", "application", "window | tray", "tabs", "api | widgets | panel | system"]
+
+[[tool.importlinter.contracts]]
+name = "The core's modules import one way, from its state at the top down to the parts it is built from"
+type = "layers"
+containers = ["reflektortts.core"]
+layers = [
+    "coordinator",
+    "watching | profile_states | profile_settings",
+    "reading | integration_control | source_errors",
+]
 
 [[tool.importlinter.contracts]]
 name = "Plugins are found through their entry points: nothing else imports a plugin, nor one plugin another"

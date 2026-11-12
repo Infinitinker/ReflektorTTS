@@ -5,7 +5,7 @@ import threading
 from collections.abc import Callable, Sequence
 from pathlib import Path
 
-from reflektortts.core import run
+from reflektortts.core.coordinator import run
 
 logger = logging.getLogger(__name__)
 

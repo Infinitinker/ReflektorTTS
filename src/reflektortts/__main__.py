@@ -6,7 +6,7 @@ import threading
 
 from reflektortts.api.server import ApiError
 from reflektortts.arguments import parse_arguments
-from reflektortts.core import run
+from reflektortts.core.coordinator import run
 from reflektortts.logs import log_to_console
 from reflektortts.user_dirs import config_dir
 
