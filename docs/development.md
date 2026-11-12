@@ -188,7 +188,7 @@ The `E2E tests` workflow (`.github/workflows/e2e.yml`) runs the test for every p
 
 `main` is the stable version; day-to-day work happens on `dev`. Work on a branch from `dev` and open the pull request to `dev`; changes reach `main` only through a pull request from `dev`. Every push to `main` and `dev`, merging a pull request too, runs the Checks and the E2E tests; the Windows app is built for every pull request, by the release and on request.
 
-`main` is protected by a branch ruleset (Settings > Rules > Rulesets, "Default branch protection"): it can be changed only through pull requests, and it cannot be deleted or force-pushed. A pull request can be merged once these checks pass, each from the GitHub Actions app: `Lint`, `Windows Python checks` and `Linux Python checks` (the `Checks` workflow), and `Windows build (x64)` (the `Build Windows app` workflow, which builds pull requests but not pushes). The ruleset names the jobs, so renaming one means changing it there too.
+`main` is protected by a branch ruleset (Settings > Rules > Rulesets, "Default branch protection"): it can be changed only through pull requests, and it cannot be deleted or force-pushed. A pull request can be merged once these checks pass, each from the GitHub Actions app: `Lint`, `Windows Python checks`, `Linux Python checks`, `Licenses` and `C++ checks` (all the jobs of the `Checks` workflow), and `Windows build (x64)` (the `Build Windows app` workflow, which builds pull requests but not pushes). The ruleset names the jobs, so renaming one means changing it there too.
 
 ## Linux checks on Windows (WSL)
 
