@@ -10,11 +10,11 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Infinitinker/ReflektorTTS/releases/latest"><img src="https://img.shields.io/github/v/release/Infinitinker/ReflektorTTS?label=Download" alt="Latest release"></a>
-  <a href="https://github.com/Infinitinker/ReflektorTTS/actions/workflows/checks.yml"><img src="https://img.shields.io/github/actions/workflow/status/Infinitinker/ReflektorTTS/checks.yml?branch=main&label=Checks" alt="Checks on main"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/License-GPL--3.0--or--later-blue" alt="License: GPL-3.0-or-later"></a>
-  <img src="https://img.shields.io/badge/Platform-Windows-555" alt="Platform: Windows">
-  <img src="https://img.shields.io/badge/Works-offline-2ea44f" alt="Works offline">
+  <a href="https://github.com/Infinitinker/ReflektorTTS/releases/latest"><img src="https://img.shields.io/github/v/release/Infinitinker/ReflektorTTS" alt="Latest release"></a>
+  <a href="https://github.com/Infinitinker/ReflektorTTS/actions/workflows/checks.yml"><img src="https://img.shields.io/github/actions/workflow/status/Infinitinker/ReflektorTTS/checks.yml?branch=main&label=checks" alt="Checks on main"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0--or--later-blue" alt="License: GPL-3.0-or-later"></a>
+  <img src="https://img.shields.io/badge/platform-Windows-555" alt="Platform: Windows">
+  <img src="https://img.shields.io/badge/works-offline-2ea44f" alt="Works offline">
 </p>
 
 ReflektorTTS reads an app's text aloud as it appears on screen, and can translate it on the way, in the style of a Polish *lektor*: in Poland, foreign films are traditionally shown with one calm voice reading the translation over the original soundtrack, which stays audible underneath. ReflektorTTS does the same for games: the original sound keeps playing, a little quieter, while a voice reads the line in your language.
