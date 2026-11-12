@@ -8,6 +8,7 @@
 #include <array>
 #include <charconv>
 #include <cstddef>
+#include <format>
 #include <functional>
 #include <map>
 #include <string_view>
@@ -27,7 +28,7 @@ bool known(std::string_view name) {
 }
 
 ArgumentError usage_error(const std::string& what) {
-    return ArgumentError(what + " " + kUsage);
+    return ArgumentError(std::format("{} {}", what, kUsage));
 }
 
 int number(const std::string& name, const std::string& value) {
@@ -35,7 +36,7 @@ int number(const std::string& name, const std::string& value) {
     const char* end = value.data() + value.size();
     auto [last, error] = std::from_chars(value.data(), end, result);
     if (error != std::errc() || last != end) {
-        throw usage_error("\"" + value + "\" after " + name + " is not a whole number.");
+        throw usage_error(std::format("\"{}\" after {} is not a whole number.", value, name));
     }
     return result;
 }
@@ -48,7 +49,7 @@ Dock read_dock(const std::map<std::string, std::string, std::less<>>& values) {
     } else if (side == "left") {
         dock.side = DockSide::Left;
     } else {
-        throw usage_error("\"" + side + "\" after --dock-side is neither right nor left.");
+        throw usage_error(std::format("\"{}\" after --dock-side is neither right nor left.", side));
     }
     dock.x = number("--dock-x", values.at("--dock-x"));
     dock.y = number("--dock-y", values.at("--dock-y"));
@@ -66,13 +67,13 @@ PanelArguments parse_arguments(std::span<char* const> arguments) {
     for (std::size_t i = 0; i < arguments.size(); ++i) {
         std::string name = arguments[i];
         if (!known(name)) {
-            throw usage_error("Unknown argument \"" + name + "\".");
+            throw usage_error(std::format("Unknown argument \"{}\".", name));
         }
         if (values.contains(name)) {
-            throw usage_error(name + " is given twice.");
+            throw usage_error(std::format("{} is given twice.", name));
         }
         if (i + 1 == arguments.size() || std::string_view(arguments[i + 1]).empty()) {
-            throw usage_error("Nothing given after " + name + ".");
+            throw usage_error(std::format("Nothing given after {}.", name));
         }
         values[name] = arguments[++i];
     }

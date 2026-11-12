@@ -8,6 +8,7 @@
 
 #include <cctype>
 #include <cmath>
+#include <format>
 #include <string>
 
 #include "api_client.h"
@@ -32,7 +33,7 @@ std::string language_label(const LanguageOption& language) {
     if (language.name == language.english_name) {
         return language.name;
     }
-    return language.english_name + " (" + language.name + ")";
+    return std::format("{} ({})", language.english_name, language.name);
 }
 
 std::string language_name(const CoreState& state, const std::string& code) {
