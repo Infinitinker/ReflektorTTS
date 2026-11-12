@@ -132,5 +132,5 @@ def state_text(state: str, done: int = 0, total: int | None = None) -> str:
     if state == "installed":
         return "Installed"
     if state == "downloading":
-        return f"Downloading {done * 100 // total}%" if total else "Downloading"
+        return f"Downloading {done * 100 // total}%" if total else "Downloading…"
     return ""

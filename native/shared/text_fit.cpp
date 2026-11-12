@@ -1,11 +1,18 @@
 // Fits text to a width in ImGui: wrapped into lines, cut after a number of lines, or cut to one
-// line, ending in "..." where it does not fit.
+// line, ending in "…" where it does not fit.
 
 #include "text_fit.h"
 
 #include <cstddef>
 
 namespace reflektortts {
+
+namespace {
+
+// Ends text cut where it does not fit; Segoe UI, the font the overlay and the settings window use, has it.
+constexpr char kEllipsis[] = "…";
+
+}  // namespace
 
 std::vector<std::string> wrap_lines(ImFont* font, float size, const std::string& text, float width) {
     std::vector<std::string> lines;
@@ -31,7 +38,7 @@ void clamped_wrapped_text(const std::string& text, int max_lines) {
     if (lines.size() > static_cast<std::size_t>(max_lines)) {
         lines.resize(max_lines);
         std::string& last = lines.back();
-        while (!last.empty() && ImGui::CalcTextSize((last + "...").c_str()).x > width) {
+        while (!last.empty() && ImGui::CalcTextSize((last + kEllipsis).c_str()).x > width) {
             // Drop one UTF-8 character: its continuation bytes, then its first byte.
             while (!last.empty() && (static_cast<unsigned char>(last.back()) & 0xC0) == 0x80) {
                 last.pop_back();
@@ -40,7 +47,7 @@ void clamped_wrapped_text(const std::string& text, int max_lines) {
                 last.pop_back();
             }
         }
-        last += "...";
+        last += kEllipsis;
     }
     for (const std::string& line : lines) {
         ImGui::TextUnformatted(line.c_str());
@@ -52,13 +59,13 @@ std::string fit_width(const std::string& text, float width) {
         return text;
     }
     std::string cut = text;
-    while (!cut.empty() && ImGui::CalcTextSize((cut + "...").c_str()).x > width) {
+    while (!cut.empty() && ImGui::CalcTextSize((cut + kEllipsis).c_str()).x > width) {
         cut.pop_back();
         while (!cut.empty() && (static_cast<unsigned char>(cut.back()) & 0xC0) == 0x80) {
             cut.pop_back();  // The rest of a UTF-8 character.
         }
     }
-    return cut + "...";
+    return cut + kEllipsis;
 }
 
 }  // namespace reflektortts

@@ -32,7 +32,7 @@
                 "format": "regex"
               },
               "replace": {
-                "description": "Replacement: \\1, \\2... insert the pattern’s groups, e.g. \"\\1\".",
+                "description": "Replacement: \\1, \\2… insert the pattern’s groups, e.g. \"\\1\".",
                 "type": "string"
               }
             }

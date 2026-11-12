@@ -51,7 +51,7 @@ def rule_from_settings(rule: Mapping[str, str]) -> Rule:
         except (re.error, IndexError) as error:
             raise ValueError(
                 f'the replacement "{rule["replace"]}" does not fit the pattern "{rule["pattern"]}": {error}. '
-                "Use \\1, \\2... only for groups the pattern has, and write each backslash twice in JSON"
+                "Use \\1, \\2… only for groups the pattern has, and write each backslash twice in JSON"
             ) from error
         return Rule(regex.compile(rule["pattern"]), rule["replace"], literal=False)
     return Rule(regex.compile(regex.escape(rule["find"])), rule["replace"], literal=True)

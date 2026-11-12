@@ -60,7 +60,7 @@ def test_a_listing_from_the_api_becomes_items() -> None:
         ("available", 0, None, ""),
         ("installed", 0, None, "Installed"),
         ("downloading", 25, 100, "Downloading 25%"),
-        ("downloading", 25, None, "Downloading"),
+        ("downloading", 25, None, "Downloading…"),
     ],
 )
 def test_the_state_column(state: str, done: int, total: int | None, text: str) -> None:
