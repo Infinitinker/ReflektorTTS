@@ -8,6 +8,8 @@ It comes in three parts:
 - **`overlay/`**: the overlay, a DLL loaded into the app's process (Windows only), and the injector that loads it. It hooks the point where the app shows each frame and draws the settings panel and the subtitles on top.
 - **`panel/`**: the settings panel in a window of its own (`reflektortts-panel.exe`), for one profile whether or not its app runs, so apps without the overlay, and games before they start, can be set up too.
 
+The overlay and the settings window build on the shared library, so `shared/` includes nothing from `overlay/` or `panel/`, and `panel/` nothing from `overlay/`. These directions, and the overlay's own below, are checked by `tools/check_includes.py` (see [Import directions](../docs/architecture.md#import-directions)).
+
 ## The overlay
 
 ### Using it
@@ -38,7 +40,7 @@ Mouse buttons are read directly while the panel is open, because games using Dir
 
 Blocking the app's input works like ReShade's default "block all input while the overlay is visible". The first time the panel opens, the overlay hooks every keyboard and mouse API the app has loaded (and on later openings, any loaded since), all through code hooks: the reads of DirectInput 8 and 1–7 devices, the message queue (`GetMessage`, `PeekMessage`: input messages for the app's window go to the panel and the app gets `WM_NULL`; other windows are left alone, since DirectInput reads the keyboard through raw input sent to a hidden window of its own), key state (`GetAsyncKeyState`, `GetKeyState`, `GetKeyboardState`), buffered raw input (`GetRawInputBuffer`) and the cursor (`GetCursorPos`, `SetCursorPos`, `ClipCursor`). The overlay's own calls are let through, recognized by their return address, so the panel keeps seeing real input. XInput gamepads are not blocked. Window messages reach the panel on the thread that draws, at the start of its next frame, since many games handle their window on another thread. The panel is laid out in window coordinates and scaled to the app's back buffer, so it lines up with the mouse when the image is scaled (the Direct3D 9 backend ignores that scale).
 
-The overlay's files, in `overlay/`. Its own headers are included by their path from `src/` (`"hooks/code_hook.h"`), and each folder includes only from folders listed above it (`hooks/` from `diagnostics/`, `ui/` from `input/`), while `dllmain.cpp` ties them together.
+The overlay's files, in `overlay/`. Its own headers are included by their path from `src/` (`"hooks/code_hook.h"`), and each folder includes only from itself and the folders listed above it, in the table's order: `diagnostics/`, `hooks/`, `input/`, `ui/`, `renderers/` (`hooks/` from `diagnostics/`, `ui/` from `input/`), while `dllmain.cpp` ties them together. A new folder goes into this order here and into `OVERLAY_FOLDERS` in `tools/check_includes.py`.
 
 | Path | Job |
 |---|---|
@@ -137,7 +139,7 @@ It is built for Windows only, by the 64-bit build: other systems need a transpor
 
 ## Building
 
-`CMakeLists.txt` here is the root project: it fetches the dependencies and builds `shared/`, on Windows `overlay/`, and in the 64-bit Windows build `panel/`. Dependencies, fetched by CMake at configure time, each pinned to the commit of a release: [Dear ImGui](https://github.com/ocornut/imgui) (MIT), [nlohmann/json](https://github.com/nlohmann/json) (MIT), for the overlay [MinHook](https://github.com/TsudaKageyu/minhook) (BSD-2-Clause), and for the panel [SDL3](https://github.com/libsdl-org/SDL) (zlib), built as a static library with only its video and events parts. WinHTTP is part of Windows. Their license texts are kept in `tools/licenses/` and listed in `NATIVE_NOTICES` in `tools/notices.py`, which writes them into `THIRD-PARTY-NOTICES.md` in the repository root; update both when a library moves to another version.
+`CMakeLists.txt` here is the root project: it fetches the dependencies and builds `shared/`, on Windows `overlay/`, and in the 64-bit Windows build `panel/`. Dependencies, fetched by CMake at configure time, each pinned to the commit of a release: [Dear ImGui](https://github.com/ocornut/imgui) (MIT), [nlohmann/json](https://github.com/nlohmann/json) (MIT), for the overlay [MinHook](https://github.com/TsudaKageyu/minhook) (BSD-2-Clause), and for the panel [SDL3](https://github.com/libsdl-org/SDL) (zlib), built as a static library with only its video and events parts. WinHTTP is part of Windows. Their license texts are kept in `tools/licenses/` and listed in `NATIVE_NOTICES` in `tools/notices.py`, which writes them into `THIRD-PARTY-NOTICES.md` in the repository root, and whose licenses `tools/licenses.py` checks against its allow list; update both when a library moves to another version.
 
 ### On Windows with MSYS2
 
@@ -150,18 +152,35 @@ pacman -S --needed git mingw-w64-i686-toolchain mingw-w64-i686-cmake mingw-w64-i
 pacman -S --needed git mingw-w64-x86_64-toolchain mingw-w64-x86_64-cmake mingw-w64-x86_64-ninja
 ```
 
+The builds are named in `CMakePresets.json`, each a Ninja build with the toolchain of the shell it is run from:
+
+| Preset | Build | Folder | Shell |
+|---|---|---|---|
+| `release-x86` | 32-bit, Release: the overlay for 32-bit apps | `native/build` | MSYS2 MINGW32 |
+| `release` | 64-bit, Release: the overlay for 64-bit apps, and the settings window | `native/build64` | MSYS2 MINGW64 |
+| `debug` | 64-bit, Debug: debug information and no optimization | `build/native-debug` | MSYS2 MINGW64 |
+| `ci` | 64-bit, Release, only configured: the compile commands clang-tidy reads | `build/native-ci` | MSYS2 MINGW64 |
+
+The folders are relative to the repository root. Each preset also writes `compile_commands.json` into its folder, for clang-tidy and editors.
+
 The 32-bit build, from the **MSYS2 MINGW32** shell in the repository root:
 
 ```bash
-cmake -S native -B native/build -G Ninja -DCMAKE_BUILD_TYPE=Release
+cmake -S native --preset release-x86
 cmake --build native/build
 ```
 
 The 64-bit build, from the **MSYS2 MINGW64** shell:
 
 ```bash
-cmake -S native -B native/build64 -G Ninja -DCMAKE_BUILD_TYPE=Release
+cmake -S native --preset release
 cmake --build native/build64
 ```
 
+`cmake --build --preset <name>`, run from `native/`, builds a preset too.
+
 The results are in `native/build/bin/` and `native/build64/bin/`: `reflektortts-overlay.dll` and `reflektortts-inject.exe`, and in the 64-bit build `reflektortts-panel.exe` too (the 32-bit build, which is only for the overlay in 32-bit apps, skips the panel and does not fetch SDL). All link the MinGW runtime statically, so they need no extra DLLs. To load a new build, restart the app: the DLL stays loaded until the app exits.
+
+### Checks
+
+The `C++ checks` job of the `Checks` workflow checks this code: the include directions with `tools/check_includes.py`, the formatting with clang-format (`.clang-format` in the repository root) and the code with clang-tidy (`.clang-tidy`, reading the `ci` preset's compile commands). Every finding fails it. [C++ checks](../docs/development.md#c-checks) in docs/development.md says how to install clang-format and clang-tidy in MSYS2 and run them; run them, and both builds, before committing a change here.
