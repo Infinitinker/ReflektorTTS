@@ -57,8 +57,8 @@ void allocate_srv(ImGui_ImplDX12_InitInfo*, D3D12_CPU_DESCRIPTOR_HANDLE* cpu, D3
     } else {
         slot = g_free_srv_slots[--g_free_srv_count];
     }
-    cpu->ptr = g_srv_heap->GetCPUDescriptorHandleForHeapStart().ptr + slot * srv_descriptor_size();
-    gpu->ptr = g_srv_heap->GetGPUDescriptorHandleForHeapStart().ptr + slot * srv_descriptor_size();
+    cpu->ptr = g_srv_heap->GetCPUDescriptorHandleForHeapStart().ptr + static_cast<SIZE_T>(slot) * srv_descriptor_size();
+    gpu->ptr = g_srv_heap->GetGPUDescriptorHandleForHeapStart().ptr + static_cast<UINT64>(slot) * srv_descriptor_size();
 }
 
 void free_srv(ImGui_ImplDX12_InitInfo*, D3D12_CPU_DESCRIPTOR_HANDLE cpu, D3D12_GPU_DESCRIPTOR_HANDLE) {
@@ -243,7 +243,8 @@ void render_d3d12_frame(IDXGISwapChain* swap_chain) {
     g_command_list->Reset(slot.allocator, nullptr);
 
     D3D12_CPU_DESCRIPTOR_HANDLE target = g_rtv_heap->GetCPUDescriptorHandleForHeapStart();
-    target.ptr += index * g_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+    target.ptr +=
+        static_cast<SIZE_T>(index) * g_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
     g_device->CreateRenderTargetView(back_buffer, nullptr, target);
 
     ImGui_ImplDX12_NewFrame();

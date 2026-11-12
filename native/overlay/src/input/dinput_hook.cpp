@@ -111,9 +111,9 @@ HRESULT get_device_data(GetDeviceDataFn original, void* device, DWORD object_siz
     auto* events = reinterpret_cast<BYTE*>(data);
     DWORD kept = 0;
     for (DWORD i = 0; i < *count; ++i) {
-        BYTE* event = events + i * object_size;
+        BYTE* event = events + static_cast<std::size_t>(i) * object_size;
         if (is_release(kind, *reinterpret_cast<const DIDEVICEOBJECTDATA*>(event))) {
-            std::memmove(events + kept * object_size, event, object_size);
+            std::memmove(events + static_cast<std::size_t>(kept) * object_size, event, object_size);
             ++kept;
         }
     }
@@ -208,7 +208,7 @@ bool hook_version(const wchar_t* module_name, const char* create_name, DWORD ver
 }  // namespace
 
 void install_dinput_hooks() {
-    std::lock_guard lock(g_install_mutex);
+    std::scoped_lock lock(g_install_mutex);
     int before = g_hooked_count;
     bool dinput8 = hook_version(L"dinput8.dll", "DirectInput8Create", 0x0800,
                                 {{&IID_IDirectInput8A, nullptr}, {&IID_IDirectInput8W, nullptr}});

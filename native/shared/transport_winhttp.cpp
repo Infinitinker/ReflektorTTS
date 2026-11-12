@@ -24,7 +24,7 @@ public:
     }
     Handle(const Handle&) = delete;
     Handle& operator=(const Handle&) = delete;
-    HINTERNET get() const { return handle_; }
+    [[nodiscard]] HINTERNET get() const { return handle_; }
     explicit operator bool() const { return handle_ != nullptr; }
 
 private:
@@ -132,7 +132,8 @@ public:
         const wchar_t* headers = has_body ? L"Content-Type: application/json" : WINHTTP_NO_ADDITIONAL_HEADERS;
         // -1 means "headers are zero-terminated"; with no headers the length must be 0.
         DWORD headers_length = has_body ? static_cast<DWORD>(-1) : 0;
-        void* data = has_body ? const_cast<char*>(body.data()) : WINHTTP_NO_REQUEST_DATA;
+        // WinHttpSendRequest only reads the body, though it takes it as void*.
+        void* data = has_body ? const_cast<char*>(body.data()) : WINHTTP_NO_REQUEST_DATA;  // NOLINT(*-const-cast)
         auto length = static_cast<DWORD>(body.size());
         if (!WinHttpSendRequest(request.get(), headers, headers_length, data, length, length, 0) ||
             !WinHttpReceiveResponse(request.get(), nullptr)) {
@@ -163,7 +164,7 @@ public:
     }
 
 private:
-    HINTERNET connect() const {
+    [[nodiscard]] HINTERNET connect() const {
         return WinHttpConnect(session_.get(), host_.c_str(), static_cast<INTERNET_PORT>(kCorePort), 0);
     }
 

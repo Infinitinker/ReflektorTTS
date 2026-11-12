@@ -148,11 +148,14 @@ void hand_over_raw_input(BYTE* blocks, UINT count, std::uintptr_t alignment) {
     }
 }
 
+// What GetRawInputBuffer returns when it fails.
+constexpr UINT kRawInputError = static_cast<UINT>(-1);
+
 // Buffered raw input is read, so it does not pile up, then handed over as meant for another
 // window (see hand_over_raw_input).
 UINT WINAPI get_raw_input_buffer(RAWINPUT* data, UINT* size, UINT header_size) {
     UINT count = g_get_raw_input_buffer(data, size, header_size);
-    if (count == static_cast<UINT>(-1) || data == nullptr || !app_input_blocked()) {
+    if (count == kRawInputError || data == nullptr || !app_input_blocked()) {
         return count;
     }
     auto* blocks = reinterpret_cast<BYTE*>(data);
@@ -167,7 +170,7 @@ UINT WINAPI get_raw_input_buffer(RAWINPUT* data, UINT* size, UINT header_size) {
 // While blocked, the app sees the cursor stay where it was, and cannot move or trap it.
 BOOL WINAPI get_cursor_pos(POINT* point) {
     if (point != nullptr && blocked_for_caller(__builtin_return_address(0))) {
-        std::lock_guard lock(g_cursor_mutex);
+        std::scoped_lock lock(g_cursor_mutex);
         *point = g_app_cursor;
         return TRUE;
     }
@@ -176,7 +179,7 @@ BOOL WINAPI get_cursor_pos(POINT* point) {
 
 BOOL WINAPI set_cursor_pos(int x, int y) {
     if (blocked_for_caller(__builtin_return_address(0))) {
-        std::lock_guard lock(g_cursor_mutex);
+        std::scoped_lock lock(g_cursor_mutex);
         g_app_cursor = {x, y};
         return TRUE;
     }
@@ -185,7 +188,7 @@ BOOL WINAPI set_cursor_pos(int x, int y) {
 
 BOOL WINAPI clip_cursor(const RECT* area) {
     if (!is_overlay_code(__builtin_return_address(0))) {
-        std::lock_guard lock(g_cursor_mutex);
+        std::scoped_lock lock(g_cursor_mutex);
         g_app_clips = area != nullptr;
         if (area != nullptr) {
             g_app_clip = *area;
@@ -215,7 +218,7 @@ void install_win32_input_hooks() {
 }
 
 void on_win32_input_blocking(bool blocked) {
-    std::lock_guard lock(g_cursor_mutex);
+    std::scoped_lock lock(g_cursor_mutex);
     if (blocked) {
         g_get_cursor_pos(&g_app_cursor);
         g_clip_cursor(nullptr);

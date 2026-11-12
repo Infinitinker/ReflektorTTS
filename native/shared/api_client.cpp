@@ -57,7 +57,7 @@ Client& g_client = *new Client();
 template <typename Change>
 void update_state(Change change) {
     {
-        std::lock_guard lock(g_client.state_mutex);
+        std::scoped_lock lock(g_client.state_mutex);
         change(g_client.state);
     }
     if (!g_client.options.on_change) {
@@ -180,8 +180,7 @@ std::string profile_path(const std::string& profile, const char* route) {
 
 // Loads the settings of the profile the client keeps to. Returns false if the core cannot be
 // reached; a refusal, such as for an unknown profile, is kept to be shown instead of the settings.
-bool load_profile_settings() {
-    const std::string& profile = *g_client.options.profile;
+bool load_profile_settings(const std::string& profile) {
     std::optional<HttpResponse> response = g_client.transport->send("GET", profile_path(profile, "settings"), "");
     if (!response) {
         return false;
@@ -204,7 +203,7 @@ bool load_profile_settings() {
 // Whether the lines and errors of the app being read concern the client: they do unless it keeps
 // to a profile whose app is not the one being read.
 bool follows_app_being_read() {
-    std::lock_guard lock(g_client.state_mutex);
+    std::scoped_lock lock(g_client.state_mutex);
     return !g_client.options.profile || g_client.state.running;
 }
 
@@ -216,7 +215,7 @@ void follow_source_error(const json& status) {
         return;
     }
     {
-        std::lock_guard lock(g_client.state_mutex);
+        std::scoped_lock lock(g_client.state_mutex);
         if (!g_client.state.last_error_from_source) {
             return;
         }
@@ -244,7 +243,7 @@ void handle_event(const std::string& text) {
             follow_source_error(event);
             if (!g_client.options.profile) {
                 apply_status(event);
-            } else if (!load_profile_settings()) {
+            } else if (!load_profile_settings(*g_client.options.profile)) {
                 // An app starting or stopping, or a voice installed or removed, can change the
                 // profile's settings as shown, but the core sends them only when they are changed.
                 log_message("Cannot reach the core to load the profile's settings again");
@@ -334,7 +333,7 @@ void listen_for_events() {
         return;
     }
     // Loaded once the events flow, so no change made in between is missed.
-    if (g_client.options.profile && !load_profile_settings()) {
+    if (g_client.options.profile && !load_profile_settings(*g_client.options.profile)) {
         return;
     }
     update_state([](CoreState& state) {
@@ -401,7 +400,7 @@ void request_loop() {
 
 void enqueue(Request request) {
     {
-        std::lock_guard lock(g_client.requests_mutex);
+        std::scoped_lock lock(g_client.requests_mutex);
         g_client.requests.push_back(std::move(request));
     }
     g_client.requests_ready.notify_one();
@@ -411,7 +410,7 @@ void enqueue(Request request) {
 void request_profile_change(const char* route, const json& body) {
     std::string profile;
     {
-        std::lock_guard lock(g_client.state_mutex);
+        std::scoped_lock lock(g_client.state_mutex);
         profile = g_client.state.profile;
     }
     if (profile.empty()) {
@@ -440,7 +439,7 @@ void start_api_client(std::unique_ptr<Transport> transport, ApiClientOptions opt
 }
 
 CoreState core_state() {
-    std::lock_guard lock(g_client.state_mutex);
+    std::scoped_lock lock(g_client.state_mutex);
     return g_client.state;
 }
 

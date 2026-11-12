@@ -1,0 +1,110 @@
+# What clang-tidy checks in the C++ code in native/. Each check left out says why: most fight the
+# Windows API and COM (raw pointers, casts, C arrays, BOOL and flag macros), which the overlay and the
+# transport are written against, or the code's style. Every finding is an error.
+Checks: >
+  -*,
+  bugprone-*,
+  clang-analyzer-*,
+  concurrency-*,
+  cppcoreguidelines-*,
+  misc-*,
+  modernize-*,
+  performance-*,
+  portability-*,
+  readability-*,
+
+  -bugprone-easily-swappable-parameters,
+  -bugprone-invalid-enum-default-initialization,
+  -bugprone-multi-level-implicit-pointer-conversion,
+  -bugprone-signed-bitwise,
+  -bugprone-throwing-static-initialization,
+
+  -cppcoreguidelines-avoid-c-arrays,
+  -cppcoreguidelines-avoid-magic-numbers,
+  -cppcoreguidelines-avoid-non-const-global-variables,
+  -cppcoreguidelines-pro-bounds-array-to-pointer-decay,
+  -cppcoreguidelines-pro-bounds-avoid-unchecked-container-access,
+  -cppcoreguidelines-pro-bounds-constant-array-index,
+  -cppcoreguidelines-pro-bounds-pointer-arithmetic,
+  -cppcoreguidelines-pro-type-reinterpret-cast,
+  -cppcoreguidelines-pro-type-union-access,
+  -cppcoreguidelines-pro-type-vararg,
+
+  -misc-const-correctness,
+  -misc-include-cleaner,
+
+  -modernize-avoid-c-arrays,
+  -modernize-return-braced-init-list,
+  -modernize-use-designated-initializers,
+  -modernize-use-trailing-return-type,
+
+  -performance-enum-size,
+  -performance-no-int-to-ptr,
+
+  -portability-avoid-pragma-once,
+
+  -readability-avoid-nested-conditional-operator,
+  -readability-identifier-length,
+  -readability-implicit-bool-conversion,
+  -readability-magic-numbers,
+  -readability-math-missing-parentheses,
+  -readability-named-parameter,
+  -readability-trailing-comma,
+  -readability-uppercase-literal-suffix
+
+# Why each check above is left out:
+#
+# bugprone-easily-swappable-parameters: hooks take the parameters of the function they replace.
+# bugprone-invalid-enum-default-initialization: Windows' structs are zeroed with {} before they are
+#   filled in, as their documentation does, whatever their enums hold.
+# bugprone-multi-level-implicit-pointer-conversion: COM and MinHook hand objects and originals back
+#   through void**.
+# bugprone-signed-bitwise: Windows' and ImGui's flags are signed constants combined with |.
+# bugprone-throwing-static-initialization: the only statics that may throw allocate at load time,
+#   where running out of memory ends the program anyway.
+# cppcoreguidelines-avoid-c-arrays, modernize-avoid-c-arrays: buffers handed to Windows' functions
+#   with their size, and fixed tables of descriptors.
+# cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers: byte codes of jumps, Windows'
+#   message values and layout sizes read better where they are used, with a comment.
+# cppcoreguidelines-avoid-non-const-global-variables: the overlay's hooks are free functions called
+#   by the app, so its state lives in globals, each in an anonymous namespace of its own file.
+# cppcoreguidelines-pro-bounds-*: Windows' functions take pointers and sizes, and the hooks read
+#   code, vtables and buffers the app hands over; every index is checked where it is read.
+# cppcoreguidelines-pro-type-reinterpret-cast, performance-no-int-to-ptr: functions found through
+#   GetProcAddress and vtables, window procedures stored as LONG_PTR, code addresses as integers.
+# cppcoreguidelines-pro-type-union-access: Windows' structs hold unions (RAWINPUT, LARGE_INTEGER).
+# cppcoreguidelines-pro-type-vararg: snprintf and the like, which the log uses to format numbers.
+# misc-const-correctness: local variables are not marked const unless it says something.
+# misc-include-cleaner: windows.h and other umbrella headers declare what their parts define, which
+#   the check takes for missing includes.
+# modernize-return-braced-init-list: it misses constructors that are explicit through a using
+#   declaration (ArgumentError's), where {} does not compile.
+# modernize-use-designated-initializers: Windows' structs are filled in positionally, as their
+#   documentation does, or field by field.
+# modernize-use-trailing-return-type: return types go in front.
+# performance-enum-size: the enums are few and small; their size saves nothing.
+# portability-avoid-pragma-once: #pragma once is the code's include guard, and every compiler it is
+#   built with supports it.
+# readability-avoid-nested-conditional-operator: a short chain of ?: reads as a table of cases.
+# readability-identifier-length: x, y, i and the like are clear where they are used.
+# readability-implicit-bool-conversion: Windows' BOOL is an int, and pointers are tested as they are.
+# readability-math-missing-parentheses: the usual precedence of * over + needs no parentheses.
+# readability-named-parameter: a parameter a function does not use, such as in a hook or a
+#   callback, is left unnamed.
+# readability-trailing-comma: clang-format packs braced lists, which a trailing comma would split
+#   into one item per line.
+# readability-uppercase-literal-suffix: float literals are written 0.5f.
+WarningsAsErrors: '*'
+
+# Only the project's own headers: not those of Windows, MinGW or the fetched libraries.
+HeaderFilterRegex: '.*[/\\]native[/\\](overlay|panel|shared)[/\\].*'
+
+CheckOptions:
+  # Interfaces declare only their virtual destructor; classes that delete copying need not declare
+  # moving.
+  cppcoreguidelines-special-member-functions.AllowSoleDefaultDtor: true
+  cppcoreguidelines-special-member-functions.AllowMissingMoveFunctionsWhenCopyIsDeleted: true
+  # Plain structs with everything public are data, whatever functions they have.
+  misc-non-private-member-variables-in-classes.IgnoreClassesWithAllMemberVariablesBeingPublic: true
+  # dinput.h reads which DirectInput version to declare from this macro.
+  cppcoreguidelines-macro-usage.AllowedRegexp: '^DIRECTINPUT_VERSION$'

@@ -64,9 +64,9 @@ void* jump_destination(const CodeBytes& code, std::uint8_t* address) {
     if (code[0] == 0xFF && code[1] == 0x25) {
         std::memcpy(&value, &code[2], sizeof(value));
 #ifdef _WIN64
-        auto slot = address + 6 + value;
+        auto* slot = address + 6 + value;
 #else
-        auto slot = reinterpret_cast<std::uint8_t*>(static_cast<std::uint32_t>(value));
+        auto* slot = reinterpret_cast<std::uint8_t*>(static_cast<std::uint32_t>(value));
 #endif
         void* destination = nullptr;
         ReadProcessMemory(GetCurrentProcess(), slot, &destination, sizeof(destination), nullptr);
@@ -99,9 +99,10 @@ bool install(void* target, void* detour, void** original) {
 // function. A jump of another kind belongs to an overlay that hooked after us, whose chain still
 // runs through ours, so that is left alone.
 void restore_cut_hooks() {
-    std::lock_guard lock(g_mutex);
-    // By index and by copy: install adds entries as it goes.
-    for (std::size_t i = 0; i < g_watched.size(); ++i) {
+    std::scoped_lock lock(g_mutex);
+    // By index and by copy: install adds entries as it goes, which can move the vector's elements, so
+    // a range-based loop, as clang-tidy's modernize-loop-convert would have it, would read freed memory.
+    for (std::size_t i = 0; i < g_watched.size(); ++i) {  // NOLINT(modernize-loop-convert)
         if (!g_watched[i].watched) {
             continue;
         }
@@ -144,8 +145,8 @@ struct ModuleRange {
 ModuleRange overlay_range() {
     static const ModuleRange range = [] {
         auto base = reinterpret_cast<std::uintptr_t>(overlay_module());
-        auto dos = reinterpret_cast<const IMAGE_DOS_HEADER*>(base);
-        auto nt = reinterpret_cast<const IMAGE_NT_HEADERS*>(base + dos->e_lfanew);
+        const auto* dos = reinterpret_cast<const IMAGE_DOS_HEADER*>(base);
+        const auto* nt = reinterpret_cast<const IMAGE_NT_HEADERS*>(base + dos->e_lfanew);
         return ModuleRange{base, base + nt->OptionalHeader.SizeOfImage};
     }();
     return range;
@@ -154,7 +155,7 @@ ModuleRange overlay_range() {
 }  // namespace
 
 bool hook_function(void* target, void* detour, void** original) {
-    std::lock_guard lock(g_mutex);
+    std::scoped_lock lock(g_mutex);
     if (auto hooked = g_trampolines.find(target); hooked != g_trampolines.end()) {
         *original = hooked->second;
         return true;

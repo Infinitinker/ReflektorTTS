@@ -71,7 +71,7 @@ constexpr auto make_device_detours(std::index_sequence<N...>) {
 constexpr auto kDeviceDetours = make_device_detours(std::make_index_sequence<kMaxDeviceClasses>());
 
 bool hook_device_class(void** vtable) {
-    std::lock_guard lock(g_mutex);
+    std::scoped_lock lock(g_mutex);
     for (int i = 0; i < g_device_count; ++i) {
         if (g_devices[i].vtable == vtable) {
             return true;
@@ -98,7 +98,7 @@ struct FactoryClass {
     CreateDeviceFn create_device = nullptr;
 };
 constexpr int kMaxFactoryClasses = 2;
-FactoryClass g_factories[kMaxFactoryClasses];
+std::array<FactoryClass, kMaxFactoryClasses> g_factories{};
 int g_factory_count = 0;
 CreateDeviceExFn g_original_create_device_ex = nullptr;
 
@@ -129,7 +129,7 @@ constexpr std::array<CreateDeviceFn, kMaxFactoryClasses> kFactoryDetours{&create
                                                                          &create_device_detour<1>};
 
 bool hook_factory_class(void** vtable, bool is_ex) {
-    std::lock_guard lock(g_mutex);
+    std::scoped_lock lock(g_mutex);
     int n = 0;
     while (n < g_factory_count && g_factories[n].vtable != vtable) {
         ++n;

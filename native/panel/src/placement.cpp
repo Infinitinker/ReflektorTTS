@@ -48,8 +48,9 @@ WindowSize place_window(SDL_Window* window, const std::optional<Dock>& dock, flo
     // that pixel's display rather than moved to it, which would put it on the other display.
     float density = pixel_density(window);
     const int inside_x = dock->side == DockSide::Right ? dock->x : dock->x - 1;
+    const int middle_y = dock->y + dock->height / 2;
     const SDL_Point inside{rounded(static_cast<float>(inside_x) / density),
-                           rounded(static_cast<float>(dock->y + dock->height / 2) / density)};
+                           rounded(static_cast<float>(middle_y) / density)};
     SDL_DisplayID display = SDL_GetDisplayForPoint(&inside);
     if (display == 0) {
         display = SDL_GetPrimaryDisplay();

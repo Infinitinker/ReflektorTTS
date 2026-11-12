@@ -17,7 +17,7 @@ namespace reflektortts {
 #ifdef _WIN32
 
 FrameInsets visible_frame_insets(SDL_Window* window) {
-    auto hwnd = static_cast<HWND>(
+    auto* hwnd = static_cast<HWND>(
         SDL_GetPointerProperty(SDL_GetWindowProperties(window), SDL_PROP_WINDOW_WIN32_HWND_POINTER, nullptr));
     RECT client{};
     POINT origin{};

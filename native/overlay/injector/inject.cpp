@@ -110,6 +110,8 @@ bool load_library_in(HANDLE process, DWORD process_id, const std::filesystem::pa
 
 }  // namespace
 
+// The program's entry point, found by its name, so it keeps external linkage.
+// NOLINTNEXTLINE(misc-use-internal-linkage)
 int wmain(int argc, wchar_t** argv) {
     // Messages are written as UTF-8, the encoding the core reads them in: paths and process
     // names can hold any character, and the default C locale cuts a message off at the first

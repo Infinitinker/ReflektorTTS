@@ -14,7 +14,7 @@ public:
     ProbeWindow(const ProbeWindow&) = delete;
     ProbeWindow& operator=(const ProbeWindow&) = delete;
 
-    HWND handle() const { return window_; }
+    [[nodiscard]] HWND handle() const { return window_; }
 
 private:
     HWND window_;

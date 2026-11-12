@@ -38,7 +38,11 @@ bool is_loaded(const wchar_t* module_name) {
 constexpr ULONGLONG kJustStartedSeconds = 10;
 
 bool app_just_started() {
-    FILETIME created{}, exited{}, kernel{}, user{}, now{};
+    FILETIME created{};
+    FILETIME exited{};
+    FILETIME kernel{};
+    FILETIME user{};
+    FILETIME now{};
     GetProcessTimes(GetCurrentProcess(), &created, &exited, &kernel, &user);
     GetSystemTimeAsFileTime(&now);
     auto ticks = [](FILETIME time) { return (ULONGLONG{time.dwHighDateTime} << 32) | time.dwLowDateTime; };
@@ -60,7 +64,10 @@ DWORD WINAPI start_overlay(LPVOID) {
     HANDLE dll_loaded = CreateEventW(nullptr, FALSE, FALSE, nullptr);
     bool notified = dll_loaded != nullptr && signal_on_dll_load(dll_loaded);
 
-    bool tried_d3d12 = false, tried_dxgi = false, tried_d3d9 = false, client_started = false;
+    bool tried_d3d12 = false;
+    bool tried_dxgi = false;
+    bool tried_d3d9 = false;
+    bool client_started = false;
     while (!(tried_d3d12 && tried_dxgi && tried_d3d9)) {
         bool hooked = false;
         if (!tried_d3d12 && is_loaded(L"d3d12.dll")) {
@@ -93,7 +100,9 @@ DWORD WINAPI start_overlay(LPVOID) {
 
 }  // namespace
 
-// The loader lock is held here, so hooking happens on a separate thread.
+// The loader lock is held here, so hooking happens on a separate thread. The loader finds the
+// entry point by its name, so it keeps external linkage.
+// NOLINTNEXTLINE(misc-use-internal-linkage)
 BOOL WINAPI DllMain(HINSTANCE module, DWORD reason, LPVOID) {
     if (reason == DLL_PROCESS_ATTACH) {
         DisableThreadLibraryCalls(module);
