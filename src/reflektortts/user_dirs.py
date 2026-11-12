@@ -18,6 +18,11 @@ def data_dir() -> Path:
     return platformdirs.user_data_path(app_name(), appauthor=False)
 
 
+def profiles_dir() -> Path:
+    """The user's own profiles, next to the bundled ones."""
+    return data_dir() / "profiles"
+
+
 def state_dir() -> Path:
     return platformdirs.user_state_path(app_name(), appauthor=False)
 

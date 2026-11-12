@@ -79,7 +79,7 @@ from reflektortts.sinks.tts.narrator import Narrator
 from reflektortts.sinks.tts.preview import VoicePreview
 from reflektortts.sinks.tts.sink import TtsSink
 from reflektortts.tts.engine import VoiceError, VoiceInfo, available_voices, find_voice
-from reflektortts.user_dirs import cache_dir, data_dir, state_dir
+from reflektortts.user_dirs import cache_dir, state_dir
 
 logger = logging.getLogger(__name__)
 
@@ -90,10 +90,6 @@ its memory is torn down before Windows counts the process as gone, so sources fa
 EXIT_CHECK_SECONDS = 0.1
 INTEGRATIONS_FOLDER = "integrations"
 """In the state folder: one JSON file per integration, named after it, that it may keep its state in."""
-
-
-def default_profiles_dir() -> Path:
-    return data_dir() / "profiles"
 
 
 def load_download_sources() -> dict[str, DownloadSource]:

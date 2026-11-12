@@ -5,7 +5,7 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-from reflektortts.core import default_profiles_dir
+from reflektortts.user_dirs import profiles_dir
 
 
 @dataclass(frozen=True)
@@ -24,7 +24,7 @@ def parse_arguments(program: str, argv: list[str] | None = None, desktop: bool =
     parser.add_argument(
         "--profiles",
         type=Path,
-        default=default_profiles_dir(),
+        default=profiles_dir(),
         help="folder with app profiles (default: %(default)s)",
     )
     parser.add_argument(

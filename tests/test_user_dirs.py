@@ -31,7 +31,8 @@ def test_logs_and_cache_are_the_systems_own_elsewhere() -> None:
 
 
 def test_each_folder_is_named_after_this_reflektortts() -> None:
-    for folder in (user_dirs.config_dir(), user_dirs.data_dir(), user_dirs.state_dir(), user_dirs.cache_dir()):
+    folders = (user_dirs.config_dir(), user_dirs.data_dir(), user_dirs.profiles_dir(), user_dirs.state_dir())
+    for folder in (*folders, user_dirs.cache_dir()):
         assert "ReflektorTTS E2E" in folder.parts
 
 
