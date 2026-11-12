@@ -23,7 +23,7 @@ void draw_hint() {
     ImGui::Begin("##hint", nullptr,
                  ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_AlwaysAutoResize |
                      ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav);
-    ImGui::TextUnformatted("ReflektorTTS: Ctrl+Shift+R opens settings");
+    ImGui::TextUnformatted("ReflektorTTS: Ctrl+Shift+R opens the panel");
     ImGui::End();
 }
 
