@@ -1,5 +1,5 @@
 """The window's Settings tab: settings of ReflektorTTS itself, not of the apps it reads (those are set
-in the overlay's panel): whether it starts with Windows, and where its files are."""
+in the settings panel): whether it starts with Windows, and where its files are."""
 
 import tkinter as tk
 from collections.abc import Callable

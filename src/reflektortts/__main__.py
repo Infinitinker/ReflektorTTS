@@ -15,7 +15,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parse_arguments("reflektortts", argv)
     log_to_console()
     log = logging.getLogger(__name__)
-    log.info("Settings: %s (each app's are set in the overlay or through the API)", config_dir())
+    log.info("Settings: %s (each app's are set in the settings panel or through the API)", config_dir())
     try:
         run(args.profiles, config_dir(), args.overlay, threading.Event())
     except ApiError as error:

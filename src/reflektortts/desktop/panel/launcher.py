@@ -1,4 +1,4 @@
-"""Opens the settings window, reflektortts-panel: the overlay's settings panel for one profile, in a
+"""Opens the settings window, reflektortts-panel: the settings panel for one profile, in a
 window of its own, so an app can be set up whether or not it runs, and also apps without the overlay.
 
 The window is a program of its own (C++, see native/README.md), started with --profile <id>, the
