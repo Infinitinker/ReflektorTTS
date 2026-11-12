@@ -18,10 +18,10 @@ public:
     using std::runtime_error::runtime_error;
 };
 
-// Which side of the desktop app's window the panel opens on.
+// Which side of the ReflektorTTS window the panel opens on.
 enum class DockSide { Right, Left };
 
-// Where the panel opens: beside the desktop app's window, as tall as it. In physical pixels of the
+// Where the panel opens: beside the ReflektorTTS window, as tall as it. In physical pixels of the
 // screen, measured on the window's visible frame (without Windows' invisible resize borders).
 struct Dock {
     DockSide side = DockSide::Right;

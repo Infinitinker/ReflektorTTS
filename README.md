@@ -67,7 +67,7 @@ Rather not install anything? Download `ReflektorTTS-<version>-windows-x64.zip` i
   </tr>
 </table>
 
-## The desktop window
+## The ReflektorTTS window
 
 ReflektorTTS runs next to the clock: its icon there opens the window, pauses reading, switches **Start with Windows** on or off, or quits. Closing the window leaves ReflektorTTS running.
 

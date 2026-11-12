@@ -1,4 +1,4 @@
-// Runs the panel's window: opens it, beside the desktop app's window or centered, and draws the
+// Runs the panel's window: opens it, beside the ReflektorTTS window or centered, and draws the
 // API client's state in it until the user closes it.
 
 #pragma once

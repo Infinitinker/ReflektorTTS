@@ -1,4 +1,4 @@
-"""The desktop app's window: a Status tab, a Profiles tab, one tab per kind of download (voices,
+"""The ReflektorTTS window: a Status tab, a Profiles tab, one tab per kind of download (voices,
 translations), a Settings tab and a status bar."""
 
 import tkinter as tk

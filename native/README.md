@@ -90,11 +90,11 @@ reflektortts-panel --profile grand-theft-auto-2-1999 --port 47821 --dock-side ri
 
 The `--dock-*` arguments go together, all four or none, and are in physical pixels of the screen, measured on the windows' visible frames (title bar included, Windows' invisible resize borders not):
 
-- `--dock-side right|left`: which side of the desktop window it opens on;
+- `--dock-side right|left`: which side of the ReflektorTTS window it opens on;
 - `--dock-x <x>`: the edge the two windows share: the panel's left edge (its first pixel) when it opens on the right, its right edge (the first pixel past it, as in Windows' rectangles) when on the left. The panel opens on the display of its pixel next to that edge;
 - `--dock-y <y>` and `--dock-height <height>`: the top and height of both windows.
 
-The desktop app opens it on the right of its window if it fits on that display, else on the left; if it fits on neither side, over the desktop window at the display's right edge (`src/reflektortts/desktop/panel/dock.py`). Without them, which the desktop app leaves out where Windows cannot tell where its window is, the panel opens centered on the main display, 600 high. Either way it opens as wide as the settings panel and a scrollbar, and cannot be made smaller than it opened, only bigger. Without `--profile <id>`, or with an argument it does not know or a wrong value, it says how to start it (on standard error and in a message box) and exits with 2.
+The desktop app opens it on the right of its window if it fits on that display, else on the left; if it fits on neither side, over the ReflektorTTS window at the display's right edge (`src/reflektortts/desktop/panel/dock.py`). Without them, which the desktop app leaves out where Windows cannot tell where its window is, the panel opens centered on the main display, 600 high. Either way it opens as wide as the settings panel and a scrollbar, and cannot be made smaller than it opened, only bigger. Without `--profile <id>`, or with an argument it does not know or a wrong value, it says how to start it (on standard error and in a message box) and exits with 2.
 
 Asking the desktop app for a profile's window while it is open brings that window to the front, restored if it was minimized.
 

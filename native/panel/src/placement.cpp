@@ -1,4 +1,4 @@
-// Sizes the window and places it where it opens: beside the desktop app's window, or centered on
+// Sizes the window and places it where it opens: beside the ReflektorTTS window, or centered on
 // the main display.
 
 #include "placement.h"

@@ -1,4 +1,4 @@
-"""The desktop window's colors and fonts, shared by its tabs.
+"""The ReflektorTTS window's colors and fonts, shared by its tabs.
 
 Fonts are derived from Tk's named fonts, so they follow the system's (Segoe UI on Windows).
 """

@@ -1,6 +1,6 @@
 # Local API (v1)
 
-Every ReflektorTTS user interface, the desktop app's window and the overlay alike, controls the core through this API. It is served by the core only on the local machine, on **`http://127.0.0.1:47821/v1`** for an installed ReflektorTTS. A run from source has a port of its own, 47822, and the end-to-end test's run 47823 (`identity.py`), so neither keeps the installed one from starting. The core gives the overlay its port when it loads it into an app, and the desktop app gives the settings window the same port when it opens it; started by hand without one, they connect to 47821.
+Every ReflektorTTS user interface, the ReflektorTTS window and the overlay alike, controls the core through this API. It is served by the core only on the local machine, on **`http://127.0.0.1:47821/v1`** for an installed ReflektorTTS. A run from source has a port of its own, 47822, and the end-to-end test's run 47823 (`identity.py`), so neither keeps the installed one from starting. The core gives the overlay its port when it loads it into an app, and the desktop app gives the settings window the same port when it opens it; started by hand without one, they connect to 47821.
 
 Requests and responses are JSON (UTF-8). There is no authentication, but web pages are kept out: a page open in the user's browser can also reach 127.0.0.1, so the API refuses what only browsers send (see [Requests from web pages](#requests-from-web-pages)).
 

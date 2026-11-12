@@ -1,4 +1,4 @@
-// Where the panel's window opens and at what size: beside the desktop app's window or centered on
+// Where the panel's window opens and at what size: beside the ReflektorTTS window or centered on
 // the main display, wide enough for the settings panel. That size is also its smallest.
 
 #pragma once
@@ -17,7 +17,7 @@ struct WindowSize {
     float height = 0.0f;
 };
 
-// Sizes and moves the window, not shown yet, to where it opens: beside the desktop app's window as
+// Sizes and moves the window, not shown yet, to where it opens: beside the ReflektorTTS window as
 // dock says, as tall as it, or else centered on the main display, 600 high. Either way it is wide
 // enough to show the overlay panel's contents (kSettingsPanelWidth) besides a scrollbar of
 // scrollbar_width, ImGui's at 100%. Returns the size it opens at, which is also its smallest.
