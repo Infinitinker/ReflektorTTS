@@ -16,7 +16,7 @@ A profile is one JSON file that tells ReflektorTTS how to recognize an app and w
 2. Edit it in any text editor, saved as UTF-8, and choose **Reload**. A profile with a mistake is shown as broken, with the reason.
 3. Use the app and check that its text is read. List the `sha256` of each build you tested, which a profile with the overlay must do: once a profile lists builds, the Status tab shows the SHA-256 of any other build it meets.
 4. Give it a `rating` medal for how far you tested it, from `bronze` (tried briefly) to `platinum` (every text read, tested to the end); [docs/profiles.md](docs/profiles.md) says what each one takes.
-5. Share it: open a pull request that adds it to `src/reflektortts/profiles/bundled/`, with its row and section in [SUPPORTED_APPS.md](SUPPORTED_APPS.md), or attach it to an app support issue.
+5. Share it: open a pull request that adds it to `src/reflektortts/profiles/bundled/`, with its row and section in [SUPPORTED-APPS.md](SUPPORTED-APPS.md), or attach it to an app support issue.
 
 Name the file after the app and its release year, in lowercase with dashes, like `grand-theft-auto-2-1999.json`.
 

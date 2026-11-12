@@ -35,14 +35,14 @@ ReflektorTTS reads an app's text aloud as it appears on screen, and can translat
 
 ## Supported apps
 
-ReflektorTTS reads games such as Grand Theft Auto III, Vice City, San Andreas and Mad Max, and the subtitles of videos in VLC media player. [SUPPORTED_APPS.md](SUPPORTED_APPS.md) lists every app it reads, which edition, what is read in it, and a medal for how far it is tested. More apps can be added without changing ReflektorTTS itself; see [Profiles](#profiles).
+ReflektorTTS reads games such as Grand Theft Auto III, Vice City, San Andreas and Mad Max, and the subtitles of videos in VLC media player. [SUPPORTED-APPS.md](SUPPORTED-APPS.md) lists every app it reads, which edition, what is read in it, and a medal for how far it is tested. More apps can be added without changing ReflektorTTS itself; see [Profiles](#profiles).
 
 ## Getting started
 
 1. **Download** `ReflektorTTS-<version>-windows-x64-setup.exe` from the [latest release](https://github.com/Infinitinker/ReflektorTTS/releases/latest) and run it. It installs ReflektorTTS for you alone, without asking for administrator rights, or, if you choose, for all users of the computer.
 2. **Start ReflektorTTS** from the installer's last page or the Start menu. Its icon appears next to the clock; click it to open the window.
 3. **Start a supported app.** ReflektorTTS notices it and reads its text aloud, with a voice Windows already has.
-4. **Choose the voice**, the languages, the reading speed and more: press **Ctrl+Shift+R** in a game with the overlay ([SUPPORTED_APPS.md](SUPPORTED_APPS.md) says which), or, for any app, choose **App settings…** in the window's Status tab while the app is read.
+4. **Choose the voice**, the languages, the reading speed and more: press **Ctrl+Shift+R** in a game with the overlay ([SUPPORTED-APPS.md](SUPPORTED-APPS.md) says which), or, for any app, choose **App settings…** in the window's Status tab while the app is read.
 
 For better voices, or to translate, download them in the window's **Voices** and **Translations** tabs.
 
@@ -150,7 +150,7 @@ Profiles for more apps, fixes and ideas are welcome: see [CONTRIBUTING.md](CONTR
 
 Further documentation:
 
-- [SUPPORTED_APPS.md](SUPPORTED_APPS.md): the apps ReflektorTTS reads, and how far each is tested
+- [SUPPORTED-APPS.md](SUPPORTED-APPS.md): the apps ReflektorTTS reads, and how far each is tested
 - [docs/profiles.md](docs/profiles.md): profiles and their format
 - [native/README.md](native/README.md): the native code: the overlay, and the code it shares
 - [docs/architecture.md](docs/architecture.md): how ReflektorTTS is built, and what is planned

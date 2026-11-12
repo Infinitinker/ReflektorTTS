@@ -1,4 +1,4 @@
-"""SUPPORTED_APPS.md lists exactly the bundled profiles, each with its own medal and overlay."""
+"""SUPPORTED-APPS.md lists exactly the bundled profiles, each with its own medal and overlay."""
 
 import re
 from pathlib import Path
@@ -6,7 +6,7 @@ from pathlib import Path
 from reflektortts.profiles.catalog import BUNDLED_DIR, load_catalog
 from reflektortts.profiles.model import Profile, Rating
 
-SUPPORTED_APPS = Path(__file__).parents[2] / "SUPPORTED_APPS.md"
+SUPPORTED_APPS = Path(__file__).parents[2] / "SUPPORTED-APPS.md"
 MEDALS = {
     Rating.BRONZE: "🥉 Bronze",
     Rating.SILVER: "🥈 Silver",
