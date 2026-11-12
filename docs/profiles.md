@@ -12,7 +12,7 @@ A profile describes one app: how to recognize it, where to read its text, and ho
 
 The desktop app's Profiles tab lists them all with their medal (see `rating` below) and state, and does the rest. For a profile that needs an integration, **Integration…** opens a window with a group for it, named after it, which says what it changes and whether it is enabled, with a button that enables or disables it. **Copy to edit** copies a bundled profile to your folder (where it replaces the bundled one) and shows it there for your editor; **Remove** deletes your own file; **Import…** adds a profile file to your own once it is checked (a broken one is refused with the reason); **Reload** reads the files again after you edit them. A changed profile applies the next time its app starts.
 
-The profile format is not finalized yet. Its JSON Schema is `src/reflektortts/profiles/profile.schema.json`; a full guide to writing and contributing profiles will be added here once the format settles.
+[Writing a profile](#writing-a-profile) below walks through writing one, step by step, with no programming. The profile format is not final yet: [what may still change](#what-may-still-change) says which parts. Its JSON Schema is `src/reflektortts/profiles/profile.schema.json`.
 
 An editor that understands JSON Schema (e.g. Visual Studio Code) checks a profile as you type and suggests its fields when the profile names the schema in a `$schema` field:
 
@@ -25,6 +25,113 @@ An editor that understands JSON Schema (e.g. Visual Studio Code) checks a profil
 ```
 
 ReflektorTTS ignores that field. The editor checks only the profile's own fields; the fields of each source and stage are checked by their plugins when ReflektorTTS loads the profile.
+
+## Writing a profile
+
+This guide takes you from an app ReflektorTTS does not know to a profile that reads it aloud. You need no programming, only:
+
+- a text editor: Notepad will do, and Visual Studio Code also checks the profile as you type (see `$schema` above);
+- for a game, [Cheat Engine](https://www.cheatengine.org/), a free tool that finds where a game keeps its text in memory. Its installer may offer other software: decline it.
+
+The steps use Grand Theft Auto 2 as the example; its bundled profile, `grand-theft-auto-2-1999.json`, is where they end. For an app that ReflektorTTS reads in another way, such as VLC, copy its profile instead and change only what differs.
+
+### What may still change
+
+The format is not final yet. Profiles keep working across updates: each has a `version`, and ReflektorTTS migrates older ones when it reads them. But this guide may change with the format, in these parts:
+
+- the fields of each source and stage, which come from their plugins and may gain new settings;
+- the sources and stages there are: new ones are added as more apps are supported;
+- the steps with Cheat Engine, which suit games that keep their text as plain strings; games that do not may need another source.
+
+### 1. Start the file
+
+In the ReflektorTTS window's Profiles tab, select a bundled profile close to your app and choose **Copy to edit**, or create a new file in `%LOCALAPPDATA%\ReflektorTTS\profiles\`, named after the app as [Naming](#naming) says, such as `grand-theft-auto-2-1999.json`. Start with what recognizes the app:
+
+```json
+{
+  "version": 1,
+  "app": { "title": "Grand Theft Auto 2", "year": 1999 },
+  "match": {
+    "executables": [{ "name": "gta2.exe" }]
+  }
+}
+```
+
+`name` is the file name of the app's program: look in the app's folder, or in Task Manager's **Details** tab while it runs. Save the file as UTF-8, choose **Reload** in the Profiles tab, and start the app. The Status tab then says it is reading it; a profile with a mistake is shown as broken in the Profiles tab instead, with the reason.
+
+### 2. Note the app's version
+
+A game's text sits at different places in different versions of it (retail, patched, Steam), so a profile for a game names each version it was written for by its SHA-256, a fingerprint of its program file. To get it, list a made-up one, 64 zeros, and reload:
+
+```json
+"executables": [{ "name": "gta2.exe", "sha256": ["0000000000000000000000000000000000000000000000000000000000000000"] }]
+```
+
+Start the app: the Status tab says this version is not supported yet and shows its SHA-256, and the log has it too, to copy (Settings tab, **Open logs folder**, `reflektortts.log`). Put it in place of the zeros. If you have PowerShell at hand, `Get-FileHash gta2.exe` in the app's folder shows it as well; write it in lowercase.
+
+### 3. Find the text in memory
+
+Cheat Engine finds the place in memory where the game keeps the line it shows, and then a pointer chain: the way to that place from a fixed point in the game's program, which stays the same each time the game starts.
+
+1. Start the game and get a line of text on screen, such as a subtitle or a message.
+2. Start Cheat Engine, click the computer icon at the top left (**Open Process**) and choose the game's program.
+3. Set **Value Type** to **String**, type a few words of the shown line exactly as shown, and click **First Scan**. If nothing is found, tick **UTF-16** and scan again: many games keep text that way.
+4. When the game shows another line, type a few of its words and click **Next Scan**. Repeat until only a few addresses are left; the one that always holds the line on screen is the one you want. Double-click it to add it to the list at the bottom.
+5. That address changes each time the game starts, so find a pointer chain to it: right-click it in the list, choose **Pointer scan for this address**, keep the settings, click **OK** and save the scan.
+6. Close the game, start it again, and find the line's address again (steps 3 and 4). In the pointer scan window, choose **Pointer scanner > Rescan memory** and give it the new address. Do this once or twice more: what is left works every time.
+7. Choose a result whose **Base Address** starts with the game's program, such as `"gta2.exe"+272F40`, and with few offsets.
+
+In the profile, that result is the base `address` without the quotes, `"gta2.exe+272F40"`, and its offsets in the order of the columns, **Offset 0** first: `["E4"]`.
+
+The `encoding` follows from how you found the text: `utf-16le` if you ticked UTF-16, otherwise `cp1252` for most games in Western European languages, `cp1250` for games in Central European ones (Polish, Czech, Hungarian), or `utf-8` if letters with accents look wrong with those.
+
+For a game on Avalanche Studios' engine (the `avalanche` source), look for the shown line's ID instead of its text: set **Value Type** to **4 Bytes** and scan for the exact value 0 while no subtitle shows, then **Changed value** when one appears, **Unchanged value** while it stays, and 0 again after it is gone. Then find its pointer chain the same way.
+
+### 4. Add the source
+
+Add a `sources` list with a `memory` source, whose pointer chain names the version you found it in (`exe_sha256`, the SHA-256 from step 2):
+
+```json
+"sources": [
+  {
+    "type": "memory",
+    "name": "subtitles",
+    "encoding": "utf-16le",
+    "pointers": [
+      {
+        "exe_sha256": "420af867036b1a66ef94c54b8db2e7e654da359031987c6602bcfa74972e089f",
+        "address": "gta2.exe+272F40",
+        "offsets": ["E4"]
+      }
+    ],
+    "stages": [
+      { "type": "tracker" }
+    ]
+  }
+]
+```
+
+A game that shows text in several places, such as subtitles and a help box, gets one source for each, with its own `name`. Another version of the game gets its SHA-256 in `match` and its own entry in `pointers`.
+
+### 5. Clean up the text
+
+The `stages` of a source work on each line before it is shown and spoken, in order. Start with `tracker`, which every source like this needs: it passes a line on once it has stayed on screen for a moment, and not again until it changes. Then add what the app's text needs, as [the format](#format-version-1) describes each stage:
+
+- `replace`, if the app's text has formatting marks: GTA2 writes colored words as `#word#`, and `{"pattern": "#([^#]*)#", "replace": "\\1"}` keeps the word without the marks;
+- `translate`, so the voice can read the app in another language (lektor mode);
+- `normalize`, usually only for speech (`"text": false`), so numbers and amounts are spoken as words.
+
+If names come out wrong, add a `glossary`: names to keep untranslated, slang to translate by its meaning, and how a voice should pronounce a name.
+
+### 6. Test
+
+Choose **Reload** after each change and start the app again: a changed profile applies the next time its app starts. Play through a few scenes and listen. The Status tab says when a source cannot read the app, and what to do; the log has the details. If lines are read twice or cut short, change the `tracker`'s `stable_ms`; if menus or other text are read as garbage, check the pointer chain again with Cheat Engine after restarting the game.
+
+Leave `overlay` off until the rest works. It loads the overlay into the app, so it needs the `sha256` of every version the profile lists, and should be tried in each.
+
+### 7. Rate and share
+
+Give the profile a `rating` medal for how far you tested it yourself, from `bronze` to `platinum`, as [the format](#format-version-1) describes. Then share it, as [CONTRIBUTING.md](../CONTRIBUTING.md#contributing-a-profile) says: in a pull request, or attached to an app support issue.
 
 ## Format (version 1)
 

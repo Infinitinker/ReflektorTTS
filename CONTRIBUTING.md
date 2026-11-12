@@ -10,7 +10,7 @@ Everything in the project is written in English, with American spelling (license
 
 ## Contributing a profile
 
-A profile is one JSON file that tells ReflektorTTS how to recognize a game and where its text is. [docs/profiles.md](docs/profiles.md) explains the format.
+A profile is one JSON file that tells ReflektorTTS how to recognize a game and where its text is. [Writing a profile](docs/profiles.md#writing-a-profile) walks through writing one, finding the game's text with Cheat Engine included, and [docs/profiles.md](docs/profiles.md) explains the format.
 
 1. In the ReflektorTTS window's Profiles tab, select a bundled profile close to what you need and choose **Copy to edit**, or start a new file in `%LOCALAPPDATA%\ReflektorTTS\profiles\`.
 2. Edit it in any text editor, saved as UTF-8, and choose **Reload**. A profile with a mistake is shown as broken, with the reason.
