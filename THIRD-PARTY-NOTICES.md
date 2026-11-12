@@ -22356,3 +22356,37 @@ DEALINGS IN THE SOFTWARE.
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 ```
+
+### Microsoft Visual C++ runtime (Microsoft Visual C++ Redistributable terms)
+
+The runtime of the Python packages' native libraries, which tools/build_release.py takes from the Visual C++ Redistributable installed on the build machine (tools/msvc_runtime.py).
+
+Source: https://learn.microsoft.com/cpp/windows/redistributing-visual-cpp-files
+
+```text
+Microsoft Visual C++ runtime
+Copyright (c) Microsoft Corporation. All rights reserved.
+
+The release ships these files of the Microsoft Visual C++ runtime, which
+onnxruntime, CTranslate2, sentencepiece and NumPy need:
+
+    _internal/vcruntime140.dll
+    _internal/vcruntime140_1.dll
+    _internal/msvcp140.dll
+    _internal/msvcp140_1.dll
+    _internal/numpy.libs/msvcp140-<hash>.dll (the copy NumPy's package
+        comes with)
+
+They are Distributable Code under the Microsoft Software License Terms
+for Microsoft Visual Studio and the Visual C++ Redistributable, which
+allow distributing them, unmodified, with a program that uses them. The
+files Microsoft lists as redistributable, and the terms, are at:
+
+    https://learn.microsoft.com/cpp/windows/redistributing-visual-cpp-files
+    https://visualstudio.microsoft.com/license-terms/
+
+They are not under ReflektorTTS's license. They are a System Library in
+the sense of section 1 of the GNU General Public License version 3: they
+come with the major component of the operating system (the Microsoft
+C/C++ compiler and Windows) and serve only to run programs with it.
+```

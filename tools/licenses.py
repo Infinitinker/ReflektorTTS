@@ -114,6 +114,14 @@ EXCEPTIONS = (
         "The GCC runtime libraries are under the GPL-3.0 with the GCC Runtime Library Exception; the MinGW-w64 "
         "runtime and winpthreads under permissive notices (tools/licenses/native-mingw-w64.txt).",
     ),
+    Allowance(
+        "msvc-runtime",
+        "Microsoft Visual C++ Redistributable terms",
+        "Microsoft's terms for the Visual C++ Redistributable allow shipping its DLLs, unmodified, with a "
+        "program that uses them; and they are System Libraries in the sense of section 1 of the GPL-3.0, "
+        "so the GPL does not require their source. Covers the four DLLs tools/msvc_runtime.py installs and "
+        "the msvcp140-<hash>.dll in numpy.libs.",
+    ),
 )
 """Licenses allowed for one component each, by its key: the canonical package name, the name of a
 notice's text in tools/licenses without .txt, or python."""

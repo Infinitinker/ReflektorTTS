@@ -87,9 +87,18 @@ NATIVE_NOTICES = (
         "winpthreads come with these notices.",
         "https://www.mingw-w64.org",
     ),
+    Notice(
+        "Microsoft Visual C++ runtime",
+        "Microsoft Visual C++ Redistributable terms",
+        "msvc-runtime.txt",
+        "The runtime of the Python packages' native libraries, which tools/build_release.py takes from the "
+        "Visual C++ Redistributable installed on the build machine (tools/msvc_runtime.py).",
+        "https://learn.microsoft.com/cpp/windows/redistributing-visual-cpp-files",
+    ),
 )
-"""The libraries of the native programs (native/), which CMake fetches at configure time. Update an
-entry and its text when native/CMakeLists.txt moves to another version."""
+"""The native libraries a release ships that come from no Python package: those of the native programs
+(native/), which CMake fetches at configure time, and Microsoft's Visual C++ runtime. Update an entry
+and its text when native/CMakeLists.txt moves to another version."""
 COPYLEFT = re.compile(r"GPL|General Public|MPL|Mozilla Public", re.IGNORECASE)
 
 

@@ -238,5 +238,5 @@ allowed_importers = [
 ]
 
 [[tool.mypy.overrides]]
-module = ["sounddevice", "num2words", "ctranslate2", "sacremoses", "subword_nmt.*", "sentencepiece", "pycaw.*", "comtypes", "pystray", "PyInstaller.*", "onnxruntime", "winrt.*", "Xlib.*"]
+module = ["sounddevice", "num2words", "ctranslate2", "sacremoses", "subword_nmt.*", "sentencepiece", "pycaw.*", "comtypes", "pystray", "PyInstaller.*", "onnxruntime", "pefile", "winrt.*", "Xlib.*"]
 ignore_missing_imports = true

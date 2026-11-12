@@ -32,6 +32,14 @@ from importlib.metadata import metadata, version
 from pathlib import Path
 
 import PyInstaller.__main__
+from msvc_runtime import (
+    RuntimeSourceError,
+    check_versions,
+    install_runtime,
+    runtime_source,
+    source_versions,
+    system_path,
+)
 from notices import NOTICES, SHIPPED_AS, is_current, notices, shipped_distributions
 from packaging.version import Version
 from sources import check_sources, write_sources
@@ -242,7 +250,14 @@ def build_exe(release: str, copyright: str) -> Path:
     ]
     for option, packages in COLLECT.items():
         arguments += [f"{option}={package}" for package in packages]
-    PyInstaller.__main__.run(arguments)
+    # PyInstaller looks for the DLLs binaries import on PATH too: only the Windows folders, so nothing
+    # else installed on the build machine is taken (tools/msvc_runtime.py).
+    path = os.environ["PATH"]
+    os.environ["PATH"] = system_path()
+    try:
+        PyInstaller.__main__.run(arguments)
+    finally:
+        os.environ["PATH"] = path
     return (BUILD / "dist" / EXE).rename(BUILD / "dist" / NAME)
 
 
@@ -310,8 +325,15 @@ def main() -> None:
     mark = "-draft" if draft else ""
     sources = f"{NAME}-{release}-sources.zip"
 
-    folder = build_exe(release, copyright)
-    remove_unused(folder)
+    runtime_folder = runtime_source()
+    try:
+        check_versions(source_versions(runtime_folder), None)  # Before the long build, what is missing at least.
+        folder = build_exe(release, copyright)
+        remove_unused(folder)
+        runtime = install_runtime(folder / "_internal", runtime_folder)
+    except RuntimeSourceError as error:
+        raise SystemExit(str(error)) from error
+    print(f"Visual C++ runtime {'.'.join(map(str, runtime))} from {runtime_folder}")
     copy_overlay(folder)
     copy_panel(folder)
     (folder / SHIPPED_AS).write_text(third_party, "utf-8", newline="\r\n")
