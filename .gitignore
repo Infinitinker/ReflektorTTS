@@ -1,25 +1,32 @@
-# Python
+# Python: the virtual environment, bytecode and package metadata
 __pycache__/
 *.py[cod]
 .venv/
 *.egg-info/
+
+# Build output: the release and end-to-end builds, and the native builds (native/build, native/build64)
 build/
 build64/
 dist/
 
-# Tools
+# Caches of the checks, and test coverage
 .pytest_cache/
 .ruff_cache/
 .mypy_cache/
+.coverage
+htmlcov/
 
-# Editors, tools and logs
+# Editors and their personal settings
 .vscode/
 .idea/
 .vs/
-.claude/settings.local.json
 CMakeUserPresets.json
-.coverage
-htmlcov/
+
+# Claude Code's personal files; the rest of .claude/ is shared
+.claude/settings.local.json
+.claude/launch.json
+
+# Logs
 *.log
 
 # Never committed: secrets, and crash dumps, which can hold an app's memory
