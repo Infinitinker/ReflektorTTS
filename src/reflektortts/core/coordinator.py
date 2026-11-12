@@ -537,7 +537,7 @@ class Core:
         remembered."""
         voice = self._voice_for(self._settings.output_language, self._settings.voice)
         if voice is None:
-            # Closed first, so that taking the chosen voice starts no speech process for it.
+            # Closed first, so that taking the chosen voice starts no TTS process for it.
             self._narrator.close()
             self._narrator.use_voice(self._settings.voice)
             if self._app is not None:

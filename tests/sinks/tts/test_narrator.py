@@ -154,12 +154,12 @@ def test_close_closes_the_service() -> None:
     assert clients.started[0].closed
 
 
-def test_pause_and_stop_work_after_the_speech_process_died() -> None:
+def test_pause_and_stop_work_after_the_tts_process_died() -> None:
     clients = Clients()
     narrator = started(clients)
 
     def dead(drop_waiting: bool) -> None:
-        raise TtsServiceError("The speech service stopped (exit code 1); see the log for why.")
+        raise TtsServiceError("Speech stopped working (exit code 1): see the log.")
 
     clients.started[0].stop = dead  # type: ignore[method-assign]
 

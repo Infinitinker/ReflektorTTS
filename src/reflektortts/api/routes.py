@@ -80,7 +80,7 @@ async def profile_settings_response(
     request: web.Request, act: Callable[[CoreControl, str], ProfileSettingsView]
 ) -> web.Response:
     """Runs act on the core with the profile ID in the path, off the event loop (the core may wait
-    for a speech process while it holds its lock), and answers with the profile's settings."""
+    for a TTS process while it holds its lock), and answers with the profile's settings."""
     try:
         view = await asyncio.to_thread(act, request.app[CORE], request.match_info["id"])
     except UnknownProfileError as error:

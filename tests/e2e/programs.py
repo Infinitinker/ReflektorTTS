@@ -79,7 +79,7 @@ def start_fake_vlc(port: int, password: str, media: Path, log: Path) -> subproce
 
 
 def stop(process: subprocess.Popen[bytes]) -> None:
-    """Kills the process and every process it started (the speech process, the Python a launcher starts)."""
+    """Kills the process and every process it started (the TTS process, the Python a launcher starts)."""
     try:
         parent = psutil.Process(process.pid)
         family = [parent, *parent.children(recursive=True)]

@@ -230,7 +230,7 @@ def _vlcrc_value(key: str) -> str:
 
 
 def _check_logs(report: Report) -> None:
-    """The app's log has no errors. The speech process's log is only reported: a runner may have no
+    """The app's log has no errors. The TTS process's log is only reported: a runner may have no
     voice, or no sound device to speak on."""
     log = (folders.log_folder() / "reflektortts.log").read_text(encoding="utf-8")
     speech = folders.log_folder() / "reflektortts-tts.log"

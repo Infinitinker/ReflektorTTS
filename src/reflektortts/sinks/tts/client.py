@@ -111,5 +111,5 @@ class TtsClient:
             self._connection.send(message)
         except OSError as error:
             raise TtsServiceError(
-                f"The speech service stopped (exit code {self._process.exitcode}); see the log for why."
+                f"Speech stopped working (exit code {self._process.exitcode}): see the log."
             ) from error

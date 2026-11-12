@@ -11,7 +11,7 @@ from tests.api.fake_core import FakeCore, with_client
 
 class BrokenCore(FakeCore):
     def stop_line(self) -> Status:
-        raise RuntimeError("the speech process is gone")
+        raise RuntimeError("the TTS process is gone")
 
 
 def test_an_unknown_path_or_method_is_answered_in_json() -> None:
@@ -30,7 +30,7 @@ def test_an_unexpected_error_is_answered_in_json_and_logged(caplog: pytest.LogCa
         response = await client.post("/v1/stop")
         assert (response.status, await response.json()) == (
             500,
-            {"error": "Something went wrong in ReflektorTTS (the speech process is gone). See the log for details."},
+            {"error": "Something went wrong in ReflektorTTS (the TTS process is gone). See the log for details."},
         )
 
     with_client(BrokenCore(), test)
