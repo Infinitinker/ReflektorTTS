@@ -82,11 +82,6 @@ def _name_words(*names: str) -> set[str]:
     return found | {plain for word in found if (plain := _without_accents(word)).isascii()}
 
 
-def language_words(code: str) -> frozenset[str]:
-    """Words that name the language in subtitle file names."""
-    return frozenset(word for word, named in _languages_named().items() if named == code)
-
-
 def _languages_in(extra: tuple[str, ...], regions: set[tuple[str, str]]) -> set[str]:
     """The languages a file's extra words name, leaving out the regions after language codes."""
     named = _languages_named()

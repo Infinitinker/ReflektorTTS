@@ -6,7 +6,7 @@ import pytest
 
 from reflektortts.sources.vlc.errors import VlcError
 from reflektortts.sources.vlc.formats import FORMATS
-from reflektortts.sources.vlc.subtitles import SubtitleFile, find_subtitles, language_words, legacy_encoding, words
+from reflektortts.sources.vlc.subtitles import SubtitleFile, find_subtitles, legacy_encoding, words
 
 
 def found(media: Path, language: str) -> Path | None:
@@ -145,17 +145,38 @@ def test_subtitles_only_in_formats_not_read_say_which_are_read(tmp_path: Path) -
     assert str(raised.value) == "movie.en.stl is in a format that cannot be read: convert it to movie.srt."
 
 
-def test_a_language_is_named_in_file_names_by_its_codes_and_names() -> None:
-    assert {"fr", "fre", "fra", "french", "français", "francais"} <= language_words("fr")
-    assert {"nb", "nob", "no", "nor", "norwegian", "bokmål", "bokmal", "norsk"} <= language_words("nb")
-    assert language_words("hi") == {"hi", "hin", "hindi", "हिन्दी"}
-    assert "ozbek" in language_words("uz")
+def is_read(folder: Path, word: str, language: str) -> bool:
+    """Whether Movie.<word>.srt is read as the media's subtitles in the language."""
+    media = files(folder, "Movie.mkv", f"Movie.{word}.srt")
+    try:
+        return found(media, language) == folder / f"Movie.{word}.srt"
+    except VlcError:
+        return False
 
 
-def test_a_word_of_several_languages_names_only_the_one_it_is_meant_for() -> None:
-    assert language_words("nn") == {"nn", "nno", "nynorsk"}
-    assert "yi" not in language_words("ii")
-    assert "ndebele" not in language_words("nd") | language_words("nr")
+@pytest.mark.parametrize(
+    ("language", "word"),
+    [
+        *[("fr", word) for word in ("fr", "fre", "fra", "french", "français", "francais")],
+        *[("nb", word) for word in ("nb", "nob", "no", "nor", "norwegian", "bokmål", "bokmal", "norsk")],
+        *[("hi", word) for word in ("hi", "hin", "hindi", "हिन्दी")],
+        ("uz", "ozbek"),
+        *[("nn", word) for word in ("nn", "nno", "nynorsk")],
+        ("yi", "yi"),
+    ],
+)
+def test_a_language_is_named_in_file_names_by_its_codes_and_names(tmp_path: Path, language: str, word: str) -> None:
+    assert is_read(tmp_path, word, language)
+
+
+@pytest.mark.parametrize(
+    ("language", "word"),
+    [("nn", "norwegian"), ("nn", "norsk"), ("ii", "yi"), ("nd", "ndebele"), ("nr", "ndebele")],
+)
+def test_a_word_of_several_languages_names_only_the_one_it_is_meant_for(
+    tmp_path: Path, language: str, word: str
+) -> None:
+    assert not is_read(tmp_path, word, language)
 
 
 @pytest.mark.parametrize(
