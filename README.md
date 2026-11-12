@@ -170,7 +170,7 @@ Ko-fi takes cards and PayPal; buycoffee.to suits Polish supporters, with BLIK an
 
 ## License
 
-Copyright (C) 2026 Infinitinker. ReflektorTTS is free software under the GPL-3.0-or-later; see [LICENSE](LICENSE). [COPYRIGHT](COPYRIGHT) adds a permission to combine it with the Intel and NVIDIA libraries that CTranslate2, the translation engine, is built with. The overlay includes Dear ImGui, nlohmann/json, MinHook and the MinGW-w64 runtime, whose licenses are in [THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES).
+Copyright (C) 2026 Infinitinker. ReflektorTTS is free software under the GPL-3.0-or-later; see [LICENSE](LICENSE). [COPYRIGHT](COPYRIGHT) adds a permission to combine it with the Intel and NVIDIA libraries that CTranslate2, the translation engine, is built with. The licenses of the third-party software it ships, such as the overlay's Dear ImGui, nlohmann/json, MinHook and MinGW-w64 runtime, are in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
 
 Reading Avalanche games' files follows the formats as documented by [Gibbed.MadMax](https://github.com/gigaHours/Gibbed.MadMax) (Rick Gibbed, zlib license); file names are hashed with Bob Jenkins' public-domain lookup3. A game's text is read from your own copy while it runs and is not stored.
 

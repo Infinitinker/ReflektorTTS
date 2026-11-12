@@ -137,7 +137,7 @@ It is built for Windows only, by the 64-bit build: other systems need a transpor
 
 ## Building
 
-`CMakeLists.txt` here is the root project: it fetches the dependencies and builds `shared/`, on Windows `overlay/`, and in the 64-bit Windows build `panel/`. Dependencies, fetched by CMake at configure time, each pinned to the commit of a release: [Dear ImGui](https://github.com/ocornut/imgui) (MIT), [nlohmann/json](https://github.com/nlohmann/json) (MIT), for the overlay [MinHook](https://github.com/TsudaKageyu/minhook) (BSD-2-Clause), and for the panel [SDL3](https://github.com/libsdl-org/SDL) (zlib), built as a static library with only its video and events parts. WinHTTP is part of Windows. Their licenses are in `THIRD_PARTY_NOTICES` in the repository root.
+`CMakeLists.txt` here is the root project: it fetches the dependencies and builds `shared/`, on Windows `overlay/`, and in the 64-bit Windows build `panel/`. Dependencies, fetched by CMake at configure time, each pinned to the commit of a release: [Dear ImGui](https://github.com/ocornut/imgui) (MIT), [nlohmann/json](https://github.com/nlohmann/json) (MIT), for the overlay [MinHook](https://github.com/TsudaKageyu/minhook) (BSD-2-Clause), and for the panel [SDL3](https://github.com/libsdl-org/SDL) (zlib), built as a static library with only its video and events parts. WinHTTP is part of Windows. Their license texts are kept in `tools/licenses/` and listed in `NATIVE_NOTICES` in `tools/notices.py`, which writes them into `THIRD-PARTY-NOTICES.md` in the repository root; update both when a library moves to another version.
 
 ### On Windows with MSYS2
 

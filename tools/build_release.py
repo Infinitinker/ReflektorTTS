@@ -7,20 +7,21 @@
 
 The folder holds reflektortts.exe (the desktop app with its own Python, built by PyInstaller), the
 settings window in its panel folder (reflektortts-panel.exe, from the 64-bit native build), the 32-
-and 64-bit overlay builds, LICENSE.txt, COPYRIGHT.txt, THIRD_PARTY_NOTICES.txt and README.txt.
+and 64-bit overlay builds, LICENSE.txt, COPYRIGHT.txt, THIRD-PARTY-NOTICES.txt and README.txt.
 
 PyInstaller does not see what ReflektorTTS finds only while it runs, so it is told: plugins are
 found through entry points (the package's metadata) and imported by name, the profiles, schemas
 and icon are data files, and some libraries bring native parts or data of their own.
 
-A release is built from a commit, which its README.txt names, so every change must be committed.
+A release is built from a commit, which its README.txt names, so every change must be committed,
+THIRD-PARTY-NOTICES.md included: it must be what tools/notices.py writes for the packages installed.
 Needs git, Inno Setup 7 (ISCC.exe in its usual folder, or set ISCC to it), the release extra and
 both native builds, with the overlays and the settings window (see native/README.md):
-    pip install -e .[release]
+    pip install -e .[release] -c tools/release-constraints.txt
 Run from the repository root:
     python tools/build_release.py           (a release)
-    python tools/build_release.py --draft   (to test: allows uncommitted changes and missing license
-                                             texts, marked in the files' names)
+    python tools/build_release.py --draft   (to test: allows uncommitted changes, missing license
+                                             texts and outdated notices, marked in the files' names)
 """
 
 import argparse
@@ -31,7 +32,7 @@ from importlib.metadata import metadata, version
 from pathlib import Path
 
 import PyInstaller.__main__
-from notices import notices, shipped_distributions
+from notices import NOTICES, SHIPPED_AS, is_current, notices, shipped_distributions
 from packaging.version import Version
 from sources import check_sources, write_sources
 
@@ -126,7 +127,7 @@ License
   ReflektorTTS is free software under the GPL-3.0-or-later (LICENSE.txt), with an additional
   permission for the libraries translation is built with (COPYRIGHT.txt).
   {copyright}.
-  The third-party software it includes, and their licenses: THIRD_PARTY_NOTICES.txt
+  The third-party software it includes, and their licenses: THIRD-PARTY-NOTICES.txt
 
 Source code
   This release is built from {source}, commit
@@ -302,6 +303,8 @@ def main() -> None:
     compiler = iscc()
     copyright = copyright_line()
     third_party = notices("reflektortts", draft)
+    if not draft and not is_current(third_party):
+        raise SystemExit(f"{NOTICES} is out of date: run python tools/notices.py, then commit it.")
     packages = shipped_distributions("reflektortts")
     check_sources(packages)
     mark = "-draft" if draft else ""
@@ -311,7 +314,7 @@ def main() -> None:
     remove_unused(folder)
     copy_overlay(folder)
     copy_panel(folder)
-    (folder / "THIRD_PARTY_NOTICES.txt").write_text(third_party, "utf-8", newline="\r\n")
+    (folder / SHIPPED_AS).write_text(third_party, "utf-8", newline="\r\n")
     for name in ("LICENSE", "COPYRIGHT"):
         (folder / f"{name}.txt").write_text(Path(name).read_text("utf-8"), "utf-8", newline="\r\n")
     readme = README.format(version=release, source=source, copyright=copyright, commit=commit, sources=sources)

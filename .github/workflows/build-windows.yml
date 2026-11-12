@@ -62,9 +62,11 @@ jobs:
           cmake -S native -B native/build64 -G Ninja -DCMAKE_BUILD_TYPE=Release
           cmake --build native/build64
 
+      # The exact Python a release ships, as THIRD-PARTY-NOTICES.md holds its license; changed together
+      # with tools/release-constraints.txt and the notices.
       - uses: actions/setup-python@v7
         with:
-          python-version: "3.13"
+          python-version: "3.13.16"
           cache: pip
           cache-dependency-path: tools/release-constraints.txt
       - name: Install
