@@ -13,7 +13,7 @@ How the texts of the interface are written: labels, buttons, menus, hints, messa
 | The ellipsis character `…`, never three dots, and only on a command that asks for more before it acts, and on a progress text. A command that acts at once has none. | Open file…, Export…, Loading…, Downloading… | Loading..., Restore defaults… |
 | Hints and descriptions are full sentences ending with a period. Labels have no period. | This item has no settings. (hint); Lock aspect ratio (label) | Small = quiet, large = loud (hint) |
 | Clauses are joined with a colon. The en dash `–` is only for ranges and as a separator in names and labels. | The file could not be read: it is damaged. 22–119 mm, Inside – left | Drop a file – it is added to the list |
-| Curly quotes “ ” and the apostrophe ’. | Save changes to “Draft”?, Don’t save | Save changes to "Draft"?, Don't save |
+| Curly quotes “ ” and the apostrophe ’. Quotes that belong to code or to text the user types or copies, such as JSON or a command, stay straight. | Save changes to “Draft”?, Don’t save, Add `"type": "object"` to the schema. | Save changes to "Draft"?, Don't save, Add `“type”: “object”` |
 | No "Please". | Choose PNG or JPEG. | Please choose PNG or JPEG. |
 | A count is written as "Label: n". | Files chosen: 3, Errors: 2 | 3 files chosen, Errors (2) |
 | A control with a shortcut shows it as "Action (shortcut)" in its tooltip, with the keys of the system it runs on. | Undo (Ctrl+Z), New tab (⌘T) | Ctrl+Z: Undo |
