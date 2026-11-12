@@ -1,5 +1,6 @@
 """Fetching lists and files over HTTPS, for download sources."""
 
+import http.client
 import logging
 import urllib.error
 import urllib.request
@@ -60,16 +61,52 @@ def each[T, R](function: Callable[[T], R], items: Iterable[T]) -> list[R]:
 
 
 def download(url: str, destination: Path, progress: Progress) -> None:
-    """Streams a file to destination, reporting progress as it goes."""
+    """Streams a file to destination, reporting progress as it goes. The error says which failed:
+    the server, the connection or saving the file."""
     try:
-        with urllib.request.urlopen(_request(url), timeout=TIMEOUT) as response, destination.open("wb") as file:
+        response = urllib.request.urlopen(_request(url), timeout=TIMEOUT)
+    except urllib.error.HTTPError as error:
+        logger.warning("Could not download %s: %s", url, error)
+        if error.code == 404:
+            raise NotFoundError(f"{url} was not found: it may have moved. Try again later.") from error
+        raise DownloadError(
+            f"Could not download {url}: the server answered {error.code} {error.reason}. Try again later."
+        ) from error
+    except (urllib.error.URLError, OSError) as error:
+        raise _connection_lost(url, error) from error
+    with response:
+        try:
+            file = destination.open("wb")
+        except OSError as error:
+            raise _not_saved(destination, error) from error
+        with file:
             length = response.headers.get("Content-Length")
             total = int(length) if length and length.isdigit() else None
             done = 0
-            while block := response.read(BLOCK):
-                file.write(block)
+            while True:
+                try:
+                    block = response.read(BLOCK)
+                except (OSError, http.client.HTTPException) as error:  # A timeout, a reset, a cut-off answer.
+                    raise _connection_lost(url, error) from error
+                if not block:
+                    break
+                try:
+                    file.write(block)
+                except OSError as error:
+                    raise _not_saved(destination, error) from error
                 done += len(block)
                 progress(done, total)
-    except (urllib.error.URLError, OSError) as error:
-        logger.warning("Could not download %s: %s", url, error)
-        raise DownloadError(f"Could not download {url}. Check your internet connection, then try again.") from error
+
+
+def _connection_lost(url: str, error: Exception) -> DownloadError:
+    logger.warning("Could not download %s: %s", url, error)
+    return DownloadError(f"Could not download {url}. Check your internet connection, then try again.")
+
+
+def _not_saved(destination: Path, error: OSError) -> DownloadError:
+    logger.warning("Could not save %s: %s", destination, error)
+    reason = error.strerror or type(error).__name__
+    return DownloadError(
+        f"The download could not be saved in {destination.parent} ({reason}): check the free space on the "
+        "drive, then try again."
+    )
