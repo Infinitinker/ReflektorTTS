@@ -79,7 +79,16 @@ translate = "reflektortts.stages.translate.stage:PLUGIN"
 
 [project.optional-dependencies]
 release = ["pyinstaller>=6.22"]
-dev = ["babel>=2.18", "mypy>=2.4", "pytest>=9.2", "ruff>=0.17", "types-jsonschema", "types-psutil", "types-regex"]
+dev = [
+    "babel>=2.18",
+    "import-linter>=2.16",
+    "mypy>=2.4",
+    "pytest>=9.2",
+    "ruff>=0.17",
+    "types-jsonschema",
+    "types-psutil",
+    "types-regex",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -96,6 +105,126 @@ select = ["E", "F", "I", "UP", "B"]
 [tool.mypy]
 strict = true
 files = ["src", "tests", "tools"]
+
+# The directions imports run in, as docs/architecture.md and CLAUDE.md describe them; lint-imports
+# checks them.
+[tool.importlinter]
+root_package = "reflektortts"
+# The system's own libraries are in the graph too, for the contract on platform code.
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "The core runs headless: nothing outside the desktop app imports it"
+type = "protected"
+protected_modules = ["reflektortts.desktop"]
+allowed_importers = []
+
+[[tool.importlinter.contracts]]
+name = "The desktop app follows the core through the local API and imports none of the core's parts"
+type = "forbidden"
+source_modules = ["reflektortts.desktop"]
+# Left out, as what the desktop app shares with the core: the API's address and errors, the command
+# line, the logs, the per-user folders and settings files, the languages and the kinds of download.
+forbidden_modules = [
+    "reflektortts.apps",
+    "reflektortts.bus",
+    "reflektortts.core",
+    "reflektortts.downloads.argos",
+    "reflektortts.downloads.cache",
+    "reflektortts.downloads.http",
+    "reflektortts.downloads.manager",
+    "reflektortts.downloads.piper",
+    "reflektortts.ducking",
+    "reflektortts.entry_points",
+    "reflektortts.events",
+    "reflektortts.glossary",
+    "reflektortts.integrations",
+    "reflektortts.letters",
+    "reflektortts.overlay",
+    "reflektortts.pipeline",
+    "reflektortts.process_memory",
+    "reflektortts.profiles",
+    "reflektortts.sinks",
+    "reflektortts.sources",
+    "reflektortts.staging",
+    "reflektortts.stages",
+    "reflektortts.tts",
+]
+# Only the desktop app's own imports are checked: the core, which it runs on a background thread, and
+# the API's server module, which it takes the address and errors from, import the rest.
+allow_indirect_imports = true
+ignore_imports = [
+    # The desktop app starts the core and stops it on quit.
+    "reflektortts.desktop.core_thread -> reflektortts.core",
+]
+
+[[tool.importlinter.contracts]]
+name = "The desktop app's folders import one way, from the app at the top down to what it is built from"
+type = "layers"
+containers = ["reflektortts.desktop"]
+layers = ["__main__", "application", "window | tray", "tabs", "api | widgets | panel | system"]
+
+[[tool.importlinter.contracts]]
+name = "Plugins are found through their entry points: nothing else imports a plugin, nor one plugin another"
+type = "protected"
+protected_modules = [
+    "reflektortts.sources.*",
+    "reflektortts.stages.*",
+    "reflektortts.tts.engines.*",
+    "reflektortts.downloads.argos",
+    "reflektortts.downloads.piper",
+]
+allowed_importers = []
+ignore_imports = [
+    # A download source installs what it downloads where its stage or engine finds it (docs/plugins.md).
+    "reflektortts.downloads.argos -> reflektortts.stages.translate.model",
+    "reflektortts.downloads.piper -> reflektortts.tts.engines.piper",
+]
+
+[[tool.importlinter.contracts]]
+name = "Plugins use the core through the plugin contracts, never its running parts or its user interfaces"
+type = "forbidden"
+source_modules = [
+    "reflektortts.sources",
+    "reflektortts.stages",
+    "reflektortts.tts.engines",
+    "reflektortts.downloads.argos",
+    "reflektortts.downloads.piper",
+]
+forbidden_modules = [
+    "reflektortts.api",
+    "reflektortts.bus",
+    "reflektortts.core",
+    "reflektortts.desktop",
+    "reflektortts.downloads.manager",
+    "reflektortts.ducking",
+    "reflektortts.overlay",
+    "reflektortts.pipeline.runner",
+    "reflektortts.profiles.catalog",
+    "reflektortts.sinks",
+]
+# Shared modules a plugin uses, such as the settings files, import some of these themselves.
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "The core uses only what tts/ shares with it: only tts/ imports the speech engines and the player"
+type = "protected"
+protected_modules = ["reflektortts.tts.engines", "reflektortts.tts.playback"]
+allowed_importers = ["reflektortts.tts"]
+ignore_imports = [
+    # A download source installs what it downloads where its engine finds it (docs/plugins.md).
+    "reflektortts.downloads.piper -> reflektortts.tts.engines.piper",
+]
+
+[[tool.importlinter.contracts]]
+name = "Platform code stays in its platform modules: only they import the system's own libraries"
+type = "protected"
+protected_modules = ["comtypes", "pycaw", "winrt", "Xlib"]
+allowed_importers = [
+    "reflektortts.desktop.system.tray_host",
+    "reflektortts.ducking.windows",
+    "reflektortts.tts.engines.windows",
+]
 
 [[tool.mypy.overrides]]
 module = ["sounddevice", "num2words", "ctranslate2", "sacremoses", "subword_nmt.*", "sentencepiece", "pycaw.*", "comtypes", "pystray", "PyInstaller.*", "onnxruntime", "winrt.*", "Xlib.*"]
