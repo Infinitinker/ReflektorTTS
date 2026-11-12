@@ -234,7 +234,7 @@ def test_a_settings_file_that_cannot_be_read_makes_it_unavailable(tmp_path: Path
     state = vlc.integration.state()
 
     assert state.status is IntegrationStatus.UNAVAILABLE
-    assert state.reason is not None and state.reason.startswith("Cannot read VLC's settings file")
+    assert state.reason is not None and state.reason.startswith("Cannot read VLC’s settings file")
 
 
 def test_records_of_a_settings_file_that_is_gone_are_dropped(tmp_path: Path) -> None:
@@ -251,7 +251,7 @@ def test_a_read_only_settings_file_is_refused_and_nothing_is_recorded(tmp_path: 
     vlc = setup(tmp_path)
     os.chmod(vlc.vlcrc, stat.S_IREAD)
     try:
-        with pytest.raises(IntegrationError, match="VLC's settings file is read-only"):
+        with pytest.raises(IntegrationError, match="VLC’s settings file is read-only"):
             vlc.integration.enable()
     finally:
         os.chmod(vlc.vlcrc, stat.S_IREAD | stat.S_IWRITE)
@@ -290,7 +290,7 @@ def test_disabling_with_a_damaged_record_says_how_to_turn_the_interface_off_in_v
         vlc.integration.disable()
 
     message = str(raised.value)
-    assert message.startswith("The record of what Enable changed in VLC's settings is damaged (")
+    assert message.startswith("The record of what Enable changed in VLC’s settings is damaged (")
     assert str(vlc.state_file) in message
     assert message.endswith("Interface > Main interfaces: clear Web).")
     assert vlc.vlcrc.read_bytes() == enabled

@@ -55,12 +55,12 @@ def missing_text() -> str:
     """Why there is no settings window, in a sentence for the status bar."""
     if getattr(sys, "frozen", False):
         return (
-            f"The settings window, {PROGRAM}, is missing from the panel folder in ReflektorTTS's folder: "
+            f"The settings window, {PROGRAM}, is missing from the panel folder in ReflektorTTS’s folder: "
             "install or unpack ReflektorTTS again."
         )
     if sys.platform != "win32":
         return "The settings window is not available on this system yet."
-    return "The settings window isn't built, or no --overlay folder has it: see native/README.md."
+    return "The settings window isn’t built, or no --overlay folder has it: see native/README.md."
 
 
 class PanelWindows:

@@ -50,7 +50,7 @@ def test_an_unsupported_version_is_described_with_its_hash() -> None:
 
     assert status == CoreStatus(app=None, paused=False, unsupported="Mad Max", unsupported_sha256="abc")
     assert describe(status) == "This version of Mad Max is not supported yet"
-    assert hint(status) == "To support it, its profile needs this version's SHA-256: abc"
+    assert hint(status) == "To support it, its profile needs this version’s SHA-256: abc"
     assert hint(CoreStatus(app=None, paused=False)) == "In an app with the overlay, open the panel with Ctrl+Shift+R."
 
 
@@ -92,11 +92,11 @@ def test_the_source_error_of_the_app_being_read_is_what_to_do_now() -> None:
         "type": "status",
         "app": {"title": "VLC media player", "pid": 42},
         "paused": False,
-        "source_error": {"source": "subtitles", "message": "VLC's web interface is off."},
+        "source_error": {"source": "subtitles", "message": "VLC’s web interface is off."},
     }
 
     status = parse_status(event)
 
-    assert status == CoreStatus(app="VLC media player", paused=False, source_error="VLC's web interface is off.")
-    assert hint(status) == "VLC's web interface is off."
+    assert status == CoreStatus(app="VLC media player", paused=False, source_error="VLC’s web interface is off.")
+    assert hint(status) == "VLC’s web interface is off."
     assert parse_status(event | {"source_error": None}) == CoreStatus(app="VLC media player", paused=False)

@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Translate stage settings",
-  "description": "Translates lines from the input language into the output language chosen by the user (lektor mode), with an installed translation model. Place it after stages that clean up the text and before normalize. Uses the profile's glossary.",
+  "description": "Translates lines from the input language into the output language chosen by the user (lektor mode), with an installed translation model. Place it after stages that clean up the text and before normalize. Uses the profile’s glossary.",
   "type": "object",
   "additionalProperties": false,
   "properties": {

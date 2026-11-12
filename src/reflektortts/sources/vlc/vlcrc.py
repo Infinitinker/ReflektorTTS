@@ -49,7 +49,7 @@ class Vlcrc:
         or else in a line added at the end. Returns the line replaced, without its ending, or None
         if one was added."""
         if b"\r" in value or b"\n" in value:
-            raise ValueError(f"A value for {key} in VLC's settings cannot span lines.")
+            raise ValueError(f"A value for {key} in VLC’s settings cannot span lines.")
         line = key.encode("ascii") + b"=" + value
         index = self._effective(key)
         if index is None:

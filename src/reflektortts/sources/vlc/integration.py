@@ -27,8 +27,8 @@ logger = logging.getLogger(__name__)
 
 NAME = "VLC integration"
 DESCRIPTION = (
-    "Turns on VLC's web interface for this computer only, so what VLC plays can be followed. Its random "
-    "password is kept in VLC's settings: any program on this computer that knows it can control VLC. "
+    "Turns on VLC’s web interface for this computer only, so what VLC plays can be followed. Its random "
+    "password is kept in VLC’s settings: any program on this computer that knows it can control VLC. "
     "Disable puts back the settings Enable changed. VLC must be closed for both."
 )
 
@@ -43,7 +43,7 @@ PASSWORD = "http-password"
 
 CLOSE_VLC = "Close VLC first, then try again: VLC writes back its own settings when it closes."
 TURN_OFF_IN_VLC = "Tools > Preferences, Show settings: All, then Interface > Main interfaces: clear Web"
-NOT_OURS = f"VLC's web interface was turned on in VLC itself: turn it off there ({TURN_OFF_IN_VLC})."
+NOT_OURS = f"VLC’s web interface was turned on in VLC itself: turn it off there ({TURN_OFF_IN_VLC})."
 
 
 class DamagedRecordsError(Exception):
@@ -147,8 +147,8 @@ class VlcIntegration:
         except DamagedRecordsError as error:
             if self.state().status is IntegrationStatus.ENABLED:
                 raise IntegrationError(
-                    f"The record of what Enable changed in VLC's settings is damaged ({error}): "
-                    f"{self._state_file}. Turn VLC's web interface off in VLC ({TURN_OFF_IN_VLC})."
+                    f"The record of what Enable changed in VLC’s settings is damaged ({error}): "
+                    f"{self._state_file}. Turn VLC’s web interface off in VLC ({TURN_OFF_IN_VLC})."
                 ) from error
             logger.warning("Dropping the damaged record of VLC settings in %s: %s", self._state_file, error)
             self._save({})
@@ -184,7 +184,7 @@ class VlcIntegration:
             raise IntegrationError(self._unreadable(error)) from error
 
     def _unreadable(self, error: OSError) -> str:
-        return f"Cannot read VLC's settings file ({error.strerror}): {self._vlcrc}."
+        return f"Cannot read VLC’s settings file ({error.strerror}): {self._vlcrc}."
 
     def _write(self, rc: Vlcrc) -> None:
         """Replaces vlcrc in one step, so VLC never finds half of it. A link (from a dotfile
@@ -192,7 +192,7 @@ class VlcIntegration:
         target = self._vlcrc.resolve()
         if not os.access(target, os.W_OK):
             raise IntegrationError(
-                f"VLC's settings file is read-only: {target}. Make it writable (in its Properties), then try again."
+                f"VLC’s settings file is read-only: {target}. Make it writable (in its Properties), then try again."
             )
         temporary = target.with_name(target.name + ".reflektortts.tmp")
         try:
@@ -203,7 +203,7 @@ class VlcIntegration:
             with contextlib.suppress(OSError):
                 temporary.unlink(missing_ok=True)
             raise IntegrationError(
-                f"Cannot change VLC's settings file ({error.strerror}): {target}. "
+                f"Cannot change VLC’s settings file ({error.strerror}): {target}. "
                 "Close programs that may be using it, then try again."
             ) from error
 
@@ -247,7 +247,7 @@ class VlcIntegration:
             write_json_object(self._state_file, {"changes": records})
         except OSError as error:
             raise IntegrationError(
-                f"Cannot save what Enable changes in VLC's settings ({error.strerror}): {self._state_file}."
+                f"Cannot save what Enable changes in VLC’s settings ({error.strerror}): {self._state_file}."
             ) from error
 
 

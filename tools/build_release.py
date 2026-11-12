@@ -107,19 +107,19 @@ Starting
   Run reflektortts.exe. Its icon appears next to the clock: right-click it to open the
   window, pause reading or quit. Closing the window leaves ReflektorTTS running.
 
-  Start an app ReflektorTTS has a profile for (the window's Profiles tab lists them): its
+  Start an app ReflektorTTS has a profile for (the window’s Profiles tab lists them): its
   text is read aloud. In apps with the overlay, Ctrl+Shift+R opens the ReflektorTTS panel.
-  The Profiles tab's App settings... button opens the same settings in a window, for any
-  app, also while it isn't running.
+  The Profiles tab’s App settings… button opens the same settings in a window, for any
+  app, also while it isn’t running.
 
 Voices and translation
   Windows voices work right away. More voices and translation models are downloaded only
-  when you ask for them, in the window's Voices and Translations tabs.
+  when you ask for them, in the window’s Voices and Translations tabs.
 
 Your data
   Settings, downloaded voices and models, your own profiles and the logs are kept in
   %LOCALAPPDATA%\\ReflektorTTS, not in this folder. If you installed ReflektorTTS, run a
-  newer release's installer to update it, and Windows Settings > Apps removes it. From the zip, replace this
+  newer release’s installer to update it, and Windows Settings > Apps removes it. From the zip, replace this
   folder with a newer release to update, and delete this folder and that one to remove it.
 
 Antivirus
@@ -129,7 +129,7 @@ Antivirus
 
 Online games
   Use ReflektorTTS only in single-player and offline games. Anti-cheat software may treat
-  the overlay and reading a game's memory as cheating, which can get your account banned.
+  the overlay and reading a game’s memory as cheating, which can get your account banned.
 
 License
   ReflektorTTS is free software under the GPL-3.0-or-later (LICENSE.txt), with an additional
@@ -140,7 +140,7 @@ License
 Source code
   This release is built from {source}, commit
   {commit}.
-  {sources}, on the release's page
+  {sources}, on the release’s page
   ({source}/releases/tag/v{version}), holds that source code and the source code
   of the third-party software under the GPL, LGPL or MPL that this release includes.
 """

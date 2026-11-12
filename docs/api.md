@@ -254,7 +254,7 @@ Lists every integration, by ID, with its state now:
     {
       "id": "vlc",
       "name": "VLC integration",
-      "description": "Turns on VLC's web interface for this computer only, ...",
+      "description": "Turns on VLC’s web interface for this computer only, ...",
       "state": "disabled",
       "reason": null
     }

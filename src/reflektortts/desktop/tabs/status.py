@@ -154,7 +154,7 @@ class StatusTab:
         page.grid(row=0, column=0)
         report = ttk.Button(project, text="Report a problem", command=lambda: on_open_link(about.issues))
         report.grid(row=0, column=1, padx=(6, 0))
-        status_bar.hint(page, lambda: "Open the project's page on GitHub: its code, guides and releases.")
+        status_bar.hint(page, lambda: "Open the project’s page on GitHub: its code, guides and releases.")
         status_bar.hint(
             report, lambda: "Report a problem on GitHub. The logs help: open their folder in the Settings tab."
         )

@@ -269,7 +269,7 @@ class ProfilesTab:
         item = self._selected()
         if item is not None and item.state == "broken":
             return "A broken profile has no settings; fix its file, or remove it."
-        return "Change this app's voice, languages and the rest, also while it isn't running."
+        return "Change this app’s voice, languages and the rest, also while it isn’t running."
 
     def _integration_hint(self) -> str:
         return integrations_hint(integrations_of(self._selected(), self._integrations))

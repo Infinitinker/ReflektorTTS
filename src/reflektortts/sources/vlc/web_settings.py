@@ -18,7 +18,7 @@ REACHABLE_HOSTS = frozenset({"", "0.0.0.0", "127.0.0.1", "localhost"})
 """Values of http-host with which the web interface answers on 127.0.0.1 (empty: on every
 network interface)."""
 
-NOT_FOUND = "VLC's settings file was not found: if VLC is installed, start it once, close it, and try again."
+NOT_FOUND = "VLC’s settings file was not found: if VLC is installed, start it once, close it, and try again."
 
 
 @dataclass(frozen=True)
@@ -77,6 +77,6 @@ class SettingsFile:
                 return self._settings
             if isinstance(error, FileNotFoundError):
                 raise VlcError(NOT_FOUND) from error
-            raise VlcError(f"Cannot read VLC's settings file ({error.strerror}): {self._path}.") from error
+            raise VlcError(f"Cannot read VLC’s settings file ({error.strerror}): {self._path}.") from error
         self._settings, self._stamp = settings, stamp
         return settings

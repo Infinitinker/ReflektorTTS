@@ -30,4 +30,4 @@ def open_process_memory(pid: int) -> ProcessMemory:
         from reflektortts.process_memory.windows import WindowsProcessMemory
 
         return WindowsProcessMemory(pid)
-    raise ProcessMemoryError("Reading an app's memory is supported only on Windows so far.")
+    raise ProcessMemoryError("Reading an app’s memory is supported only on Windows so far.")

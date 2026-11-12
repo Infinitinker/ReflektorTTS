@@ -80,9 +80,9 @@ class VlcClient:
             raise _refused(error.code, self._port) from error
         except (OSError, http.client.HTTPException) as error:
             raise NotAnsweringError(
-                f"VLC's web interface does not answer on port {self._port}: restart VLC. "
+                f"VLC’s web interface does not answer on port {self._port}: restart VLC. "
                 "If that does not help, another program may be using the port: "
-                "give VLC's web interface another port in VLC's preferences."
+                "give VLC’s web interface another port in VLC’s preferences."
             ) from error
         try:
             return json.loads(body)
@@ -101,8 +101,8 @@ def _refused(code: int, port: int) -> VlcError:
 
 def _not_vlc(port: int) -> VlcError:
     return VlcError(
-        f"Another program answers on port {port}, not VLC: give VLC's web interface another port "
-        "in VLC's preferences, then restart VLC."
+        f"Another program answers on port {port}, not VLC: give VLC’s web interface another port "
+        "in VLC’s preferences, then restart VLC."
     )
 
 

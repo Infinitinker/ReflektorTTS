@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Memory source settings",
-  "description": "Reads text from the app's memory through a pointer chain found with a tool like Cheat Engine.",
+  "description": "Reads text from the app’s memory through a pointer chain found with a tool like Cheat Engine.",
   "type": "object",
   "required": ["encoding", "pointers"],
   "additionalProperties": false,

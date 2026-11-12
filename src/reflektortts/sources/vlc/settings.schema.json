@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "VLC source settings",
-  "description": "Reads the subtitles (.srt, .vtt, .webvtt, .ass, .ssa or .sbv files) of what VLC media player plays, in time with it, through VLC's web interface, which the VLC integration turns on. VLC's port and password come from VLC's own settings, so it has no settings.",
+  "description": "Reads the subtitles (.srt, .vtt, .webvtt, .ass, .ssa or .sbv files) of what VLC media player plays, in time with it, through VLC’s web interface, which the VLC integration turns on. VLC’s port and password come from VLC’s own settings, so it has no settings.",
   "type": "object",
   "additionalProperties": false,
   "properties": {}

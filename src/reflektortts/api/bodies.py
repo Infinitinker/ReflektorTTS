@@ -19,14 +19,14 @@ SETTINGS_HELP = (
 )
 
 
-SOURCES_HELP = 'Send {"name": "<source name from the profile\'s settings>", "enabled": true or false}.'
+SOURCES_HELP = 'Send {"name": "<source name from the profile’s settings>", "enabled": true or false}.'
 
 
 OUTPUTS = tuple(output.value for output in Output)
 
 
 STAGES_HELP = (
-    'Send {"key": "<stage key from the profile\'s settings>", "output": "text" or "speech", "enabled": true or false}.'
+    'Send {"key": "<stage key from the profile’s settings>", "output": "text" or "speech", "enabled": true or false}.'
 )
 
 

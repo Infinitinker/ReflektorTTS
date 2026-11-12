@@ -48,7 +48,7 @@ class WindowsProcessMemory:
         handle = _kernel32.OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, False, pid)
         if not handle:
             raise ProcessMemoryError(
-                f"Cannot open the app's process (Windows error {ctypes.get_last_error()}). "
+                f"Cannot open the app’s process (Windows error {ctypes.get_last_error()}). "
                 "If the app runs as administrator, run ReflektorTTS as administrator too."
             )
         self._handle = handle
@@ -93,7 +93,7 @@ class WindowsProcessMemory:
                 self._handle, handles, ctypes.sizeof(handles), ctypes.byref(needed), LIST_MODULES_ALL
             ):
                 raise ProcessMemoryError(
-                    f"Cannot list the app's modules (Windows error {ctypes.get_last_error()}). "
+                    f"Cannot list the app’s modules (Windows error {ctypes.get_last_error()}). "
                     "The app may still be starting; try again in a moment."
                 )
             if needed.value <= ctypes.sizeof(handles):

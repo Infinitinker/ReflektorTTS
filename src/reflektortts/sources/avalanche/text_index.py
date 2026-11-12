@@ -53,7 +53,7 @@ def read_text(game_dir: Path, language: str, stopped: Callable[[], bool] = lambd
     except OSError as error:
         raise ArchiveError(damaged(game_dir.name)) from error
     if not tabs:
-        raise ArchiveError(f"No game archives in {game_dir}: is this the game's folder?")
+        raise ArchiveError(f"No game archives in {game_dir}: is this the game’s folder?")
     archives: list[Archive] = []
     try:
         for tab in tabs:
@@ -73,7 +73,7 @@ def read_text(game_dir: Path, language: str, stopped: Callable[[], bool] = lambd
                 if table is not None:
                     tables[name] = table
         if not tables:
-            raise ArchiveError(f"The game's files have no text in {language_name(language)}: is the game complete?")
+            raise ArchiveError(f"The game’s files have no text in {language_name(language)}: is the game complete?")
         lines: dict[int, str] = {}
         for table in tables.values():
             lines.update(table)

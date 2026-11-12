@@ -17,7 +17,7 @@ STATES = {
     "broken": "Broken",
 }
 RATINGS = {
-    "bronze": ("Bronze", "Some of the app's texts are read, tried only briefly, so others may be missed."),
+    "bronze": ("Bronze", "Some of the app’s texts are read, tried only briefly, so others may be missed."),
     "silver": ("Silver", "The main texts are read, tested in the first part of the app."),
     "gold": ("Gold", "The main texts are read, tested through most of the app."),
     "platinum": ("Platinum", "Every text the app shows is read, tested through all of it."),

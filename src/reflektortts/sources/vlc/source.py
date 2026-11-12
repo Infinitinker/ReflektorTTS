@@ -26,7 +26,7 @@ RETRY_AFTER = 2.0
 LOOKUP_RETRY = 3.0
 """Seconds before looking for subtitles again where there were none, e.g. until the user adds them."""
 
-OFF = "VLC's web interface is off: close VLC, enable the VLC integration in the Profiles tab, then start VLC again."
+OFF = "VLC’s web interface is off: close VLC, enable the VLC integration in the Profiles tab, then start VLC again."
 
 
 @dataclass(frozen=True)
@@ -89,8 +89,8 @@ class VlcSource:
             raise VlcError(OFF)
         if settings.host.lower() not in REACHABLE_HOSTS:
             raise VlcError(
-                f"VLC's web interface listens only on {settings.host}: "
-                "set its host (http-host) to 127.0.0.1 in VLC's preferences, then restart VLC."
+                f"VLC’s web interface listens only on {settings.host}: "
+                "set its host (http-host) to 127.0.0.1 in VLC’s preferences, then restart VLC."
             )
         key = (settings.port, settings.password)
         if self._client is None or key != self._client_for:
