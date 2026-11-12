@@ -100,7 +100,7 @@ void open_window(Window& parts) {
     enable_wakeups();
 
     // Hidden until run() has sized and placed it.
-    parts.window = SDL_CreateWindow("Settings - ReflektorTTS", 1, 1,
+    parts.window = SDL_CreateWindow("Settings – ReflektorTTS", 1, 1,
                                     SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIDDEN | SDL_WINDOW_HIGH_PIXEL_DENSITY);
     if (parts.window == nullptr) {
         cannot_open(sdl_error("SDL cannot create the window"));

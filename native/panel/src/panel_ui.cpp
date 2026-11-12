@@ -5,6 +5,8 @@
 
 #include <imgui.h>
 
+#include <format>
+
 #include "settings_panel.h"
 
 namespace reflektortts {
@@ -26,7 +28,7 @@ void draw_panel_ui(const CoreState& state) {
 }
 
 std::string window_title(const CoreState& state) {
-    return state.app.empty() ? "Settings - ReflektorTTS" : state.app + " settings - ReflektorTTS";
+    return state.app.empty() ? "Settings – ReflektorTTS" : std::format("{} settings – ReflektorTTS", state.app);
 }
 
 }  // namespace reflektortts

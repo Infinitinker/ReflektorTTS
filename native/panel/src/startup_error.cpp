@@ -15,7 +15,7 @@ void report_startup_error(const std::string& message) {
     std::fprintf(stderr, "%s\n", message.c_str());
     std::fflush(stderr);
     log_message(message);
-    if (!SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "ReflektorTTS settings", message.c_str(), nullptr)) {
+    if (!SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Settings – ReflektorTTS", message.c_str(), nullptr)) {
         log_message(std::string("Cannot show a message box: ") + SDL_GetError());
     }
 }
