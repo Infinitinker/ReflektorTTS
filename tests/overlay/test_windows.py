@@ -1,4 +1,5 @@
-"""Loading the overlay into an app: each build tried in turn, and why the injector failed, hung or was missing."""
+"""Loading the overlay into an app on Windows: each build tried in turn, and why the injector failed,
+hung or was missing."""
 
 import subprocess
 import sys
@@ -7,7 +8,7 @@ from typing import Any
 
 import pytest
 
-from reflektortts.overlay import INJECTOR, WRONG_BITNESS, inject_overlay
+from reflektortts.overlay.windows import INJECTOR, WRONG_BITNESS, inject
 
 
 def build(directory: Path) -> Path:
@@ -28,7 +29,7 @@ def test_builds_are_tried_until_one_matches_the_app(tmp_path: Path, monkeypatch:
     calls: list[list[str]] = []
     monkeypatch.setattr(subprocess, "run", fake_run({"x86": WRONG_BITNESS, "x64": 0}, calls))
 
-    assert inject_overlay(42, [build(tmp_path / "x86"), build(tmp_path / "x64")]) is True
+    assert inject(42, [build(tmp_path / "x86"), build(tmp_path / "x64")]) is True
     assert [Path(call[0]).parent.name for call in calls] == ["x86", "x64"]
     assert calls[0][1:] == ["--pid", "42"]
 
@@ -39,7 +40,7 @@ def test_a_real_failure_stops_and_is_reported(
     calls: list[list[str]] = []
     monkeypatch.setattr(subprocess, "run", fake_run({"x86": 1, "x64": 0}, calls))
 
-    assert inject_overlay(42, [build(tmp_path / "x86"), build(tmp_path / "x64")]) is False
+    assert inject(42, [build(tmp_path / "x86"), build(tmp_path / "x64")]) is False
     assert len(calls) == 1
     assert "bad things" in caplog.text
 
@@ -56,7 +57,7 @@ def test_injector_messages_are_read_as_utf8(
 
     monkeypatch.setattr(subprocess, "run", injector)
 
-    assert inject_overlay(42, [build(tmp_path / "x86")]) is False
+    assert inject(42, [build(tmp_path / "x86")]) is False
     assert message in caplog.text
 
 
@@ -71,7 +72,7 @@ def test_an_injector_blocked_by_antivirus_is_reported(
 
     monkeypatch.setattr(subprocess, "run", blocked)
 
-    assert inject_overlay(42, [build(tmp_path / "x86")]) is False
+    assert inject(42, [build(tmp_path / "x86")]) is False
     assert "antivirus" in caplog.text
 
 
@@ -83,12 +84,12 @@ def test_an_injector_that_hangs_is_reported(
 
     monkeypatch.setattr(subprocess, "run", hangs)
 
-    assert inject_overlay(42, [build(tmp_path / "x86")]) is False
+    assert inject(42, [build(tmp_path / "x86")]) is False
     assert "did not finish" in caplog.text
 
 
 def test_missing_injector_is_reported(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
-    assert inject_overlay(42, [tmp_path]) is False
+    assert inject(42, [tmp_path]) is False
     assert "No overlay in" in caplog.text
     assert "No overlay found; the app runs without the overlay." in caplog.text
     assert "32-bit vs 64-bit" not in caplog.text
