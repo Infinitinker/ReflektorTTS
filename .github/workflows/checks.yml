@@ -1,8 +1,8 @@
 name: Checks
 
 # Pushes to the two long-lived branches, and pull requests, also from forks. The jobs have short,
-# fixed names, so they are required status checks of the main branch ruleset ("Branch protection" in
-# CONTRIBUTING.md).
+# fixed names, so they are required status checks of the main branch ruleset ("Branches" in
+# docs/development.md).
 on:
   push:
     branches: [main, dev]
@@ -17,27 +17,27 @@ permissions:
   contents: read
 
 jobs:
-  # Ruff's results are the same on every system, so it runs once, on the fastest runner.
+  # Ruff's results, and the import contracts in pyproject.toml, which lint-imports reads from the source
+  # text, are the same on every system, so they run once, on the fastest runner.
   lint:
     name: Lint
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
-        with:
-          python-version: "3.13"
-          cache: pip
-          cache-dependency-path: pyproject.toml
+      - uses: ./.github/actions/python
       - name: Install
         run: python -m pip install -e .[dev]
       - name: Lint
         run: python -m ruff check
       - name: Format
         run: python -m ruff format --check
+      - name: Imports
+        run: lint-imports
 
   # mypy checks only the code paths of the system it runs on, and the Windows-only packages are
-  # installed only on Windows, so types are checked on each system, like the tests.
+  # installed only on Windows, so types are checked on each system, like the tests. Linux is checked
+  # although it has no release yet, so the code stays portable until the Linux ports land.
   system:
     name: ${{ matrix.name }} Python checks
     runs-on: ${{ matrix.os }}
@@ -49,18 +49,12 @@ jobs:
           - name: Windows
             os: windows-latest
           - name: Linux
-            os: ubuntu-latest
+            os: ubuntu-26.04
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
-        with:
-          python-version: "3.13"
-          cache: pip
-          cache-dependency-path: pyproject.toml
-      - name: Install system libraries
+      - uses: ./.github/actions/python
+      - uses: ./.github/actions/linux-libraries
         if: runner.os == 'Linux'
-        # PortAudio plays sound; Xvfb gives the window's tests a display.
-        run: sudo apt-get update && sudo apt-get install -y libportaudio2 xvfb
       - name: Install
         run: python -m pip install -e .[dev]
       - name: Types
@@ -71,3 +65,50 @@ jobs:
       - name: Tests
         if: runner.os == 'Linux'
         run: xvfb-run -a python -m pytest
+
+  # The licenses of everything a release ships, against the allow list and the exceptions in
+  # tools/licenses.py; it fails on any other license. It runs on Windows, in the release's environment
+  # (the install of tools/build_release.py): the release ships Windows-only packages that Linux would
+  # not install, and PyInstaller, which the check includes, comes with the release extra.
+  licenses:
+    name: Licenses
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/python
+        with:
+          cache-dependency-path: tools/release-constraints.txt
+      - name: Install
+        run: python -m pip install -e .[release] -c tools/release-constraints.txt
+      - name: Licenses
+        run: python tools/licenses.py
+
+  # The C++ code in native/: the include directions of native/README.md, clang-format and clang-tidy
+  # (.clang-format and .clang-tidy at the root). Each step fails on any finding. clang-tidy reads the
+  # compile commands of the ci preset, the 64-bit build: configuring is enough, nothing is built.
+  cpp:
+    name: C++ checks
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      # tools/check_includes.py needs only Python's standard library, so nothing is installed or cached.
+      - uses: ./.github/actions/python
+        with:
+          cache: "false"
+      - name: Include directions
+        run: python tools/check_includes.py
+      - uses: ./.github/actions/msys2
+        with:
+          packages: mingw-w64-x86_64-clang mingw-w64-x86_64-clang-tools-extra
+      - name: Format
+        shell: msys2 {0}
+        run: git ls-files 'native/*.cpp' 'native/*.h' | xargs clang-format --dry-run --Werror
+      # Fetches the libraries native/ is built with, whose headers clang-tidy reads.
+      - name: Configure
+        shell: msys2 {0}
+        run: cmake -S native --preset ci
+      - name: clang-tidy
+        shell: msys2 {0}
+        run: git ls-files 'native/*.cpp' | xargs -P 4 -n 1 clang-tidy -p build/native-ci --quiet

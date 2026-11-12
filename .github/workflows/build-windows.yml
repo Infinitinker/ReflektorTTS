@@ -7,8 +7,8 @@ name: Build Windows app
 # It runs for every pull request (also Dependabot's and those from forks), from the Release workflow,
 # and on demand (Actions > Build Windows app > Run workflow, on any branch); not for pushes, so a
 # change is built once, in its pull request, rather than on every push to dev. Its build job is a
-# required status check of the main branch ruleset, with the Checks workflow's jobs ("Branch
-# protection" in CONTRIBUTING.md).
+# required status check of the main branch ruleset, with the Checks workflow's jobs ("Branches" in
+# docs/development.md).
 on:
   pull_request:
   workflow_dispatch:
@@ -42,32 +42,29 @@ jobs:
 
       # Both toolchains, as in native/README.md: the 32-bit overlay is for 32-bit apps. MSYS2 calls
       # MINGW32 deprecated, with no replacement for 32-bit builds, and only warns about it.
-      - uses: msys2/setup-msys2@v2
+      - uses: ./.github/actions/msys2
         with:
-          msystem: MINGW64
-          install: >-
-            git
-            mingw-w64-i686-toolchain mingw-w64-i686-cmake mingw-w64-i686-ninja
-            mingw-w64-x86_64-toolchain mingw-w64-x86_64-cmake mingw-w64-x86_64-ninja
+          packages: mingw-w64-i686-toolchain mingw-w64-i686-cmake mingw-w64-i686-ninja
+      # The presets in native/CMakePresets.json, into native/build and native/build64, where
+      # tools/build_release.py looks for the files.
       - name: Build the 32-bit overlay
         shell: msys2 {0}
         env:
           MSYSTEM: MINGW32
         run: |
-          cmake -S native -B native/build -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake -S native --preset release-x86
           cmake --build native/build
       - name: Build the 64-bit overlay and the settings window
         shell: msys2 {0}
         run: |
-          cmake -S native -B native/build64 -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake -S native --preset release
           cmake --build native/build64
 
       # The exact Python a release ships, as THIRD-PARTY-NOTICES.md holds its license; changed together
       # with tools/release-constraints.txt and the notices.
-      - uses: actions/setup-python@v7
+      - uses: ./.github/actions/python
         with:
           python-version: "3.13.16"
-          cache: pip
           cache-dependency-path: tools/release-constraints.txt
       - name: Install
         run: python -m pip install -e .[release] -c tools/release-constraints.txt
@@ -109,7 +106,7 @@ jobs:
   files:
     name: Windows release files
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7

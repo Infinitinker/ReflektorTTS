@@ -4,7 +4,8 @@ name: Release
 # completes and publishes. A run started by hand (Actions > Release > Run workflow, on any branch)
 # does the same without drafting, to try a release before tagging it; it keeps the files on the
 # run's page for 90 days. Each system's build is a workflow of its own (build-windows.yml), which also
-# checks its files, and which builds every pull request on its own.
+# checks its files, and which builds every pull request on its own. Windows is the only system with a
+# release for now: Linux gets a build workflow when the Linux ports land.
 on:
   push:
     tags: ["v*"]
@@ -21,7 +22,7 @@ permissions:
 jobs:
   version:
     name: Check the version
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     outputs:
       version: ${{ steps.version.outputs.version }}
@@ -60,7 +61,7 @@ jobs:
     name: Draft the release
     needs: [version, windows]
     if: github.event_name == 'push'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 15
     permissions:
       contents: write # To create the release.

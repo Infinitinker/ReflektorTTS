@@ -1,8 +1,10 @@
 name: E2E tests
 
-# The end-to-end smoke test of the desktop app (tests/e2e, "End-to-end tests" in CONTRIBUTING.md),
+# The end-to-end smoke test of the desktop app (tests/e2e, "End-to-end tests" in docs/development.md),
 # run from source on Windows and Linux. For pushes to the two long-lived branches and for pull
-# requests, like the Checks; its jobs have short, fixed names, different from the Checks jobs.
+# requests, like the Checks; its jobs have short, fixed names, different from the Checks jobs. Also on
+# request (Actions > E2E tests > Run workflow, on any branch), to run the test on a branch that has no
+# pull request, or again on its own after a run that failed for reasons outside the change.
 on:
   push:
     branches: [main, dev]
@@ -29,31 +31,31 @@ jobs:
           - name: Windows
             os: windows-latest
           - name: Linux
-            os: ubuntu-latest
+            os: ubuntu-26.04
     defaults:
       run:
         shell: bash
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
-        with:
-          python-version: "3.13"
-          cache: pip
-          cache-dependency-path: pyproject.toml
+      - uses: ./.github/actions/python
       # The report, the logs and the screenshot (tests/e2e/folders.py). The runner context cannot be
       # used in a job-level env.
       - name: Output folder
         run: echo "E2E_OUTPUT=$RUNNER_TEMP/e2e" >> "$GITHUB_ENV"
-      - name: Install system libraries
+      # PortAudio plays sound; Xvfb is the screen, and stalonetray a tray on it for the app's icon.
+      - uses: ./.github/actions/linux-libraries
         if: runner.os == 'Linux'
-        # PortAudio plays sound; Xvfb is the screen, and stalonetray a tray on it for the app's icon.
-        run: sudo apt-get update && sudo apt-get install -y libportaudio2 xvfb stalonetray
+        with:
+          packages: stalonetray
       - name: Install
         run: python -m pip install -e .[dev]
       - name: Run the smoke test
         if: runner.os == 'Windows'
         run: python -m pytest -m e2e
-      # The tray must be up before the app starts, which looks for it once.
+      # The tray must be up before the app starts, which looks for it once. The screen has a fixed size,
+      # that of a common desktop (Full HD, in full color), rather than xvfb-run's default, which is up
+      # to the Ubuntu release: the app's window then fits as on a user's screen, and the screenshot in
+      # the output folder shows it as a user would see it.
       - name: Run the smoke test (Linux)
         if: runner.os == 'Linux'
         run: xvfb-run -a -s "-screen 0 1920x1080x24" sh -c 'stalonetray & python -m tests.e2e.wait_for_tray && python -m pytest -m e2e'
