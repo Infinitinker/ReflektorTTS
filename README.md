@@ -10,11 +10,11 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Infinitinker/ReflektorTTS/releases/latest"><img src="https://img.shields.io/github/v/release/Infinitinker/ReflektorTTS?label=download" alt="Latest release"></a>
-  <a href="https://github.com/Infinitinker/ReflektorTTS/actions/workflows/checks.yml"><img src="https://github.com/Infinitinker/ReflektorTTS/actions/workflows/checks.yml/badge.svg" alt="Checks"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0--or--later-blue" alt="License: GPL-3.0-or-later"></a>
-  <img src="https://img.shields.io/badge/platform-Windows-0078D6?logo=windows" alt="Platform: Windows">
-  <img src="https://img.shields.io/badge/works-offline-2ea44f" alt="Works offline">
+  <a href="https://github.com/Infinitinker/ReflektorTTS/releases/latest"><img src="https://img.shields.io/github/v/release/Infinitinker/ReflektorTTS?label=Download" alt="Latest release"></a>
+  <a href="https://github.com/Infinitinker/ReflektorTTS/actions/workflows/checks.yml"><img src="https://img.shields.io/github/actions/workflow/status/Infinitinker/ReflektorTTS/checks.yml?branch=main&label=Checks" alt="Checks on main"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-GPL--3.0--or--later-blue" alt="License: GPL-3.0-or-later"></a>
+  <img src="https://img.shields.io/badge/Platform-Windows-555" alt="Platform: Windows">
+  <img src="https://img.shields.io/badge/Works-offline-2ea44f" alt="Works offline">
 </p>
 
 ReflektorTTS reads an app's text aloud as it appears on screen, and can translate it on the way, in the style of a Polish *lektor*: in Poland, foreign films are traditionally shown with one calm voice reading the translation over the original soundtrack, which stays audible underneath. ReflektorTTS does the same for games: the original sound keeps playing, a little quieter, while a voice reads the line in your language.
@@ -28,8 +28,8 @@ ReflektorTTS reads an app's text aloud as it appears on screen, and can translat
 - 🗣️ **Reads the text aloud** as it appears: dialogue, cutscene subtitles, help messages.
 - 🌍 **Translates it on the way**, offline, with Argos Translate models.
 - 🔉 **Lowers the game's sound** while the voice speaks, and brings it back afterwards.
-- 💬 **Shows subtitles** over the game, for example the translation while the original plays.
-- 🎮 **Is set up from inside the game**: press **Ctrl+Shift+R** for the ReflektorTTS panel, with no Alt+Tab, which older games often don't survive.
+- 💬 **Shows subtitles** over games with the overlay, for example the translation while the original plays.
+- 🎮 **Is set up from inside the game** in games with the overlay: press **Ctrl+Shift+R** for the ReflektorTTS panel, with no Alt+Tab, which older games often don't survive. Every app, with the overlay or not, can be set up from the ReflektorTTS window too.
 - 🔒 **Stays on your computer**: it runs offline, the text it reads never leaves your computer, and nothing is downloaded unless you ask.
 - 🧩 **Learns new apps from profiles**: one small file per app, which anyone can write and share.
 
@@ -42,7 +42,7 @@ ReflektorTTS reads games such as Grand Theft Auto III, Vice City, San Andreas an
 1. **Download** `ReflektorTTS-<version>-windows-x64-setup.exe` from the [latest release](https://github.com/Infinitinker/ReflektorTTS/releases/latest) and run it. It installs ReflektorTTS for you alone, without asking for administrator rights, or, if you choose, for all users of the computer.
 2. **Start ReflektorTTS** from the installer's last page or the Start menu. Its icon appears next to the clock; click it to open the window.
 3. **Start a supported game.** ReflektorTTS notices it and reads its text aloud, with a voice Windows already has.
-4. **Press Ctrl+Shift+R** in the game to choose the voice, the languages, the reading speed and more.
+4. **Choose the voice**, the languages, the reading speed and more: press **Ctrl+Shift+R** in a game with the overlay ([SUPPORTED_APPS.md](SUPPORTED_APPS.md) says which), or, for any app, choose **App settings…** in the window's Status tab while the app is read.
 
 For better voices, or to translate, download them in the window's **Voices** and **Translations** tabs.
 
@@ -72,7 +72,7 @@ Rather not install anything? Download `ReflektorTTS-<version>-windows-x64.zip` i
 ReflektorTTS runs next to the clock: its icon there opens the window, pauses reading, switches **Start with Windows** on or off, or quits. Closing the window leaves ReflektorTTS running.
 
 - **Status** shows what ReflektorTTS is doing: the app it reads, or that it waits for one, and an app version its profile does not support yet, with the voice, the languages and what happens to the app's sound: the app's own settings, or with no app running, the ones a new app starts with. When ReflektorTTS cannot read the app, it says why and what to do, until it can again. It also pauses reading, opens the settings of the app being read with **App settings…**, quits ReflektorTTS, and links to the project page, bug reports and the support pages.
-- **Profiles** lists the profiles, bundled and your own, with the medal for how far each is tested, says which are used and why others are not, enables or disables them, and copies, removes or imports profile files. **App settings…** opens the selected app's settings in a window of their own beside the ReflektorTTS window, the same as in the game, whether or not the app is running: set up an app before you start it, or one without the overlay. Clicking it again brings that window to the front. An app that can be read only once its own settings are changed shows as **Not set up**, with a group under its details: **Enable** there makes the change, and **Disable** puts back what it changed.
+- **Profiles** lists the profiles, bundled and your own, with the medal for how far each is tested, says which are used and why others are not, enables or disables them, and copies, removes or imports profile files. **App settings…** opens the selected app's settings in a window of their own beside the ReflektorTTS window, the same as in the game, whether or not the app is running: set up an app before you start it, or one without the overlay. Clicking it again brings that window to the front. An app that can be read only once its own settings are changed, such as VLC media player, shows as **Not set up** until its integration is enabled: **Integration…** opens a window that says what the integration changes and whether it is enabled; **Enable** there makes the change, and **Disable** puts back what it changed.
 - **Voices** and **Translations** download voices and translation models; see [Voices](#voices) and [Translation](#translation).
 - **Settings** has the **Start with Windows** switch: ReflektorTTS then starts, hidden next to the clock, when you sign in. A first install for you alone turns it on unless you untick it; Task Manager's Startup apps can turn it off too. It also opens the settings, logs and profiles folders.
 
@@ -115,7 +115,7 @@ While a line is spoken, ReflektorTTS lowers the game's sound to 30% of its own v
 
 ## Subtitles
 
-ReflektorTTS can also show each line as a subtitle over the game, for example the translation while the original plays. Switch them on under Subtitles in the panel's Output section, where you also set their size and position. They sit at the top by default, so the game's own text, usually at the bottom, stays visible.
+In a game with the overlay, ReflektorTTS can also show each line as a subtitle over the game, for example the translation while the original plays. Switch them on under Subtitles in the panel's Output section, where you also set their size and position. They sit at the top by default, so the game's own text, usually at the bottom, stays visible.
 
 ## Profiles
 
@@ -139,7 +139,7 @@ Look at the Status tab. It says when a game's version is not supported by its pr
 Untick **Start with Windows** in the window's Settings tab or in its icon's menu next to the clock.
 
 **Where are my settings?**
-Settings, downloaded voices and models, your own profiles and the logs are all in `%LOCALAPPDATA%\ReflektorTTS`. They stay when you update ReflektorTTS.
+On Windows, in `%LOCALAPPDATA%\ReflektorTTS`, with your downloaded voices and models, your own profiles and the logs; the window's Settings tab opens the settings, logs and profiles folders. They stay when you update ReflektorTTS.
 
 **How do I update or remove it?**
 Run the newer installer. If ReflektorTTS is running, it asks you to quit it first (right-click its icon next to the clock > Quit); quit games that use the overlay too. It then updates ReflektorTTS and keeps your settings. To remove it, use Windows Settings > Apps; it asks whether to delete your settings and downloads too (removing an install for all users leaves each user's own). If you enabled the VLC integration, disable it first: deleting your settings deletes the record of what ReflektorTTS changed in VLC's settings. With the zip, replace its folder to update, and delete it and `%LOCALAPPDATA%\ReflektorTTS` to remove it.
@@ -155,6 +155,8 @@ Further documentation:
 - [native/README.md](native/README.md): the native code: the overlay, and the code it shares
 - [docs/architecture.md](docs/architecture.md): how ReflektorTTS is built, and what is planned
 - [docs/plugins.md](docs/plugins.md): writing sources, stages, speech engines and download sources
+- [docs/development.md](docs/development.md): setting up from source, running it, and the checks and tests
+- [docs/releasing.md](docs/releasing.md): how a release is built and published
 - [docs/api.md](docs/api.md): the local API, through which the desktop app and the overlay control ReflektorTTS
 
 ## Support
@@ -170,8 +172,10 @@ Ko-fi takes cards and PayPal; buycoffee.to suits Polish supporters, with BLIK an
 
 ## License
 
-Copyright (C) 2026 Infinitinker. ReflektorTTS is free software under the GPL-3.0-or-later; see [LICENSE](LICENSE). [COPYRIGHT](COPYRIGHT) adds a permission to combine it with the Intel and NVIDIA libraries that CTranslate2, the translation engine, is built with. The licenses of the third-party software it ships, such as the overlay's Dear ImGui, nlohmann/json, MinHook and MinGW-w64 runtime, are in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
+Copyright (c) 2026 Infinitinker. ReflektorTTS is free software under the GNU General Public License, version 3 or any later version (GPL-3.0-or-later); see [LICENSE](LICENSE). [COPYRIGHT](COPYRIGHT) adds a permission, under section 7 of the GPL, to combine it with the Intel and NVIDIA libraries that CTranslate2, the translation engine, is built with.
+
+ReflektorTTS ships with third-party software and data: Python, the Python packages it runs on, the native libraries of the overlay and the settings window (Dear ImGui, nlohmann/json, MinHook, SDL and the MinGW-w64 runtime), and the language data from Unicode CLDR and .NET. Their licenses and notices are in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md), which a release ships as `THIRD-PARTY-NOTICES.txt`.
 
 Reading Avalanche games' files follows the formats as documented by [Gibbed.MadMax](https://github.com/gigaHours/Gibbed.MadMax) (Rick Gibbed, zlib license); file names are hashed with Bob Jenkins' public-domain lookup3. A game's text is read from your own copy while it runs and is not stored.
 
-ReflektorTTS is not affiliated with the makers of the games it reads; their names and trademarks belong to their owners.
+ReflektorTTS is not affiliated with or endorsed by the makers of the apps it reads, the games' developers and publishers and VideoLAN, the maker of VLC media player, alike; their names and trademarks belong to their owners.
