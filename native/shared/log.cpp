@@ -1,5 +1,5 @@
 // Writes the native code's log lines, each starting with "[ReflektorTTS]": to the debugger output
-// on Windows (read with DebugView), to standard error elsewhere.
+// on Windows (read with a debugger-output viewer), to standard error elsewhere.
 
 #include "log.h"
 

@@ -74,7 +74,7 @@ native/build/bin/reflektortts-inject.exe gta2.exe
 
 or `--pid <id>` instead of the process name, with the injector from the build matching the app. `--port <port>`, after them, connects the overlay to a core on another port than the installed ReflektorTTS's 47821, such as a run from source's 47822; the core passes its own. The injector loads the DLL, then starts it through its one export, `reflektortts_start_overlay`, on a thread in the app, with the port as the thread's parameter. It exits with 3 if the app and the build differ in bitness (32-bit vs 64-bit), which the core uses to try another build.
 
-If the overlay does not appear, it writes what went wrong to the debugger output; read it with [DebugView](https://learn.microsoft.com/sysinternals/downloads/debugview).
+If the overlay does not appear, it writes what went wrong to the debugger output, each line starting with `[ReflektorTTS]`. Read it with [DebugView++](https://github.com/CobaltFusion/DebugViewPP) (open source), which shows the debugger output of 32- and 64-bit apps alike, or attach MSYS2's gdb to the app (`gdb -p <process ID>`, from MINGW32 for a 32-bit app), which prints each line as a warning.
 
 ## The panel
 
