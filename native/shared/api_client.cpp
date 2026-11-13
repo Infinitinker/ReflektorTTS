@@ -50,6 +50,8 @@ struct Client {
     std::deque<Request> requests;
 };
 
+// It allocates as the program loads, where running out of memory ends the program anyway.
+// NOLINTNEXTLINE(bugprone-throwing-static-initialization)
 Client& g_client = *new Client();
 
 // Changes the state under its lock, then tells the client's user. Called on the client's threads,

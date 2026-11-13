@@ -16,7 +16,6 @@ Checks: >
   -bugprone-easily-swappable-parameters,
   -bugprone-invalid-enum-default-initialization,
   -bugprone-signed-bitwise,
-  -bugprone-throwing-static-initialization,
 
   -cppcoreguidelines-avoid-c-arrays,
   -cppcoreguidelines-avoid-magic-numbers,
@@ -56,8 +55,6 @@ Checks: >
 # bugprone-invalid-enum-default-initialization: Windows' structs are zeroed with {} before they are
 #   filled in, as their documentation does, whatever their enums hold.
 # bugprone-signed-bitwise: Windows' and ImGui's flags are signed constants combined with |.
-# bugprone-throwing-static-initialization: the only statics that may throw allocate at load time,
-#   where running out of memory ends the program anyway.
 # cppcoreguidelines-avoid-c-arrays, modernize-avoid-c-arrays: buffers handed to Windows' functions
 #   with their size, and fixed tables of descriptors.
 # cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers: byte codes of jumps, Windows'

@@ -19,6 +19,8 @@ struct Wakeups {
     std::atomic<bool> pending = false;
 };
 
+// It allocates as the program loads, where running out of memory ends the program anyway.
+// NOLINTNEXTLINE(bugprone-throwing-static-initialization)
 Wakeups& g_wakeups = *new Wakeups();
 
 }  // namespace
