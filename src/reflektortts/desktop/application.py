@@ -254,6 +254,8 @@ class Application:
     def _fetch_profiles(self) -> None:
         """Runs in the background; the list is shown on Tkinter's thread, with the integrations."""
         try:
+            if not self._languages:
+                self._languages = parse_languages(request_json("GET", "/languages"))
             items = parse_profiles(request_json("GET", "/profiles"))
             integrations = parse_integrations(request_json("GET", "/integrations"))
         except ApiClientError as error:

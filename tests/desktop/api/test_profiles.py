@@ -8,6 +8,7 @@ from reflektortts.desktop.api.profiles import (
     ProfileItem,
     SourceItem,
     details_text,
+    languages_column_text,
     name_text,
     overlay_text,
     parse_profiles,
@@ -25,6 +26,9 @@ GTA2: dict[str, Any] = {
     "file": r"C:\ReflektorTTS\profiles\bundled\grand-theft-auto-2-1999.json",
     "overlay": True,
     "rating": "gold",
+    "tested_languages": ["en"],
+    "glossary_languages": [],
+    "pronunciation_languages": [],
     "executables": [{"name": "gta2.exe", "sha256": ["420a"]}],
     "sources": [{"name": "messages", "type": "memory", "stages": ["tracker", "replace"]}],
 }
@@ -38,10 +42,12 @@ BROKEN: dict[str, Any] = GTA2 | {
     "file": r"C:\Users\me\profiles\mine-2000.json",
     "overlay": None,
     "rating": None,
+    "tested_languages": [],
     "executables": [],
     "sources": [],
 }
 GOLD = "Gold: The main texts are read, tested through most of the app."
+NAMES = {"en": "English", "pl": "Polish (Polski)", "de": "German (Deutsch)"}.__getitem__
 
 
 def test_a_listing_from_the_api_becomes_items() -> None:
@@ -57,6 +63,9 @@ def test_a_listing_from_the_api_becomes_items() -> None:
         file=r"C:\ReflektorTTS\profiles\bundled\grand-theft-auto-2-1999.json",
         overlay=True,
         rating="gold",
+        tested_languages=("en",),
+        glossary_languages=(),
+        pronunciation_languages=(),
         executables=(ExecutableItem("gta2.exe", ("420a",)),),
         sources=(SourceItem("messages", "memory", ("tracker", "replace")),),
     )
@@ -69,8 +78,35 @@ def test_the_details_give_the_reason_and_the_medal_first_then_executables_and_so
     any_build = GTA2 | {"executables": [{"name": "gta2.exe", "sha256": []}]}
     [gta2, broken] = parse_profiles({"profiles": [any_build, BROKEN]})
 
-    assert details_text(gta2) == f"{GOLD}\n\ngta2.exe: any version\nmessages (memory): tracker, replace"
-    assert details_text(broken) == "mine-2000.json: must contain a JSON object."
+    assert details_text(gta2, NAMES) == (
+        f"{GOLD}\nTested in: English\n\ngta2.exe: any version\nmessages (memory): tracker, replace"
+    )
+    assert details_text(broken, NAMES) == "mine-2000.json: must contain a JSON object."
+
+
+def test_the_details_say_which_languages_it_was_tested_in_and_its_glossary_covers() -> None:
+    glossary = GTA2 | {"glossary_languages": ["en"], "pronunciation_languages": ["de", "pl"]}
+    [gta2, vlc, unsaid] = parse_profiles(
+        {"profiles": [glossary, GTA2 | {"tested_languages": "any"}, GTA2 | {"tested_languages": []}]}
+    )
+
+    assert details_text(gta2, NAMES).startswith(
+        f"{GOLD}\nTested in: English\nGlossary: English\nPronunciation: German (Deutsch), Polish (Polski)\n\n"
+    )
+    assert details_text(vlc, NAMES).startswith(f"{GOLD}\nTested in: Any language\n\n")
+    assert details_text(unsaid, NAMES).startswith(f"{GOLD}\n\n")
+
+
+def test_the_list_shows_the_first_tested_languages_by_code_and_counts_the_rest() -> None:
+    nine = ["en", "pl", "de", "fr", "it", "ja", "pt", "ru", "es"]
+    profiles = [GTA2 | {"tested_languages": languages} for languages in (["en", "pl"], nine, "any", [])]
+
+    assert [languages_column_text(item) for item in parse_profiles({"profiles": profiles})] == [
+        "EN, PL",
+        "EN, PL, DE +6",
+        "Any language",
+        "",
+    ]
 
 
 def test_the_medal_is_named_with_what_it_means_and_a_profile_without_one_is_not_rated() -> None:
@@ -87,4 +123,4 @@ def test_a_profile_not_set_up_is_named_so_and_not_counted_as_used() -> None:
 
     assert STATES[vlc.state] == "Not set up"
     assert summary_text([vlc]) == "Profiles: 1, used: 0"
-    assert details_text(vlc).startswith(f"{reason}\n\n{GOLD}\n\n")
+    assert details_text(vlc, NAMES).startswith(f"{reason}\n\n{GOLD}\nTested in: English\n\n")

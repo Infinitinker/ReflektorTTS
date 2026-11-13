@@ -98,6 +98,7 @@ class Window:
             on_reload_profiles,
             on_open_profiles,
             on_integration,
+            languages_text,
         )
         self._notebook.add(self.profiles.frame, text="Profiles")
 
