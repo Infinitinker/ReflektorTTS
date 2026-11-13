@@ -50,7 +50,8 @@ void deliver_waiting_messages() {
 }
 
 bool is_down(int key) {
-    return (GetAsyncKeyState(key) & 0x8000) != 0;
+    // The state's top bit says the key is down, which makes the SHORT negative.
+    return GetAsyncKeyState(key) < 0;
 }
 
 LRESULT CALLBACK overlay_window_proc(HWND window, UINT message, WPARAM wparam, LPARAM lparam) {

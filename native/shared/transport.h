@@ -16,9 +16,9 @@ namespace reflektortts {
 constexpr const char* kCoreHost = "127.0.0.1";
 constexpr int kDefaultCorePort = 47821;
 // The core's events are small; a bigger one is skipped, so a wrong server cannot fill memory.
-constexpr std::size_t kMaxEventBytes = 1 << 20;
+constexpr std::size_t kMaxEventBytes = std::size_t{1024} * 1024;
 // The same for answers to requests, such as the voice list.
-constexpr std::size_t kMaxResponseBytes = 4 << 20;
+constexpr std::size_t kMaxResponseBytes = std::size_t{4} * 1024 * 1024;
 
 struct HttpResponse {
     int status = 0;

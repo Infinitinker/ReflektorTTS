@@ -8,6 +8,7 @@
 #include <format>
 
 #include "settings_panel.h"
+#include "widgets.h"
 
 namespace reflektortts {
 
@@ -19,9 +20,9 @@ void draw_panel_ui(const CoreState& state) {
     ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
     ImGui::Begin("##settings", nullptr,
-                 ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
-                     ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings |
-                     ImGuiWindowFlags_NoBringToFrontOnFocus);
+                 combined_flags(ImGuiWindowFlags_NoTitleBar, ImGuiWindowFlags_NoResize, ImGuiWindowFlags_NoMove,
+                                ImGuiWindowFlags_NoCollapse, ImGuiWindowFlags_NoSavedSettings,
+                                ImGuiWindowFlags_NoBringToFrontOnFocus));
     ImGui::PopStyleVar(2);
     draw_settings_panel(state, PanelPlace::Window);
     ImGui::End();

@@ -91,7 +91,7 @@ HRESULT get_device_state(GetDeviceStateFn original, void* device, DWORD size, vo
 // A release of a key or mouse button: the high bit of the event's data is clear.
 bool is_release(DeviceKind kind, const DIDEVICEOBJECTDATA& event) {
     bool button = kind == DeviceKind::keyboard || (event.dwOfs >= DIMOFS_BUTTON0 && event.dwOfs <= DIMOFS_BUTTON7);
-    return button && (event.dwData & 0x80) == 0;
+    return button && (event.dwData & 0x80U) == 0;
 }
 
 // Events are still read, so they do not pile up and reach the app after the panel closes.

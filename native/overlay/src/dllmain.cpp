@@ -49,7 +49,7 @@ bool app_just_started() {
     FILETIME now{};
     GetProcessTimes(GetCurrentProcess(), &created, &exited, &kernel, &user);
     GetSystemTimeAsFileTime(&now);
-    auto ticks = [](FILETIME time) { return (ULONGLONG{time.dwHighDateTime} << 32) | time.dwLowDateTime; };
+    auto ticks = [](FILETIME time) { return (ULONGLONG{time.dwHighDateTime} << 32U) | time.dwLowDateTime; };
     return ticks(now) - ticks(created) < kJustStartedSeconds * 10'000'000;
 }
 

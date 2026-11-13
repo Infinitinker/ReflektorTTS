@@ -18,7 +18,7 @@ constexpr const char* kEllipsis = "…";
 // Drops the text's last UTF-8 character: its continuation bytes, then its first byte, so no first
 // byte is left without the rest of its character.
 void drop_last_character(std::string& text) {
-    while (!text.empty() && (static_cast<unsigned char>(text.back()) & 0xC0) == 0x80) {
+    while (!text.empty() && (static_cast<std::byte>(text.back()) & std::byte{0xC0}) == std::byte{0x80}) {
         text.pop_back();
     }
     if (!text.empty()) {

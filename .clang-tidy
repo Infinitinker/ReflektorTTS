@@ -31,7 +31,6 @@ Checks: >
 
   -bugprone-easily-swappable-parameters,
   -bugprone-invalid-enum-default-initialization,
-  -bugprone-signed-bitwise,
 
 # Style only. These say how the code is written, not whether it is right, so they stay off:
 #
@@ -62,8 +61,6 @@ Checks: >
 #   helper's count and alignment, and two of the transport's functions.
 # bugprone-invalid-enum-default-initialization: Direct3D 9's structs are zeroed with {} before they
 #   are filled in, though zero is not a value of some of their enums.
-# bugprone-signed-bitwise: ImGui's and Windows' flags, IM_COL32's colors and sizes written as
-#   1 << 20 are signed values combined with | and <<.
 WarningsAsErrors: '*'
 
 # Only the project's own headers: not those of Windows, MinGW or the fetched libraries.

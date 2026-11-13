@@ -12,6 +12,7 @@
 #include "log.h"
 #include "system_font.h"
 #include "ui/overlay_ui.h"
+#include "widgets.h"
 
 namespace reflektortts {
 namespace {
@@ -65,7 +66,8 @@ void forget_renderer_backend() {
     ImGuiIO& io = ImGui::GetIO();
     io.BackendRendererName = nullptr;
     io.BackendRendererUserData = nullptr;
-    io.BackendFlags &= ~(ImGuiBackendFlags_RendererHasVtxOffset | ImGuiBackendFlags_RendererHasTextures);
+    io.BackendFlags = without_flags(
+        io.BackendFlags, combined_flags(ImGuiBackendFlags_RendererHasVtxOffset, ImGuiBackendFlags_RendererHasTextures));
     ImGui::GetPlatformIO().ClearRendererHandlers();
 }
 
