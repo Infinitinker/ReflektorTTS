@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "reflektortts"
 version = "0.4.0"
-description = "Your apps, read aloud. Game dialogue, subtitles and messages, spoken and translated into your language."
+description = "Your apps, read aloud. Speaks the dialogue and subtitles of games and other apps, and can translate them if you like, lektor-style."
 readme = "README.md"
 authors = [{ name = "Infinitinker" }]
 license = "GPL-3.0-or-later"

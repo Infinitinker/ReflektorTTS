@@ -6,7 +6,7 @@
 
 <p align="center">
   <b>Your apps, read aloud.</b><br>
-  Game dialogue, subtitles and messages, spoken and translated into your language.
+  Speaks the dialogue and subtitles of games and other apps, and can translate them if you like, lektor-style.
 </p>
 
 <p align="center">
