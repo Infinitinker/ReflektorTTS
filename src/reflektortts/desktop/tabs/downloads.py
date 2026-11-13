@@ -20,7 +20,6 @@ COLUMNS = (
     ("name", "Name"),
     ("source", "Source"),
     ("languages", "Languages"),
-    ("speech_rules", "Speech rules"),
     ("size", "Size"),
     ("state", "State"),
 )
@@ -37,10 +36,8 @@ class DownloadsTab:
         on_remove: Callable[[DownloadItem], None],
         on_preview: Callable[[DownloadItem], None] | None,
         languages_text: Callable[[Sequence[str]], str],
-        speech_rules_text: Callable[[str], str],
     ) -> None:
-        """on_preview is None for downloads that cannot be heard. speech_rules_text gives an output
-        language's speech rules by its code."""
+        """on_preview is None for downloads that cannot be heard."""
         self.frame = ttk.Frame(parent, padding=(8, 8, 8, 6))
         self._status_bar = status_bar
         self._on_download = on_download
@@ -49,7 +46,6 @@ class DownloadsTab:
         self._playing: str | None = None
         """The voice whose preview is loading or playing."""
         self._languages_text = languages_text
-        self._speech_rules_text = speech_rules_text
         self._items: dict[str, DownloadItem] = {}
         self.frame.columnconfigure(0, weight=1)
         # The list and the box under it share the height 60/40 as the window is resized.
@@ -131,7 +127,7 @@ class DownloadsTab:
     def show_message(self, message: str) -> None:
         """Shows a message in place of the entries, e.g. while they load."""
         self._tree.delete(*self._tree.get_children())
-        self._tree.insert("", "end", iid="message", values=(message, "", "", "", "", ""), tags=("message",))
+        self._tree.insert("", "end", iid="message", values=(message, "", "", "", ""), tags=("message",))
         self._items = {}
         fit_columns(self._tree, COLUMNS)
         self._status_bar.set_text(self.frame, "")
@@ -163,11 +159,9 @@ class DownloadsTab:
         if progress.id in self._items and progress.state == "downloading":
             self._show_downloading(progress.id, progress.done, progress.total)
 
-    def _row(self, item: DownloadItem) -> tuple[str, str, str, str, str, str]:
+    def _row(self, item: DownloadItem) -> tuple[str, str, str, str, str]:
         state = state_text(item.state, item.done, item.total)
-        # A voice's language is the one it speaks; a translation's last is the one it translates into.
-        rules = self._speech_rules_text(item.languages[-1]) if item.languages else ""
-        return item.name, item.source, self._languages(item), rules, size_text(item.size), state
+        return item.name, item.source, self._languages(item), size_text(item.size), state
 
     def _languages(self, item: DownloadItem) -> str:
         return self._languages_text(item.languages)

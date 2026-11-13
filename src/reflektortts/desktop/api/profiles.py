@@ -63,11 +63,14 @@ class ProfileItem:
     rating: str | None
     """As the API names it, e.g. "gold"; None if not rated, or for a broken file."""
     tested_languages: tuple[str, ...] | str
-    """Codes of the app languages the rating holds for, or ANY_LANGUAGE; empty if not said."""
+    """Codes of the languages it was tested with, or ANY_LANGUAGE; empty if not said."""
     glossary_languages: tuple[str, ...]
     """The input languages its glossary has terms for."""
     pronunciation_languages: tuple[str, ...]
     """The output languages its glossary says how to pronounce terms in."""
+    speech_rules: tuple[tuple[str, tuple[str, ...]], ...]
+    """What its stages do only for some output languages, each with those languages' codes, e.g.
+    ("Numbers, dates and units", ("en", "pl"))."""
     executables: tuple[ExecutableItem, ...]
     sources: tuple[SourceItem, ...]
 
@@ -87,6 +90,7 @@ def parse_profiles(data: Mapping[str, Any]) -> list[ProfileItem]:
             tested_languages=_tested(profile["tested_languages"]),
             glossary_languages=tuple(profile["glossary_languages"]),
             pronunciation_languages=tuple(profile["pronunciation_languages"]),
+            speech_rules=tuple((rule["name"], tuple(rule["languages"])) for rule in profile["speech_rules"]),
             executables=tuple(
                 ExecutableItem(executable["name"], tuple(executable["sha256"])) for executable in profile["executables"]
             ),
@@ -124,7 +128,7 @@ def rating_text(item: ProfileItem) -> tuple[str, str]:
 
 
 def languages_column_text(item: ProfileItem) -> str:
-    """The app languages it was tested in, for the list: their codes, the first few and how many
+    """The languages it was tested with, for the list: their codes, the first few and how many
     more, e.g. "EN, PL, DE +6"; "Any language"; or nothing if it does not say."""
     if item.tested_languages == ANY_LANGUAGE:
         return ANY_LANGUAGE_TEXT
@@ -139,9 +143,9 @@ def summary_text(items: Sequence[ProfileItem]) -> str:
 
 
 def details_text(item: ProfileItem, language_name: Callable[[str], str]) -> str:
-    """The reason it is not used, if any, what its medal means and in which languages, which
-    languages its glossary covers, then its executables and sources. language_name names a language
-    by its code."""
+    """The reason it is not used, if any, what its medal means, the languages it was tested with,
+    those its glossary covers and those its stages' speech rules cover, then its executables and
+    sources. language_name names a language by its code."""
     lines = [item.reason, ""] if item.reason else []
     medal, meaning = rating_text(item)
     if medal:
@@ -149,9 +153,10 @@ def details_text(item: ProfileItem, language_name: Callable[[str], str]) -> str:
         lines += [
             f"{label}: {names}"
             for label, names in (
-                ("Tested in", _names(item.tested_languages, language_name)),
+                ("Tested languages", _names(item.tested_languages, language_name)),
                 ("Glossary", _names(item.glossary_languages, language_name)),
                 ("Pronunciation", _names(item.pronunciation_languages, language_name)),
+                *((rule, _names(languages, language_name)) for rule, languages in item.speech_rules),
             )
             if names
         ]

@@ -40,7 +40,7 @@ RATING = "Rating"
 """The first column's title: the profile's medal."""
 COLUMNS = (
     ("name", "Name"),
-    ("languages", "Languages"),
+    ("tested", "Tested languages"),
     ("origin", "Origin"),
     ("executables", "Executables"),
     ("overlay", "Overlay"),

@@ -29,6 +29,7 @@ GTA2: dict[str, Any] = {
     "tested_languages": ["en"],
     "glossary_languages": [],
     "pronunciation_languages": [],
+    "speech_rules": [],
     "executables": [{"name": "gta2.exe", "sha256": ["420a"]}],
     "sources": [{"name": "messages", "type": "memory", "stages": ["tracker", "replace"]}],
 }
@@ -66,6 +67,7 @@ def test_a_listing_from_the_api_becomes_items() -> None:
         tested_languages=("en",),
         glossary_languages=(),
         pronunciation_languages=(),
+        speech_rules=(),
         executables=(ExecutableItem("gta2.exe", ("420a",)),),
         sources=(SourceItem("messages", "memory", ("tracker", "replace")),),
     )
@@ -79,21 +81,29 @@ def test_the_details_give_the_reason_and_the_medal_first_then_executables_and_so
     [gta2, broken] = parse_profiles({"profiles": [any_build, BROKEN]})
 
     assert details_text(gta2, NAMES) == (
-        f"{GOLD}\nTested in: English\n\ngta2.exe: any version\nmessages (memory): tracker, replace"
+        f"{GOLD}\nTested languages: English\n\ngta2.exe: any version\nmessages (memory): tracker, replace"
     )
     assert details_text(broken, NAMES) == "mine-2000.json: must contain a JSON object."
 
 
-def test_the_details_say_which_languages_it_was_tested_in_and_its_glossary_covers() -> None:
-    glossary = GTA2 | {"glossary_languages": ["en"], "pronunciation_languages": ["de", "pl"]}
+def test_the_details_say_which_languages_it_was_tested_with_and_its_glossary_and_rules_cover() -> None:
+    glossary = GTA2 | {
+        "glossary_languages": ["en"],
+        "pronunciation_languages": ["de", "pl"],
+        "speech_rules": [
+            {"name": "Glossary grammar", "languages": ["pl"]},
+            {"name": "Numbers, dates and units", "languages": ["en", "pl"]},
+        ],
+    }
     [gta2, vlc, unsaid] = parse_profiles(
         {"profiles": [glossary, GTA2 | {"tested_languages": "any"}, GTA2 | {"tested_languages": []}]}
     )
 
     assert details_text(gta2, NAMES).startswith(
-        f"{GOLD}\nTested in: English\nGlossary: English\nPronunciation: German (Deutsch), Polish (Polski)\n\n"
+        f"{GOLD}\nTested languages: English\nGlossary: English\nPronunciation: German (Deutsch), Polish (Polski)\n"
+        "Glossary grammar: Polish (Polski)\nNumbers, dates and units: English, Polish (Polski)\n\n"
     )
-    assert details_text(vlc, NAMES).startswith(f"{GOLD}\nTested in: Any language\n\n")
+    assert details_text(vlc, NAMES).startswith(f"{GOLD}\nTested languages: Any language\n\n")
     assert details_text(unsaid, NAMES).startswith(f"{GOLD}\n\n")
 
 
@@ -123,4 +133,4 @@ def test_a_profile_not_set_up_is_named_so_and_not_counted_as_used() -> None:
 
     assert STATES[vlc.state] == "Not set up"
     assert summary_text([vlc]) == "Profiles: 1, used: 0"
-    assert details_text(vlc, NAMES).startswith(f"{reason}\n\n{GOLD}\nTested in: English\n\n")
+    assert details_text(vlc, NAMES).startswith(f"{reason}\n\n{GOLD}\nTested languages: English\n\n")
