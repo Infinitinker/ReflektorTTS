@@ -124,6 +124,9 @@ Lists every profile, bundled and the user's own, in ID order:
       "file": "...\\profiles\\bundled\\grand-theft-auto-2-1999.json",
       "overlay": false,
       "rating": "bronze",
+      "tested_languages": ["en"],
+      "glossary_languages": [],
+      "pronunciation_languages": [],
       "executables": [{ "name": "gta2.exe", "sha256": ["420af867..."] }],
       "sources": [{ "name": "subtitles", "type": "memory", "stages": ["tracker", "replace", "translate", "normalize"] }]
     }
@@ -132,6 +135,8 @@ Lists every profile, bundled and the user's own, in ID order:
 ```
 
 - `rating`: how far the profile is tested, as its medal (`bronze`, `silver`, `gold` or `platinum`; see the profile format), or `null` if it is not rated or the file is broken.
+- `tested_languages`: the codes of the app languages the profile was tested in, which `rating` holds for; `"any"` for a profile that reads text whatever its language; `[]` if it does not say or the file is broken.
+- `glossary_languages`: the input languages the profile's glossary has terms for, which translation keeps or rewrites; `pronunciation_languages`: the output languages it says how to pronounce terms in. Both are `[]` without a glossary.
 - `origin`: `bundled`, `custom` (the user's own) or `override` (the user's own, replacing the bundled profile with its ID).
 - `state`: `reading`, `not_running`, `unsupported` (its app runs in a build the profile does not list), `not_set_up` (every source of it needs an [integration](#integrations) that is not enabled, so its app is not read), `disabled`, `not_used` (another profile, the user's own, matches the same app), `clash` (another of the user's own does) or `broken` (the file cannot be read as a profile; `title`, `year` and `overlay` are then `null`). `reason` says why for `not_set_up`, `not_used`, `clash` and `broken`.
 
@@ -362,4 +367,4 @@ Clients should ignore event types and fields they do not know, so the API can gr
 
 ## Versioning
 
-Breaking changes get a new version prefix (`/v2`); `/v1` keeps working alongside it for a while. New fields, requests and event types can be added to `/v1`. Until the first release, `/v1` itself may still change.
+Breaking changes get a new version prefix (`/v2`); `/v1` keeps working alongside it for a while. New fields, requests and event types can be added to `/v1`.

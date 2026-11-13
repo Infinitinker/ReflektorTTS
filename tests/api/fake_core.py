@@ -20,6 +20,7 @@ from reflektortts.events import (
     StageState,
     Status,
 )
+from reflektortts.glossary import GlossaryTerm
 from reflektortts.integrations import (
     IntegrationError,
     IntegrationState,
@@ -64,7 +65,12 @@ MAD_MAX = CatalogEntry(
         Match((Executable("MadMax.exe", ("cd71",)),)),
         (SourceSettings("avalanche", "subtitles", 0.1, {}, (StageSettings("tracker", {}),)),),
         overlay=True,
+        glossary={
+            "en": (GlossaryTerm("Max", keep=True, pronounce={"pl": "Maks"}),),
+            "fr": (GlossaryTerm("Chumbucket", pronounce={"de": "Tschambakit", "pl": "Czambaket"}),),
+        },
         rating=Rating.BRONZE,
+        tested_languages=("en", "pl"),
     ),
 )
 

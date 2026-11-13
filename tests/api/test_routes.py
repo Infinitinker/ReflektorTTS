@@ -461,6 +461,9 @@ def test_profiles_are_listed_and_switched() -> None:
                     "file": str(Path("mad-max-2015.json")),
                     "overlay": True,
                     "rating": "bronze",
+                    "tested_languages": ["en", "pl"],
+                    "glossary_languages": ["en", "fr"],
+                    "pronunciation_languages": ["de", "pl"],
                     "executables": [{"name": "MadMax.exe", "sha256": ["cd71"]}],
                     "sources": [{"name": "subtitles", "type": "avalanche", "stages": ["tracker"]}],
                 }

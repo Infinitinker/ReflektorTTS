@@ -124,6 +124,13 @@ def profile_json(view: ProfileView) -> dict[str, Any]:
         "file": str(entry.path),
         "overlay": None if profile is None else profile.overlay,
         "rating": None if profile is None or profile.rating is None else profile.rating.value,
+        "tested_languages": [] if profile is None else _codes(profile.tested_languages),
+        "glossary_languages": [] if profile is None else sorted(profile.glossary),
+        "pronunciation_languages": []
+        if profile is None
+        else sorted(
+            {language for glossary in profile.glossary.values() for term in glossary for language in term.pronounce}
+        ),
         "executables": []
         if profile is None
         else [{"name": executable.name, "sha256": list(executable.sha256)} for executable in profile.match.executables],
@@ -134,6 +141,11 @@ def profile_json(view: ProfileView) -> dict[str, Any]:
             for source in profile.sources
         ],
     }
+
+
+def _codes(languages: tuple[str, ...] | str) -> list[str] | str:
+    """A profile's tested languages as a list of codes, or "any" as it is."""
+    return languages if isinstance(languages, str) else list(languages)
 
 
 def integration_json(view: IntegrationView) -> dict[str, Any]:
