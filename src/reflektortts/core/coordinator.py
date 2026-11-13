@@ -47,7 +47,7 @@ from reflektortts.events import (
 from reflektortts.identity import API_PORTS, INSTALLED, api_port
 from reflektortts.integrations import Integration, IntegrationView
 from reflektortts.languages import LanguageError, Languages, check_language, primary_language, sample
-from reflektortts.pipeline.plugins import SourcePlugin, StagePlugin, source_plugins, stage_plugins
+from reflektortts.pipeline.plugins import SourcePlugin, StagePlugin, source_plugins, speech_rules, stage_plugins
 from reflektortts.pipeline.protocols import Sink
 from reflektortts.pipeline.runner import log_error
 from reflektortts.profiles.catalog import (
@@ -219,6 +219,9 @@ class Core:
 
     def voices(self) -> list[VoiceInfo]:
         return self._list_voices()
+
+    def speech_rules(self) -> dict[str, tuple[str, ...]]:
+        return speech_rules(self._stages.values())
 
     def preview_voice(self, voice: str) -> None:
         """Speaks a sample sentence in the voice's language, or the language's name, also while an

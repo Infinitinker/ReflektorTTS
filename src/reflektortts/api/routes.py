@@ -66,10 +66,16 @@ async def get_voices(request: web.Request) -> web.Response:
 
 async def get_languages(request: web.Request) -> web.Response:
     languages = sorted(LANGUAGES.values(), key=lambda language: language.english_name)
+    rules = request.app[CORE].speech_rules()
     return web.json_response(
         {
             "languages": [
-                {"code": language.code, "name": language.name, "english_name": language.english_name}
+                {
+                    "code": language.code,
+                    "name": language.name,
+                    "english_name": language.english_name,
+                    "speech_rules": list(rules.get(language.code, ())),
+                }
                 for language in languages
             ]
         }

@@ -160,6 +160,9 @@ class FakeCore:
     def voices(self) -> list[VoiceInfo]:
         return [ADAM]
 
+    def speech_rules(self) -> dict[str, tuple[str, ...]]:
+        return {"pl": ("Glossary grammar", "Numbers, dates and units")}
+
     def preview_voice(self, voice: str) -> None:
         if voice != ADAM.id:
             raise VoiceError(f'There is no voice "{voice}".')

@@ -99,13 +99,13 @@ Returns every language the input and output language can be set to: each ISO 639
 ```json
 {
   "languages": [
-    { "code": "en", "name": "English", "english_name": "English" },
-    { "code": "pl", "name": "Polski", "english_name": "Polish" }
+    { "code": "en", "name": "English", "english_name": "English", "speech_rules": ["Numbers, dates and units"] },
+    { "code": "pl", "name": "Polski", "english_name": "Polish", "speech_rules": ["Glossary grammar", "Numbers, dates and units"] }
   ]
 }
 ```
 
-`code` is the ISO 639-1 code every other part of the API uses; Norwegian is listed once, as `nb` (Bokmål), which Norwegian voices and models are filed under. `name` is the language's name in itself and `english_name` its English name. That a language is listed does not mean there is a translation model or voice for it: `/v1/downloads` lists those.
+`code` is the ISO 639-1 code every other part of the API uses; Norwegian is listed once, as `nb` (Bokmål), which Norwegian voices and models are filed under. `name` is the language's name in itself and `english_name` its English name. `speech_rules` names, in alphabetical order, what the installed stages do only for some output languages and do for this one, such as spelling out numbers (a stage's `speech_rules`, see [plugins.md](plugins.md)); it is `[]` for most languages. That a language is listed does not mean there is a translation model or voice for it: `/v1/downloads` lists those.
 
 ### `GET /v1/profiles`
 
