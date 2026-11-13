@@ -8,6 +8,7 @@
 #include <imgui.h>
 #include <imgui_impl_dx12.h>
 
+#include <array>
 #include <utility>
 
 #include "hooks/d3d12_queue_hook.h"
@@ -37,6 +38,10 @@ ID3D12CommandQueue* g_queue = nullptr;
 ID3D12DescriptorHeap* g_srv_heap = nullptr;
 UINT g_free_srv_slots[kSrvDescriptorCount];
 UINT g_free_srv_count = 0;
+// How many of ImGui's textures use each descriptor: one, or more for the first once all are taken.
+// A descriptor goes back on the free list when its last texture is freed, so the list never holds
+// one twice and never outgrows the heap.
+std::array<UINT, kSrvDescriptorCount> g_srv_users{};
 ID3D12DescriptorHeap* g_rtv_heap = nullptr;
 ID3D12GraphicsCommandList* g_command_list = nullptr;
 ID3D12Fence* g_fence = nullptr;
@@ -53,17 +58,24 @@ UINT srv_descriptor_size() {
 void allocate_srv(ImGui_ImplDX12_InitInfo*, D3D12_CPU_DESCRIPTOR_HANDLE* cpu, D3D12_GPU_DESCRIPTOR_HANDLE* gpu) {
     UINT slot = 0;
     if (g_free_srv_count == 0) {
-        log_message("Out of D3D12 texture descriptors; reusing the first one");
+        log_message("Out of D3D12 texture descriptors; sharing the first one");
     } else {
         slot = g_free_srv_slots[--g_free_srv_count];
     }
+    ++g_srv_users[slot];
     cpu->ptr = g_srv_heap->GetCPUDescriptorHandleForHeapStart().ptr + static_cast<SIZE_T>(slot) * srv_descriptor_size();
     gpu->ptr = g_srv_heap->GetGPUDescriptorHandleForHeapStart().ptr + static_cast<UINT64>(slot) * srv_descriptor_size();
 }
 
 void free_srv(ImGui_ImplDX12_InitInfo*, D3D12_CPU_DESCRIPTOR_HANDLE cpu, D3D12_GPU_DESCRIPTOR_HANDLE) {
-    SIZE_T offset = cpu.ptr - g_srv_heap->GetCPUDescriptorHandleForHeapStart().ptr;
-    g_free_srv_slots[g_free_srv_count++] = static_cast<UINT>(offset / srv_descriptor_size());
+    SIZE_T slot = (cpu.ptr - g_srv_heap->GetCPUDescriptorHandleForHeapStart().ptr) / srv_descriptor_size();
+    if (slot >= kSrvDescriptorCount || g_srv_users[slot] == 0) {
+        log_message("ImGui freed a D3D12 texture descriptor the overlay did not give out; ignoring it");
+        return;
+    }
+    if (--g_srv_users[slot] == 0) {
+        g_free_srv_slots[g_free_srv_count++] = static_cast<UINT>(slot);
+    }
 }
 
 void wait_for_fence(UINT64 value) {
