@@ -1,0 +1,39 @@
+# How the C++ code in native/ is formatted: Google's style with the code's own choices on top.
+# Check with clang-format --dry-run --Werror, or apply with clang-format -i.
+BasedOnStyle: Google
+
+# Indents of 4 spaces, with access modifiers (public:, private:) at the class's own level; lines of
+# up to 120 characters, like the Python code.
+IndentWidth: 4
+AccessModifierOffset: -4
+ColumnLimit: 120
+
+# The * and & go with the type: void* address, const CodeBytes& code.
+DerivePointerAlignment: false
+PointerAlignment: Left
+
+# Includes keep their groups, separated by blank lines (the file's own header, system and library
+# headers, the C++ standard library, the project's headers), and are sorted within each group.
+# windows.h comes first in its group, since other Windows headers (tlhelp32.h, dwmapi.h) need it
+# included before them.
+IncludeBlocks: Preserve
+SortIncludes: CaseSensitive
+IncludeCategories:
+  - Regex: '^<windows\.h>$'
+    Priority: 1
+  - Regex: '.*'
+    Priority: 2
+
+# Only empty functions, functions defined in their class and lambdas go on one line; the bodies of
+# if, loops and other blocks always go on lines of their own.
+AllowShortFunctionsOnASingleLine: Inline
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+AllowShortBlocksOnASingleLine: Never
+AllowShortLambdasOnASingleLine: All
+
+# Comments after code are two spaces from it; they are lined up with their neighbors by hand where
+# that reads better, so clang-format leaves their columns alone.
+SpacesBeforeTrailingComments: 2
+AlignTrailingComments:
+  Kind: Leave

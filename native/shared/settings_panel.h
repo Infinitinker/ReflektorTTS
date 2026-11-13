@@ -1,3 +1,6 @@
+// The settings panel, drawn the same in the overlay and in the panel's own window: where it is
+// drawn, its width, and its contents.
+
 #pragma once
 
 #include "core_state.h"

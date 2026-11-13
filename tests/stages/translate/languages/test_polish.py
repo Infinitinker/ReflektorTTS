@@ -1,3 +1,5 @@
+"""Polish after translation: name endings joined back, kept names declined, and "z" and "w" fitted to them."""
+
 import pytest
 
 from reflektortts.glossary import GlossaryTerm

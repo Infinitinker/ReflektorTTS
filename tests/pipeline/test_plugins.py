@@ -1,3 +1,6 @@
+"""The plugin registry: whether a stage is active for the languages, the speech rules of each language,
+and plugins skipped for a bad schema or type."""
+
 from collections.abc import Mapping
 from typing import Any
 
@@ -6,7 +9,7 @@ import pytest
 from reflektortts.glossary import Glossaries
 from reflektortts.languages import Languages
 from reflektortts.pipeline import plugins
-from reflektortts.pipeline.plugins import StagePlugin, inactive_reason, stage_plugins
+from reflektortts.pipeline.plugins import StagePlugin, inactive_reason, speech_rules, stage_plugins
 from reflektortts.pipeline.protocols import Stage
 
 
@@ -28,6 +31,23 @@ def test_a_stage_that_works_with_the_languages_is_active() -> None:
     plugin = StagePlugin("fine", {}, create)
 
     assert inactive_reason(plugin, Languages("en", "pl")) is None
+
+
+def test_the_speech_rules_of_the_stages_are_listed_once_with_every_language_that_has_them() -> None:
+    numbers = StagePlugin("numbers", {}, create, speech_rules={"Numbers": {"en", "pl"}})
+    endings = StagePlugin("endings", {}, create, speech_rules={"Endings": {"pl"}})
+    more_endings = StagePlugin("more", {}, create, speech_rules={"Endings": {"pl", "cs"}})
+
+    assert speech_rules([numbers, endings, more_endings, StagePlugin("plain", {}, create)]) == {
+        "Endings": ("cs", "pl"),
+        "Numbers": ("en", "pl"),
+    }
+
+
+def test_the_installed_stages_spell_out_numbers_in_english_and_polish_and_decline_terms_in_polish() -> None:
+    rules = speech_rules(stage_plugins().values())
+
+    assert rules == {"Glossary grammar": ("pl",), "Numbers, dates and units": ("en", "pl")}
 
 
 def test_a_plugin_with_an_invalid_settings_schema_is_skipped(

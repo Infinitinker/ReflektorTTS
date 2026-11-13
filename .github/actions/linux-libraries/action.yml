@@ -1,0 +1,24 @@
+# Installs the system libraries the Linux jobs need: PortAudio, which plays sound, and Xvfb, which
+# gives the app's windows a display on a runner that has none. Used by the Linux jobs of checks.yml
+# (Linux Python checks) and e2e.yml (Linux E2E tests), which adds stalonetray, a tray for the app's
+# icon. Needs a checkout first, as every local action does.
+name: Linux libraries
+description: Installs PortAudio and Xvfb, and any packages the job adds, with apt-get.
+
+inputs:
+  packages:
+    description: More packages to install with the libraries, separated by spaces.
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: Install system libraries
+      shell: bash
+      env:
+        PACKAGES: ${{ inputs.packages }}
+      run: |
+        read -ra extra <<< "$PACKAGES"
+        sudo apt-get update
+        sudo apt-get install -y libportaudio2 xvfb "${extra[@]}"

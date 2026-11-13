@@ -1,7 +1,13 @@
+// Hooks the message queue, key state, raw input and cursor functions: while input is blocked, the
+// app's input messages go to the panel, it reads no keys pressed and no mouse movement, and it can
+// neither move nor trap the cursor. The overlay's own calls are let through.
+
 #include "input/win32_hook.h"
 
 #include <windows.h>
 
+#include <algorithm>
+#include <array>
 #include <cstdint>
 #include <cstring>
 #include <mutex>
@@ -10,6 +16,7 @@
 #include "input/blocking.h"
 #include "input/panel_input.h"
 #include "log.h"
+#include "memory/addresses.h"
 
 namespace reflektortts {
 namespace {
@@ -66,7 +73,7 @@ BOOL WINAPI get_message_w(MSG* message, HWND window, UINT first, UINT last) {
 
 BOOL WINAPI peek_message_a(MSG* message, HWND window, UINT first, UINT last, UINT remove) {
     BOOL result = g_peek_message_a(message, window, first, last, remove);
-    if (result) {
+    if (result != FALSE) {
         filter_message(message, (remove & PM_REMOVE) != 0);
     }
     return result;
@@ -74,7 +81,7 @@ BOOL WINAPI peek_message_a(MSG* message, HWND window, UINT first, UINT last, UIN
 
 BOOL WINAPI peek_message_w(MSG* message, HWND window, UINT first, UINT last, UINT remove) {
     BOOL result = g_peek_message_w(message, window, first, last, remove);
-    if (result) {
+    if (result != FALSE) {
         filter_message(message, (remove & PM_REMOVE) != 0);
     }
     return result;
@@ -94,7 +101,7 @@ SHORT WINAPI get_key_state(int key) {
 
 BOOL WINAPI get_keyboard_state(BYTE* keys) {
     BOOL result = g_get_keyboard_state(keys);
-    if (result && keys != nullptr && blocked_for_caller(__builtin_return_address(0))) {
+    if (result != FALSE && keys != nullptr && blocked_for_caller(__builtin_return_address(0))) {
         std::memset(keys, 0, 256);
     }
     return result;
@@ -119,15 +126,15 @@ bool runs_on_wow64() {
 }
 
 // Hands each mouse and keyboard block over as meant for another window: movement zeroed, keys
-// released. Gamepads pass unchanged. Blocks follow each other at alignment, as NEXTRAWINPUTBLOCK
+// released. Gamepads pass unchanged. Blocks follow each other at Alignment, as NEXTRAWINPUTBLOCK
 // steps (which MinGW's 64-bit headers cannot expand, lacking its QWORD); a block's data follows
 // its header, and the mouse and keyboard data is laid out the same in 32 and 64 bits.
-template <typename Header>
-void hand_over_raw_input(BYTE* blocks, UINT count, std::uintptr_t alignment) {
+template <typename Header, std::uintptr_t Alignment>
+void hand_over_raw_input(BYTE* blocks, UINT count) {
     BYTE* block = blocks;
     for (UINT i = 0; i < count; ++i) {
-        auto* header = reinterpret_cast<Header*>(block);
-        BYTE* payload = block + sizeof(Header);
+        auto* header = object_at<Header>(block);
+        BYTE* payload = pointer_at<BYTE>(address_of(block) + sizeof(Header));
         if (header->dwType == RIM_TYPEMOUSE) {
             header->hDevice = {};
             header->wParam = RIM_INPUTSINK;
@@ -135,27 +142,30 @@ void hand_over_raw_input(BYTE* blocks, UINT count, std::uintptr_t alignment) {
         } else if (header->dwType == RIM_TYPEKEYBOARD) {
             header->hDevice = {};
             header->wParam = RIM_INPUTSINK;
-            auto* keyboard = reinterpret_cast<RAWKEYBOARD*>(payload);
+            auto* keyboard = object_at<RAWKEYBOARD>(payload);
             keyboard->Flags |= RI_KEY_BREAK;
             keyboard->VKey = 0;
         }
-        std::uintptr_t next = reinterpret_cast<std::uintptr_t>(block) + header->dwSize;
-        block = reinterpret_cast<BYTE*>((next + alignment - 1) & ~(alignment - 1));
+        std::uintptr_t next = address_of(block) + header->dwSize;
+        block = pointer_at<BYTE>((next + Alignment - 1) & ~(Alignment - 1));
     }
 }
+
+// What GetRawInputBuffer returns when it fails.
+constexpr UINT kRawInputError = static_cast<UINT>(-1);
 
 // Buffered raw input is read, so it does not pile up, then handed over as meant for another
 // window (see hand_over_raw_input).
 UINT WINAPI get_raw_input_buffer(RAWINPUT* data, UINT* size, UINT header_size) {
     UINT count = g_get_raw_input_buffer(data, size, header_size);
-    if (count == static_cast<UINT>(-1) || data == nullptr || !app_input_blocked()) {
+    if (count == kRawInputError || data == nullptr || !app_input_blocked()) {
         return count;
     }
-    auto* blocks = reinterpret_cast<BYTE*>(data);
+    BYTE* blocks = bytes_of(data);
     if (sizeof(void*) == 4 && runs_on_wow64()) {
-        hand_over_raw_input<RawInputHeader64>(blocks, count, 8);
+        hand_over_raw_input<RawInputHeader64, 8>(blocks, count);
     } else {
-        hand_over_raw_input<RAWINPUTHEADER>(blocks, count, sizeof(void*));
+        hand_over_raw_input<RAWINPUTHEADER, sizeof(void*)>(blocks, count);
     }
     return count;
 }
@@ -163,7 +173,7 @@ UINT WINAPI get_raw_input_buffer(RAWINPUT* data, UINT* size, UINT header_size) {
 // While blocked, the app sees the cursor stay where it was, and cannot move or trap it.
 BOOL WINAPI get_cursor_pos(POINT* point) {
     if (point != nullptr && blocked_for_caller(__builtin_return_address(0))) {
-        std::lock_guard lock(g_cursor_mutex);
+        std::scoped_lock lock(g_cursor_mutex);
         *point = g_app_cursor;
         return TRUE;
     }
@@ -172,8 +182,8 @@ BOOL WINAPI get_cursor_pos(POINT* point) {
 
 BOOL WINAPI set_cursor_pos(int x, int y) {
     if (blocked_for_caller(__builtin_return_address(0))) {
-        std::lock_guard lock(g_cursor_mutex);
-        g_app_cursor = {x, y};
+        std::scoped_lock lock(g_cursor_mutex);
+        g_app_cursor = {.x = x, .y = y};
         return TRUE;
     }
     return g_set_cursor_pos(x, y);
@@ -181,7 +191,7 @@ BOOL WINAPI set_cursor_pos(int x, int y) {
 
 BOOL WINAPI clip_cursor(const RECT* area) {
     if (!is_overlay_code(__builtin_return_address(0))) {
-        std::lock_guard lock(g_cursor_mutex);
+        std::scoped_lock lock(g_cursor_mutex);
         g_app_clips = area != nullptr;
         if (area != nullptr) {
             g_app_clip = *area;
@@ -194,24 +204,25 @@ BOOL WINAPI clip_cursor(const RECT* area) {
 
 void install_win32_input_hooks() {
     HMODULE user32 = GetModuleHandleW(L"user32.dll");
-    bool hooked = hook_export(user32, "GetMessageA", &get_message_a, &g_get_message_a) &
-                  hook_export(user32, "GetMessageW", &get_message_w, &g_get_message_w) &
-                  hook_export(user32, "PeekMessageA", &peek_message_a, &g_peek_message_a) &
-                  hook_export(user32, "PeekMessageW", &peek_message_w, &g_peek_message_w) &
-                  hook_export(user32, "GetAsyncKeyState", &get_async_key_state, &g_get_async_key_state) &
-                  hook_export(user32, "GetKeyState", &get_key_state, &g_get_key_state) &
-                  hook_export(user32, "GetKeyboardState", &get_keyboard_state, &g_get_keyboard_state) &
-                  hook_export(user32, "GetRawInputBuffer", &get_raw_input_buffer, &g_get_raw_input_buffer) &
-                  hook_export(user32, "GetCursorPos", &get_cursor_pos, &g_get_cursor_pos) &
-                  hook_export(user32, "SetCursorPos", &set_cursor_pos, &g_set_cursor_pos) &
-                  hook_export(user32, "ClipCursor", &clip_cursor, &g_clip_cursor);
-    if (!hooked) {
+    // Each is hooked, in order, whether those before it were or not.
+    const std::array hooked{hook_export(user32, "GetMessageA", &get_message_a, &g_get_message_a),
+                            hook_export(user32, "GetMessageW", &get_message_w, &g_get_message_w),
+                            hook_export(user32, "PeekMessageA", &peek_message_a, &g_peek_message_a),
+                            hook_export(user32, "PeekMessageW", &peek_message_w, &g_peek_message_w),
+                            hook_export(user32, "GetAsyncKeyState", &get_async_key_state, &g_get_async_key_state),
+                            hook_export(user32, "GetKeyState", &get_key_state, &g_get_key_state),
+                            hook_export(user32, "GetKeyboardState", &get_keyboard_state, &g_get_keyboard_state),
+                            hook_export(user32, "GetRawInputBuffer", &get_raw_input_buffer, &g_get_raw_input_buffer),
+                            hook_export(user32, "GetCursorPos", &get_cursor_pos, &g_get_cursor_pos),
+                            hook_export(user32, "SetCursorPos", &set_cursor_pos, &g_set_cursor_pos),
+                            hook_export(user32, "ClipCursor", &clip_cursor, &g_clip_cursor)};
+    if (std::ranges::find(hooked, false) != hooked.end()) {
         log_message("Some Windows input functions could not be hooked; the app may still get some input");
     }
 }
 
 void on_win32_input_blocking(bool blocked) {
-    std::lock_guard lock(g_cursor_mutex);
+    std::scoped_lock lock(g_cursor_mutex);
     if (blocked) {
         g_get_cursor_pos(&g_app_cursor);
         g_clip_cursor(nullptr);

@@ -7,15 +7,16 @@ from dataclasses import replace
 from typing import Any
 
 from reflektortts.events import TextEvent
-from reflektortts.glossary import Glossaries, TermFinder
-from reflektortts.languages import NAME_ENDINGS
+from reflektortts.glossary import GLOSSARY_GRAMMAR, Glossaries, TermFinder, word_bounded
+from reflektortts.languages import NAME_ENDINGS, separates_words
 from reflektortts.pipeline.plugins import StagePlugin, load_schema
 
 
 class _Respelling:
-    """A language's respelled terms, and how to find them."""
+    """A language's respelled terms, and how to find them: as whole words, unless the text read
+    or spoken is written without spaces between words."""
 
-    def __init__(self, terms: TermFinder, language: str) -> None:
+    def __init__(self, terms: TermFinder, language: str, spaced: bool) -> None:
         self._terms = terms
         self._language = language
         endings = NAME_ENDINGS.get(language, ())
@@ -23,7 +24,7 @@ class _Respelling:
         declined = (
             r"(?:'?(?P<ending>(?i:" + "|".join(sorted(endings, key=len, reverse=True)) + ")))?" if endings else ""
         )
-        self._pattern = re.compile(rf"(?<!\w)(?P<term>{terms.alternation}){declined}(?!\w)")
+        self._pattern = re.compile(word_bounded(rf"(?P<term>{terms.alternation}){declined}", spaced))
 
     def apply(self, text: str) -> str:
         return self._pattern.sub(self._respell, text)
@@ -53,7 +54,8 @@ class Pronounce:
         if languages not in self._respellings:
             glossary = self._glossaries.get(read_in, ())
             terms = TermFinder(term for term in glossary if spoken_in in term.pronounce)
-            self._respellings[languages] = _Respelling(terms, spoken_in) if terms else None
+            spaced = separates_words(read_in) and separates_words(spoken_in)
+            self._respellings[languages] = _Respelling(terms, spoken_in, spaced) if terms else None
         return self._respellings[languages]
 
 
@@ -66,4 +68,5 @@ PLUGIN = StagePlugin(
     settings_schema=load_schema("reflektortts.stages", "pronounce.schema.json"),
     create=create,
     summary="Respells terms so they sound right",
+    speech_rules={GLOSSARY_GRAMMAR: frozenset(NAME_ENDINGS)},
 )

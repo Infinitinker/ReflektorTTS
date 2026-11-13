@@ -22,6 +22,8 @@ FetchContent_Declare(minhook
 FetchContent_Declare(SDL3
     GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
     GIT_TAG f00dc919ca35b9756316e86c4777392de442f9b2) # release-3.4.20
+# nlohmann_json's headers are included as system headers, which compilers do not warn about.
+set(JSON_SystemInclude ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(imgui nlohmann_json)
 
 # ImGui's core; each part adds the platform and renderer backends it draws with.
@@ -30,13 +32,29 @@ add_library(imgui STATIC
     ${imgui_SOURCE_DIR}/imgui_draw.cpp
     ${imgui_SOURCE_DIR}/imgui_tables.cpp
     ${imgui_SOURCE_DIR}/imgui_widgets.cpp)
-target_include_directories(imgui PUBLIC ${imgui_SOURCE_DIR})
+target_include_directories(imgui SYSTEM PUBLIC ${imgui_SOURCE_DIR})
 # ReflektorTTS's windows open no links, so they need none of ImGui's shell calls (ShellExecuteW).
 target_compile_definitions(imgui PUBLIC IMGUI_DISABLE_DEFAULT_SHELL_FUNCTIONS)
 if(WIN32)
     # ImGui's default text input method (IME) handling on Windows.
     target_link_libraries(imgui PUBLIC imm32)
 endif()
+
+# The compiler's warnings, for ReflektorTTS's own code, which links this target. The fetched libraries'
+# headers (ImGui, its backends, MinHook, nlohmann_json and SDL) are included as system headers, which
+# compilers do not warn about. The ci preset makes the
+# warnings errors. Left out: -Wuseless-cast, since a cast needed in one build is useless in the
+# other (DWORD and the like differ between 32 and 64 bits); -Wmissing-declarations, which asks for
+# declarations of the entry points (DllMain, wmain) that nothing else calls; and GCC's own
+# -Wduplicated-cond, -Wduplicated-branches and -Wlogical-op, which clang-tidy, reading the same
+# commands with Clang, rejects as unknown once they are errors.
+option(REFLEKTORTTS_WARNINGS_AS_ERRORS "Treat the compiler's warnings in ReflektorTTS's own code as errors" OFF)
+add_library(reflektortts-warnings INTERFACE)
+target_compile_options(reflektortts-warnings INTERFACE
+    -Wall -Wextra -Wpedantic -Wformat=2 -Wshadow -Wnon-virtual-dtor -Woverloaded-virtual -Wcast-align -Wcast-qual
+    -Wnull-dereference -Wimplicit-fallthrough -Wundef -Wconversion -Wsign-conversion -Wold-style-cast
+    -Wdouble-promotion
+    $<$<BOOL:${REFLEKTORTTS_WARNINGS_AS_ERRORS}>:-Werror>)
 
 add_subdirectory(shared)
 if(WIN32)

@@ -1,3 +1,5 @@
+"""What the window tells about ReflektorTTS itself: its version and links."""
+
 from importlib.metadata import version
 
 from reflektortts.desktop.about import about

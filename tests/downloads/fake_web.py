@@ -2,6 +2,7 @@
 
 from pathlib import Path
 
+from reflektortts.downloads.http import NotFoundError
 from reflektortts.downloads.source import DownloadError, Progress
 
 
@@ -13,8 +14,12 @@ class FakeWeb:
 
     def fetch(self, url: str) -> bytes:
         self.fetched.append(url)
-        if self.offline or url not in self.files:
-            raise DownloadError(f"Could not reach {url}. Check your internet connection.")
+        if self.offline:
+            raise DownloadError(
+                f"Could not reach {url}. Check your internet connection, then close and open the window again."
+            )
+        if url not in self.files:
+            raise NotFoundError(f"{url} was not found.")
         return self.files[url]
 
     def download(self, url: str, destination: Path, progress: Progress) -> None:

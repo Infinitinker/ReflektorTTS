@@ -2,7 +2,7 @@
 settings of the app being read, and about ReflektorTTS: its version, and links to the project and its
 support pages."""
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from tkinter import ttk
 
 from reflektortts.desktop.about import BUYCOFFEE, KO_FI, LICENSE, About
@@ -10,9 +10,9 @@ from reflektortts.desktop.api.status import (
     CoreStatus,
     describe,
     hint,
-    languages_text,
     settings_caption,
     sound_text,
+    status_languages,
 )
 from reflektortts.desktop.icon import icon_photo
 from reflektortts.desktop.widgets.clamped_label import ClampedLabel
@@ -32,7 +32,7 @@ HINT_LINES = 2
 
 
 def status_color(status: CoreStatus | None) -> str:
-    """Green while an app is read, amber while paused or for an unsupported version; empty for the
+    """Green while an app is read, amber while paused or for an unsupported build; empty for the
     default color."""
     if status is None:
         return DIM
@@ -75,10 +75,12 @@ class StatusTab:
         on_quit: Callable[[], None],
         on_open_link: Callable[[str], None],
         about: About,
-        language_name: Callable[[str], str],
+        languages_text: Callable[[Sequence[str]], str],
         voice_title: Callable[[str], str],
+        has_tray: bool,
     ) -> None:
-        self._language_name = language_name
+        """has_tray: whether closing the window leaves ReflektorTTS running in the tray, or quits it."""
+        self._languages_text = languages_text
         self._voice_title = voice_title
         self._app_settings_missing = app_settings_missing
         self._shown: CoreStatus | None = None
@@ -100,10 +102,12 @@ class StatusTab:
         )
         quit_button = ttk.Button(header, text="Quit", command=on_quit)
         quit_button.grid(row=0, column=2, rowspan=2, sticky="e")
-        status_bar.hint(
-            quit_button,
-            lambda: "Stop reading and close completely. Closing the window keeps it running next to the clock.",
+        quit_hint = (
+            "Stop reading and close completely. Closing the window keeps it running next to the clock."
+            if has_tray
+            else "Stop reading and close completely, as closing the window does."
         )
+        status_bar.hint(quit_button, lambda: quit_hint)
 
         now = ttk.LabelFrame(self.frame, text="Now", padding=NOW_PADDING)
         now.grid(row=1, column=0, sticky="ew")
@@ -150,7 +154,7 @@ class StatusTab:
         page.grid(row=0, column=0)
         report = ttk.Button(project, text="Report a problem", command=lambda: on_open_link(about.issues))
         report.grid(row=0, column=1, padx=(6, 0))
-        status_bar.hint(page, lambda: "Open the project's page on GitHub: its code, guides and releases.")
+        status_bar.hint(page, lambda: "Open the project’s page on GitHub: its code, guides and releases.")
         status_bar.hint(
             report, lambda: "Report a problem on GitHub. The logs help: open their folder in the Settings tab."
         )
@@ -176,7 +180,7 @@ class StatusTab:
         texts = (
             ("", "", "")
             if status is None
-            else (self._voice_title(status.voice), languages_text(status, self._language_name), sound_text(status))
+            else (self._voice_title(status.voice), self._languages_text(status_languages(status)), sound_text(status))
         )
         for label, text in zip(self._details, texts, strict=True):
             label.configure(text=text)

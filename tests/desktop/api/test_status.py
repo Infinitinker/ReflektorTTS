@@ -1,13 +1,15 @@
+"""What the desktop app shows of the core's status, read from its status events."""
+
 import pytest
 
 from reflektortts.desktop.api.status import (
     CoreStatus,
     describe,
     hint,
-    languages_text,
     parse_status,
     settings_caption,
     sound_text,
+    status_languages,
 )
 
 
@@ -48,7 +50,7 @@ def test_an_unsupported_version_is_described_with_its_hash() -> None:
 
     assert status == CoreStatus(app=None, paused=False, unsupported="Mad Max", unsupported_sha256="abc")
     assert describe(status) == "This version of Mad Max is not supported yet"
-    assert hint(status) == "To support it, its profile needs this version's SHA-256: abc"
+    assert hint(status) == "To support it, its profile needs this version’s SHA-256: abc"
     assert hint(CoreStatus(app=None, paused=False)) == "In an app with the overlay, open the panel with Ctrl+Shift+R."
 
 
@@ -68,14 +70,14 @@ def test_a_status_event_gives_the_voice_languages_and_app_sound() -> None:
 
     assert status is not None
     assert status.voice == "windows:Microsoft Adam"
-    assert languages_text(status, {"en": "English", "pl": "Polski"}.__getitem__) == "English → Polski"
+    assert status_languages(status) == ("en", "pl")
     assert sound_text(status) == "Lowered to 30% while a line is spoken"
 
 
 def test_one_language_is_named_once_and_unlowered_sound_is_said() -> None:
     status = CoreStatus(app=None, paused=False, input_language="pl", output_language="pl", ducking=False)
 
-    assert languages_text(status, {"pl": "Polski"}.__getitem__) == "Polski"
+    assert status_languages(status) == ("pl",)
     assert sound_text(status) == "Not lowered while a line is spoken"
 
 
@@ -90,11 +92,11 @@ def test_the_source_error_of_the_app_being_read_is_what_to_do_now() -> None:
         "type": "status",
         "app": {"title": "VLC media player", "pid": 42},
         "paused": False,
-        "source_error": {"source": "subtitles", "message": "VLC's web interface is off."},
+        "source_error": {"source": "subtitles", "message": "VLC’s web interface is off."},
     }
 
     status = parse_status(event)
 
-    assert status == CoreStatus(app="VLC media player", paused=False, source_error="VLC's web interface is off.")
-    assert hint(status) == "VLC's web interface is off."
+    assert status == CoreStatus(app="VLC media player", paused=False, source_error="VLC’s web interface is off.")
+    assert hint(status) == "VLC’s web interface is off."
     assert parse_status(event | {"source_error": None}) == CoreStatus(app="VLC media player", paused=False)

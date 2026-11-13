@@ -7,22 +7,37 @@ from dataclasses import dataclass, field
 from functools import cache
 from importlib import resources
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import jsonschema
 from jsonschema.protocols import Validator
 
 from reflektortts.glossary import Glossaries, Glossary, GlossaryTerm
+from reflektortts.languages import LanguageError, check_language
 from reflektortts.pipeline.plugins import source_plugins, stage_plugins
-from reflektortts.profiles.model import App, Executable, Match, Profile, Rating, SourceSettings, StageSettings
+from reflektortts.profiles.model import (
+    ANY_LANGUAGE,
+    App,
+    Executable,
+    Match,
+    Profile,
+    Rating,
+    SourceSettings,
+    StageSettings,
+)
 
 logger = logging.getLogger(__name__)
 
-CURRENT_VERSION = 1
+CURRENT_VERSION = 2
 
-# MIGRATIONS[n] turns a version n profile into version n + 1. Empty until the format changes after
-# the first release.
-MIGRATIONS: dict[int, Callable[[dict[str, Any]], dict[str, Any]]] = {}
+
+def _from_version_1(data: dict[str, Any]) -> dict[str, Any]:
+    """Version 2 adds tested_languages, which a version 1 profile does not say."""
+    return data | {"version": 2}
+
+
+MIGRATIONS: dict[int, Callable[[dict[str, Any]], dict[str, Any]]] = {1: _from_version_1}
+"""MIGRATIONS[n] turns a version n profile into version n + 1."""
 
 # Fields of source and stage entries the core reads; the rest belong to the plugin.
 SOURCE_FIELDS = {"type", "name", "poll_interval_ms", "stages"}
@@ -164,11 +179,29 @@ def parse_profile(data: Any, profile_id: str, schemas: PluginSchemas | None = No
         overlay=overlay,
         glossary=_glossaries(data.get("glossary", {}), name),
         rating=Rating(data["rating"]) if "rating" in data else None,
+        tested_languages=_tested_languages(data.get("tested_languages", []), name),
     )
 
 
+def _tested_languages(languages: list[str] | str, name: str) -> tuple[str, ...] | Literal["any"]:
+    if languages == ANY_LANGUAGE:
+        return ANY_LANGUAGE
+    for index, language in enumerate(languages):
+        _check_language(language, f"{name}: $.tested_languages[{index}]")
+    return tuple(languages)
+
+
 def _glossaries(glossaries: dict[str, list[dict[str, Any]]], name: str) -> Glossaries:
+    for language in glossaries:
+        _check_language(language, f"{name}: $.glossary.{language}")
     return {language: _glossary(entries, f"{name}: $.glossary.{language}") for language, entries in glossaries.items()}
+
+
+def _check_language(code: str, where: str) -> None:
+    try:
+        check_language(code)
+    except LanguageError as error:
+        raise ProfileError(f"{where}: {error}") from error
 
 
 def _glossary(entries: list[dict[str, Any]], path: str) -> Glossary:
@@ -185,16 +218,18 @@ def _glossary(entries: list[dict[str, Any]], path: str) -> Glossary:
             pronounce=entry.get("pronounce", {}),
         )
         where = f'{path}[{index}] ("{term.term}")'
+        for language in term.pronounce:
+            _check_language(language, f"{where}.pronounce")
         if not (term.keep or term.means or term.pronounce):
-            raise ProfileError(f'{where}: says nothing to do with the term; give it "keep", "means" or "pronounce".')
+            raise ProfileError(f'{where}: says nothing to do with the term: give it "keep", "means" or "pronounce".')
         if term.keep and term.means:
-            raise ProfileError(f'{where}: a term is either kept or given a meaning; remove "keep" or "means".')
+            raise ProfileError(f'{where}: a term is either kept or given a meaning: remove "keep" or "means".')
         if term.female and not term.keep:
-            raise ProfileError(f'{where}: "female" applies only to a kept term; add "keep": true or remove it.')
+            raise ProfileError(f'{where}: "female" applies only to a kept term: add "keep": true or remove it.')
         seen = [spelling for other in terms for spelling in other.spellings]
         for spelling in term.spellings:
             if spelling in seen:
-                raise ProfileError(f'{where}: "{spelling}" is in the glossary twice; keep it in one entry.')
+                raise ProfileError(f'{where}: "{spelling}" is in the glossary twice: keep it in one entry.')
             seen.append(spelling)
         terms.append(term)
     return tuple(terms)

@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Avalanche source settings",
-  "description": "Reads subtitles in games on Avalanche Studios' engine (Mad Max): the ID of the line a subtitle shows, through a pointer chain found with a tool like Cheat Engine, and its text in the input language from the game's files.",
+  "description": "Reads subtitles in games on Avalanche Studios’ engine (Mad Max): the ID of the line a subtitle shows, through a pointer chain found with a tool like Cheat Engine, and its text in the input language from the game’s files.",
   "type": "object",
   "required": ["pointers"],
   "additionalProperties": false,

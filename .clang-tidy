@@ -1,0 +1,72 @@
+# What clang-tidy checks in the C++ code in native/: every check of the groups below, and the
+# compiler's warnings that native/CMakeLists.txt turns on (clang-diagnostic-*). Every finding is an
+# error. Each check left out says why, below the list.
+Checks: >
+  -*,
+  clang-diagnostic-*,
+  bugprone-*,
+  clang-analyzer-*,
+  concurrency-*,
+  cppcoreguidelines-*,
+  misc-*,
+  modernize-*,
+  performance-*,
+  portability-*,
+  readability-*,
+
+  -cppcoreguidelines-avoid-magic-numbers,
+  -misc-const-correctness,
+  -misc-include-cleaner,
+  -modernize-return-braced-init-list,
+  -modernize-use-trailing-return-type,
+  -performance-enum-size,
+  -portability-avoid-pragma-once,
+  -readability-avoid-nested-conditional-operator,
+  -readability-identifier-length,
+  -readability-magic-numbers,
+  -readability-math-missing-parentheses,
+  -readability-named-parameter,
+  -readability-trailing-comma,
+  -readability-uppercase-literal-suffix
+
+# Style only. These say how the code is written, not whether it is right, so they stay off:
+#
+# cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers: byte codes of jumps, Windows'
+#   message values and layout sizes read better where they are used, with a comment.
+# misc-const-correctness: local variables are not marked const unless it says something.
+# misc-include-cleaner: windows.h and other umbrella headers declare what their parts define, which
+#   the check takes for missing includes.
+# modernize-return-braced-init-list: it misses constructors that are explicit through a using
+#   declaration (ArgumentError's), where {} does not compile.
+# modernize-use-trailing-return-type: return types go in front.
+# performance-enum-size: the enums are few and small; their size saves nothing.
+# portability-avoid-pragma-once: #pragma once is the code's include guard, and every compiler it is
+#   built with supports it.
+# readability-avoid-nested-conditional-operator: a short chain of ?: reads as a table of cases.
+# readability-identifier-length: x, y, i and the like are clear where they are used.
+# readability-math-missing-parentheses: the usual precedence of * over + needs no parentheses.
+# readability-named-parameter: a parameter a function does not use, such as in a hook or a
+#   callback, is left unnamed.
+# readability-trailing-comma: clang-format packs braced lists, which a trailing comma would split
+#   into one item per line.
+# readability-uppercase-literal-suffix: float literals are written 0.5f.
+WarningsAsErrors: '*'
+
+# Only the project's own headers: not those of Windows, MinGW or the fetched libraries.
+HeaderFilterRegex: '.*[/\\]native[/\\](overlay|panel|shared)[/\\].*'
+
+CheckOptions:
+  # Interfaces declare only their virtual destructor; classes that delete copying need not declare
+  # moving.
+  cppcoreguidelines-special-member-functions.AllowSoleDefaultDtor: true
+  cppcoreguidelines-special-member-functions.AllowMissingMoveFunctionsWhenCopyIsDeleted: true
+  # Plain structs with everything public are data, whatever functions they have.
+  misc-non-private-member-variables-in-classes.IgnoreClassesWithAllMemberVariablesBeingPublic: true
+  # dinput.h reads which DirectInput version to declare from this macro.
+  cppcoreguidelines-macro-usage.AllowedRegexp: '^DIRECTINPUT_VERSION$'
+  # The overlay's hooks are free functions called by the app, so its state lives in globals, each in
+  # an anonymous namespace of its own file: only globals other files can reach are findings.
+  cppcoreguidelines-avoid-non-const-global-variables.AllowInternalLinkage: true
+  # A string literal's array, such as "--port", is not a table to replace with std::array.
+  cppcoreguidelines-avoid-c-arrays.AllowStringArrays: true
+  modernize-avoid-c-arrays.AllowStringArrays: true

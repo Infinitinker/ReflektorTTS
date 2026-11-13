@@ -50,5 +50,8 @@ class AvalancheSource:
             return NO_LINE
         raw = self._memory.read(address, 4)
         if len(raw) < 4:
-            raise MemoryReadError(f"Cannot read the shown line's ID at {address:X}.")
+            raise MemoryReadError(
+                "The subtitle could not be read from the game: "
+                "if this lasts, the profile may not fit this version of it."
+            ) from MemoryReadError(f"The shown line’s ID could not be read at {address:X}")
         return int.from_bytes(raw, "little")

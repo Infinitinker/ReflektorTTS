@@ -1,6 +1,41 @@
+// Small ImGui helpers for the settings panel: dot labels, boxes, indented sections, the flow arrow
+// and combo boxes of choices.
+
 #include "widgets.h"
 
+#include <memory>
+
 namespace reflektortts {
+namespace {
+
+void unformatted_text(std::string_view text) {
+    ImGui::TextUnformatted(std::to_address(text.begin()), std::to_address(text.end()));
+}
+
+}  // namespace
+
+void disabled_text(std::string_view text) {
+    colored_text(ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled), text);
+}
+
+void colored_text(const ImVec4& color, std::string_view text) {
+    ImGui::PushStyleColor(ImGuiCol_Text, color);
+    unformatted_text(text);
+    ImGui::PopStyleColor();
+}
+
+void wrapped_text(std::string_view text) {
+    ImGui::PushTextWrapPos(0.0f);
+    unformatted_text(text);
+    ImGui::PopTextWrapPos();
+}
+
+void tooltip(std::string_view text) {
+    if (ImGui::BeginTooltip()) {
+        unformatted_text(text);
+        ImGui::EndTooltip();
+    }
+}
 
 void dot_label(ImU32 color, const char* label) {
     ImVec2 position = ImGui::GetCursorScreenPos();
@@ -22,7 +57,7 @@ void align_right(float width) {
 
 void begin_box(const char* title) {
     ImGui::BeginChild(title, ImVec2(0.0f, 0.0f), ImGuiChildFlags_Borders | ImGuiChildFlags_AutoResizeY);
-    ImGui::TextDisabled("%s", title);
+    disabled_text(title);
 }
 
 void end_box() {
@@ -53,7 +88,8 @@ void draw_flow_arrow() {
     ImVec2 top = ImGui::GetCursorScreenPos();
     float center = top.x + ImGui::GetContentRegionAvail().x * 0.5f;
     ImGui::GetWindowDrawList()->AddTriangleFilled(ImVec2(center - size, top.y), ImVec2(center + size, top.y),
-                                                  ImVec2(center, top.y + size), ImGui::GetColorU32(ImGuiCol_TextDisabled));
+                                                  ImVec2(center, top.y + size),
+                                                  ImGui::GetColorU32(ImGuiCol_TextDisabled));
     ImGui::Dummy(ImVec2(0.0f, size));
 }
 

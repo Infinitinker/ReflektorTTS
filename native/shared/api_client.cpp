@@ -1,11 +1,16 @@
+// The API client: follows the core's events and keeps reconnecting, keeps the state a client knows
+// about the core, and sends commands and changes to its profile (/v1/profiles/<id>/...) on a
+// background thread.
+
 #include "api_client.h"
 
 #include <chrono>
 #include <condition_variable>
 #include <cstddef>
-#include <cstdio>
 #include <deque>
 #include <exception>
+#include <format>
+#include <iterator>
 #include <memory>
 #include <mutex>
 #include <nlohmann/json.hpp>
@@ -26,12 +31,6 @@ constexpr std::chrono::milliseconds kReconnectDelay(2000);
 // How much of an unexpected answer is logged.
 constexpr std::size_t kLoggedBytes = 300;
 
-struct Request {
-    std::string method;
-    std::string path;
-    std::string body;
-};
-
 // The client's threads run until the process ends, so what they use is never destroyed: a static
 // destructor would take it from under them as the process exits.
 struct Client {
@@ -43,9 +42,11 @@ struct Client {
 
     std::mutex requests_mutex;
     std::condition_variable requests_ready;
-    std::deque<Request> requests;
+    std::deque<HttpRequest> requests;
 };
 
+// It allocates as the program loads, where running out of memory ends the program anyway.
+// NOLINTNEXTLINE(bugprone-throwing-static-initialization)
 Client& g_client = *new Client();
 
 // Changes the state under its lock, then tells the client's user. Called on the client's threads,
@@ -53,7 +54,7 @@ Client& g_client = *new Client();
 template <typename Change>
 void update_state(Change change) {
     {
-        std::lock_guard lock(g_client.state_mutex);
+        std::scoped_lock lock(g_client.state_mutex);
         change(g_client.state);
     }
     if (!g_client.options.on_change) {
@@ -80,13 +81,18 @@ std::optional<std::string> optional_text(const json& value) {
 std::vector<SourceStages> read_sources(const json& sources) {
     std::vector<SourceStages> result;
     for (const json& source : sources) {
-        SourceStages entry{source.at("name").get<std::string>(), source.at("type").get<std::string>(),
-                           source.at("enabled").get<bool>(), {}};
+        SourceStages entry{.source = source.at("name").get<std::string>(),
+                           .type = source.at("type").get<std::string>(),
+                           .enabled = source.at("enabled").get<bool>(),
+                           .stages = {}};
         for (const json& stage : source.at("stages")) {
-            entry.stages.push_back({stage.at("key").get<std::string>(), stage.at("type").get<std::string>(),
-                                    stage.at("summary").get<std::string>(), optional_text(stage.at("warning")),
-                                    stage.at("enabled").at("text").get<bool>(),
-                                    stage.at("enabled").at("speech").get<bool>(), optional_text(stage.at("inactive"))});
+            entry.stages.push_back({.key = stage.at("key").get<std::string>(),
+                                    .type = stage.at("type").get<std::string>(),
+                                    .summary = stage.at("summary").get<std::string>(),
+                                    .warning = optional_text(stage.at("warning")),
+                                    .text = stage.at("enabled").at("text").get<bool>(),
+                                    .speech = stage.at("enabled").at("speech").get<bool>(),
+                                    .inactive = optional_text(stage.at("inactive"))});
         }
         result.push_back(std::move(entry));
     }
@@ -139,13 +145,14 @@ void apply_profile_settings(const json& view) {
     });
 }
 
-// The core's message for a request it refused, else the HTTP status.
+// The core's message for a request it refused; else, with the HTTP status in the log, what to do.
 std::string error_message(const HttpResponse& response) {
     json body = json::parse(response.body, nullptr, false);
-    if (body.is_object() && body.contains("error") && body["error"].is_string()) {
-        return body["error"].get<std::string>();
+    if (body.is_object() && body.contains("error") && body.at("error").is_string()) {
+        return body.at("error").get<std::string>();
     }
-    return "The request failed (HTTP " + std::to_string(response.status) + ").";
+    log_message("The core refused a request with HTTP " + std::to_string(response.status));
+    return "ReflektorTTS did not take the change: try again.";
 }
 
 // Percent-encodes text for one segment of a URL path; a profile ID is a file name, so it can hold
@@ -154,14 +161,12 @@ std::string encode_path_segment(const std::string& text) {
     std::string encoded;
     for (char c : text) {
         auto byte = static_cast<unsigned char>(c);
-        bool unreserved = (byte >= 'a' && byte <= 'z') || (byte >= 'A' && byte <= 'Z') || (byte >= '0' && byte <= '9') ||
-                          byte == '-' || byte == '.' || byte == '_' || byte == '~';
+        bool unreserved = (byte >= 'a' && byte <= 'z') || (byte >= 'A' && byte <= 'Z') ||
+                          (byte >= '0' && byte <= '9') || byte == '-' || byte == '.' || byte == '_' || byte == '~';
         if (unreserved) {
             encoded += c;
         } else {
-            char escape[4];
-            std::snprintf(escape, sizeof(escape), "%%%02X", byte);
-            encoded += escape;
+            std::format_to(std::back_inserter(encoded), "%{:02X}", byte);
         }
     }
     return encoded;
@@ -174,9 +179,9 @@ std::string profile_path(const std::string& profile, const char* route) {
 
 // Loads the settings of the profile the client keeps to. Returns false if the core cannot be
 // reached; a refusal, such as for an unknown profile, is kept to be shown instead of the settings.
-bool load_profile_settings() {
-    const std::string& profile = *g_client.options.profile;
-    std::optional<HttpResponse> response = g_client.transport->send("GET", profile_path(profile, "settings"), "");
+bool load_profile_settings(const std::string& profile) {
+    std::optional<HttpResponse> response =
+        g_client.transport->send({.method = "GET", .path = profile_path(profile, "settings"), .body = ""});
     if (!response) {
         return false;
     }
@@ -190,7 +195,10 @@ bool load_profile_settings() {
         apply_profile_settings(json::parse(response->body));
     } catch (const json::exception& error) {
         log_message(std::string("Cannot read the profile's settings: ") + error.what());
-        update_state([](CoreState& state) { state.settings_error = "The settings ReflektorTTS sent cannot be read."; });
+        update_state([](CoreState& state) {
+            state.settings_error =
+                "The settings ReflektorTTS sent cannot be read: close the settings and open them again.";
+        });
     }
     return true;
 }
@@ -198,7 +206,7 @@ bool load_profile_settings() {
 // Whether the lines and errors of the app being read concern the client: they do unless it keeps
 // to a profile whose app is not the one being read.
 bool follows_app_being_read() {
-    std::lock_guard lock(g_client.state_mutex);
+    std::scoped_lock lock(g_client.state_mutex);
     return !g_client.options.profile || g_client.state.running;
 }
 
@@ -210,7 +218,7 @@ void follow_source_error(const json& status) {
         return;
     }
     {
-        std::lock_guard lock(g_client.state_mutex);
+        std::scoped_lock lock(g_client.state_mutex);
         if (!g_client.state.last_error_from_source) {
             return;
         }
@@ -238,7 +246,7 @@ void handle_event(const std::string& text) {
             follow_source_error(event);
             if (!g_client.options.profile) {
                 apply_status(event);
-            } else if (!load_profile_settings()) {
+            } else if (!load_profile_settings(*g_client.options.profile)) {
                 // An app starting or stopping, or a voice installed or removed, can change the
                 // profile's settings as shown, but the core sends them only when they are changed.
                 log_message("Cannot reach the core to load the profile's settings again");
@@ -272,7 +280,7 @@ void handle_event(const std::string& text) {
 // Fetches a JSON document. Returns nullopt if the core cannot be reached, and null JSON
 // (after logging why) if it answered with an error.
 std::optional<json> fetch(const std::string& path) {
-    std::optional<HttpResponse> response = g_client.transport->send("GET", path, "");
+    std::optional<HttpResponse> response = g_client.transport->send({.method = "GET", .path = path, .body = ""});
     if (!response) {
         return std::nullopt;
     }
@@ -296,14 +304,18 @@ bool load_options() {
         std::vector<VoiceOption> voice_options;
         if (!voices->is_null()) {
             for (const json& voice : voices->at("voices")) {
-                voice_options.push_back({voice.at("id").get<std::string>(), voice.at("engine").get<std::string>(),
-                                         voice.at("name").get<std::string>(), voice.at("language").get<std::string>()});
+                voice_options.push_back({.id = voice.at("id").get<std::string>(),
+                                         .engine = voice.at("engine").get<std::string>(),
+                                         .name = voice.at("name").get<std::string>(),
+                                         .language = voice.at("language").get<std::string>()});
             }
         }
         std::vector<LanguageOption> language_options;
         if (!languages->is_null()) {
             for (const json& language : languages->at("languages")) {
-                language_options.push_back({language.at("code").get<std::string>(), language.at("name").get<std::string>()});
+                language_options.push_back({.code = language.at("code").get<std::string>(),
+                                            .name = language.at("name").get<std::string>(),
+                                            .english_name = language.at("english_name").get<std::string>()});
             }
         }
         update_state([&](CoreState& state) {
@@ -326,7 +338,7 @@ void listen_for_events() {
         return;
     }
     // Loaded once the events flow, so no change made in between is missed.
-    if (g_client.options.profile && !load_profile_settings()) {
+    if (g_client.options.profile && !load_profile_settings(*g_client.options.profile)) {
         return;
     }
     update_state([](CoreState& state) {
@@ -364,7 +376,7 @@ void event_loop() {
 
 void request_loop() {
     for (;;) {
-        Request request;
+        HttpRequest request;
         {
             std::unique_lock lock(g_client.requests_mutex);
             g_client.requests_ready.wait(lock, [] { return !g_client.requests.empty(); });
@@ -373,17 +385,18 @@ void request_loop() {
         }
         std::string error;
         try {
-            std::optional<HttpResponse> response = g_client.transport->send(request.method, request.path, request.body);
+            std::optional<HttpResponse> response = g_client.transport->send(request);
             if (!response) {
-                error = "ReflektorTTS is not reachable.";
+                error = "ReflektorTTS does not answer: is it still running?";
             } else if (response->status != 200) {
                 error = error_message(*response);
             }
         } catch (const std::exception& failure) {
             log_message(std::string("A request to the core failed: ") + failure.what());
-            error = "The request failed.";
+            error = "The change could not be sent to ReflektorTTS: try again.";
         } catch (...) {
-            error = "The request failed.";
+            log_message("A request to the core failed");
+            error = "The change could not be sent to ReflektorTTS: try again.";
         }
         if (!error.empty()) {
             update_state([&](CoreState& state) { set_error(state, std::move(error)); });
@@ -391,9 +404,9 @@ void request_loop() {
     }
 }
 
-void enqueue(Request request) {
+void enqueue(HttpRequest request) {
     {
-        std::lock_guard lock(g_client.requests_mutex);
+        std::scoped_lock lock(g_client.requests_mutex);
         g_client.requests.push_back(std::move(request));
     }
     g_client.requests_ready.notify_one();
@@ -403,7 +416,7 @@ void enqueue(Request request) {
 void request_profile_change(const char* route, const json& body) {
     std::string profile;
     {
-        std::lock_guard lock(g_client.state_mutex);
+        std::scoped_lock lock(g_client.state_mutex);
         profile = g_client.state.profile;
     }
     if (profile.empty()) {
@@ -412,7 +425,7 @@ void request_profile_change(const char* route, const json& body) {
             [](CoreState& state) { set_error(state, "No app is being read, so the change cannot be saved."); });
         return;
     }
-    enqueue({"PATCH", profile_path(profile, route), body.dump()});
+    enqueue({.method = "PATCH", .path = profile_path(profile, route), .body = body.dump()});
 }
 
 void request_setting(const json& setting) {
@@ -432,16 +445,16 @@ void start_api_client(std::unique_ptr<Transport> transport, ApiClientOptions opt
 }
 
 CoreState core_state() {
-    std::lock_guard lock(g_client.state_mutex);
+    std::scoped_lock lock(g_client.state_mutex);
     return g_client.state;
 }
 
 void request_paused(bool paused) {
-    enqueue({"POST", paused ? "/v1/pause" : "/v1/resume", ""});
+    enqueue({.method = "POST", .path = paused ? "/v1/pause" : "/v1/resume", .body = ""});
 }
 
 void request_stop_line() {
-    enqueue({"POST", "/v1/stop", ""});
+    enqueue({.method = "POST", .path = "/v1/stop", .body = ""});
 }
 
 void request_voice(const std::string& voice_id) {

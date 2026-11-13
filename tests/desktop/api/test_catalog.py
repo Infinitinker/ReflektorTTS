@@ -1,6 +1,9 @@
+"""What the desktop app shows of the downloads: entries, their state, sizes and the summary."""
+
 import pytest
 
 from reflektortts.desktop.api.catalog import (
+    OTHER_VOICE_LICENSE,
     DownloadItem,
     DownloadList,
     other_voices,
@@ -57,7 +60,7 @@ def test_a_listing_from_the_api_becomes_items() -> None:
         ("available", 0, None, ""),
         ("installed", 0, None, "Installed"),
         ("downloading", 25, 100, "Downloading 25%"),
-        ("downloading", 25, None, "Downloading"),
+        ("downloading", 25, None, "Downloading…"),
     ],
 )
 def test_the_state_column(state: str, done: int, total: int | None, text: str) -> None:
@@ -74,7 +77,7 @@ def test_the_summary_counts_the_installed_entries() -> None:
             "id", "voice", "Voice", ("en",), None, None, "https://example.invalid", state, 0, None, "Piper"
         )
 
-    assert summary_text([item("installed"), item("available"), item("downloading")]) == "1 of 3 installed"
+    assert summary_text([item("installed"), item("available"), item("downloading")]) == "Installed: 1 of 3"
 
 
 def test_installed_voices_that_are_not_downloads_are_listed_but_not_removable() -> None:
@@ -99,6 +102,7 @@ def test_installed_voices_that_are_not_downloads_are_listed_but_not_removable() 
                 "name": "pl_PL-gosia-medium",
                 "language": "pl-PL",
                 "engine_title": "Piper",
+                "installed_note": None,
             },
             {
                 "id": "windows:Microsoft Adam",
@@ -106,6 +110,7 @@ def test_installed_voices_that_are_not_downloads_are_listed_but_not_removable() 
                 "name": "Microsoft Adam",
                 "language": "pl-PL",
                 "engine_title": "Windows",
+                "installed_note": "Comes with Windows: add or remove them in Settings.",
             },
             {
                 "id": "windows:Microsoft Hedda",
@@ -113,6 +118,7 @@ def test_installed_voices_that_are_not_downloads_are_listed_but_not_removable() 
                 "name": "Microsoft Hedda",
                 "language": "de-DE",
                 "engine_title": "Windows",
+                "installed_note": "Comes with Windows: add or remove them in Settings.",
             },
         ]
     }
@@ -127,4 +133,23 @@ def test_installed_voices_that_are_not_downloads_are_listed_but_not_removable() 
         False,
         "",
     )
-    assert adam.license is not None and "Settings > Time & language > Speech" in adam.license
+    assert adam.license == "Comes with Windows: add or remove them in Settings."
+
+
+def test_an_installed_voice_whose_engine_says_nothing_about_it_is_installed_outside_reflektortts() -> None:
+    voices = {
+        "voices": [
+            {
+                "id": "piper:pl_PL-darkman-medium",
+                "engine": "piper",
+                "name": "pl_PL-darkman-medium",
+                "language": "pl-PL",
+                "engine_title": "Piper",
+                "installed_note": None,
+            }
+        ]
+    }
+
+    [darkman] = other_voices(voices, [], languages={"pl"})
+
+    assert darkman.license == OTHER_VOICE_LICENSE

@@ -1,3 +1,5 @@
+"""The profile catalog: the bundled profiles and the user's own, which of them are used, and adding or replacing one."""
+
 import json
 from pathlib import Path
 from typing import Any
@@ -55,6 +57,13 @@ def test_every_bundled_profile_is_rated() -> None:
     unrated = [entry.id for entry in catalog if entry.profile is None or entry.profile.rating is None]
 
     assert unrated == []
+
+
+def test_every_bundled_profile_says_which_languages_it_was_tested_in() -> None:
+    catalog = load_catalog(Path("no-such-folder"), BUNDLED_DIR)
+    unsaid = [entry.id for entry in catalog if entry.profile is None or not entry.profile.tested_languages]
+
+    assert unsaid == []
 
 
 def test_a_user_profile_with_a_bundled_id_replaces_it_even_when_broken(tmp_path: Path) -> None:

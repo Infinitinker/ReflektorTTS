@@ -1,3 +1,5 @@
+"""The logs: an error that no thread catches is logged."""
+
 import logging
 import threading
 

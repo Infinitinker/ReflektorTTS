@@ -11,7 +11,7 @@ from reflektortts.languages import Languages
 from reflektortts.sources.vlc.errors import VlcError
 from reflektortts.sources.vlc.formats import read_cues
 from reflektortts.sources.vlc.formats.cues import Cues
-from reflektortts.sources.vlc.subtitles import LEGACY_ENCODINGS, SubtitleFile, find_subtitles
+from reflektortts.sources.vlc.subtitles import SubtitleFile, find_subtitles, legacy_encoding
 from reflektortts.sources.vlc.timing import PlaybackClock
 from reflektortts.sources.vlc.uri import uri_to_path
 from reflektortts.sources.vlc.web import NotAnsweringError, PlayerStatus, VlcClient
@@ -26,7 +26,7 @@ RETRY_AFTER = 2.0
 LOOKUP_RETRY = 3.0
 """Seconds before looking for subtitles again where there were none, e.g. until the user adds them."""
 
-OFF = "VLC's web interface is off: close VLC, enable the VLC integration in the Profiles tab, then start VLC again."
+OFF = "VLC’s web interface is off: close VLC, enable the VLC integration in the Profiles tab, then start VLC again."
 
 
 @dataclass(frozen=True)
@@ -89,8 +89,8 @@ class VlcSource:
             raise VlcError(OFF)
         if settings.host.lower() not in REACHABLE_HOSTS:
             raise VlcError(
-                f"VLC's web interface listens only on {settings.host}: "
-                "set its host (http-host) to 127.0.0.1 in VLC's preferences, then restart VLC."
+                f"VLC’s web interface listens only on {settings.host}: "
+                "set its host (http-host) to 127.0.0.1 in VLC’s preferences, then restart VLC."
             )
         key = (settings.port, settings.password)
         if self._client is None or key != self._client_for:
@@ -157,7 +157,7 @@ class VlcSource:
     def _media(self, client: VlcClient, lookup: _Lookup) -> Path:
         playing = client.playlist_item(lookup.key[0])
         if playing is None:
-            raise VlcError("Cannot find what VLC is playing in its playlist.")
+            raise VlcError("Cannot find what VLC is playing in its playlist: play it again from the playlist.")
         path = uri_to_path(playing.uri)
         if path is None:
             lookup.retry_at = math.inf  # It stays a stream until the item changes.
@@ -171,7 +171,7 @@ def _load(file: SubtitleFile, language: str) -> _Subtitles:
     path = file.path
     try:
         stamp = path.stat().st_mtime_ns
-        cues = read_cues(file.format, path.read_bytes(), LEGACY_ENCODINGS.get(language, "cp1252"))
+        cues = read_cues(file.format, path.read_bytes(), legacy_encoding(language))
     except OSError as error:
         raise VlcError(f"Cannot read the subtitles in {path.name} ({error.strerror}).") from error
     if not cues:

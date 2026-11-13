@@ -1,3 +1,5 @@
+"""The normalize stage: numbers, times, units, dates and abbreviations spelled out in the output language."""
+
 import pytest
 
 from reflektortts.events import TextEvent
@@ -151,8 +153,8 @@ def test_it_does_nothing_for_an_output_language_without_rules() -> None:
     assert PLUGIN.inactive_reason(Languages(input="en", output="pl")) is None
 
 
-def test_every_output_language_has_rules() -> None:
-    assert set(WORDS) == set(LANGUAGES)
+def test_rules_are_for_known_languages() -> None:
+    assert set(WORDS) <= set(LANGUAGES)
 
 
 def test_plugin_is_registered() -> None:

@@ -1,8 +1,13 @@
+// The transport over WinHTTP, Windows only: the core's events over a WebSocket, requests and
+// commands over HTTP.
+
 #include "transport_winhttp.h"
 
 #include <windows.h>
 #include <winhttp.h>
 
+#include <array>
+#include <cstddef>
 #include <string>
 #include <utility>
 
@@ -21,7 +26,7 @@ public:
     }
     Handle(const Handle&) = delete;
     Handle& operator=(const Handle&) = delete;
-    HINTERNET get() const { return handle_; }
+    [[nodiscard]] HINTERNET get() const { return handle_; }
     explicit operator bool() const { return handle_ != nullptr; }
 
 private:
@@ -34,7 +39,7 @@ std::wstring widen(const std::string& text) {
         return {};
     }
     int length = MultiByteToWideChar(CP_UTF8, 0, text.data(), static_cast<int>(text.size()), nullptr, 0);
-    std::wstring wide(length, L'\0');
+    std::wstring wide(static_cast<std::size_t>(length), L'\0');
     MultiByteToWideChar(CP_UTF8, 0, text.data(), static_cast<int>(text.size()), wide.data(), length);
     return wide;
 }
@@ -43,14 +48,14 @@ std::wstring widen(const std::string& text) {
 std::optional<std::string> read_body(HINTERNET request) {
     std::string body;
     DWORD available = 0;
-    while (WinHttpQueryDataAvailable(request, &available) && available > 0) {
+    while (WinHttpQueryDataAvailable(request, &available) != FALSE && available > 0) {
         if (body.size() + available > kMaxResponseBytes) {
             log_message("Skipping an answer bigger than " + std::to_string(kMaxResponseBytes) + " bytes");
             return std::nullopt;
         }
         std::string chunk(available, '\0');
         DWORD read = 0;
-        if (!WinHttpReadData(request, chunk.data(), available, &read)) {
+        if (WinHttpReadData(request, chunk.data(), available, &read) == FALSE) {
             break;
         }
         body.append(chunk.data(), read);
@@ -61,9 +66,9 @@ std::optional<std::string> read_body(HINTERNET request) {
 HINTERNET open_web_socket(HINTERNET connection, const std::wstring& path) {
     Handle request(WinHttpOpenRequest(connection, L"GET", path.c_str(), nullptr, WINHTTP_NO_REFERER,
                                       WINHTTP_DEFAULT_ACCEPT_TYPES, 0));
-    if (!request || !WinHttpSetOption(request.get(), WINHTTP_OPTION_UPGRADE_TO_WEB_SOCKET, nullptr, 0) ||
-        !WinHttpSendRequest(request.get(), WINHTTP_NO_ADDITIONAL_HEADERS, 0, nullptr, 0, 0, 0) ||
-        !WinHttpReceiveResponse(request.get(), nullptr)) {
+    if (!request || WinHttpSetOption(request.get(), WINHTTP_OPTION_UPGRADE_TO_WEB_SOCKET, nullptr, 0) == FALSE ||
+        WinHttpSendRequest(request.get(), WINHTTP_NO_ADDITIONAL_HEADERS, 0, nullptr, 0, 0, 0) == FALSE ||
+        WinHttpReceiveResponse(request.get(), nullptr) == FALSE) {
         return nullptr;
     }
     // The socket takes over the connection; the HTTP request handle is closed on return.
@@ -72,16 +77,22 @@ HINTERNET open_web_socket(HINTERNET connection, const std::wstring& path) {
 
 class WinHttpEventStream : public EventStream {
 public:
-    WinHttpEventStream(HINTERNET connection, HINTERNET socket) : connection_(connection), socket_(socket) {}
+    // Opens the WebSocket at path on connection, which the stream owns from now on; is_open says
+    // whether it opened.
+    WinHttpEventStream(HINTERNET connection, const std::wstring& path)
+        : connection_(connection), socket_(open_web_socket(connection, path)) {}
+
+    [[nodiscard]] bool is_open() const { return static_cast<bool>(socket_); }
 
     std::optional<std::string> receive() override {
         std::string message;
         bool too_big = false;
-        char buffer[4096];
+        std::array<char, 4096> buffer{};
         for (;;) {
             DWORD read = 0;
             WINHTTP_WEB_SOCKET_BUFFER_TYPE type{};
-            if (WinHttpWebSocketReceive(socket_.get(), buffer, sizeof(buffer), &read, &type) != NO_ERROR ||
+            if (WinHttpWebSocketReceive(socket_.get(), buffer.data(), static_cast<DWORD>(buffer.size()), &read,
+                                        &type) != NO_ERROR ||
                 type == WINHTTP_WEB_SOCKET_CLOSE_BUFFER_TYPE) {
                 return std::nullopt;
             }
@@ -91,7 +102,7 @@ public:
                 message.clear();
             }
             if (!too_big) {
-                message.append(buffer, read);
+                message.append(buffer.data(), read);
             }
             if (type == WINHTTP_WEB_SOCKET_UTF8_MESSAGE_BUFFER_TYPE ||
                 type == WINHTTP_WEB_SOCKET_BINARY_MESSAGE_BUFFER_TYPE) {
@@ -112,10 +123,11 @@ private:
 
 class WinHttpTransport : public Transport {
 public:
-    explicit WinHttpTransport(HINTERNET session) : session_(session), host_(widen(kCoreHost)) {}
+    WinHttpTransport(HINTERNET session, int port)
+        : session_(session), host_(widen(kCoreHost)), port_(static_cast<INTERNET_PORT>(port)) {}
 
-    std::optional<HttpResponse> send(const std::string& method, const std::string& path,
-                                     const std::string& body) override {
+    std::optional<HttpResponse> send(const HttpRequest& http_request) override {
+        const auto& [method, path, body] = http_request;
         Handle connection(connect());
         if (!connection) {
             return std::nullopt;
@@ -129,10 +141,11 @@ public:
         const wchar_t* headers = has_body ? L"Content-Type: application/json" : WINHTTP_NO_ADDITIONAL_HEADERS;
         // -1 means "headers are zero-terminated"; with no headers the length must be 0.
         DWORD headers_length = has_body ? static_cast<DWORD>(-1) : 0;
-        void* data = has_body ? const_cast<char*>(body.data()) : WINHTTP_NO_REQUEST_DATA;
+        // WinHttpSendRequest only reads the body, though it takes it as void*.
+        void* data = has_body ? const_cast<char*>(body.data()) : WINHTTP_NO_REQUEST_DATA;  // NOLINT(*-const-cast)
         auto length = static_cast<DWORD>(body.size());
-        if (!WinHttpSendRequest(request.get(), headers, headers_length, data, length, length, 0) ||
-            !WinHttpReceiveResponse(request.get(), nullptr)) {
+        if (WinHttpSendRequest(request.get(), headers, headers_length, data, length, length, 0) == FALSE ||
+            WinHttpReceiveResponse(request.get(), nullptr) == FALSE) {
             return std::nullopt;
         }
         DWORD status = 0;
@@ -143,7 +156,7 @@ public:
         if (!response_body) {
             return std::nullopt;
         }
-        return HttpResponse{static_cast<int>(status), std::move(*response_body)};
+        return HttpResponse{.status = static_cast<int>(status), .body = std::move(*response_body)};
     }
 
     std::unique_ptr<EventStream> open_event_stream(const std::string& path) override {
@@ -151,33 +164,31 @@ public:
         if (connection == nullptr) {
             return nullptr;
         }
-        HINTERNET socket = open_web_socket(connection, widen(path));
-        if (socket == nullptr) {
-            WinHttpCloseHandle(connection);
+        auto stream = std::make_unique<WinHttpEventStream>(connection, widen(path));
+        if (!stream->is_open()) {
             return nullptr;
         }
-        return std::make_unique<WinHttpEventStream>(connection, socket);
+        return stream;
     }
 
 private:
-    HINTERNET connect() const {
-        return WinHttpConnect(session_.get(), host_.c_str(), static_cast<INTERNET_PORT>(kCorePort), 0);
-    }
+    [[nodiscard]] HINTERNET connect() const { return WinHttpConnect(session_.get(), host_.c_str(), port_, 0); }
 
     Handle session_;
     std::wstring host_;
+    INTERNET_PORT port_;
 };
 
 }  // namespace
 
-std::unique_ptr<Transport> make_winhttp_transport(const wchar_t* user_agent) {
-    HINTERNET session = WinHttpOpen(user_agent, WINHTTP_ACCESS_TYPE_NO_PROXY, WINHTTP_NO_PROXY_NAME,
-                                    WINHTTP_NO_PROXY_BYPASS, 0);
+std::unique_ptr<Transport> make_winhttp_transport(const wchar_t* user_agent, int port) {
+    HINTERNET session =
+        WinHttpOpen(user_agent, WINHTTP_ACCESS_TYPE_NO_PROXY, WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0);
     if (session == nullptr) {
         log_message("Cannot start WinHTTP, so ReflektorTTS cannot be reached");
         return nullptr;
     }
-    return std::make_unique<WinHttpTransport>(session);
+    return std::make_unique<WinHttpTransport>(session, port);
 }
 
 }  // namespace reflektortts

@@ -1,3 +1,6 @@
+// Measures the window's visible frame: the title bar and the borders the user sees around its
+// client area.
+
 #pragma once
 
 #include <SDL3/SDL_video.h>

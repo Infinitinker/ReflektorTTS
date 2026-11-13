@@ -1,6 +1,8 @@
 # The exact versions a release is built with, from the venv it was tested in, so a release built on
-# GitHub ships what was tested. Refresh it after changing or upgrading dependencies (see "Building a
-# release" in CONTRIBUTING.md), together with SOURCES in tools/sources.py and tools/licenses/, by
+# GitHub ships what was tested. Refresh it after changing or upgrading dependencies (see "Dependencies
+# and notices" in docs/releasing.md), together with SOURCES in tools/sources.py, tools/licenses/ and
+# THIRD-PARTY-NOTICES.md (python tools/notices.py) and the Python version the Build Windows app
+# workflow pins (the one this venv runs), by
 # replacing the lines below this comment with what this prints:
 #     .venv\Scripts\python -m pip freeze --exclude-editable
 aiohappyeyeballs==2.7.1

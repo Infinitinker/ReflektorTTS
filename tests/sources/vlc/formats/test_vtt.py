@@ -1,3 +1,5 @@
+"""WebVTT (.vtt, .webvtt) subtitles: cues, the blocks skipped, and the tags, timestamps and entities in their text."""
+
 from reflektortts.sources.vlc.formats.vtt import parse_vtt
 
 

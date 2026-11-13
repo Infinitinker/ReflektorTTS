@@ -31,7 +31,7 @@ SMALL_HEAD = (160, 162, 170, 255)
 RIM = (255, 226, 170, 255)
 HOT = (255, 222, 150)
 WARNING = (255, 191, 77)
-"""kWarningColor of the overlay's panel, ImVec4(1.0, 0.75, 0.3)."""
+"""kWarningColor of the settings panel, ImVec4(1.0, 0.75, 0.3)."""
 EDGE = (232, 150, 40)
 
 

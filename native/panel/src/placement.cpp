@@ -1,3 +1,6 @@
+// Sizes the window and places it where it opens: beside the ReflektorTTS window, or centered on
+// the main display.
+
 #include "placement.h"
 
 #include <algorithm>
@@ -34,7 +37,7 @@ WindowSize place_window(SDL_Window* window, const std::optional<Dock>& dock, flo
         SDL_SetWindowSize(window, rounded(width * scale), rounded(kDefaultHeight * scale));
         SDL_SetWindowPosition(window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
         SDL_SyncWindow(window);
-        return {width, kDefaultHeight};
+        return {.width = width, .height = kDefaultHeight};
     }
 
     // Onto the desktop app's display first, whose scale sets the width. Edges are as Windows'
@@ -45,8 +48,9 @@ WindowSize place_window(SDL_Window* window, const std::optional<Dock>& dock, flo
     // that pixel's display rather than moved to it, which would put it on the other display.
     float density = pixel_density(window);
     const int inside_x = dock->side == DockSide::Right ? dock->x : dock->x - 1;
-    const SDL_Point inside{rounded(static_cast<float>(inside_x) / density),
-                           rounded(static_cast<float>(dock->y + dock->height / 2) / density)};
+    const int middle_y = dock->y + dock->height / 2;
+    const SDL_Point inside{.x = rounded(static_cast<float>(inside_x) / density),
+                           .y = rounded(static_cast<float>(middle_y) / density)};
     SDL_DisplayID display = SDL_GetDisplayForPoint(&inside);
     if (display == 0) {
         display = SDL_GetPrimaryDisplay();
@@ -69,7 +73,7 @@ WindowSize place_window(SDL_Window* window, const std::optional<Dock>& dock, flo
     SDL_SetWindowPosition(window, rounded(static_cast<float>(left + frame.left) / density),
                           rounded(static_cast<float>(dock->y + frame.top) / density));
     SDL_SyncWindow(window);
-    return {width, static_cast<float>(client_height) / scale};
+    return {.width = width, .height = static_cast<float>(client_height) / scale};
 }
 
 }  // namespace reflektortts

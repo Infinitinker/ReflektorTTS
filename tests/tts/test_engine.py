@@ -1,4 +1,4 @@
-import sys
+"""Speech engines: a voice's engine and name read from text, and the Piper and Windows engines found."""
 
 import pytest
 
@@ -29,6 +29,5 @@ def test_piper_engine_is_registered() -> None:
     assert plugin.name == "piper"
 
 
-@pytest.mark.skipif(sys.platform != "win32", reason="Windows voices exist only on Windows")
 def test_windows_engine_is_registered() -> None:
     assert load_engine_plugin("windows").name == "windows"

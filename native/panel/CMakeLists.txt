@@ -7,11 +7,15 @@ foreach(unused AUDIO CAMERA JOYSTICK HAPTIC HIDAPI SENSOR POWER GPU DIALOG TRAY 
     set(SDL_${unused} OFF CACHE BOOL "" FORCE)
 endforeach()
 FetchContent_MakeAvailable(SDL3)
+# SDL's headers, which SDL3-static takes from SDL3_Headers, are included as system headers, which
+# compilers do not warn about. (CMake 3.25's FetchContent SYSTEM would do this, but the minimum is 3.24.)
+get_target_property(sdl_includes SDL3_Headers INTERFACE_INCLUDE_DIRECTORIES)
+set_property(TARGET SDL3_Headers APPEND PROPERTY INTERFACE_SYSTEM_INCLUDE_DIRECTORIES ${sdl_includes})
 
 add_library(imgui-backends-panel STATIC
     ${imgui_SOURCE_DIR}/backends/imgui_impl_sdl3.cpp
     ${imgui_SOURCE_DIR}/backends/imgui_impl_sdlrenderer3.cpp)
-target_include_directories(imgui-backends-panel PUBLIC ${imgui_SOURCE_DIR}/backends)
+target_include_directories(imgui-backends-panel SYSTEM PUBLIC ${imgui_SOURCE_DIR}/backends)
 target_link_libraries(imgui-backends-panel PUBLIC imgui SDL3::SDL3-static)
 
 # A windowed program, so no console opens with it.
@@ -25,7 +29,7 @@ add_executable(reflektortts-panel WIN32
     src/placement.cpp
     src/panel_ui.cpp
     src/panel_window.cpp)
-target_link_libraries(reflektortts-panel PRIVATE reflektortts-shared imgui-backends-panel)
+target_link_libraries(reflektortts-panel PRIVATE reflektortts-shared imgui-backends-panel reflektortts-warnings)
 if(WIN32)
     # DWM tells where the window's visible frame is (window_frame.cpp).
     target_link_libraries(reflektortts-panel PRIVATE dwmapi)

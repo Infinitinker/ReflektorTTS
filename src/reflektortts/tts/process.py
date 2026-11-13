@@ -23,6 +23,6 @@ def run(connection: Connection, events: Connection, voice: str, log_level: int, 
         from reflektortts.tts import service
     except Exception:
         # Exiting closes the connection, so the core's next line fails with TtsServiceError.
-        logger.exception("The speech service cannot start")
+        logger.exception("The TTS service cannot start")
         return
     service.run(connection, events, voice)

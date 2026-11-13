@@ -4,6 +4,7 @@ Several downloads can run at once, each on a thread of its own. Their progress i
 DownloadEvents, at most a few times a second each.
 """
 
+import contextlib
 import logging
 import threading
 import time
@@ -17,6 +18,7 @@ from reflektortts.downloads.source import (
     DownloadStateError,
     Entry,
     UnknownDownloadError,
+    details,
 )
 from reflektortts.events import DownloadEvent
 
@@ -52,6 +54,9 @@ class Downloads:
         self._sources = sources
         self._on_event = on_event
         self._lock = threading.Lock()
+        self._refresh_lock = threading.Lock()
+        """Refreshes one at a time, so two never fetch the same lists at once; listing what was
+        saved never waits for a refresh."""
         self._entries: dict[str, Entry] = {}
         self._running: dict[str, tuple[int, int | None]] = {}
         """Bytes done and total of each running download, by entry ID."""
@@ -61,14 +66,16 @@ class Downloads:
         fails is reported in errors, and the others are listed."""
         entries: list[Entry] = []
         errors: list[str] = []
-        for name, source in self._sources.items():
-            try:
-                entries.extend(source.entries(refresh))
-            except DownloadError as error:
-                errors.append(str(error))
-            except Exception as error:
-                logger.exception("Download source %s failed", name)
-                errors.append(f"Could not list the downloads from {name}: {error}")
+        with self._refresh_lock if refresh else contextlib.nullcontext():
+            for name, source in self._sources.items():
+                try:
+                    entries.extend(source.entries(refresh))
+                except DownloadError as error:
+                    logger.warning("Could not list the downloads from %s: %s", name, details(error))
+                    errors.append(str(error))
+                except Exception as error:
+                    logger.exception("Download source %s failed", name)
+                    errors.append(f"Could not list the downloads from {name}: {error}")
         with self._lock:
             self._entries = {entry.id: entry for entry in entries}
             listed = tuple(self._listed(entry) for entry in entries)
@@ -87,7 +94,7 @@ class Downloads:
         entry = self._find(entry_id)
         with self._lock:
             if entry_id in self._running:
-                raise DownloadStateError(f"{entry.name} is downloading; wait until it is done.")
+                raise DownloadStateError(f"{entry.name} is downloading: wait until it is done.")
         if not entry.installed:
             raise DownloadStateError(f"{entry.name} is not installed.")
         try:

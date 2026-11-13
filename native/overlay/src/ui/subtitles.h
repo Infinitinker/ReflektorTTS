@@ -1,3 +1,6 @@
+// The subtitles drawn over the app, under the panel, from the current line and the subtitle
+// settings.
+
 #pragma once
 
 #include "core_state.h"

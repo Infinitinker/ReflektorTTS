@@ -1,3 +1,6 @@
+// Hooks IDXGISwapChain::Present and Present1, shared by Direct3D 11 and 12: the methods are found
+// through a throwaway Direct3D 11 swap chain on a probe window.
+
 #include "hooks/dxgi_hook.h"
 
 #include <d3d11.h>
@@ -8,6 +11,7 @@
 #include "hooks/probe_window.h"
 #include "hooks/vtable_hook.h"
 #include "log.h"
+#include "memory/exported_function.h"
 
 namespace reflektortts {
 namespace {
@@ -50,9 +54,7 @@ struct SwapChainVtable {
 // Swap chains share their class's vtable, so a throwaway swap chain gives us the app's.
 bool find_swap_chain_vtable(SwapChainVtable& vtable) {
     HMODULE d3d11 = d3d11_module();
-    auto create = d3d11 == nullptr ? nullptr
-                                   : reinterpret_cast<decltype(&D3D11CreateDeviceAndSwapChain)>(
-                                         GetProcAddress(d3d11, "D3D11CreateDeviceAndSwapChain"));
+    auto create = exported_function<decltype(&D3D11CreateDeviceAndSwapChain)>(d3d11, "D3D11CreateDeviceAndSwapChain");
     if (create == nullptr) {
         log_message("d3d11.dll is not available");
         return false;
@@ -77,10 +79,10 @@ bool find_swap_chain_vtable(SwapChainVtable& vtable) {
         log_message("Could not create a probe D3D11 device (HRESULT " + std::to_string(result) + ")");
         return false;
     }
-    vtable.entries = *reinterpret_cast<void***>(swap_chain);
+    vtable.entries = vtable_of(swap_chain);
     IDXGISwapChain1* swap_chain1 = nullptr;
-    if (SUCCEEDED(swap_chain->QueryInterface(__uuidof(IDXGISwapChain1), reinterpret_cast<void**>(&swap_chain1)))) {
-        vtable.has_present1 = *reinterpret_cast<void***>(swap_chain1) == vtable.entries;
+    if (SUCCEEDED(swap_chain->QueryInterface(IID_PPV_ARGS(&swap_chain1)))) {
+        vtable.has_present1 = vtable_of(swap_chain1) == vtable.entries;
         swap_chain1->Release();
     }
     swap_chain->Release();

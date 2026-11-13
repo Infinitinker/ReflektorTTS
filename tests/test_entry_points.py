@@ -1,3 +1,5 @@
+"""Finding plugins through their entry points: a broken plugin is skipped and logged."""
+
 from dataclasses import dataclass
 
 import pytest

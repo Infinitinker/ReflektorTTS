@@ -1,0 +1,50 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": {"major": 3, "minor": 24, "patch": 0},
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "generator": "Ninja",
+      "cacheVariables": {"CMAKE_EXPORT_COMPILE_COMMANDS": "ON"}
+    },
+    {
+      "name": "release",
+      "inherits": "base",
+      "displayName": "Release, 64-bit",
+      "description": "The 64-bit build, with the panel, into native/build64. Run from the MSYS2 MINGW64 shell, whose toolchain it uses.",
+      "binaryDir": "${sourceDir}/build64",
+      "cacheVariables": {"CMAKE_BUILD_TYPE": "Release"}
+    },
+    {
+      "name": "release-x86",
+      "inherits": "base",
+      "displayName": "Release, 32-bit",
+      "description": "The 32-bit build, the overlay for 32-bit apps, into native/build. Run from the MSYS2 MINGW32 shell, whose toolchain it uses.",
+      "binaryDir": "${sourceDir}/build",
+      "cacheVariables": {"CMAKE_BUILD_TYPE": "Release"}
+    },
+    {
+      "name": "debug",
+      "inherits": "base",
+      "displayName": "Debug, 64-bit",
+      "description": "A 64-bit build with debug information and no optimization, into build/native-debug in the repository root. Run from the MSYS2 MINGW64 shell.",
+      "binaryDir": "${sourceDir}/../build/native-debug",
+      "cacheVariables": {"CMAKE_BUILD_TYPE": "Debug"}
+    },
+    {
+      "name": "ci",
+      "inherits": "base",
+      "displayName": "Checks",
+      "description": "What the Checks workflow checks: a 64-bit release build, into build/native-ci in the repository root, whose compile_commands.json clang-tidy reads, and which is built with the compiler's warnings as errors.",
+      "binaryDir": "${sourceDir}/../build/native-ci",
+      "cacheVariables": {"CMAKE_BUILD_TYPE": "Release", "REFLEKTORTTS_WARNINGS_AS_ERRORS": "ON"}
+    }
+  ],
+  "buildPresets": [
+    {"name": "release", "configurePreset": "release"},
+    {"name": "release-x86", "configurePreset": "release-x86"},
+    {"name": "debug", "configurePreset": "debug"},
+    {"name": "ci", "configurePreset": "ci"}
+  ]
+}

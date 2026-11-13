@@ -15,10 +15,14 @@ read: which one it shows cannot be seen from outside.
 
 import re
 import sys
+import unicodedata
 from collections.abc import Iterator
 from dataclasses import dataclass
+from functools import cache
 from pathlib import Path
 
+from reflektortts.languages import LANGUAGES, alias_names, language_name, other_codes
+from reflektortts.letters import WORD
 from reflektortts.sources.vlc.errors import VlcError
 from reflektortts.sources.vlc.formats import Format, format_of
 
@@ -32,22 +36,70 @@ SUBTITLE_SUFFIXES = frozenset(
 )
 """Every kind of subtitle file VLC loads; those in formats.FORMATS are read here."""
 
-LANGUAGE_WORDS = {
-    "en": frozenset({"en", "eng", "english"}),
-    "pl": frozenset({"pl", "pol", "polish", "polski"}),
-}
-"""Words that name a language in subtitle file names, by ISO 639-1 code."""
-LANGUAGE_NAMES = {"en": "English", "pl": "Polish"}
-LEGACY_ENCODINGS = {"en": "cp1252", "pl": "cp1250"}
-"""The code page subtitles in a language are usually in when they are not UTF-8."""
+DEFAULT_ENCODING = "cp1252"
+"""The code page of subtitles that are not UTF-8, in a language whose text is Unicode only."""
 
-_WORD = re.compile(r"[^\W_]+")
+
+APOSTROPHES = str.maketrans("", "", "'‘’ʻʼ`")
+"""Apostrophes, left out of language names, so "O‘zbek" names Uzbek as "Ozbek"."""
+REGION = re.compile(r"(?<![^\W_])([a-z]{2,3})[-_]([a-z]{2})(?![^\W_])")
+"""A language code with its region, as in "pt-BR" or "pt_BR"; regions such as BR (Breton) are
+language codes too."""
+HEARING_IMPAIRED = "hi"
+"""Marks subtitles for the hearing-impaired ("movie.en.hi.srt") more often than it names Hindi, so
+it names Hindi only when nothing else in the name names a language."""
 
 
 def words(name: str) -> list[str]:
     """A file's name as VLC compares it: without its extension, as lowercase words."""
     stem = name.rpartition(".")[0] if "." in name else name
-    return _WORD.findall(stem.lower())
+    return WORD.findall(unicodedata.normalize("NFC", stem).lower())
+
+
+@cache
+def _languages_named() -> dict[str, str]:
+    """The language each word names in file names: a language's codes, and the words of its
+    English and own names, also without accents ("de", "ger", "deu", "german", "deutsch";
+    "francais"). A word of several languages' names names none, unless it is another language's
+    code ("yi" is Yiddish, not Sichuan Yi) or the name of a language known by another's code
+    ("norwegian" and "norsk" are Bokmål, not Nynorsk). Single letters name nothing."""
+    codes: dict[str, str] = {}
+    preferred: dict[str, str] = {}
+    names: dict[str, set[str]] = {}
+    for code, language in LANGUAGES.items():
+        for word in (code, language.iso639_2b, language.iso639_2t, *other_codes(code)):
+            codes[word] = code
+        for word in _name_words(*alias_names(code)):
+            preferred[word] = code
+        for word in _name_words(language.english_name, language.name):
+            names.setdefault(word, set()).add(code)
+    unique = {word: next(iter(found)) for word, found in names.items() if len(found) == 1}
+    return unique | preferred | codes
+
+
+def _name_words(*names: str) -> set[str]:
+    found = {word for name in names for word in words(f"{name.translate(APOSTROPHES)}.") if len(word) > 1}
+    return found | {plain for word in found if (plain := _without_accents(word)).isascii()}
+
+
+def _languages_in(extra: tuple[str, ...], regions: set[tuple[str, str]]) -> set[str]:
+    """The languages a file's extra words name, leaving out the regions after language codes."""
+    named = _languages_named()
+    extra = tuple(word for index, word in enumerate(extra) if index == 0 or (extra[index - 1], word) not in regions)
+    found = {named[word] for word in extra if word in named and word != HEARING_IMPAIRED}
+    if not found and HEARING_IMPAIRED in extra:
+        found.add(named[HEARING_IMPAIRED])
+    return found
+
+
+def legacy_encoding(code: str) -> str:
+    """The code page subtitles in the language are usually in when they are not UTF-8."""
+    language = LANGUAGES.get(code)
+    return language.code_page if language is not None and language.code_page else DEFAULT_ENCODING
+
+
+def _without_accents(word: str) -> str:
+    return "".join(letter for letter in unicodedata.normalize("NFKD", word) if not unicodedata.combining(letter))
 
 
 @dataclass(frozen=True)
@@ -106,13 +158,14 @@ def _extra_words(media_words: list[str], name_words: list[str]) -> tuple[str, ..
 
 
 def _match(media_words: list[str], path: Path, depth: int, language: str) -> Candidate | None:
-    """The file as a candidate if it is tagged with the language or named exactly as the media;
-    None if it is neither, so it is not read."""
+    """The file as a candidate if it is tagged with the language and no other, or named exactly as
+    the media; None if it is neither, so it is not read."""
     name_words = words(path.name)
     if name_words == media_words:
         return Candidate(path, False, depth, ())
     extra = _extra_words(media_words, name_words)
-    if extra is None or not LANGUAGE_WORDS.get(language, frozenset()) & set(extra):
+    regions = set(REGION.findall(unicodedata.normalize("NFC", path.name).lower()))
+    if extra is None or _languages_in(extra, regions) != {language}:
         return None
     return Candidate(path, True, depth, extra)
 
@@ -145,6 +198,6 @@ def find_subtitles(media: Path, language: str) -> SubtitleFile | None:
             f"convert it to {media.stem}.srt."
         )
     raise VlcError(
-        f"No {LANGUAGE_NAMES.get(language, language)} subtitles found: "
+        f"No {language_name(language)} subtitles found: "
         f"put {media.stem}.{language}.srt or {media.stem}.srt next to {media.name}."
     )

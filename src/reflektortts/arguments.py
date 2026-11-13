@@ -5,7 +5,7 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-from reflektortts.core import default_profiles_dir
+from reflektortts.user_dirs import profiles_dir
 
 
 @dataclass(frozen=True)
@@ -24,7 +24,7 @@ def parse_arguments(program: str, argv: list[str] | None = None, desktop: bool =
     parser.add_argument(
         "--profiles",
         type=Path,
-        default=default_profiles_dir(),
+        default=profiles_dir(),
         help="folder with app profiles (default: %(default)s)",
     )
     parser.add_argument(
@@ -33,7 +33,7 @@ def parse_arguments(program: str, argv: list[str] | None = None, desktop: bool =
         action="append",
         help="folder with an overlay build to load into apps (DLL and injector); repeat for 32- and 64-bit "
         "builds, and the 64-bit one also gives the settings window run from source (default: the ones next to "
-        "ReflektorTTS.exe in a release, none otherwise)",
+        "reflektortts.exe in a release, none otherwise)",
     )
     if desktop:
         parser.add_argument("--hidden", action="store_true", help="start with only the icon next to the clock")
@@ -46,7 +46,7 @@ def parse_arguments(program: str, argv: list[str] | None = None, desktop: bool =
 
 
 def default_overlay_dirs() -> list[Path]:
-    """In a release (a frozen ReflektorTTS.exe), the 32- and 64-bit overlay builds in the overlay
+    """In a release (a frozen reflektortts.exe), the 32- and 64-bit overlay builds in the overlay
     folder next to it (x86 and x64); run from source, there is no default."""
     if not getattr(sys, "frozen", False):
         return []

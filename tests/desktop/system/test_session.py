@@ -1,10 +1,16 @@
+"""Quitting when the user signs out, and the named mutexes that tell the installer ReflektorTTS is running."""
+
 import ctypes
 import sys
+import tkinter as tk
+from collections.abc import Callable
+from typing import cast
 from uuid import uuid4
 
 import pytest
 
-from reflektortts.desktop.system.session import announce_running
+from reflektortts.desktop.system.session import announce_running, quit_on_sign_out
+from reflektortts.identity import MODE_VARIABLE
 
 
 def mutex_exists(name: str) -> bool:
@@ -28,6 +34,16 @@ def test_the_installer_can_see_reflektortts_running() -> None:
 
     assert mutex_exists(name)
     assert mutex_exists(f"Global\\{name}")
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="The installer's mutex exists only on Windows")
+def test_a_run_from_source_is_announced_under_its_own_name(monkeypatch: pytest.MonkeyPatch) -> None:
+    # The E2E name, as no installed ReflektorTTS or run from source holds it while the tests run.
+    monkeypatch.setenv(MODE_VARIABLE, "e2e")
+
+    assert announce_running()
+
+    assert mutex_exists("ReflektorTTS E2E")
 
 
 def test_outside_windows_nothing_is_announced(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -67,3 +83,29 @@ def test_everyone_may_see_the_mutexes() -> None:
         sddl = ctypes.c_wchar_p()
         advapi32.ConvertSecurityDescriptorToStringSecurityDescriptorW(descriptor, 1, 4, ctypes.byref(sddl), None)
         assert "(A;;0x100000;;;WD)" in str(sddl.value)  # Everyone may wait on it.
+
+
+class FakeRoot:
+    """Records the window manager protocols handled, as Tk's root window would take them."""
+
+    def __init__(self) -> None:
+        self.handlers: dict[str, Callable[[], None]] = {}
+
+    def protocol(self, name: str, handler: Callable[[], None]) -> None:
+        self.handlers[name] = handler
+
+
+def nothing() -> None:
+    pass
+
+
+@pytest.mark.parametrize(("platform", "handled"), [("win32", True), ("linux", False)])
+def test_reflektortts_quits_when_the_user_signs_out_of_windows(
+    monkeypatch: pytest.MonkeyPatch, platform: str, handled: bool
+) -> None:
+    monkeypatch.setattr(sys, "platform", platform)
+    root = FakeRoot()
+
+    quit_on_sign_out(cast(tk.Tk, root), nothing)
+
+    assert root.handlers == ({"WM_SAVE_YOURSELF": nothing} if handled else {})

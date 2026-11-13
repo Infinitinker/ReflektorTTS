@@ -1,4 +1,9 @@
+// Wakes the overlay when the app loads a DLL, through the loader's DLL notifications
+// (LdrRegisterDllNotification), which ntdll.dll offers but MinGW's headers do not declare.
+
 #include "hooks/dll_load_watch.h"
+
+#include "memory/exported_function.h"
 
 namespace reflektortts {
 namespace {
@@ -18,8 +23,8 @@ VOID CALLBACK on_notification(ULONG reason, const void*, PVOID context) {
 }  // namespace
 
 bool signal_on_dll_load(HANDLE event) {
-    auto register_notification = reinterpret_cast<RegisterFn>(
-        GetProcAddress(GetModuleHandleW(L"ntdll.dll"), "LdrRegisterDllNotification"));
+    auto register_notification =
+        exported_function<RegisterFn>(GetModuleHandleW(L"ntdll.dll"), "LdrRegisterDllNotification");
     PVOID cookie = nullptr;
     return register_notification != nullptr && register_notification(0, &on_notification, event, &cookie) >= 0;
 }

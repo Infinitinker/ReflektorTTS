@@ -1,5 +1,5 @@
 ; The ReflektorTTS installer, compiled by tools/build_release.py with Inno Setup 7 (ISCC.exe) from
-; the same folder as the portable zip. It installs for the current user, with no admin rights, into
+; the same folder as the Windows zip. It installs for the current user, with no admin rights, into
 ; %LOCALAPPDATA%\Programs\ReflektorTTS, or, if the user chooses and is an administrator, for all users
 ; into Program Files. Either way each user's settings, voices and logs stay in their own
 ; %LOCALAPPDATA%\ReflektorTTS.
@@ -17,7 +17,7 @@
 #endif
 
 #define AppName "ReflektorTTS"
-#define AppExe "ReflektorTTS.exe"
+#define AppExe "reflektortts.exe"
 #define Repository "https://github.com/Infinitinker/ReflektorTTS"
 #define AppGuid "AC5D9BAE-0B1A-425C-845D-8B09802D303D"
 ; The same start with Windows entry as src/reflektortts/desktop/system/autostart.py, which the
@@ -52,8 +52,6 @@ SetupIconFile={#IconFile}
 UninstallDisplayIcon={app}\{#AppExe}
 UninstallDisplayName={#AppName}
 WizardStyle=modern
-; Setup speaks Polish on a Polish Windows and English elsewhere, without asking.
-ShowLanguageDialog=auto
 Compression=lzma2/ultra64
 SolidCompression=yes
 ; Setup and Uninstall ask the user to quit a running ReflektorTTS (src/reflektortts/desktop/system/session.py
@@ -66,15 +64,11 @@ RestartApplications=no
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
-Name: "polish"; MessagesFile: "compiler:Languages\Polish.isl"
 
 [CustomMessages]
 english.DeleteUserData=Also delete your ReflektorTTS settings, downloaded voices and translation models, your own profiles and the logs?%n%n%1
-polish.DeleteUserData=Usunąć też ustawienia ReflektorTTS, pobrane głosy i modele tłumaczenia, własne profile i logi?%n%n%1
 english.UserDataNotDeleted=Some files in %1 could not be deleted. Delete the folder yourself.
-polish.UserDataNotDeleted=Nie udało się usunąć niektórych plików z %1. Usuń ten folder ręcznie.
 english.StartWithWindows=Start ReflektorTTS when I sign in to Windows
-polish.StartWithWindows=Uruchamiaj ReflektorTTS po zalogowaniu do Windows
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
@@ -88,6 +82,10 @@ Root: HKCU; Subkey: "{#RunKey}"; ValueType: string; ValueName: "{#AppName}"; Val
 [InstallDelete]
 ; PyInstaller's files change between releases; old ones must not stay mixed in with the new.
 Type: filesandordirs; Name: "{app}\_internal"
+; Up to 0.3.0, the settings window was next to the exe, which is now the only program there, and
+; the exe was ReflektorTTS.exe: deleted first, so the new one gets its lowercase name.
+Type: files; Name: "{app}\reflektortts-panel.exe"
+Type: files; Name: "{app}\ReflektorTTS.exe"
 
 [Files]
 Source: "{#SourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs

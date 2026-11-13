@@ -14,8 +14,9 @@ from reflektortts.desktop.widgets.theme import BUSY, GOOD
 
 STATE_COLORS = {"enabled": GOOD, "unavailable": BUSY}
 """Text color of the state: green when enabled, amber when it cannot be; otherwise the default."""
-STATE_LINES = 2
-"""The state always takes this many lines, so a long reason never moves what is below it."""
+STATE_LINES = 3
+"""The state always takes this many lines, so a long reason never moves what is below it: "Not
+available", then two for the reason, which VLC's reasons need."""
 TEXT_WIDTH = 440
 """Pixels the texts wrap at, which sets the window's width."""
 PADDING = 12

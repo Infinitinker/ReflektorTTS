@@ -1,3 +1,5 @@
+"""The per-user settings: defaults on the first run, settings loaded back, and broken or unexpected files."""
+
 import json
 from pathlib import Path
 

@@ -1,3 +1,5 @@
+"""YouTube SubViewer (.sbv) subtitles: cues that end at a blank line or at the next timing line."""
+
 from reflektortts.sources.vlc.formats.sbv import parse_sbv
 
 

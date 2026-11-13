@@ -154,6 +154,9 @@ class Runner:
         if last == message:
             return
         self._failing[(kind, origin)] = message
+        if error.__cause__ is not None:
+            # The user sees the message; what caused it, as the system or a library put it, is only logged.
+            logger.info("%s fails because of: %s", origin, error.__cause__)
         if last is None:
             self._on_error(ErrorEvent(kind, origin, message))
         else:

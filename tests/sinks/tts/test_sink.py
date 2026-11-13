@@ -1,3 +1,5 @@
+"""The TTS sink: text delivered to it is spoken, and closing it stops the service."""
+
 from reflektortts.events import TextEvent
 from reflektortts.sinks.tts.sink import TtsSink
 

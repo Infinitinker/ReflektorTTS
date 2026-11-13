@@ -1,3 +1,5 @@
+"""Playing speech: audio written in blocks, cut off, and the silence after speech left out."""
+
 import threading
 from collections.abc import Callable
 

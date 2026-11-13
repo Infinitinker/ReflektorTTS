@@ -68,12 +68,17 @@ def resolve(memory: ProcessMemory, base: Address, offsets: Sequence[int]) -> int
     if base.module is not None:
         module_base = memory.module_base(base.module)
         if module_base is None:
-            raise ProcessMemoryError(f"{base.module} is not loaded in the app.")
+            raise ProcessMemoryError(
+                f"{base.module} is not loaded in the app yet: "
+                "if this lasts, the profile may not fit this version of the app."
+            )
         address += module_base
     for offset in offsets:
         raw = memory.read(address, memory.pointer_size)
         if len(raw) < memory.pointer_size:
-            raise MemoryReadError(f"Cannot read the app's memory at {address:X}.")
+            raise MemoryReadError(
+                "The app’s memory could not be read: if this lasts, the profile may not fit this version of the app."
+            ) from MemoryReadError(f"No pointer could be read at {address:X}")
         pointer = int.from_bytes(raw, "little")
         if pointer == 0:
             return None

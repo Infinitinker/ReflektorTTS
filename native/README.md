@@ -1,12 +1,14 @@
 # Native code
 
-ReflektorTTS's C++ code. All logic stays in the Python core: each part is a client of the core's [local API](../docs/api.md) (`http://127.0.0.1:47821/v1`), so it only draws and captures input (grabbing frames for OCR is planned). See also [docs/architecture.md](../docs/architecture.md).
+ReflektorTTS's C++ code. All logic stays in the Python core: each part is a client of the core's [local API](../docs/api.md) (`http://127.0.0.1:47821/v1` for an installed ReflektorTTS; a run from source has another, so the core gives the overlay its port, and the desktop app gives the settings window the same port), so it only draws and captures input (grabbing frames for OCR is planned). See also [docs/architecture.md](../docs/architecture.md).
 
 It comes in three parts:
 
 - **`shared/`**: a static library (`reflektortts-shared`) with what does not depend on where it is drawn or on the OS: the API client and the settings panel's drawing in Dear ImGui. The API client reaches the core through a small transport interface (`transport.h`), whose only implementation for now is WinHTTP's (`transport_winhttp.cpp`), built on Windows only.
 - **`overlay/`**: the overlay, a DLL loaded into the app's process (Windows only), and the injector that loads it. It hooks the point where the app shows each frame and draws the settings panel and the subtitles on top.
 - **`panel/`**: the settings panel in a window of its own (`reflektortts-panel.exe`), for one profile whether or not its app runs, so apps without the overlay, and games before they start, can be set up too.
+
+The overlay and the settings window build on the shared library, so `shared/` includes nothing from `overlay/` or `panel/`, and `panel/` nothing from `overlay/`. These directions, and the overlay's own below, are checked by `tools/check_includes.py` (see [Import directions](../docs/architecture.md#import-directions)).
 
 ## The overlay
 
@@ -38,11 +40,16 @@ Mouse buttons are read directly while the panel is open, because games using Dir
 
 Blocking the app's input works like ReShade's default "block all input while the overlay is visible". The first time the panel opens, the overlay hooks every keyboard and mouse API the app has loaded (and on later openings, any loaded since), all through code hooks: the reads of DirectInput 8 and 1–7 devices, the message queue (`GetMessage`, `PeekMessage`: input messages for the app's window go to the panel and the app gets `WM_NULL`; other windows are left alone, since DirectInput reads the keyboard through raw input sent to a hidden window of its own), key state (`GetAsyncKeyState`, `GetKeyState`, `GetKeyboardState`), buffered raw input (`GetRawInputBuffer`) and the cursor (`GetCursorPos`, `SetCursorPos`, `ClipCursor`). The overlay's own calls are let through, recognized by their return address, so the panel keeps seeing real input. XInput gamepads are not blocked. Window messages reach the panel on the thread that draws, at the start of its next frame, since many games handle their window on another thread. The panel is laid out in window coordinates and scaled to the app's back buffer, so it lines up with the mouse when the image is scaled (the Direct3D 9 backend ignores that scale).
 
-The overlay's files, in `overlay/`. Its own headers are included by their path from `src/` (`"hooks/code_hook.h"`), and each folder includes only from folders listed above it (`hooks/` from `diagnostics/`, `ui/` from `input/`), while `dllmain.cpp` ties them together.
+The overlay's files, in `overlay/`. Its own headers are included by their path from `src/` (`"hooks/code_hook.h"`), and each folder includes only from itself and the folders listed above it, in the table's order: `memory/`, `diagnostics/`, `hooks/`, `input/`, `ui/`, `renderers/` (`hooks/` from `memory/` and `diagnostics/`, `ui/` from `input/`), while `dllmain.cpp` ties them together. The injector includes only from `memory/`. A new folder goes into this order here and into `OVERLAY_FOLDERS` in `tools/check_includes.py`.
 
 | Path | Job |
 |---|---|
-| `src/dllmain.cpp` | Installs the hooks for each graphics API the app loads, starts the API client |
+| `src/dllmain.cpp` | The DLL's one export, `reflektortts_start_overlay`, which the injector starts with the core's port: installs the hooks for each graphics API the app loads, starts the API client |
+| `src/memory/addresses.h` | Addresses as integers and the objects at them, for code that reads memory by its layout |
+| `src/memory/functions.h` | Functions as code addresses and back, as MinHook and vtables hold them |
+| `src/memory/exported_function.h` | Finds a function a module exports, as the type it has |
+| `src/memory/zeroed.h` | Windows' structs with every field zero, to be filled in |
+| `src/memory/pe_image.h` | Reads a mapped EXE's or DLL's headers, and what lies at an offset from its start |
 | `src/diagnostics/crash_log.cpp` | Logs where the app crashed, with the call stack in 64-bit apps |
 | `src/diagnostics/describe_address.h` | Names a code address as module and offset, for the log |
 | `src/hooks/code_hook.cpp` | Code hooks (MinHook), kept in place when another overlay cuts them out, and telling the overlay's own calls apart |
@@ -70,9 +77,9 @@ The core normally does this. For testing without the core, start the app and run
 native/build/bin/reflektortts-inject.exe gta2.exe
 ```
 
-or `--pid <id>` instead of the process name, with the injector from the build matching the app. It exits with 3 if the app and the build differ in bitness (32-bit vs 64-bit), which the core uses to try another build.
+or `--pid <id>` instead of the process name, with the injector from the build matching the app. `--port <port>`, after them, connects the overlay to a core on another port than the installed ReflektorTTS's 47821, such as a run from source's 47822; the core passes its own. The injector loads the DLL, then starts it through its one export, `reflektortts_start_overlay`, on a thread in the app, with the port as the thread's parameter. It exits with 3 if the app and the build differ in bitness (32-bit vs 64-bit), which the core uses to try another build.
 
-If the overlay does not appear, it writes what went wrong to the debugger output; read it with [DebugView](https://learn.microsoft.com/sysinternals/downloads/debugview).
+If the overlay does not appear, it writes what went wrong to the debugger output, each line starting with `[ReflektorTTS]`. Read it with [DebugView++](https://github.com/CobaltFusion/DebugViewPP) (open source), which shows the debugger output of 32- and 64-bit apps alike, or attach MSYS2's gdb to the app (`gdb -p <process ID>`, from MINGW32 for a 32-bit app), which prints each line as a warning.
 
 ## The panel
 
@@ -81,20 +88,22 @@ If the overlay does not appear, it writes what went wrong to the debugger output
 The desktop app starts it for a profile, beside its own window:
 
 ```bash
-reflektortts-panel --profile grand-theft-auto-2-1999 --dock-side right --dock-x 1108 --dock-y 200 --dock-height 640
+reflektortts-panel --profile grand-theft-auto-2-1999 --port 47821 --dock-side right --dock-x 1108 --dock-y 200 --dock-height 640
 ```
+
+`--port <port>` is the port of the core's API; without it, the panel connects to the installed ReflektorTTS's, 47821. The desktop app passes its own.
 
 The `--dock-*` arguments go together, all four or none, and are in physical pixels of the screen, measured on the windows' visible frames (title bar included, Windows' invisible resize borders not):
 
-- `--dock-side right|left`: which side of the desktop window it opens on;
+- `--dock-side right|left`: which side of the ReflektorTTS window it opens on;
 - `--dock-x <x>`: the edge the two windows share: the panel's left edge (its first pixel) when it opens on the right, its right edge (the first pixel past it, as in Windows' rectangles) when on the left. The panel opens on the display of its pixel next to that edge;
 - `--dock-y <y>` and `--dock-height <height>`: the top and height of both windows.
 
-The desktop app opens it on the right of its window if it fits on that display, else on the left; if it fits on neither side, over the desktop window at the display's right edge (`src/reflektortts/desktop/panel/dock.py`). Without them, which the desktop app leaves out where Windows cannot tell where its window is, the panel opens centered on the main display, 600 high. Either way it opens as wide as the overlay's panel and a scrollbar, and cannot be made smaller than it opened, only bigger. Without `--profile <id>`, or with an argument it does not know or a wrong value, it says how to start it (on standard error and in a message box) and exits with 2.
+The desktop app opens it on the right of its window if it fits on that display, else on the left; if it fits on neither side, over the ReflektorTTS window at the display's right edge (`src/reflektortts/desktop/panel/dock.py`). Without them, which the desktop app leaves out where Windows cannot tell where its window is, the panel opens centered on the main display, 600 high. Either way it opens as wide as the settings panel and a scrollbar, and cannot be made smaller than it opened, only bigger. Without `--profile <id>`, or with an argument it does not know or a wrong value, it says how to start it (on standard error and in a message box) and exits with 2.
 
 Asking the desktop app for a profile's window while it is open brings that window to the front, restored if it was minimized.
 
-The window, titled "*app* settings - ReflektorTTS", shows the same settings panel as the overlay, for that profile: the header with the connection state, the app and whether it is being read now (if it is not, a note says that changes apply when it starts), and the Input, Processing and Output boxes. It leaves out what only makes sense over a running game: pausing, stopping the line and the last line read. Changes are saved to the profile at once, and apply at once if its app is being read. A profile the core does not know shows the core's message instead (for example "There is no profile ..."); without the core, the window says "Not connected" and keeps trying, like the overlay.
+The window, titled "*app* settings – ReflektorTTS", shows the same settings panel as the overlay, for that profile: the header with the connection state, the app and whether it is being read now (if it is not, a note says that changes apply when it starts), and the Input, Processing and Output boxes. It leaves out what only makes sense over a running game: pausing, stopping the line and the last line read. Changes are saved to the profile at once, and apply at once if its app is being read. A profile the core does not know shows the core's message instead (for example "There is no profile ..."); without the core, the window says "Not connected" and keeps trying, like the overlay.
 
 The window can be resized, and its contents follow the window's edge while it is dragged. It follows the display's scale (125%, 150%, ...), also when moved to another display, and so does its smallest size.
 
@@ -102,7 +111,7 @@ The window can be resized, and its contents follow the window's edge while it is
 
 [SDL3](https://www.libsdl.org) opens the window, reads input and draws, with ImGui's SDL3 and SDL_Renderer backends. SDL picks the renderer itself: Direct3D 11 where it works, else Direct3D 12, Direct3D 9, OpenGL or software; the debugger output says which (`Drawing with SDL's direct3d11 renderer`). It draws only while something happens: for a second after each input (for ImGui's hover delays), and a couple of frames when the client's state changes; otherwise it waits for the next event and uses no CPU. While the user drags the window's edge, Windows runs a loop of its own until the mouse button is released, so the frame loop is stuck in `SDL_WaitEventTimeout`; SDL then sends `SDL_EVENT_WINDOW_EXPOSED` with `data1` = 1 from a timer in that loop, on the main thread, and the panel draws a frame right in an event watch (`SDL_AddEventWatch`), never while one is being drawn already.
 
-Units: Python and `ReflektorTTS.exe` are not DPI aware, so Tk's measures are scaled down above 100% and the desktop app asks Windows for physical pixels instead (`win32_windows.py`: the window's DWM frame bounds, and its display's work area with the thread made per-monitor aware for the call). SDL makes the panel per-monitor DPI aware, so on Windows its window coordinates are physical pixels too, and the display's scale comes separately (`SDL_GetWindowDisplayScale`); the panel still divides by `SDL_GetWindowPixelDensity`, which is 1 there. SDL places a window's client area, so the panel measures its own visible frame (`DwmGetWindowAttribute`) and places the client area inside it.
+Units: Python and `reflektortts.exe` are not DPI aware, so Tk's measures are scaled down above 100% and the desktop app asks Windows for physical pixels instead (`win32_windows.py`: the window's DWM frame bounds, and its display's work area with the thread made per-monitor aware for the call). SDL makes the panel per-monitor DPI aware, so on Windows its window coordinates are physical pixels too, and the display's scale comes separately (`SDL_GetWindowDisplayScale`); the panel still divides by `SDL_GetWindowPixelDensity`, which is 1 there. SDL places a window's client area, so the panel measures its own visible frame (`DwmGetWindowAttribute`) and places the client area inside it.
 
 The API client keeps to the profile given: it loads `GET /v1/profiles/<id>/settings` once the event stream is open, applies the `profile_settings` events of that profile, and loads the settings again after each `status` event, since an app starting or stopping, or a voice installed or removed, can change whether the app is being read and its voice. Changes go to `PATCH /v1/profiles/<id>/settings`, `/sources` and `/stages`.
 
@@ -111,7 +120,7 @@ It is built for Windows only, by the 64-bit build: other systems need a transpor
 | Path | Job |
 |---|---|
 | `src/main.cpp` | Reads the command line, starts the API client for the profile, runs the window |
-| `src/arguments.cpp` | Reads `--profile <id>` and the `--dock-*` arguments |
+| `src/arguments.cpp` | Reads `--profile <id>`, `--port <port>` and the `--dock-*` arguments |
 | `src/panel_window.cpp` | Opens the SDL window and ImGui, and runs the frame loop, also while the window is resized |
 | `src/placement.cpp` | Sizes the window and places it where it opens |
 | `src/window_frame.cpp` | Measures the window's visible frame: through DWM on Windows, SDL's borders elsewhere |
@@ -137,7 +146,7 @@ It is built for Windows only, by the 64-bit build: other systems need a transpor
 
 ## Building
 
-`CMakeLists.txt` here is the root project: it fetches the dependencies and builds `shared/`, on Windows `overlay/`, and in the 64-bit Windows build `panel/`. Dependencies, fetched by CMake at configure time, each pinned to the commit of a release: [Dear ImGui](https://github.com/ocornut/imgui) (MIT), [nlohmann/json](https://github.com/nlohmann/json) (MIT), for the overlay [MinHook](https://github.com/TsudaKageyu/minhook) (BSD-2-Clause), and for the panel [SDL3](https://github.com/libsdl-org/SDL) (zlib), built as a static library with only its video and events parts. WinHTTP is part of Windows. Their licenses are in `THIRD_PARTY_NOTICES` in the repository root.
+`CMakeLists.txt` here is the root project: it fetches the dependencies and builds `shared/`, on Windows `overlay/`, and in the 64-bit Windows build `panel/`. Dependencies, fetched by CMake at configure time, each pinned to the commit of a release: [Dear ImGui](https://github.com/ocornut/imgui) (MIT), [nlohmann/json](https://github.com/nlohmann/json) (MIT), for the overlay [MinHook](https://github.com/TsudaKageyu/minhook) (BSD-2-Clause), and for the panel [SDL3](https://github.com/libsdl-org/SDL) (zlib), built as a static library with only its video and events parts. WinHTTP is part of Windows. Their license texts are kept in `tools/licenses/` and listed in `NATIVE_NOTICES` in `tools/notices.py`, which writes them into `THIRD-PARTY-NOTICES.md` in the repository root, and whose licenses `tools/licenses.py` checks against its allow list; update both when a library moves to another version.
 
 ### On Windows with MSYS2
 
@@ -150,18 +159,35 @@ pacman -S --needed git mingw-w64-i686-toolchain mingw-w64-i686-cmake mingw-w64-i
 pacman -S --needed git mingw-w64-x86_64-toolchain mingw-w64-x86_64-cmake mingw-w64-x86_64-ninja
 ```
 
+The builds are named in `CMakePresets.json`, each a Ninja build with the toolchain of the shell it is run from:
+
+| Preset | Build | Folder | Shell |
+|---|---|---|---|
+| `release-x86` | 32-bit, Release: the overlay for 32-bit apps | `native/build` | MSYS2 MINGW32 |
+| `release` | 64-bit, Release: the overlay for 64-bit apps, and the settings window | `native/build64` | MSYS2 MINGW64 |
+| `debug` | 64-bit, Debug: debug information and no optimization | `build/native-debug` | MSYS2 MINGW64 |
+| `ci` | 64-bit, Release, with the compiler's warnings as errors: the compile commands clang-tidy reads for the 64-bit code, and the build that checks GCC's warnings | `build/native-ci` | MSYS2 MINGW64 |
+
+The folders are relative to the repository root. Each preset also writes `compile_commands.json` into its folder, for clang-tidy and editors. Every build shows the compiler's warnings for ReflektorTTS's own code, those `CMakeLists.txt` turns on; the `ci` preset makes them errors.
+
 The 32-bit build, from the **MSYS2 MINGW32** shell in the repository root:
 
 ```bash
-cmake -S native -B native/build -G Ninja -DCMAKE_BUILD_TYPE=Release
+cmake -S native --preset release-x86
 cmake --build native/build
 ```
 
 The 64-bit build, from the **MSYS2 MINGW64** shell:
 
 ```bash
-cmake -S native -B native/build64 -G Ninja -DCMAKE_BUILD_TYPE=Release
+cmake -S native --preset release
 cmake --build native/build64
 ```
 
+`cmake --build --preset <name>`, run from `native/`, builds a preset too.
+
 The results are in `native/build/bin/` and `native/build64/bin/`: `reflektortts-overlay.dll` and `reflektortts-inject.exe`, and in the 64-bit build `reflektortts-panel.exe` too (the 32-bit build, which is only for the overlay in 32-bit apps, skips the panel and does not fetch SDL). All link the MinGW runtime statically, so they need no extra DLLs. To load a new build, restart the app: the DLL stays loaded until the app exits.
+
+### Checks
+
+The `C++ checks` job of the `Checks` workflow checks this code: the include directions with `tools/check_includes.py`, the formatting with clang-format (`.clang-format` in the repository root) the code with clang-tidy (`.clang-tidy`), which reports the compiler's warnings as Clang sees them, for each build: the 64-bit code through the `ci` preset's compile commands and the 32-bit code through the `release-x86` preset's; and GCC's warnings, by building the `ci` preset, which makes them errors. Every finding fails it. [C++ checks](../docs/development.md#c-checks) in docs/development.md says how to install clang-format and clang-tidy in MSYS2 and run them; run them, and both builds, before committing a change here.

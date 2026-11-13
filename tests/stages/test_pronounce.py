@@ -1,3 +1,5 @@
+"""The pronounce stage: glossary terms respelled for the output language, keeping their endings."""
+
 import pytest
 
 from reflektortts.events import TextEvent
@@ -53,3 +55,21 @@ def test_a_language_without_pronunciations_is_left_as_is() -> None:
 
 def test_the_plugin_is_registered() -> None:
     assert stage_plugins()["pronounce"] is PLUGIN
+
+
+def test_terms_are_respelled_in_a_language_without_spaces() -> None:
+    glossary = (GlossaryTerm("Carl", pronounce={"zh": "卡尔"}),)
+    event = TextEvent("subtitles", "Carl在这里。", 0.0, output_language="zh")
+
+    processed = PLUGIN.create({}, {"en": glossary}).process(event)
+
+    assert processed is not None and processed.text == "卡尔在这里。"
+
+
+def test_a_longer_latin_name_is_kept_in_a_language_without_spaces() -> None:
+    glossary = (GlossaryTerm("Carl", pronounce={"ja": "カール"}),)
+    event = TextEvent("subtitles", "Carlosが来た。Carlも。", 0.0, output_language="ja")
+
+    processed = PLUGIN.create({}, {"en": glossary}).process(event)
+
+    assert processed is not None and processed.text == "Carlosが来た。カールも。"

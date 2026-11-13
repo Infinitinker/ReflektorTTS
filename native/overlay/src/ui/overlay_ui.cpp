@@ -1,3 +1,6 @@
+// The hint shown for the first seconds, and the panel's window around the settings panel, drawn
+// while the panel is open, over the subtitles.
+
 #include "ui/overlay_ui.h"
 
 #include <imgui.h>
@@ -8,6 +11,7 @@
 #include "input/panel_input.h"
 #include "settings_panel.h"
 #include "ui/subtitles.h"
+#include "widgets.h"
 
 namespace reflektortts {
 namespace {
@@ -17,10 +21,11 @@ constexpr double kHintSeconds = 10.0;
 void draw_hint() {
     ImGui::SetNextWindowPos(ImVec2(10.0f, 10.0f));
     ImGui::SetNextWindowBgAlpha(0.6f);
-    ImGui::Begin("##hint", nullptr,
-                 ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_AlwaysAutoResize |
-                     ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav);
-    ImGui::TextUnformatted("ReflektorTTS: Ctrl+Shift+R opens settings");
+    ImGui::Begin(
+        "##hint", nullptr,
+        combined_flags(ImGuiWindowFlags_NoDecoration, ImGuiWindowFlags_NoInputs, ImGuiWindowFlags_AlwaysAutoResize,
+                       ImGuiWindowFlags_NoSavedSettings, ImGuiWindowFlags_NoFocusOnAppearing, ImGuiWindowFlags_NoNav));
+    ImGui::TextUnformatted("ReflektorTTS: Ctrl+Shift+R opens the panel.");
     ImGui::End();
 }
 
@@ -28,10 +33,10 @@ void draw_panel(const CoreState& state) {
     ImGui::SetNextWindowPos(ImVec2(20.0f, 20.0f), ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowSizeConstraints(ImVec2(kSettingsPanelWidth, 0.0f), ImVec2(kSettingsPanelWidth, FLT_MAX));
     ImGui::Begin("ReflektorTTS", nullptr,
-                 ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings |
-                     ImGuiWindowFlags_AlwaysAutoResize);
+                 combined_flags(ImGuiWindowFlags_NoTitleBar, ImGuiWindowFlags_NoCollapse,
+                                ImGuiWindowFlags_NoSavedSettings, ImGuiWindowFlags_AlwaysAutoResize));
     draw_settings_panel(state, PanelPlace::Overlay);
-    ImGui::TextDisabled("Ctrl+Shift+R closes this panel");
+    disabled_text("Ctrl+Shift+R closes this panel.");
     ImGui::End();
 }
 

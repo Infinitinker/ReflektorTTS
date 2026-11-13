@@ -14,7 +14,7 @@ def executable_path(pid: int) -> Path:
     try:
         return Path(psutil.Process(pid).exe())
     except psutil.Error as error:
-        raise ExecutableError(f"Cannot find the program's files: {error}") from error
+        raise ExecutableError(f"Cannot find the program’s files: {error}") from error
 
 
 def executable_sha256(pid: int) -> str:
@@ -24,4 +24,4 @@ def executable_sha256(pid: int) -> str:
         with path.open("rb") as executable:
             return hashlib.file_digest(executable, "sha256").hexdigest()
     except OSError as error:
-        raise ExecutableError(f"Cannot identify the program's version: {error}") from error
+        raise ExecutableError(f"Cannot identify the program’s version: {error}") from error

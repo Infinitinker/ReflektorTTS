@@ -48,5 +48,5 @@ def bundle_files(header_and_table: bytes) -> list[BundleFile]:
             files.append(BundleFile(name, offset, size))
             position += 4 + length + 8
     except (struct.error, UnicodeDecodeError) as error:
-        raise BundleError(f"A bundle's table is damaged: {error}") from error
+        raise BundleError(f"A bundle’s table is damaged: {error}") from error
     return files

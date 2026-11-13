@@ -1,10 +1,12 @@
+"""Finding a media file's subtitles in the input language where VLC 3 looks for them, and their code page."""
+
 from pathlib import Path
 
 import pytest
 
 from reflektortts.sources.vlc.errors import VlcError
 from reflektortts.sources.vlc.formats import FORMATS
-from reflektortts.sources.vlc.subtitles import SubtitleFile, find_subtitles, words
+from reflektortts.sources.vlc.subtitles import SubtitleFile, find_subtitles, legacy_encoding, words
 
 
 def found(media: Path, language: str) -> Path | None:
@@ -141,3 +143,93 @@ def test_subtitles_only_in_formats_not_read_say_which_are_read(tmp_path: Path) -
         found(media, "en")
 
     assert str(raised.value) == "movie.en.stl is in a format that cannot be read: convert it to movie.srt."
+
+
+def is_read(folder: Path, word: str, language: str) -> bool:
+    """Whether Movie.<word>.srt is read as the media's subtitles in the language."""
+    media = files(folder, "Movie.mkv", f"Movie.{word}.srt")
+    try:
+        return found(media, language) == folder / f"Movie.{word}.srt"
+    except VlcError:
+        return False
+
+
+@pytest.mark.parametrize(
+    ("language", "word"),
+    [
+        *[("fr", word) for word in ("fr", "fre", "fra", "french", "français", "francais")],
+        *[("nb", word) for word in ("nb", "nob", "no", "nor", "norwegian", "bokmål", "bokmal", "norsk")],
+        *[("hi", word) for word in ("hi", "hin", "hindi", "हिन्दी")],
+        ("uz", "ozbek"),
+        *[("nn", word) for word in ("nn", "nno", "nynorsk")],
+        ("yi", "yi"),
+    ],
+)
+def test_a_language_is_named_in_file_names_by_its_codes_and_names(tmp_path: Path, language: str, word: str) -> None:
+    assert is_read(tmp_path, word, language)
+
+
+@pytest.mark.parametrize(
+    ("language", "word"),
+    [("nn", "norwegian"), ("nn", "norsk"), ("ii", "yi"), ("nd", "ndebele"), ("nr", "ndebele")],
+)
+def test_a_word_of_several_languages_names_only_the_one_it_is_meant_for(
+    tmp_path: Path, language: str, word: str
+) -> None:
+    assert not is_read(tmp_path, word, language)
+
+
+@pytest.mark.parametrize(
+    ("language", "name"),
+    [
+        ("nn", "Movie.Norwegian.srt"),
+        ("nb", "Movie.Norwegian.Nynorsk.srt"),
+        ("ii", "Movie.yi.srt"),
+        ("gd", "Movie.Irish.Gaelic.srt"),
+        ("hi", "Movie.en.hi.srt"),
+        ("hi", "Movie.English.HI.srt"),
+    ],
+)
+def test_a_file_that_also_names_another_language_is_not_read(tmp_path: Path, language: str, name: str) -> None:
+    media = files(tmp_path, "Movie.mkv", name)
+
+    with pytest.raises(VlcError):
+        find_subtitles(media, language)
+
+
+def test_hi_marks_subtitles_for_the_hearing_impaired_beside_another_language(tmp_path: Path) -> None:
+    media = files(tmp_path, "Movie.mkv", "Movie.en.hi.srt", "Movie.hi.srt")
+
+    assert found(media, "en") == tmp_path / "Movie.en.hi.srt"
+    assert found(media, "hi") == tmp_path / "Movie.hi.srt"
+
+
+@pytest.mark.parametrize("name", ["Movie.Français.srt", "Movie.Francais.srt", "Movie.Franc\u0327ais.srt"])
+def test_a_language_s_own_name_is_found_with_or_without_accents(tmp_path: Path, name: str) -> None:
+    media = files(tmp_path, "Movie.mkv", name)
+
+    assert found(media, "fr") == tmp_path / name
+
+
+def test_apostrophes_split_words_as_vlc_splits_them(tmp_path: Path) -> None:
+    media = files(tmp_path, "Don't Look Up.mkv", "Dont Look Up.en.srt")
+
+    assert words("Don't Look Up.en.srt") == ["don", "t", "look", "up", "en"]
+    with pytest.raises(VlcError):
+        find_subtitles(media, "en")
+
+
+@pytest.mark.parametrize(
+    ("language", "name"),
+    [("pt", "movie.pt-BR.srt"), ("pt", "movie.pt_BR.srt"), ("zh", "movie.zh-TW.srt"), ("en", "movie.en-CA.srt")],
+)
+def test_a_language_code_may_carry_its_region(tmp_path: Path, language: str, name: str) -> None:
+    media = files(tmp_path, "movie.mkv", name)
+
+    assert found(media, language) == tmp_path / name
+
+
+def test_subtitles_that_are_not_utf_8_are_read_in_their_language_s_code_page() -> None:
+    assert legacy_encoding("ru") == "cp1251"
+    assert legacy_encoding("pl") == "cp1250"
+    assert legacy_encoding("hi") == "cp1252"

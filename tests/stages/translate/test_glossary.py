@@ -1,3 +1,5 @@
+"""The glossary around translation: kept terms swapped for stand-ins and put back, and where terms are found."""
+
 import pytest
 
 from reflektortts.glossary import GlossaryTerm
@@ -101,3 +103,33 @@ def test_a_line_can_hold_ten_kept_names() -> None:
 
     assert not any(name in prepared.text for name in names)
     assert prepared.put_back(prepared.text, output_language("pl")) == line
+
+
+def test_a_term_is_not_found_inside_a_longer_word_written_with_vowel_signs() -> None:
+    rules = GlossaryRules((GlossaryTerm("राम", keep=True),))
+
+    assert rules.prepare("रामू यहाँ है। राम आया।").text == "रामू यहाँ है। Kevin आया।"
+
+
+def test_in_a_language_without_spaces_terms_are_found_between_other_letters() -> None:
+    rules = GlossaryRules((GlossaryTerm("スイート", keep=True),), separates_words=False)
+
+    assert rules.prepare("スイートはどこ？").text == "Kevinはどこ？"
+
+
+def test_a_stand_in_is_put_back_without_the_letters_written_next_to_it() -> None:
+    prepared = RULES.prepare("Sweet is here.")
+
+    assert prepared.put_back("Kevin在这里。", output_language("zh")) == "Sweet在这里。"
+
+
+def test_in_a_language_without_spaces_a_term_is_not_found_inside_a_latin_word() -> None:
+    rules = GlossaryRules((GlossaryTerm("Al", keep=True),), separates_words=False)
+
+    assert rules.prepare("Alice和Al说话。").text == "Alice和Kevin说话。"
+
+
+def test_in_a_language_without_spaces_a_term_is_not_found_inside_a_full_width_word() -> None:
+    rules = GlossaryRules((GlossaryTerm("ＡＬ", keep=True),), separates_words=False)
+
+    assert rules.prepare("ＡＬＩＣＥとＡＬ").text == "ＡＬＩＣＥとKevin"

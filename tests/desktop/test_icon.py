@@ -1,3 +1,5 @@
+"""The app's icon: each size the app uses, round with a transparent outside."""
+
 import pytest
 
 from reflektortts.desktop.icon import icon_image

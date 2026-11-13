@@ -1,3 +1,6 @@
+// Turns blocking the app's input on and off with the panel, hooking the input APIs the app has
+// loaded each time blocking starts.
+
 #include "input/blocking.h"
 
 #include <atomic>

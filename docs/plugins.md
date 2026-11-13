@@ -1,15 +1,15 @@
 # Writing plugins
 
-ReflektorTTS reads text through **sources**, processes it with **stages**, and speaks it with **TTS engines**; **download sources** offer the voices and translation models the user can download. Each is a plugin that registers itself through a Python entry point, so adding one never needs changes in the core or the UI. The built-in plugins register the same way; read them as examples.
+ReflektorTTS reads text through **sources**, processes it with **stages**, and speaks it with **speech engines**; **download sources** offer the voices and translation models the user can download. Each is a plugin that registers itself through a Python entry point, so adding one never needs changes in the core or the UI. The built-in plugins register the same way; read them as examples.
 
 | Kind | Entry-point group | Contract | Built-in examples |
 |---|---|---|---|
 | Source | `reflektortts.sources` | `Source` in `pipeline/protocols.py` | `memory`, `avalanche`, `vlc` (`sources/`) |
 | Stage | `reflektortts.stages` | `Stage` in `pipeline/protocols.py` | `tracker`, `replace`, `translate`, `pronounce`, `normalize` (`stages/`) |
-| TTS engine | `reflektortts.tts_engines` | `TtsEngine` in `tts/engine.py` | `piper`, `windows` (`tts/engines/`) |
+| Speech engine | `reflektortts.tts_engines` | `TtsEngine` in `tts/engine.py` | `piper`, `windows` (`tts/engines/`) |
 | Download source | `reflektortts.downloads` | `DownloadSource` in `downloads/source.py` | `piper`, `argos` (`downloads/`) |
 
-Sinks (where finished lines go) follow the `Sink` contract but have no plugin group yet: the core uses its built-in `tts`, `subtitles` and `events` sinks, which the user sets up in the overlay rather than per app. A group will be added with the first sink a profile needs to choose.
+Sinks (where finished lines go) follow the `Sink` contract but have no plugin group yet: the core uses its built-in `tts`, `subtitles` and `events` sinks, which the user sets up in the settings panel rather than per app. A group will be added with the first sink a profile needs to choose.
 
 ## Registering a plugin
 
@@ -70,13 +70,13 @@ def builds(settings: Mapping[str, Any]) -> Iterable[str]: ...  # optional
 - `read` returns the **current** text on every call, even if it has not changed; the tracker stage turns that into one line per change. Return `None` (or an empty string) when there is no text.
 - `languages` are the user's input and output languages. Most sources read whatever the app shows and ignore them; a source that can read a line in several languages, like `avalanche`, reads it in the input language.
 - `read` runs on the thread that polls every source, so keep it quick: do slow work (reading an app's files, say) in a thread of your own and return `None` until it is done, as `avalanche` does.
-- Raise an exception with a message the user understands when reading fails ("Cannot read the app's memory at 672F40."), saying what to do where you can. Keep it short: the Status tab gives it two lines and cuts a longer one, showing it whole only while the mouse is over it. The runner reports it once as a `source.error` event and keeps polling; the status shows the error (the desktop window's Status tab, the overlay's panel) until the source works again, which is logged. If it fails with another message meanwhile (the next video has no subtitles either, say), the status shows the new message instead, without another event and only in the debug log; so a message may name what it is about, such as a file. A source that cannot start at all should raise from `create`, e.g. "This version of the app is not supported by its profile yet"; it is not tried again until the app starts again, so a problem the user can fix while the app runs (a setting of the app, say) belongs in `read`.
+- Raise an exception with a message the user understands when reading fails, saying what happened, then what to do ("The text could not be read from the app: if this lasts, the profile may not fit this version of it."). Keep details only a programmer needs, such as an address or a library's own error, out of the message: raise it from an exception that holds them (`raise ... from ...`), and the runner logs that cause, once, with the source's name. Keep it short: the Status tab gives it two lines and cuts a longer one, showing it whole only while the mouse is over it. The runner reports it once as a `source.error` event and keeps polling; the status shows the error (the ReflektorTTS window's Status tab, the settings panel) until the source works again, which is logged. If it fails with another message meanwhile (the next video has no subtitles either, say), the status shows the new message instead, without another event and only in the debug log; so a message may name what it is about, such as a file. A source that cannot start at all should raise from `create`, e.g. "This version of the app is not supported by its profile yet"; it is not tried again until the app starts again, so a problem the user can fix while the app runs (a setting of the app, say) belongs in `read`.
 - `close` releases what the source holds (handles, files). It is called when the app exits.
 - Platform-specific code stays inside the plugin, behind a small interface with one implementation per OS. Code that several sources need goes into a shared module instead: sources that read the app's memory use `process_memory/` for the process and pointer chains (`parse_pointer_chains`, `chain_for`, `resolve`), and `apps/executable.py` for the app's executable (`executable_path`, `executable_sha256`).
 
 ### Integrations
 
-Some apps can be read only once their own settings are changed, e.g. a web interface switched on. A source plugin then offers an **integration**, which the user enables from the desktop window's Profiles tab, with the profile's Integration… button, instead of editing the app's settings by hand:
+Some apps can be read only once their own settings are changed, e.g. a web interface switched on. A source plugin then offers an **integration**, which the user enables from the ReflektorTTS window's Profiles tab, with the profile's Integration… button, instead of editing the app's settings by hand:
 
 ```python
 SourcePlugin(type="vlc", settings_schema=..., create=create, integration=create_integration)
@@ -116,6 +116,7 @@ StagePlugin(
     summary="Waits until a line settles",
     warning_when_disabled="Needed: or the voice restarts on every reading",
     inactive_reason=inactive_reason,  # Optional.
+    speech_rules={},  # Optional, e.g. {"Numbers, dates and units": {"en", "pl"}}.
 )
 
 
@@ -129,13 +130,14 @@ def inactive_reason(languages: Languages) -> str | None: ...
 - Return the event to pass on (use `dataclasses.replace` to change its text), or `None` to drop it.
 - An event with **empty text** means the source has no text right now. Stages that keep state, like the tracker, use it to notice a line disappearing; empty text is never delivered to sinks.
 - `event.input_language` and `event.output_language` are the languages the user chose (ISO 639-1, e.g. `pl`), current when the line was read. Stages that depend on language, like `normalize` (output language) and `translate` (from the input to the output language), use them instead of settings of their own, so the user's choice applies to every app.
-- A stage that does nothing with some languages says so with `inactive_reason`: given the user's languages, it returns why, in a few words for the user ("Input and output language are the same"), or `None` if the stage works with them. Meanwhile the runner skips the stage, so `process` only sees languages it works with, and the overlay grays the stage out with the reason, keeping the user's tick. `translate` uses it for matching languages and pairs without a model, and `normalize` for output languages without rules.
-- Users can switch each stage on and off in the overlay, for the text shown and for speech; a switched-off stage is skipped there. Next to its tick they see its `type` and its `summary`, a few words on what it does. Set `warning_when_disabled` if reading breaks without the stage; it replaces the summary while the stage is off for either. The overlay keeps each stage to one line and cuts longer text, so keep these short.
+- A stage that does nothing with some languages says so with `inactive_reason`: given the user's languages, it returns why, in a few words for the user ("Input and output language are the same"), or `None` if the stage works with them. Meanwhile the runner skips the stage, so `process` only sees languages it works with, and the settings panel grays the stage out with the reason, keeping the user's tick. `translate` uses it for matching languages and pairs without a model, and `normalize` for output languages without rules.
+- A stage that does something only for some output languages names it in `speech_rules`: a few words for the user, written like a label, mapped to the codes of the languages that have it. The desktop app lists, in the details of each profile that uses the stage, the rules with their languages, so users see what the profile does for each language besides speaking and translating it. `normalize` gives "Numbers, dates and units" to the languages it has words for; `translate` and `pronounce` share "Glossary grammar" (`GLOSSARY_GRAMMAR` in `reflektortts.glossary`) for the languages whose endings they put on glossary terms. Stages that name the same rule share it, with the languages of both.
+- Users can switch each stage on and off in the settings panel, for the text shown and for speech; a switched-off stage is skipped there. Next to its tick they see its `type` and its `summary`, a few words on what it does. Set `warning_when_disabled` if reading breaks without the stage; it replaces the summary while the stage is off for either. The settings panel keeps each stage to one line and cuts longer text, so keep these short.
 - Each source gets its own stage objects for the text shown and for speech, so a stage may keep state; it is the same for both while both have it on, since they read the same lines. A stage with costly work shares its results between them, as `translate` does with its recent translations, so a line is translated once.
 - Import heavy dependencies only when the stage first needs them, so the core starts fast. Models live in the user data folder and are never downloaded by the stage: it uses an installed one, or doesn't apply (`inactive_reason`), as `translate` does (`stages/translate/`).
 - Exceptions are reported once as `stage.error`; the event is dropped.
 
-## TTS engines
+## Speech engines
 
 ```python
 class TtsEngine(Protocol):
@@ -150,11 +152,12 @@ def create(voice_name: str) -> TtsEngine: ...
 def list_voices() -> list[VoiceInfo]: ...
 ```
 
-- Voices are written `engine:name`, e.g. `windows:Microsoft Adam`; `create` gets the part after the colon. A `VoiceInfo` also carries the engine's name as shown to users (`engine_title`, e.g. `Windows`).
-- `rate` is the user's reading speed, a multiple of the voice's own pace from 0.5 to 2.
+- Voices are written `engine:name`, e.g. `windows:Microsoft Adam`; `create` gets the part after the colon. A `VoiceInfo` also carries the engine's name as shown to users (`engine_title`, e.g. `Windows`) and, for voices installed outside ReflektorTTS, where they come from and how to add or remove them (`installed_note`, e.g. Windows' "Comes with Windows: add or remove Windows voices in Settings > Time & language > Speech."), which the desktop app shows in place of a license.
+- `rate` is the user's speech rate, a multiple of the voice's own pace from 0.5 to 2.
 - Yield audio as soon as a part is ready (Piper yields per sentence), so speech starts early. The player plays it in short blocks so a new line can cut it off.
 - Raise `VoiceError` with a helpful message when a voice cannot be used, e.g. listing the installed voices and where to get more.
 - Engines run in the TTS process, but the core imports the plugin module to list voices. **Keep that import cheap**: import heavy libraries (models, runtimes) inside `create` or the engine class, as `tts/engines/piper.py` does.
+- An engine that works on some systems only is registered on every one: it imports its system's libraries inside `list_voices` and `create`, and its `list_voices` returns no voices on the others, as `tts/engines/windows.py` does. Any other failure to list voices is logged as a warning, and the engine is skipped.
 - List only installed voices, and never download one in `create`: downloads are a download source's job.
 
 ## Download sources
@@ -171,10 +174,10 @@ DownloadPlugin(name="piper", create=PiperVoices)  # create gets a cache folder o
 ```
 
 - Every source behaves the same, so the desktop app shows them all alike. An `Entry` has an ID starting with the source's name (`piper:pl_PL-gosia-medium`; for a voice, the ID its speech engine gives the voice once installed, so it can be previewed and voices installed by other means are told apart), the source's name as shown to users (`source_title`, e.g. `Argos Translate`), a kind (`voice` or `translation`), its languages, size (or `None`), license as the source publishes it (or `None` if it does not), a page to read more, and whether it is installed.
-- `entries` lists only languages ReflektorTTS supports. With `refresh`, fetch the list from the internet and save it in the cache folder; without a connection, use the saved list; raise `DownloadError` with a message for the user only if there is neither.
+- `entries` lists only languages in `reflektortts.languages.LANGUAGES` (every ISO 639-1 language), by the codes there: `primary_language` turns a catalog's tags into them (`no_NO` is `nb`). Leave out what ReflektorTTS cannot run, such as voices that need parts it does not ship. With `refresh`, fetch the list from the internet and save it in the cache folder; without a connection, use the saved list; raise `DownloadError` with a message for the user only if there is neither.
 - `download` checks the download (against the source's checksums, if it gives any), installs it where its engine or stage finds it, and reports progress as it goes; it runs on a thread of its own. Use a staging folder (`reflektortts.staging`, in the folder you install into, so one cut off by quitting is removed at the next start), so a failed download never leaves a broken install, and treat names from the list or an archive as untrusted: check that every file lands inside its folder (a name like `../x` or, on Windows, `D:x` leads out) and cap what an archive may unpack to.
 - Fetch with `downloads/http.py` and keep lists with `downloads/cache.py`, so every source talks to the internet the same way.
 
 ## Testing
 
-Tests live in `tests/`, mirroring the package: the tests for `src/reflektortts/stages/tracker.py` are in `tests/stages/test_tracker.py`. They run without a running app, GPU, audio device or network. Put hardware- and app-dependent parts behind an interface and test against a fake kept in `tests/`, as `tests/process_memory/fake_memory.py` and the fake streams in `tests/tts/test_playback.py` do. Test an integration against settings files in pytest's `tmp_path`, never the user's own; `tests/fake_integration.py` stands in for one where the core or the API is tested.
+Tests live in `tests/`, mirroring the package: the tests for `src/reflektortts/stages/tracker.py` are in `tests/stages/test_tracker.py`. They run without a running app, GPU, audio device or network. Put hardware- and app-dependent parts behind an interface and test against a fake kept in `tests/`, as `tests/process_memory/fake_memory.py` and the fake streams in `tests/tts/test_playback.py` do. Test an integration against settings files in pytest's `tmp_path`, never the user's own; `tests/fake_integration.py` stands in for one where the core or the API is tested. The one exception is the end-to-end test in `tests/e2e/`, which runs the desktop app itself (see [development.md](development.md#end-to-end-tests)).

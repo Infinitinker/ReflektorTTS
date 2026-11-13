@@ -1,3 +1,6 @@
+// Hooking keyboard and mouse reads of DirectInput 8 and 1-7 devices, to block them while the panel
+// is open.
+
 #pragma once
 
 namespace reflektortts {

@@ -1,3 +1,6 @@
+// Sets up ImGui on the app's Direct3D 12 device and draws each frame on the swap chain's back
+// buffer, recording its own command list and submitting it to the app's command queue.
+
 #include "renderers/d3d12_renderer.h"
 
 #include <d3d12.h>
@@ -5,7 +8,7 @@
 #include <imgui.h>
 #include <imgui_impl_dx12.h>
 
-#include <utility>
+#include <array>
 
 #include "hooks/d3d12_queue_hook.h"
 #include "log.h"
@@ -32,14 +35,18 @@ IDXGISwapChain* g_swap_chain = nullptr;
 ID3D12Device* g_device = nullptr;
 ID3D12CommandQueue* g_queue = nullptr;
 ID3D12DescriptorHeap* g_srv_heap = nullptr;
-UINT g_free_srv_slots[kSrvDescriptorCount];
+std::array<UINT, kSrvDescriptorCount> g_free_srv_slots{};
 UINT g_free_srv_count = 0;
+// How many of ImGui's textures use each descriptor: one, or more for the first once all are taken.
+// A descriptor goes back on the free list when its last texture is freed, so the list never holds
+// one twice and never outgrows the heap.
+std::array<UINT, kSrvDescriptorCount> g_srv_users{};
 ID3D12DescriptorHeap* g_rtv_heap = nullptr;
 ID3D12GraphicsCommandList* g_command_list = nullptr;
 ID3D12Fence* g_fence = nullptr;
 HANDLE g_fence_event = nullptr;
 UINT64 g_last_fence_value = 0;
-FrameSlot g_slots[kMaxBackBuffers];
+std::array<FrameSlot, kMaxBackBuffers> g_slots;
 // The back buffer format ImGui's pipeline draws to.
 DXGI_FORMAT g_format = DXGI_FORMAT_UNKNOWN;
 
@@ -50,17 +57,24 @@ UINT srv_descriptor_size() {
 void allocate_srv(ImGui_ImplDX12_InitInfo*, D3D12_CPU_DESCRIPTOR_HANDLE* cpu, D3D12_GPU_DESCRIPTOR_HANDLE* gpu) {
     UINT slot = 0;
     if (g_free_srv_count == 0) {
-        log_message("Out of D3D12 texture descriptors; reusing the first one");
+        log_message("Out of D3D12 texture descriptors; sharing the first one");
     } else {
-        slot = g_free_srv_slots[--g_free_srv_count];
+        slot = g_free_srv_slots.at(--g_free_srv_count);
     }
-    cpu->ptr = g_srv_heap->GetCPUDescriptorHandleForHeapStart().ptr + slot * srv_descriptor_size();
-    gpu->ptr = g_srv_heap->GetGPUDescriptorHandleForHeapStart().ptr + slot * srv_descriptor_size();
+    ++g_srv_users.at(slot);
+    cpu->ptr = g_srv_heap->GetCPUDescriptorHandleForHeapStart().ptr + static_cast<SIZE_T>(slot) * srv_descriptor_size();
+    gpu->ptr = g_srv_heap->GetGPUDescriptorHandleForHeapStart().ptr + static_cast<UINT64>(slot) * srv_descriptor_size();
 }
 
 void free_srv(ImGui_ImplDX12_InitInfo*, D3D12_CPU_DESCRIPTOR_HANDLE cpu, D3D12_GPU_DESCRIPTOR_HANDLE) {
-    SIZE_T offset = cpu.ptr - g_srv_heap->GetCPUDescriptorHandleForHeapStart().ptr;
-    g_free_srv_slots[g_free_srv_count++] = static_cast<UINT>(offset / srv_descriptor_size());
+    SIZE_T slot = (cpu.ptr - g_srv_heap->GetCPUDescriptorHandleForHeapStart().ptr) / srv_descriptor_size();
+    if (slot >= kSrvDescriptorCount || g_srv_users.at(slot) == 0) {
+        log_message("ImGui freed a D3D12 texture descriptor the overlay did not give out; ignoring it");
+        return;
+    }
+    if (--g_srv_users.at(slot) == 0) {
+        g_free_srv_slots.at(g_free_srv_count++) = static_cast<UINT>(slot);
+    }
 }
 
 void wait_for_fence(UINT64 value) {
@@ -70,14 +84,24 @@ void wait_for_fence(UINT64 value) {
     }
 }
 
+// A barrier that moves all of resource from one state to another. The barrier holds the transition
+// in a union, so it is set as the barrier is made rather than written into it.
+D3D12_RESOURCE_BARRIER transition(ID3D12Resource* resource, D3D12_RESOURCE_STATES before, D3D12_RESOURCE_STATES after) {
+    return {.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION,
+            .Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE,
+            .Transition = {.pResource = resource,
+                           .Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES,
+                           .StateBefore = before,
+                           .StateAfter = after}};
+}
+
 bool create_heap(D3D12_DESCRIPTOR_HEAP_TYPE type, UINT count, D3D12_DESCRIPTOR_HEAP_FLAGS flags,
                  ID3D12DescriptorHeap** heap) {
     D3D12_DESCRIPTOR_HEAP_DESC desc{};
     desc.Type = type;
     desc.NumDescriptors = count;
     desc.Flags = flags;
-    return SUCCEEDED(g_device->CreateDescriptorHeap(&desc, __uuidof(ID3D12DescriptorHeap),
-                                                    reinterpret_cast<void**>(heap)));
+    return SUCCEEDED(g_device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(heap)));
 }
 
 bool init_imgui(DXGI_FORMAT format) {
@@ -101,19 +125,16 @@ bool create_device_objects(DXGI_FORMAT format) {
         return false;
     }
     for (UINT slot = kSrvDescriptorCount; slot > 0; --slot) {
-        g_free_srv_slots[g_free_srv_count++] = slot - 1;
+        g_free_srv_slots.at(g_free_srv_count++) = slot - 1;
     }
     for (FrameSlot& slot : g_slots) {
-        if (FAILED(g_device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, __uuidof(ID3D12CommandAllocator),
-                                                    reinterpret_cast<void**>(&slot.allocator)))) {
+        if (FAILED(g_device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&slot.allocator)))) {
             return false;
         }
     }
-    if (FAILED(g_device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, g_slots[0].allocator, nullptr,
-                                           __uuidof(ID3D12GraphicsCommandList),
-                                           reinterpret_cast<void**>(&g_command_list))) ||
-        FAILED(g_device->CreateFence(0, D3D12_FENCE_FLAG_NONE, __uuidof(ID3D12Fence),
-                                     reinterpret_cast<void**>(&g_fence)))) {
+    if (FAILED(g_device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, g_slots.front().allocator, nullptr,
+                                           IID_PPV_ARGS(&g_command_list))) ||
+        FAILED(g_device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&g_fence)))) {
         return false;
     }
     g_command_list->Close();
@@ -135,7 +156,7 @@ bool follow_format(DXGI_FORMAT format) {
 
 void start(IDXGISwapChain* swap_chain) {
     ID3D12Device* device = nullptr;
-    if (FAILED(swap_chain->GetDevice(__uuidof(ID3D12Device), reinterpret_cast<void**>(&device)))) {
+    if (FAILED(swap_chain->GetDevice(IID_PPV_ARGS(&device)))) {
         return;
     }
     // The overlay's drawing goes through the app's queue, which is known only once
@@ -168,7 +189,7 @@ void start(IDXGISwapChain* swap_chain) {
 // does not tell.
 bool on_our_device(IDXGISwapChain* swap_chain) {
     ID3D12Device* device = nullptr;
-    if (FAILED(swap_chain->GetDevice(__uuidof(ID3D12Device), reinterpret_cast<void**>(&device)))) {
+    if (FAILED(swap_chain->GetDevice(IID_PPV_ARGS(&device)))) {
         return false;
     }
     device->Release();
@@ -180,7 +201,7 @@ bool on_our_device(IDXGISwapChain* swap_chain) {
 // supported yet; the old one is abandoned, never released (see forget_renderer_backend).
 void switch_swap_chain(IDXGISwapChain* swap_chain) {
     ID3D12Device* device = nullptr;
-    if (FAILED(swap_chain->GetDevice(__uuidof(ID3D12Device), reinterpret_cast<void**>(&device)))) {
+    if (FAILED(swap_chain->GetDevice(IID_PPV_ARGS(&device)))) {
         return;
     }
     device->Release();
@@ -198,14 +219,13 @@ void switch_swap_chain(IDXGISwapChain* swap_chain) {
 // The back buffer is taken per frame so the overlay never keeps the app's buffers alive.
 ID3D12Resource* current_back_buffer(IDXGISwapChain* swap_chain, UINT& index) {
     IDXGISwapChain3* swap_chain3 = nullptr;
-    if (FAILED(swap_chain->QueryInterface(__uuidof(IDXGISwapChain3), reinterpret_cast<void**>(&swap_chain3)))) {
+    if (FAILED(swap_chain->QueryInterface(IID_PPV_ARGS(&swap_chain3)))) {
         return nullptr;
     }
     index = swap_chain3->GetCurrentBackBufferIndex();
     swap_chain3->Release();
     ID3D12Resource* back_buffer = nullptr;
-    if (index >= kMaxBackBuffers ||
-        FAILED(swap_chain->GetBuffer(index, __uuidof(ID3D12Resource), reinterpret_cast<void**>(&back_buffer)))) {
+    if (index >= kMaxBackBuffers || FAILED(swap_chain->GetBuffer(index, IID_PPV_ARGS(&back_buffer)))) {
         return nullptr;
     }
     return back_buffer;
@@ -234,34 +254,32 @@ void render_d3d12_frame(IDXGISwapChain* swap_chain) {
         back_buffer->Release();
         return;
     }
-    FrameSlot& slot = g_slots[index];
+    FrameSlot& slot = g_slots.at(index);
     wait_for_fence(slot.fence_value);
     slot.allocator->Reset();
     g_command_list->Reset(slot.allocator, nullptr);
 
     D3D12_CPU_DESCRIPTOR_HANDLE target = g_rtv_heap->GetCPUDescriptorHandleForHeapStart();
-    target.ptr += index * g_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+    target.ptr +=
+        static_cast<SIZE_T>(index) * g_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
     g_device->CreateRenderTargetView(back_buffer, nullptr, target);
 
     ImGui_ImplDX12_NewFrame();
     build_overlay_frame(static_cast<UINT>(desc.Width), desc.Height);
 
-    D3D12_RESOURCE_BARRIER barrier{};
-    barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-    barrier.Transition.pResource = back_buffer;
-    barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-    barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;
-    barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
-    g_command_list->ResourceBarrier(1, &barrier);
+    D3D12_RESOURCE_BARRIER to_target =
+        transition(back_buffer, D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET);
+    g_command_list->ResourceBarrier(1, &to_target);
     g_command_list->OMSetRenderTargets(1, &target, FALSE, nullptr);
     g_command_list->SetDescriptorHeaps(1, &g_srv_heap);
     ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), g_command_list);
-    std::swap(barrier.Transition.StateBefore, barrier.Transition.StateAfter);
-    g_command_list->ResourceBarrier(1, &barrier);
+    D3D12_RESOURCE_BARRIER to_present =
+        transition(back_buffer, D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
+    g_command_list->ResourceBarrier(1, &to_present);
     g_command_list->Close();
 
-    ID3D12CommandList* lists[] = {g_command_list};
-    g_queue->ExecuteCommandLists(1, lists);
+    ID3D12CommandList* list = g_command_list;
+    g_queue->ExecuteCommandLists(1, &list);
     g_queue->Signal(g_fence, ++g_last_fence_value);
     slot.fence_value = g_last_fence_value;
     back_buffer->Release();

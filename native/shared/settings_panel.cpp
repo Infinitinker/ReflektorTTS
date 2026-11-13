@@ -1,9 +1,15 @@
+// The settings panel's contents: the header, the Input, Output and Last line boxes, and the last
+// error; in the panel's window, without what only makes sense over the app (pausing, stopping the
+// line, the last line).
+
 #include "settings_panel.h"
 
 #include <imgui.h>
 
+#include <array>
 #include <cctype>
 #include <cmath>
+#include <format>
 #include <string>
 
 #include "api_client.h"
@@ -17,16 +23,27 @@ namespace {
 constexpr float kHeaderFontSize = 20.0f;
 constexpr int kMaxLastLineRows = 9;
 
-constexpr Choice kSubtitleSizes[] = {{"small", "Small"}, {"medium", "Medium"}, {"large", "Large"}};
-constexpr Choice kSubtitlePositions[] = {{"top", "Top"}, {"bottom", "Bottom"}};
+constexpr auto kSubtitleSizes = std::to_array<Choice>(
+    {{.value = "small", .name = "Small"}, {.value = "medium", .name = "Medium"}, {.value = "large", .name = "Large"}});
+constexpr auto kSubtitlePositions =
+    std::to_array<Choice>({{.value = "top", .name = "Top"}, {.value = "bottom", .name = "Bottom"}});
 // What a new line does while another is spoken.
-constexpr Choice kNewLines[] = {
-    {"wait", "Wait their turn"}, {"cut_off", "Cut off the current one"}, {"speed_up", "Speed up to catch up"}};
+constexpr auto kNewLines = std::to_array<Choice>({{.value = "wait", .name = "Wait their turn"},
+                                                  {.value = "cut_off", .name = "Cut off the current one"},
+                                                  {.value = "speed_up", .name = "Speed up to catch up"}});
+
+// A language as the combo shows it: its English name, then its own, e.g. "Polish (Polski)".
+std::string language_label(const LanguageOption& language) {
+    if (language.name == language.english_name) {
+        return language.name;
+    }
+    return std::format("{} ({})", language.english_name, language.name);
+}
 
 std::string language_name(const CoreState& state, const std::string& code) {
     for (const LanguageOption& language : state.languages) {
         if (language.code == code) {
-            return language.name;
+            return language_label(language);
         }
     }
     return code;
@@ -39,7 +56,7 @@ std::string primary_language(const std::string& tag) {
 
 std::string engine_title(std::string engine) {
     if (!engine.empty()) {
-        engine[0] = static_cast<char>(std::toupper(static_cast<unsigned char>(engine[0])));
+        engine.front() = static_cast<char>(std::toupper(static_cast<unsigned char>(engine.front())));
     }
     return engine;
 }
@@ -68,7 +85,7 @@ void draw_status(const CoreState& state, PanelPlace place) {
     align_right(dot_label_width(reading));
     dot_label(state.running ? kGreen : kGray, reading);
     if (!state.running) {
-        ImGui::TextDisabled("Changes apply when the app starts.");
+        disabled_text("Changes apply when the app starts.");
     }
 }
 
@@ -79,7 +96,7 @@ void draw_language_combo(const char* label, const CoreState& state, const std::s
     }
     for (const LanguageOption& language : state.languages) {
         bool selected = language.code == current;
-        if (ImGui::Selectable((language.name + "##" + language.code).c_str(), selected) && !selected) {
+        if (ImGui::Selectable((language_label(language) + "##" + language.code).c_str(), selected) && !selected) {
             request(language.code);
         }
     }
@@ -113,7 +130,7 @@ void draw_voice_combo(const CoreState& state) {
         }
         if (voice.engine != engine) {
             engine = voice.engine;
-            ImGui::TextDisabled("%s", engine_title(engine).c_str());
+            disabled_text(engine_title(engine));
         }
         bool selected = voice.id == settings.voice;
         ImGui::Indent();
@@ -129,7 +146,7 @@ void draw_speech_pace(const ProfileSettings& settings) {
     // While dragging, the slider shows its own value; the core gets it, in steps of 0.1, on release.
     static float dragged_rate = 0.0f;
     float rate = dragged_rate > 0.0f ? dragged_rate : settings.speech_rate;
-    if (ImGui::SliderFloat("Reading speed", &rate, 0.5f, 2.0f, "%.1fx", ImGuiSliderFlags_AlwaysClamp)) {
+    if (ImGui::SliderFloat("Reading speed", &rate, 0.5f, 2.0f, "%.1f×", ImGuiSliderFlags_AlwaysClamp)) {
         dragged_rate = rate;
     }
     if (ImGui::IsItemDeactivatedAfterEdit()) {
@@ -175,7 +192,7 @@ void draw_input(const CoreState& state) {
             request_source_enabled(source.source, enabled);
         }
         ImGui::SameLine();
-        ImGui::TextDisabled("%s", source.type.c_str());
+        disabled_text(source.type);
     }
     end_box();
 }
@@ -226,7 +243,7 @@ void draw_output(const CoreState& state, PanelPlace place) {
 void draw_last_line(const CoreState& state) {
     begin_box("Last line");
     if (state.last_line.empty()) {
-        ImGui::TextDisabled("-");
+        disabled_text("-");
     } else {
         clamped_wrapped_text(state.last_line, kMaxLastLineRows);
     }
@@ -239,11 +256,11 @@ void draw_error(const CoreState& state) {
     }
     ImGui::PushStyleColor(ImGuiCol_Text, kErrorColor);
     ImGui::PushTextWrapPos(ImGui::GetContentRegionMax().x - ImGui::GetFrameHeight() * 1.5f);
-    ImGui::TextWrapped("%s", state.last_error.c_str());
+    wrapped_text(state.last_error);
     ImGui::PopTextWrapPos();
     ImGui::PopStyleColor();
     align_right(ImGui::GetFrameHeight());
-    if (ImGui::SmallButton("x")) {
+    if (ImGui::SmallButton("×")) {
         dismiss_error();
     }
 }
@@ -253,10 +270,10 @@ void draw_error(const CoreState& state) {
 void draw_settings_panel(const CoreState& state, PanelPlace place) {
     draw_header(state);
     if (!state.connected) {
-        ImGui::TextWrapped("Not connected to ReflektorTTS. Is it running?");
+        wrapped_text("Not connected to ReflektorTTS: is it running?");
     } else if (!state.settings_error.empty()) {
         ImGui::PushStyleColor(ImGuiCol_Text, kErrorColor);
-        ImGui::TextWrapped("%s", state.settings_error.c_str());
+        wrapped_text(state.settings_error);
         ImGui::PopStyleColor();
     } else {
         // Top to bottom, the way a line goes through ReflektorTTS: input, processing, output.

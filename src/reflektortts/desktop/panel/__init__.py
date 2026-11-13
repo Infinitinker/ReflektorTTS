@@ -1,1 +1,1 @@
-"""Opens the settings window (reflektortts-panel) for a profile, docked beside the desktop window."""
+"""Opens the settings window (reflektortts-panel) for a profile, docked beside the ReflektorTTS window."""

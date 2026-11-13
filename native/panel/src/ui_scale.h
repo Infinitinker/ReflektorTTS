@@ -1,3 +1,6 @@
+// Scales ImGui to the display the window is on: how much bigger than at 100% the display wants the
+// window's contents, and ImGui's style and fonts scaled by that.
+
 #pragma once
 
 #include <SDL3/SDL_video.h>

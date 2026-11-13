@@ -19,7 +19,8 @@ DEFAULT_POSITION = "top"
 class Timing:
     min_seconds: float = 2.0
     characters_per_second: float = 15.0
-    """Reading speed, for lines that are not spoken, e.g. while speech is paused."""
+    """How fast the user reads a line's text, which sets how long the subtitle of a line that is not
+    spoken stays, e.g. while speech is paused."""
     hold: float = 1.0
     """How long a subtitle stays after its line has been spoken."""
 

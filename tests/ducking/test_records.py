@@ -1,3 +1,5 @@
+"""The record of apps' original volumes while they are lowered: kept by process name, a broken file read as none."""
+
 from pathlib import Path
 
 from reflektortts.ducking.records import DuckRecords

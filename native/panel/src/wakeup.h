@@ -1,3 +1,6 @@
+// Wakes the frame loop, which waits for SDL's events, when the API client's state changes: an SDL
+// event posted from the client's threads.
+
 #pragma once
 
 #include <SDL3/SDL_events.h>

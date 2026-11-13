@@ -1,43 +1,59 @@
+// Hooks a COM method found through a vtable: in its code, so it chains with other overlays' hooks,
+// or, where that fails, by replacing the vtable entry.
+
 #pragma once
 
 #include <windows.h>
 
-#include <cstdio>
+#include <format>
 #include <string>
 
+#include "diagnostics/describe_address.h"
 #include "hooks/code_hook.h"
 #include "log.h"
+#include "memory/functions.h"
 
 namespace reflektortts {
 
-// Why a vtable could not be patched, for the log: the last error, and the memory's protection
-// and owning module.
+// Why a vtable could not be patched, for the log: the last error, the memory's protection and type,
+// and where it is, as module and offset.
 inline std::string describe_memory(const void* address) {
     DWORD error = GetLastError();
     MEMORY_BASIC_INFORMATION info{};
     VirtualQuery(address, &info, sizeof(info));
-    wchar_t module[MAX_PATH] = L"?";
-    HMODULE handle = nullptr;
-    if (GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
-                           static_cast<LPCWSTR>(address), &handle)) {
-        GetModuleFileNameW(handle, module, MAX_PATH);
-    }
-    char text[512];
-    std::snprintf(text, sizeof(text), "error %lu, address %p, protection 0x%lx, type 0x%lx, module %ls", error,
-                  address, info.Protect, info.Type, module);
-    return text;
+    return std::format("error {}, address {}, protection 0x{:x}, type 0x{:x}, at {}", error, address, info.Protect,
+                       info.Type, describe_address(address));
+}
+
+// The vtable of a COM object: the first thing in it.
+inline void** vtable_of(void* object) {
+    return *static_cast<void***>(object);
+}
+
+// The entry of a vtable that holds the method at index. Only the class knows how long its vtable is,
+// so the entry is found by its offset.
+inline void** vtable_slot(void** vtable, int index) {
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    return vtable + index;
+}
+
+// The method at index in a COM object's vtable, as the type it has.
+template <typename Fn>
+Fn method_of(void* object, int index) {
+    return function_at<Fn>(*vtable_slot(vtable_of(object), index));
 }
 
 // Replaces one entry of a COM vtable with detour and stores the previous entry in original.
 template <typename Fn>
 bool hook_vtable_entry(void** vtable, int index, Fn detour, Fn* original) {
+    void** slot = vtable_slot(vtable, index);
     DWORD protection = 0;
-    if (!VirtualProtect(&vtable[index], sizeof(void*), PAGE_READWRITE, &protection)) {
+    if (!VirtualProtect(static_cast<void*>(slot), sizeof(void*), PAGE_READWRITE, &protection)) {
         return false;
     }
-    *original = reinterpret_cast<Fn>(vtable[index]);
-    vtable[index] = reinterpret_cast<void*>(detour);
-    VirtualProtect(&vtable[index], sizeof(void*), protection, &protection);
+    *original = function_at<Fn>(*slot);
+    *slot = code_address(detour);
+    VirtualProtect(static_cast<void*>(slot), sizeof(void*), protection, &protection);
     return true;
 }
 
@@ -51,19 +67,20 @@ bool hook_vtable_entry(void** vtable, int index, Fn detour, Fn* original) {
 // vtable each frame are caught as well. Patching the vtable remains the fallback.
 template <typename Fn>
 bool hook_method(void** vtable, int index, Fn detour, Fn* original) {
-    void* method = vtable[index];
+    void* method = *vtable_slot(vtable, index);
     // Already ours (hooked before): hooking again would make the detour call itself.
-    if (method == reinterpret_cast<void*>(detour)) {
+    if (method == code_address(detour)) {
         return true;
     }
-    if (hook_function(method, reinterpret_cast<void*>(detour), reinterpret_cast<void**>(original))) {
+    if (hook_function(method, code_address(detour), function_slot(original))) {
         return true;
     }
     log_message("Cannot hook a method's code; patching its vtable entry instead");
     if (hook_vtable_entry(vtable, index, detour, original)) {
         return true;
     }
-    log_message("Cannot patch a vtable either (" + describe_memory(&vtable[index]) + ")");
+    log_message("Cannot patch a vtable either (" + describe_memory(static_cast<void*>(vtable_slot(vtable, index))) +
+                ")");
     return false;
 }
 

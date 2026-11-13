@@ -1,3 +1,5 @@
+"""Reading a game's dialogue in one language from its archives: bundles, the patches that replace them, and stopping."""
+
 from pathlib import Path
 
 import pytest
@@ -24,6 +26,11 @@ def test_standalone_text_no_bundle_names_is_not_read(tmp_path: Path) -> None:
 def test_a_folder_without_archives_is_an_error(tmp_path: Path) -> None:
     with pytest.raises(ArchiveError, match="No game archives"):
         read_text(tmp_path, "pl")
+
+
+def test_a_language_the_files_have_no_text_in_is_an_error(tmp_path: Path) -> None:
+    with pytest.raises(ArchiveError, match="no text in German: is the game complete"):
+        read_text(make_game(tmp_path), "de")
 
 
 def test_reading_stops_when_asked(tmp_path: Path) -> None:

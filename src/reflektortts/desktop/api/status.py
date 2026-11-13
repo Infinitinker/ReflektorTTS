@@ -1,6 +1,6 @@
 """What the desktop app shows of the core's status."""
 
-from collections.abc import Callable, Mapping
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
@@ -56,8 +56,8 @@ def hint(status: CoreStatus | None) -> str:
         return status.source_error
     if status is not None and status.unsupported and not status.app:
         if status.unsupported_sha256 is None:
-            return "Its executable could not be read to tell which version it is; see the log."
-        return f"To support it, its profile needs this version's SHA-256: {status.unsupported_sha256}"
+            return "Its executable could not be read to tell which version it is: see the log."
+        return f"To support it, its profile needs this version’s SHA-256: {status.unsupported_sha256}"
     return "In an app with the overlay, open the panel with Ctrl+Shift+R."
 
 
@@ -80,11 +80,11 @@ def settings_caption(status: CoreStatus | None) -> str:
     return "Settings a new app starts with:"
 
 
-def languages_text(status: CoreStatus, language_name: Callable[[str], str]) -> str:
-    """The app's language and the one lines are prepared in, e.g. "English → Polski", each
-    language named in itself."""
-    source, target = language_name(status.input_language), language_name(status.output_language)
-    return source if source == target else f"{source} → {target}"
+def status_languages(status: CoreStatus) -> tuple[str, ...]:
+    """The app's language and the one lines are prepared in, or the one language if they are the same."""
+    if status.input_language == status.output_language:
+        return (status.input_language,)
+    return (status.input_language, status.output_language)
 
 
 def sound_text(status: CoreStatus) -> str:

@@ -1,3 +1,5 @@
+"""The tracker stage: a line is passed on once it has settled, and lines with too few letters are ignored."""
+
 from reflektortts.events import TextEvent
 from reflektortts.pipeline.plugins import stage_plugins
 from reflektortts.stages.tracker import PLUGIN, Tracker
@@ -41,6 +43,12 @@ def test_lines_with_too_few_letters_are_ignored() -> None:
     readings = [(0.0, "$100"), (1.0, "$100"), (2.0, "Okay!"), (3.0, "Okay!")]
 
     assert feed(Tracker(stable_seconds=0.5, min_letters=4), readings) == ["Okay!"]
+
+
+def test_letters_with_marks_of_their_own_count_as_letters() -> None:
+    readings = [(0.0, "मैं ठीक हूँ।"), (1.0, "मैं ठीक हूँ।")]
+
+    assert feed(Tracker(stable_seconds=0.5, min_letters=4), readings) == ["मैं ठीक हूँ।"]
 
 
 def test_lines_that_are_mostly_symbols_are_ignored() -> None:

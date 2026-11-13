@@ -21,7 +21,13 @@ BLOCK = 64 * 1024
 
 
 class ArchiveError(Exception):
-    """An archive cannot be read."""
+    """An archive cannot be read; the message says what to do, and the error it was raised from, if
+    any, says why."""
+
+
+def damaged(name: str) -> str:
+    """What to do about a game file that cannot be read."""
+    return f"{name} could not be read: check the game’s files in Steam or GOG Galaxy, then start the game again."
 
 
 @dataclass(frozen=True)
@@ -39,7 +45,11 @@ class Archive:
     def __init__(self, tab: Path) -> None:
         self.path = tab
         self.entries = read_tab(tab)
-        self._arc: BinaryIO = tab.with_suffix(".arc").open("rb")
+        arc = tab.with_suffix(".arc")
+        try:
+            self._arc: BinaryIO = arc.open("rb")
+        except OSError as error:
+            raise ArchiveError(damaged(arc.name)) from error
 
     def read(self, entry: ArchiveEntry, start: int = 0, size: int | None = None) -> bytes:
         """size bytes of a file from start, or the rest of it; only what they need is decompressed."""
@@ -52,7 +62,7 @@ class Archive:
                 return self._inflate(entry.offset, entry.compressed_size, end)[start:end]
             return self._read_chunks(entry, start, end)
         except (OSError, zlib.error) as error:
-            raise ArchiveError(f"Cannot read a file in {self.path.with_suffix('.arc')}: {error}") from error
+            raise ArchiveError(damaged(self.path.with_suffix(".arc").name)) from error
 
     def close(self) -> None:
         self._arc.close()
@@ -93,7 +103,9 @@ class Archive:
             data += inflater.decompress(pending, wanted - len(data))
             pending = inflater.unconsumed_tail
         if len(data) < wanted:
-            raise ArchiveError(f"A file in {self.path.with_suffix('.arc')} is shorter than its table says.")
+            raise ArchiveError(damaged(self.path.with_suffix(".arc").name)) from ArchiveError(
+                f"A file at {offset:X} in {self.path.with_suffix('.arc')} is shorter than its table says"
+            )
         return bytes(data[:wanted])
 
 
@@ -103,7 +115,10 @@ def read_tab(tab: Path) -> dict[int, ArchiveEntry]:
         data = tab.read_bytes()
         (alignment, chunked) = struct.unpack_from("<II", data, 0)
         if alignment != ALIGNMENT:
-            raise ArchiveError(f"{tab} is not an archive table this game version uses.")
+            raise ArchiveError(
+                f"{tab.name} is not an archive table of the game version the profile was written for: "
+                "look for a profile for this version."
+            ) from ArchiveError(f"{tab} starts with alignment {alignment:X}, not {ALIGNMENT:X}")
         position = 8
         chunks: dict[int, tuple[tuple[int, int], ...]] = {}
         for _ in range(chunked):
@@ -118,4 +133,4 @@ def read_tab(tab: Path) -> dict[int, ArchiveEntry]:
             entries[name_hash] = ArchiveEntry(offset, compressed_size, size, chunks.get(name_hash, ()))
         return entries
     except (OSError, struct.error) as error:
-        raise ArchiveError(f"Cannot read {tab}: {error}") from error
+        raise ArchiveError(damaged(tab.name)) from error

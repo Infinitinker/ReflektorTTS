@@ -1,3 +1,5 @@
+"""The subtitles sink: how long a line is shown, spoken or not, and hiding it when replaced, switched off or closed."""
+
 import threading
 import time
 from collections.abc import Callable, Iterator

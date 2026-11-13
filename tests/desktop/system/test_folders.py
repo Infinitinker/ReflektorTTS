@@ -1,3 +1,5 @@
+"""Opening folders and files in the file manager, and how the app's folders are shown to the user."""
+
 import sys
 from pathlib import Path
 
@@ -39,7 +41,7 @@ def test_a_folder_in_the_home_folder_is_shown_from_it(monkeypatch: pytest.Monkey
 def test_one_folder_for_everything_is_named_once(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setattr(folders, "config_dir", lambda: tmp_path)
     monkeypatch.setattr(folders, "data_dir", lambda: tmp_path)
-    monkeypatch.setattr(folders, "log_dir", lambda: tmp_path / "Logs")
+    monkeypatch.setattr(folders, "log_dir", lambda: tmp_path / "logs")
 
     shown = folders.shown_path(tmp_path)
     assert folders.where_files_are() == (

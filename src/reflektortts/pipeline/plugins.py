@@ -2,8 +2,8 @@
 
 import json
 import logging
-from collections.abc import Callable, Iterable, Mapping
-from dataclasses import dataclass
+from collections.abc import Callable, Collection, Iterable, Mapping
+from dataclasses import dataclass, field
 from importlib import resources
 from pathlib import Path
 from typing import Any
@@ -53,14 +53,19 @@ class StagePlugin:
     """Creates a stage from its schema-validated settings and its profile's glossaries."""
     summary: str = ""
     """A few words on what the stage does, capitalized like a sentence without a full stop,
-    e.g. "Waits until a line settles"; shown next to its name in the overlay."""
+    e.g. "Waits until a line settles"; shown next to its name in the settings panel."""
     warning_when_disabled: str | None = None
     """Shown instead of the summary while the stage is switched off, if reading breaks without it;
     written like the summary."""
     inactive_reason: Callable[[Languages], str | None] = lambda languages: None
     """Why the stage does nothing with the user's languages, written like the summary, e.g.
     "Input and output language are the same"; None if it works with them. Meanwhile the stage is
-    skipped, and the overlay grays it out and shows the reason instead of the summary."""
+    skipped, and the settings panel grays it out and shows the reason instead of the summary."""
+    speech_rules: Mapping[str, Collection[str]] = field(default_factory=dict)
+    """What the stage does only for some output languages, listed in the desktop app's details of
+    each profile that uses the stage: a few words naming each rule, written like a label, mapped to
+    the codes of the languages that have it, e.g. {"Numbers, dates and units": {"en", "pl"}}.
+    Stages that name the same rule share it."""
 
 
 _failed_checks: set[str] = set()
@@ -77,6 +82,16 @@ def inactive_reason(plugin: StagePlugin, languages: Languages) -> str | None:
             _failed_checks.add(plugin.type)
             logger.exception("The %s stage cannot tell whether it works with %s", plugin.type, languages)
         return f"Could not check: {error}"
+
+
+def speech_rules(plugins: Iterable[StagePlugin]) -> dict[str, tuple[str, ...]]:
+    """The plugins' speech rules, each with the codes of the output languages that have it from any
+    of them, in alphabetical order."""
+    rules: dict[str, set[str]] = {}
+    for plugin in plugins:
+        for rule, languages in plugin.speech_rules.items():
+            rules.setdefault(rule, set()).update(languages)
+    return {rule: tuple(sorted(languages)) for rule, languages in sorted(rules.items())}
 
 
 def load_schema(package: str, file_name: str) -> Mapping[str, Any]:

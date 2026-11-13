@@ -112,7 +112,7 @@ class Narrator:
             client.close()
 
     def _stop(self, drop_waiting: bool) -> None:
-        """Stops speech, if any: a speech process that has died has nothing to stop. That is only
+        """Stops speech, if any: a TTS process that has died has nothing to stop. That is only
         logged here; the next line spoken reports it to the user."""
         if self._client is None:
             return

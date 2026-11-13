@@ -1,3 +1,5 @@
+"""Opening the settings window: finding its program, and one window per profile, docked beside the app."""
+
 import sys
 from pathlib import Path
 
@@ -5,6 +7,8 @@ import pytest
 
 from reflektortts.desktop.panel.dock import Dock
 from reflektortts.desktop.panel.launcher import PROGRAM, PanelWindows, find_program
+
+PORT = 47822
 
 
 class FakeProcess:
@@ -60,40 +64,50 @@ def test_run_from_source_the_first_overlay_folder_with_the_program_has_it(
     assert find_program([x86]) is None
 
 
-def test_in_a_release_the_program_is_next_to_the_exe(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    program = program_in(tmp_path / "ReflektorTTS")
+def test_in_a_release_the_program_is_in_the_panel_folder(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    program = program_in(tmp_path / "ReflektorTTS" / "panel")
     monkeypatch.setattr(sys, "frozen", True, raising=False)
-    monkeypatch.setattr(sys, "executable", str(tmp_path / "ReflektorTTS" / "ReflektorTTS.exe"))
+    monkeypatch.setattr(sys, "executable", str(tmp_path / "ReflektorTTS" / "reflektortts.exe"))
     overlay = program_in(tmp_path / "ReflektorTTS" / "overlay" / "x64")
 
     assert find_program([overlay.parent]) == program
 
 
-def test_in_a_release_without_the_program_there_is_none(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_in_a_release_a_program_next_to_the_exe_is_not_used(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    program_in(tmp_path / "ReflektorTTS")
     monkeypatch.setattr(sys, "frozen", True, raising=False)
-    monkeypatch.setattr(sys, "executable", str(tmp_path / "ReflektorTTS.exe"))
+    monkeypatch.setattr(sys, "executable", str(tmp_path / "ReflektorTTS" / "reflektortts.exe"))
 
     assert find_program([]) is None
-    assert PanelWindows(None).missing is not None
+
+
+def test_in_a_release_without_the_program_there_is_none(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    monkeypatch.setattr(sys, "executable", str(tmp_path / "reflektortts.exe"))
+
+    assert find_program([]) is None
+    assert PanelWindows(None, PORT).missing is not None
 
 
 def test_opening_starts_the_program_for_the_profile() -> None:
     launcher = FakeLauncher()
-    panels = PanelWindows(Path("panel"), launcher, FakeFronter())
+    panels = PanelWindows(Path("panel"), PORT, launcher, FakeFronter())
 
     assert panels.missing is None
     panels.open("gta2")
 
-    assert [process.command for process in launcher.started] == [[str(Path("panel")), "--profile", "gta2"]]
+    assert [process.command for process in launcher.started] == [
+        [str(Path("panel")), "--profile", "gta2", "--port", "47822"]
+    ]
 
 
 def test_a_dock_opens_it_beside_the_desktop_window() -> None:
     launcher = FakeLauncher()
-    panels = PanelWindows(Path("panel"), launcher, FakeFronter())
+    panels = PanelWindows(Path("panel"), PORT, launcher, FakeFronter())
 
     panels.open("gta2", lambda: Dock("left", 900, -20, 1300))
 
-    assert launcher.started[0].command[3:] == [
+    assert launcher.started[0].command[5:] == [
         "--dock-side",
         "left",
         "--dock-x",
@@ -107,16 +121,16 @@ def test_a_dock_opens_it_beside_the_desktop_window() -> None:
 
 def test_where_the_dock_cannot_be_told_it_opens_centered() -> None:
     launcher = FakeLauncher()
-    panels = PanelWindows(Path("panel"), launcher, FakeFronter())
+    panels = PanelWindows(Path("panel"), PORT, launcher, FakeFronter())
 
     panels.open("gta2", lambda: None)
 
-    assert launcher.started[0].command == [str(Path("panel")), "--profile", "gta2"]
+    assert launcher.started[0].command == [str(Path("panel")), "--profile", "gta2", "--port", "47822"]
 
 
 def test_a_profile_has_at_most_one_window_while_it_is_open() -> None:
     launcher = FakeLauncher()
-    panels = PanelWindows(Path("panel"), launcher, FakeFronter())
+    panels = PanelWindows(Path("panel"), PORT, launcher, FakeFronter())
 
     panels.open("gta2")
     panels.open("gta2")
@@ -133,7 +147,7 @@ def test_a_profile_has_at_most_one_window_while_it_is_open() -> None:
 def test_opening_a_window_already_open_brings_it_to_the_front() -> None:
     launcher = FakeLauncher()
     fronter = FakeFronter()
-    panels = PanelWindows(Path("panel"), launcher, fronter)
+    panels = PanelWindows(Path("panel"), PORT, launcher, fronter)
     panels.open("gta2")
     panels.open("mad-max")
 
@@ -158,7 +172,7 @@ def test_opening_a_window_already_open_brings_it_to_the_front() -> None:
 
 def test_closing_all_ends_the_windows_still_open() -> None:
     launcher = FakeLauncher()
-    panels = PanelWindows(Path("panel"), launcher, FakeFronter())
+    panels = PanelWindows(Path("panel"), PORT, launcher, FakeFronter())
     panels.open("gta2")
     panels.open("mad-max")
     launcher.started[1].exit_code = 0
@@ -170,4 +184,4 @@ def test_closing_all_ends_the_windows_still_open() -> None:
 
 def test_without_the_program_nothing_opens() -> None:
     with pytest.raises(RuntimeError):
-        PanelWindows(None, FakeLauncher(), FakeFronter()).open("gta2")
+        PanelWindows(None, PORT, FakeLauncher(), FakeFronter()).open("gta2")

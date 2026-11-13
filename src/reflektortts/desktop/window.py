@@ -1,8 +1,8 @@
-"""The desktop app's window: a Status tab, a Profiles tab, one tab per kind of download (voices,
+"""The ReflektorTTS window: a Status tab, a Profiles tab, one tab per kind of download (voices,
 translations), a Settings tab and a status bar."""
 
 import tkinter as tk
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from tkinter import ttk
 
 from reflektortts.desktop.about import About
@@ -17,7 +17,7 @@ from reflektortts.desktop.tabs.status import StatusTab
 from reflektortts.desktop.widgets.status_bar import StatusBar
 from reflektortts.downloads.source import Kind
 
-SIZE = (800, 600)
+SIZE = (854, 600)
 """At start, and the smallest; the window can grow."""
 ICON_SIZES = (16, 32, 48, 256)
 """For the title bar, the taskbar and Alt+Tab; the system picks the size it needs."""
@@ -37,7 +37,7 @@ class Window:
         on_download: Callable[[DownloadItem], None],
         on_remove: Callable[[DownloadItem], None],
         on_preview: Callable[[DownloadItem], None],
-        language_name: Callable[[str], str],
+        languages_text: Callable[[Sequence[str]], str],
         voice_title: Callable[[str], str],
         on_profiles_opened: Callable[[], None],
         on_enable_profile: Callable[[ProfileItem, bool], None],
@@ -56,6 +56,7 @@ class Window:
         about: About,
         files_text: str,
         autostart_supported: bool,
+        has_tray: bool,
     ) -> None:
         self._root = root
         root.title("ReflektorTTS")
@@ -80,8 +81,9 @@ class Window:
             on_quit,
             on_open_link,
             about,
-            language_name,
+            languages_text,
             voice_title,
+            has_tray,
         )
         self._notebook.add(self.status.frame, text="Status")
         self.profiles = ProfilesTab(
@@ -96,6 +98,7 @@ class Window:
             on_reload_profiles,
             on_open_profiles,
             on_integration,
+            languages_text,
         )
         self._notebook.add(self.profiles.frame, text="Profiles")
 
@@ -104,7 +107,7 @@ class Window:
         for kind, title in DOWNLOAD_TABS.items():
             # Only voices can be heard before use.
             preview = on_preview if kind == Kind.VOICE else None
-            tab = DownloadsTab(self._notebook, self._status_bar, on_download, on_remove, preview, language_name)
+            tab = DownloadsTab(self._notebook, self._status_bar, on_download, on_remove, preview, languages_text)
             self._notebook.add(tab.frame, text=title)
             self.downloads[kind.value] = tab
         self.settings = SettingsTab(

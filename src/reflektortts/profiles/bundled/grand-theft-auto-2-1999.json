@@ -1,10 +1,11 @@
 {
-  "version": 1,
+  "version": 2,
   "app": {
     "title": "Grand Theft Auto 2",
     "year": 1999
   },
-  "rating": "bronze",
+  "rating": "platinum",
+  "tested_languages": ["en", "pl"],
   "match": {
     "executables": [
       {
@@ -13,7 +14,6 @@
       }
     ]
   },
-  "overlay": true,
   "sources": [
     {
       "type": "memory",

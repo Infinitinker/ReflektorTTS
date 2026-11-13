@@ -1,3 +1,6 @@
+// The subtitles over the app: the current line, centered at the top or bottom of the screen on a
+// dark band, in the size the settings ask for.
+
 #include "ui/subtitles.h"
 
 #include <imgui.h>
@@ -43,12 +46,12 @@ void draw_subtitle(const CoreState& state) {
     float margin = viewport->Size.y * kSubtitleMargin;
     float x = viewport->Pos.x + (viewport->Size.x - band.x) * 0.5f;
     float y = state.settings.subtitle_position == "bottom" ? viewport->Pos.y + viewport->Size.y - margin - band.y
-                                                  : viewport->Pos.y + margin;
+                                                           : viewport->Pos.y + margin;
     ImDrawList* draw = ImGui::GetBackgroundDrawList();
     draw->AddRectFilled(ImVec2(x, y), ImVec2(x + band.x, y + band.y), IM_COL32(0, 0, 0, 160), size * 0.25f);
     for (std::size_t i = 0; i < lines.size(); ++i) {
-        ImVec2 position(x + padding.x + (widest - widths[i]) * 0.5f, y + padding.y + size * static_cast<float>(i));
-        draw->AddText(font, size, position, IM_COL32(255, 255, 255, 255), lines[i].c_str());
+        ImVec2 position(x + padding.x + (widest - widths.at(i)) * 0.5f, y + padding.y + size * static_cast<float>(i));
+        draw->AddText(font, size, position, IM_COL32(255, 255, 255, 255), lines.at(i).c_str());
     }
 }
 

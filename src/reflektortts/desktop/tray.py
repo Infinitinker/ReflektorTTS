@@ -51,6 +51,9 @@ class Tray:
         self._thread.start()
 
     def stop(self) -> None:
+        """Takes the icon away; nothing to do if it was never started (on a desktop without a tray)."""
+        if self._thread.ident is None:
+            return
         self._icon.stop()
         self._thread.join()
 
@@ -58,13 +61,30 @@ class Tray:
         self._paused = paused
         self._connected = connected
         title = f"ReflektorTTS: {text}"
-        self._icon.title = title if len(title) <= MAX_TITLE else title[: MAX_TITLE - 1] + "…"
+        if len(title) > MAX_TITLE:
+            title = title[: MAX_TITLE - 1] + "…"
+        try:
+            self._icon.title = title
+        except UnicodeEncodeError:
+            # pystray's X11 icon, the one used on Linux, names its window in Latin-1, which has
+            # neither "…" nor most letters outside Western Europe.
+            self._icon.title = latin1(title)
         self._icon.update_menu()
 
     def refresh(self) -> None:
         """Shows the menu's checkmarks as they are now; Windows keeps the menu as it was last built."""
         self._icon.update_menu()
 
+    @property
+    def can_notify(self) -> bool:
+        """pystray's X11 icon, the one used on Linux, shows no notifications."""
+        return bool(self._icon.HAS_NOTIFICATION)
+
     def notify(self, title: str, message: str) -> None:
         """Windows puts the app's name above the title, so the title says something of its own."""
         self._icon.notify(message, title)
+
+
+def latin1(text: str) -> str:
+    """The text with "…" spelled out and the other characters Latin-1 does not have as "?"."""
+    return text.replace("…", "...").encode("latin-1", errors="replace").decode("latin-1")

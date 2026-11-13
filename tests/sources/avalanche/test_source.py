@@ -1,3 +1,5 @@
+"""AvalancheSource: the subtitle shown in the game, read by its line ID in the input language."""
+
 import logging
 from pathlib import Path
 
@@ -73,8 +75,11 @@ def test_a_line_not_in_the_games_text_reads_as_nothing_and_is_logged_once(
 def test_an_unreadable_line_id_is_an_error(tmp_path: Path) -> None:
     source, _ = source_for(tmp_path, {0x140000010: (0x5000).to_bytes(8, "little")})
 
-    with pytest.raises(MemoryReadError, match="5008"):
+    with pytest.raises(MemoryReadError, match="profile may not fit this version") as raised:
         source.read(POLISH)
+
+    assert "5008" not in str(raised.value)
+    assert "5008" in str(raised.value.__cause__)
 
 
 def test_close_releases_the_game_memory(tmp_path: Path) -> None:

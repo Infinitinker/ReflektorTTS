@@ -1,0 +1,31 @@
+# Sets up MSYS2 with what builds native/ (native/README.md): the 64-bit MinGW toolchain, CMake and
+# Ninja, and git, with which CMake fetches the libraries native/ is built with. Used by build-windows.yml,
+# which adds the 32-bit toolchain, and by the C++ checks job of checks.yml, which adds clang-format,
+# clang-tidy and the 32-bit toolchain. Steps run in it with `shell: msys2 {0}`, in MINGW64 unless a step sets MSYSTEM. Needs a
+# checkout first, as every local action does.
+name: MSYS2
+description: Installs MSYS2 (MINGW64) with the 64-bit toolchain, CMake, Ninja, git and any packages the job adds.
+
+inputs:
+  packages:
+    description: More MSYS2 packages to install, separated by spaces.
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - uses: msys2/setup-msys2@v2
+      with:
+        msystem: MINGW64
+        install: >-
+          git
+          mingw-w64-x86_64-toolchain mingw-w64-x86_64-cmake mingw-w64-x86_64-ninja
+          ${{ inputs.packages }}
+
+    # MSYS2's git has settings of its own, without the safe.directory entry actions/checkout gives the
+    # runner's git, and it can take the checkout for another user's: files an elevated process makes
+    # belong to the Administrators group. The runner is thrown away after the job.
+    - name: Trust the checkout
+      shell: msys2 {0}
+      run: git config --global --add safe.directory '*'

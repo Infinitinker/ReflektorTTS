@@ -1,3 +1,6 @@
+// Hooking IDXGISwapChain::Present and Present1, the point where Direct3D 10, 11 and 12 apps show
+// each frame.
+
 #pragma once
 
 #include <dxgi.h>

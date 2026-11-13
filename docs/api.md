@@ -1,6 +1,6 @@
 # Local API (v1)
 
-Every ReflektorTTS user interface, the desktop app's window and the overlay alike, controls the core through this API. It is served by the core on **`http://127.0.0.1:47821/v1`**, only on the local machine. The port is fixed so the overlay knows where to connect.
+Every ReflektorTTS user interface, the ReflektorTTS window and the overlay alike, controls the core through this API. It is served by the core only on the local machine, on **`http://127.0.0.1:47821/v1`** for an installed ReflektorTTS. A run from source has a port of its own, 47822, and the end-to-end test's run 47823 (`identity.py`), so neither keeps the installed one from starting. The core gives the overlay its port when it loads it into an app, and the desktop app gives the settings window the same port when it opens it; started by hand without one, they connect to 47821.
 
 Requests and responses are JSON (UTF-8). There is no authentication, but web pages are kept out: a page open in the user's browser can also reach 127.0.0.1, so the API refuses what only browsers send (see [Requests from web pages](#requests-from-web-pages)).
 
@@ -80,25 +80,32 @@ Returns the voices available now, from every speech engine that works on this sy
 ```json
 {
   "voices": [
-    { "id": "piper:en_US-ljspeech-medium", "engine": "piper", "name": "en_US-ljspeech-medium", "language": "en-US", "engine_title": "Piper" },
-    { "id": "windows:Microsoft Adam", "engine": "windows", "name": "Microsoft Adam", "language": "pl-PL", "engine_title": "Windows" }
+    { "id": "piper:en_US-ljspeech-medium", "engine": "piper", "name": "en_US-ljspeech-medium", "language": "en-US", "engine_title": "Piper", "installed_note": null },
+    { "id": "windows:Microsoft Adam", "engine": "windows", "name": "Microsoft Adam", "language": "pl-PL", "engine_title": "Windows", "installed_note": "Comes with Windows: add or remove Windows voices in Settings > Time & language > Speech." }
   ]
 }
 ```
 
-`id` is what `PATCH /v1/profiles/<id>/settings` takes as `voice`; `language` is a BCP 47 tag, so a UI can offer only the voices that speak the output language; `engine_title` is the engine's name as shown to users. Only installed voices are listed; ReflektorTTS never downloads one by itself.
+`id` is what `PATCH /v1/profiles/<id>/settings` takes as `voice`; `language` is a BCP 47 tag, so a UI can offer only the voices that speak the output language; `engine_title` is the engine's name as shown to users; `installed_note`, or null, says where a voice installed outside ReflektorTTS comes from and how to add or remove it, which the desktop app shows in place of a license. Only installed voices are listed; ReflektorTTS never downloads one by itself.
 
 ### `POST /v1/voices/preview`
 
-`{"voice": "piper:pl_PL-gosia-medium"}` speaks a sample sentence in the voice's language, so the user can hear it. It runs apart from the app being read, if any: the app keeps its voice and its sound is not lowered. A new preview cuts off the one playing. Answers 202 at once, and `preview` events say when it starts and ends; 400 if the voice is not installed or speaks no supported language.
+`{"voice": "piper:pl_PL-gosia-medium"}` speaks a sample sentence in the voice's language, so the user can hear it. It runs apart from the app being read, if any: the app keeps its voice and its sound is not lowered. A new preview cuts off the one playing. Answers 202 at once, and `preview` events say when it starts and ends; 400 if the voice is not installed or speaks a language ReflektorTTS does not know. A voice in a language without a sample sentence says the language's name.
 
 ### `GET /v1/languages`
 
-Returns the languages the pipeline supports, with their names in their own language:
+Returns every language the input and output language can be set to: each ISO 639-1 language, sorted by its English name.
 
 ```json
-{ "languages": [{ "code": "en", "name": "English" }, { "code": "pl", "name": "Polski" }] }
+{
+  "languages": [
+    { "code": "en", "name": "English", "english_name": "English" },
+    { "code": "pl", "name": "Polski", "english_name": "Polish" }
+  ]
+}
 ```
+
+`code` is the ISO 639-1 code every other part of the API uses; Norwegian is listed once, as `nb` (Bokmål), which Norwegian voices and models are filed under. `name` is the language's name in itself and `english_name` its English name. That a language is listed does not mean there is a translation model or voice for it: `/v1/downloads` lists those.
 
 ### `GET /v1/profiles`
 
@@ -115,8 +122,12 @@ Lists every profile, bundled and the user's own, in ID order:
       "state": "reading",
       "reason": null,
       "file": "...\\profiles\\bundled\\grand-theft-auto-2-1999.json",
-      "overlay": true,
+      "overlay": false,
       "rating": "bronze",
+      "tested_languages": ["en", "pl"],
+      "glossary_languages": [],
+      "pronunciation_languages": [],
+      "speech_rules": [{ "name": "Numbers, dates and units", "languages": ["en", "pl"] }],
       "executables": [{ "name": "gta2.exe", "sha256": ["420af867..."] }],
       "sources": [{ "name": "subtitles", "type": "memory", "stages": ["tracker", "replace", "translate", "normalize"] }]
     }
@@ -125,6 +136,9 @@ Lists every profile, bundled and the user's own, in ID order:
 ```
 
 - `rating`: how far the profile is tested, as its medal (`bronze`, `silver`, `gold` or `platinum`; see the profile format), or `null` if it is not rated or the file is broken.
+- `tested_languages`: the codes of the languages the profile was tested with: the app's own, and those its lines were translated into and spoken in; `"any"` for a profile that reads text whatever its language; `[]` if it does not say or the file is broken. They are the ones tried, not a limit: any languages can be chosen.
+- `speech_rules`: what the stages the profile uses do only for some output languages, in alphabetical order, each with the codes of the languages that have it (a stage's `speech_rules`, see [plugins.md](plugins.md)). "Glossary grammar" is left out for a profile without a glossary, which has no terms for it.
+- `glossary_languages`: the input languages the profile's glossary has terms for, which translation keeps or rewrites; `pronunciation_languages`: the output languages it says how to pronounce terms in. Both are `[]` without a glossary.
 - `origin`: `bundled`, `custom` (the user's own) or `override` (the user's own, replacing the bundled profile with its ID).
 - `state`: `reading`, `not_running`, `unsupported` (its app runs in a build the profile does not list), `not_set_up` (every source of it needs an [integration](#integrations) that is not enabled, so its app is not read), `disabled`, `not_used` (another profile, the user's own, matches the same app), `clash` (another of the user's own does) or `broken` (the file cannot be read as a profile; `title`, `year` and `overlay` are then `null`). `reason` says why for `not_set_up`, `not_used`, `clash` and `broken`.
 
@@ -202,7 +216,7 @@ Changes the profile's settings and saves them. Send any of the fields below. A r
 
 - `input_language`: a `code` from `/v1/languages`.
 - `output_language`: a `code` from `/v1/languages`. Lines read from then on are prepared for it. If the profile's voice does not speak it, the voice becomes the one last chosen for that language, or else the first voice that speaks it; with no such voice, the voice stays.
-- `voice`: an `id` from `/v1/voices`. While the profile's app is read, switching starts a new speech process and the next line is spoken with the new voice; otherwise the voice is loaded when the app starts. The voice is also remembered for its language, in every profile.
+- `voice`: an `id` from `/v1/voices`. While the profile's app is read, switching starts a new TTS process and the next line is spoken with the new voice; otherwise the voice is loaded when the app starts. The voice is also remembered for its language, in every profile.
 - `ducking`: `true` or `false`, whether the app's sound is lowered while lines are spoken.
 - `duck_volume`: a number from 0 to 1, the app's volume while lines are spoken as a fraction of its own; while the app is read, applies at once, also while lowered.
 - `speech_rate`: a number from 0.5 to 2, how fast lines are spoken relative to the voice's own pace; applies from the next line.
@@ -247,7 +261,7 @@ Lists every integration, by ID, with its state now:
     {
       "id": "vlc",
       "name": "VLC integration",
-      "description": "Turns on VLC's web interface for this computer only, ...",
+      "description": "Turns on VLC’s web interface for this computer only, ...",
       "state": "disabled",
       "reason": null
     }
@@ -269,7 +283,7 @@ Voices and translation models the user can download, from download source plugin
 
 ### `GET /v1/downloads`
 
-Lists every source's entries in the languages ReflektorTTS supports, from the lists saved earlier; see `POST /v1/downloads/refresh` for fetching them again.
+Lists every source's entries, from the lists saved earlier; see `POST /v1/downloads/refresh` for fetching them again.
 
 ```json
 {
@@ -355,4 +369,4 @@ Clients should ignore event types and fields they do not know, so the API can gr
 
 ## Versioning
 
-Breaking changes get a new version prefix (`/v2`); `/v1` keeps working alongside it for a while. New fields, requests and event types can be added to `/v1`. Until the first release, `/v1` itself may still change.
+Breaking changes get a new version prefix (`/v2`); `/v1` keeps working alongside it for a while. New fields, requests and event types can be added to `/v1`.

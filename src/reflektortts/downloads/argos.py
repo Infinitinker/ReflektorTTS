@@ -13,7 +13,7 @@ from typing import Any
 from reflektortts.downloads import http
 from reflektortts.downloads.cache import cached, save
 from reflektortts.downloads.source import DownloadError, DownloadPlugin, Entry, Kind, Progress
-from reflektortts.languages import LANGUAGES
+from reflektortts.languages import ALIASES, LANGUAGES, primary_language
 from reflektortts.stages.translate.model import (
     ModelInstallError,
     Pair,
@@ -54,7 +54,7 @@ class ArgosModels:
                 id=f"{NAME}:{pair[0]}-{pair[1]}",
                 source_title=TITLE,
                 kind=Kind.TRANSLATION,
-                name=f"{package['from_name']} → {package['to_name']}",
+                name=f"{LANGUAGES[pair[0]].english_name} → {LANGUAGES[pair[1]].english_name}",
                 languages=pair,
                 size=sizes.get(package["links"][0]),
                 license=None,
@@ -79,38 +79,37 @@ class ArgosModels:
         remove_model(_pair(entry), self._models)
 
     def _index(self, refresh: bool) -> dict[Pair, dict[str, Any]]:
-        """The translation models between languages ReflektorTTS supports, by language pair."""
+        """The translation models between two languages ReflektorTTS knows, by language pair. A
+        package under a code that is an alias here (Argos' "pb" and "zt") is listed under the
+        language's code, unless the index has a package under that code too."""
         data = cached(self._cache / "index.json", lambda: self._fetch(INDEX_URL), refresh)
+        packages: dict[Pair, dict[str, Any]] = {}
         try:
-            return {
-                (package["from_code"], package["to_code"]): package
-                for package in json.loads(data)
-                if package["from_code"] in LANGUAGES
-                and package["to_code"] in LANGUAGES
-                and package["from_code"] != package["to_code"]
-                and package.get("links")
-            }
-        except (ValueError, KeyError, TypeError) as error:
+            for package in sorted(json.loads(data), key=_under_alias):
+                pair = primary_language(package["from_code"]), primary_language(package["to_code"])
+                if pair[0] in LANGUAGES and pair[1] in LANGUAGES and pair[0] != pair[1] and package.get("links"):
+                    packages.setdefault(pair, package)
+        except (ValueError, KeyError, TypeError, AttributeError) as error:
             raise DownloadError(
                 f"The list of Argos translation models is not in the expected format ({error})."
             ) from error
+        return packages
 
     def _sizes(self, packages: dict[Pair, dict[str, Any]], refresh: bool) -> dict[str, int]:
         """Each model's size by link, as its server reports it; asked once per link and kept."""
         path = self._cache / "sizes.json"
         sizes: dict[str, int] = json.loads(path.read_text("utf-8")) if path.is_file() else {}
-        asked = False
-        for package in packages.values():
-            link = package["links"][0]
-            if link in sizes or not refresh and path.is_file():
-                continue
-            size = self._size(link)
-            if size is not None:
-                sizes[link] = size
-                asked = True
+        if path.is_file() and not refresh:
+            return sizes
+        links = [link for package in packages.values() if (link := package["links"][0]) not in sizes]
+        asked = {link: size for link, size in zip(links, http.each(self._size, links), strict=True) if size is not None}
         if asked:
-            save(path, json.dumps(sizes).encode("utf-8"))
-        return sizes
+            save(path, json.dumps(sizes | asked).encode("utf-8"))
+        return sizes | asked
+
+
+def _under_alias(package: dict[str, Any]) -> bool:
+    return package["from_code"] in ALIASES or package["to_code"] in ALIASES
 
 
 def _pair(entry: Entry) -> Pair:

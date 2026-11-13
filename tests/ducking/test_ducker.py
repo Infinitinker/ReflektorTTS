@@ -1,3 +1,5 @@
+"""Lowering the app's sound while the narrator speaks, and bringing it back afterwards."""
+
 import logging
 import time
 from collections.abc import Callable, Iterator

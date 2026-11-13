@@ -5,22 +5,25 @@
   with one ReflektorTTS folder inside;
 - ReflektorTTS-<version>-sources.zip, the source code the release offers (see tools/sources.py).
 
-The folder holds ReflektorTTS.exe (the desktop app with its own Python, built by PyInstaller),
-reflektortts-panel.exe next to it (the settings window, from the 64-bit native build), the 32- and
-64-bit overlay builds, LICENSE.txt, COPYRIGHT.txt, THIRD_PARTY_NOTICES.txt and README.txt.
+The folder holds reflektortts.exe (the desktop app with its own Python, built by PyInstaller), the
+settings window in its panel folder (reflektortts-panel.exe, from the 64-bit native build), the 32-
+and 64-bit overlay builds, LICENSE.txt, COPYRIGHT.txt, THIRD-PARTY-NOTICES.txt and README.txt.
 
 PyInstaller does not see what ReflektorTTS finds only while it runs, so it is told: plugins are
 found through entry points (the package's metadata) and imported by name, the profiles, schemas
 and icon are data files, and some libraries bring native parts or data of their own.
 
-A release is built from a commit, which its README.txt names, so every change must be committed.
-Needs git, Inno Setup 7 (ISCC.exe in its usual folder, or set ISCC to it), the release extra and
-both native builds, with the overlays and the settings window (see native/README.md):
-    pip install -e .[release]
+A release is built from a commit, which its README.txt names, so every change must be committed,
+THIRD-PARTY-NOTICES.md included: it must be what tools/notices.py writes for the packages installed.
+Needs git, Inno Setup 7 (ISCC.exe in its usual folder, or set ISCC to it), the latest Visual C++
+Redistributable (x64), whose runtime DLLs the build takes from System32 (tools/msvc_runtime.py),
+the release extra and both native builds, with the overlays and the settings window (see
+native/README.md):
+    pip install -e .[release] -c tools/release-constraints.txt
 Run from the repository root:
     python tools/build_release.py           (a release)
-    python tools/build_release.py --draft   (to test: allows uncommitted changes and missing license
-                                             texts, marked in the files' names)
+    python tools/build_release.py --draft   (to test: allows uncommitted changes, missing license
+                                             texts and outdated notices, marked in the files' names)
 """
 
 import argparse
@@ -31,7 +34,15 @@ from importlib.metadata import metadata, version
 from pathlib import Path
 
 import PyInstaller.__main__
-from notices import notices, shipped_distributions
+from msvc_runtime import (
+    RuntimeSourceError,
+    check_versions,
+    install_runtime,
+    runtime_source,
+    source_versions,
+    system_path,
+)
+from notices import NOTICES, SHIPPED_AS, is_current, notices, shipped_distributions
 from packaging.version import Version
 from sources import check_sources, write_sources
 
@@ -39,10 +50,16 @@ ENTRY = Path("src/reflektortts/desktop/__main__.py")
 ICON = Path("src/reflektortts/desktop/icon.ico")
 BUILD = Path("build/release")
 NAME = "ReflektorTTS"
+"""The release's name: its files' names, its folder's and the product name in the exe."""
+EXE = "reflektortts"
+"""The program's file name, without .exe: lowercase, as the package's name."""
 OVERLAY_BUILDS = {"x86": Path("native/build/bin"), "x64": Path("native/build64/bin")}
 OVERLAY_FILES = ("reflektortts-overlay.dll", "reflektortts-inject.exe")
 PANEL = Path("native/build64/bin/reflektortts-panel.exe")
-"""The settings window, which the desktop app finds next to ReflektorTTS.exe."""
+PANEL_FOLDER = "panel"
+"""The settings window goes into this folder next to reflektortts.exe, where the desktop app finds it
+(RELEASE_FOLDER in desktop/panel/launcher.py), so the one program next to reflektortts.exe is not
+mistaken for one to start."""
 COLLECT = {
     "--copy-metadata": ["reflektortts"],
     "--collect-submodules": ["reflektortts", "num2words", "winrt"],
@@ -67,8 +84,6 @@ UNUSED = (
     "_internal/_sounddevice_data/portaudio-binaries/libportaudio32bit.dll",
     "_internal/_sounddevice_data/portaudio-binaries/libportaudioarm64.dll",
     "_internal/_sounddevice_data/portaudio-binaries/libportaudio.dylib",
-    "_internal/piper/hebrew/*.onnx",
-    "_internal/piper/tashkeel/*.onnx",
     "_internal/piper/img",
     "_internal/piper/templates",
     "_internal/PIL/_avif.*.pyd",
@@ -77,8 +92,7 @@ UNUSED = (
 )
 """Files and folders the collected packages bring that ReflektorTTS does not use, removed from the
 build: NVIDIA's cuDNN (translation runs on the CPU), PortAudio builds for ASIO (with Steinberg's SDK)
-and other systems, Piper's models that add vowel marks to Hebrew and Arabic text (ReflektorTTS
-offers English and Polish voices), the pages of Piper's web server, Pillow's AVIF and WebP formats (only the icon's
+and other systems, the pages of Piper's web server, Pillow's AVIF and WebP formats (only the icon's
 ICO and PNG are used; Pillow skips formats it cannot import), and the path of the folder the build
 was installed from."""
 COPYRIGHT = Path("COPYRIGHT")
@@ -92,22 +106,22 @@ README = """ReflektorTTS {version}
 Your apps, read aloud.
 
 Starting
-  Run ReflektorTTS.exe. Its icon appears next to the clock: right-click it to open the
+  Run reflektortts.exe. Its icon appears next to the clock: right-click it to open the
   window, pause reading or quit. Closing the window leaves ReflektorTTS running.
 
-  Start an app ReflektorTTS has a profile for (the window's Profiles tab lists them): its
+  Start an app ReflektorTTS has a profile for (the window’s Profiles tab lists them): its
   text is read aloud. In apps with the overlay, Ctrl+Shift+R opens the ReflektorTTS panel.
-  The Profiles tab's App settings... button opens the same settings in a window, for any
-  app, also while it isn't running.
+  The Profiles tab’s App settings… button opens the same settings in a window, for any
+  app, also while it isn’t running.
 
 Voices and translation
   Windows voices work right away. More voices and translation models are downloaded only
-  when you ask for them, in the window's Voices and Translations tabs.
+  when you ask for them, in the window’s Voices and Translations tabs.
 
 Your data
   Settings, downloaded voices and models, your own profiles and the logs are kept in
   %LOCALAPPDATA%\\ReflektorTTS, not in this folder. If you installed ReflektorTTS, run a
-  newer release's installer to update it, and Windows Settings > Apps removes it. From the zip, replace this
+  newer release’s installer to update it, and Windows Settings > Apps removes it. From the zip, replace this
   folder with a newer release to update, and delete this folder and that one to remove it.
 
 Antivirus
@@ -117,18 +131,18 @@ Antivirus
 
 Online games
   Use ReflektorTTS only in single-player and offline games. Anti-cheat software may treat
-  the overlay and reading a game's memory as cheating, which can get your account banned.
+  the overlay and reading a game’s memory as cheating, which can get your account banned.
 
 License
   ReflektorTTS is free software under the GPL-3.0-or-later (LICENSE.txt), with an additional
   permission for the libraries translation is built with (COPYRIGHT.txt).
   {copyright}.
-  The third-party software it includes, and their licenses: THIRD_PARTY_NOTICES.txt
+  The third-party software it includes, and their licenses: THIRD-PARTY-NOTICES.txt
 
 Source code
   This release is built from {source}, commit
   {commit}.
-  {sources}, on the release's page
+  {sources}, on the release’s page
   ({source}/releases/tag/v{version}), holds that source code and the source code
   of the third-party software under the GPL, LGPL or MPL that this release includes.
 """
@@ -136,13 +150,13 @@ Source code
 
 def version_info(release: str, copyright: str) -> str:
     """The exe's Windows version resource. Windows names the app by its file description, e.g. in
-    notifications; without one it shows the file name, ReflektorTTS.exe."""
+    notifications; without one it shows the file name, reflektortts.exe."""
     numbers = version_numbers(release)
     strings = {
         "FileDescription": NAME,
         "ProductName": NAME,
-        "InternalName": NAME,
-        "OriginalFilename": f"{NAME}.exe",
+        "InternalName": EXE,
+        "OriginalFilename": f"{EXE}.exe",
         "FileVersion": release,
         "ProductVersion": release,
         "LegalCopyright": copyright,
@@ -215,14 +229,15 @@ def write_hooks(folder: Path) -> Path:
 
 
 def build_exe(release: str, copyright: str) -> Path:
-    """Runs PyInstaller; returns the folder it built."""
+    """Runs PyInstaller; returns the folder it built, named as the release (PyInstaller names it as
+    the exe)."""
     BUILD.mkdir(parents=True, exist_ok=True)
     version_file = BUILD / "version.txt"
     version_file.write_text(version_info(release, copyright), "utf-8")
     hooks = write_hooks(BUILD / "hooks")
     arguments = [
         str(ENTRY),
-        f"--name={NAME}",
+        f"--name={EXE}",
         "--windowed",
         "--onedir",
         "--noconfirm",
@@ -237,8 +252,15 @@ def build_exe(release: str, copyright: str) -> Path:
     ]
     for option, packages in COLLECT.items():
         arguments += [f"{option}={package}" for package in packages]
-    PyInstaller.__main__.run(arguments)
-    return BUILD / "dist" / NAME
+    # PyInstaller looks for the DLLs binaries import on PATH too: only the Windows folders, so nothing
+    # else installed on the build machine is taken (tools/msvc_runtime.py).
+    path = os.environ["PATH"]
+    os.environ["PATH"] = system_path()
+    try:
+        PyInstaller.__main__.run(arguments)
+    finally:
+        os.environ["PATH"] = path
+    return (BUILD / "dist" / EXE).rename(BUILD / "dist" / NAME)
 
 
 def remove_unused(folder: Path) -> None:
@@ -283,11 +305,13 @@ def copy_overlay(folder: Path) -> None:
 def copy_panel(folder: Path) -> None:
     if not PANEL.is_file():
         raise SystemExit(f"Build the settings window first (see native/README.md): {PANEL} is missing.")
-    shutil.copy2(PANEL, folder / PANEL.name)
+    target = folder / PANEL_FOLDER
+    target.mkdir(exist_ok=True)
+    shutil.copy2(PANEL, target / PANEL.name)
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Builds a portable release of ReflektorTTS.")
+    parser = argparse.ArgumentParser(description="Builds the release files of ReflektorTTS.")
     parser.add_argument("--draft", action="store_true", help="a build to test, not to publish")
     draft = parser.parse_args().draft
     release = version("reflektortts")
@@ -296,16 +320,25 @@ def main() -> None:
     compiler = iscc()
     copyright = copyright_line()
     third_party = notices("reflektortts", draft)
+    if not draft and not is_current(third_party):
+        raise SystemExit(f"{NOTICES} is out of date: run python tools/notices.py, then commit it.")
     packages = shipped_distributions("reflektortts")
     check_sources(packages)
     mark = "-draft" if draft else ""
     sources = f"{NAME}-{release}-sources.zip"
 
-    folder = build_exe(release, copyright)
-    remove_unused(folder)
+    runtime_folder = runtime_source()
+    try:
+        check_versions(source_versions(runtime_folder), None)  # Before the long build, what is missing at least.
+        folder = build_exe(release, copyright)
+        remove_unused(folder)
+        runtime = install_runtime(folder / "_internal", runtime_folder)
+    except RuntimeSourceError as error:
+        raise SystemExit(str(error)) from error
+    print(f"Visual C++ runtime {'.'.join(map(str, runtime))} from {runtime_folder}")
     copy_overlay(folder)
     copy_panel(folder)
-    (folder / "THIRD_PARTY_NOTICES.txt").write_text(third_party, "utf-8", newline="\r\n")
+    (folder / SHIPPED_AS).write_text(third_party, "utf-8", newline="\r\n")
     for name in ("LICENSE", "COPYRIGHT"):
         (folder / f"{name}.txt").write_text(Path(name).read_text("utf-8"), "utf-8", newline="\r\n")
     readme = README.format(version=release, source=source, copyright=copyright, commit=commit, sources=sources)

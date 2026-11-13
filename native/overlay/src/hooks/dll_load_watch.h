@@ -1,3 +1,6 @@
+// Wakes the overlay when the app loads a DLL, so each graphics API is hooked as soon as its DLL
+// arrives.
+
 #pragma once
 
 #include <windows.h>

@@ -1,3 +1,5 @@
+"""vlcrc, VLC's settings file: where it is, and editing and restoring its lines while keeping every other byte."""
+
 from pathlib import Path
 
 import platformdirs

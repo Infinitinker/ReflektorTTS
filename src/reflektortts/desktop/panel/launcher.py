@@ -1,10 +1,10 @@
-"""Opens the settings window, reflektortts-panel: the overlay's settings panel for one profile, in a
+"""Opens the settings window, reflektortts-panel: the settings panel for one profile, in a
 window of its own, so an app can be set up whether or not it runs, and also apps without the overlay.
 
-The window is a program of its own (C++, see native/README.md), started with --profile <id>, and
-the --dock-* arguments that open it beside the desktop app's window (dock.py). Each profile has at
-most one: asking again while it is open brings it to the front. ReflektorTTS closes them all when it
-quits, since they only work while it runs."""
+The window is a program of its own (C++, see native/README.md), started with --profile <id>, the
+--port of the local API to connect to, and the --dock-* arguments that open it beside the desktop
+app's window (dock.py). Each profile has at most one: asking again while it is open brings it to the
+front. ReflektorTTS closes them all when it quits, since they only work while it runs."""
 
 import logging
 import subprocess
@@ -17,6 +17,9 @@ from reflektortts.desktop.panel.dock import Dock
 from reflektortts.desktop.panel.win32_windows import bring_to_front
 
 PROGRAM = "reflektortts-panel.exe" if sys.platform == "win32" else "reflektortts-panel"
+RELEASE_FOLDER = "panel"
+"""Where a release keeps the program, in a folder next to reflektortts.exe, so that the one program
+in the release's own folder is the one users start (tools/build_release.py puts it there)."""
 
 logger = logging.getLogger(__name__)
 
@@ -41,10 +44,10 @@ def start_process(command: list[str]) -> Process:
 
 
 def find_program(overlay: Sequence[Path]) -> Path | None:
-    """The settings window's program: in a release (a frozen ReflektorTTS.exe), next to
-    ReflektorTTS.exe; run from source, in the first overlay build folder that has it (the 64-bit
-    build makes it). None where it is not found."""
-    folders = [Path(sys.executable).parent] if getattr(sys, "frozen", False) else list(overlay)
+    """The settings window's program: in a release (a frozen reflektortts.exe), in the panel folder
+    next to reflektortts.exe; run from source, in the first overlay build folder that has it (the
+    64-bit build makes it). None where it is not found."""
+    folders = [Path(sys.executable).parent / RELEASE_FOLDER] if getattr(sys, "frozen", False) else list(overlay)
     return next((folder / PROGRAM for folder in folders if (folder / PROGRAM).is_file()), None)
 
 
@@ -52,22 +55,28 @@ def missing_text() -> str:
     """Why there is no settings window, in a sentence for the status bar."""
     if getattr(sys, "frozen", False):
         return (
-            f"The settings window, {PROGRAM}, is missing from ReflektorTTS's folder: "
+            f"The settings window, {PROGRAM}, is missing from the panel folder in ReflektorTTS’s folder: "
             "install or unpack ReflektorTTS again."
         )
     if sys.platform != "win32":
         return "The settings window is not available on this system yet."
-    return "The settings window isn't built, or no --overlay folder has it: see native/README.md."
+    return "The settings window isn’t built, or no --overlay folder has it: see native/README.md."
 
 
 class PanelWindows:
     """The open settings windows, at most one per profile."""
 
     def __init__(
-        self, program: Path | None, launch: Launcher = start_process, to_front: Fronter = bring_to_front
+        self,
+        program: Path | None,
+        api_port: int,
+        launch: Launcher = start_process,
+        to_front: Fronter = bring_to_front,
     ) -> None:
-        """program: the settings window's program, None where there is none."""
+        """program: the settings window's program, None where there is none. api_port: the local
+        API's, which the windows connect to."""
         self._program = program
+        self._api_port = api_port
         self._launch = launch
         self._to_front = to_front
         self._open: dict[str, Process] = {}
@@ -90,7 +99,7 @@ class PanelWindows:
             if not self._to_front(running.pid):
                 logger.info("Cannot bring the settings window for %s to the front", profile)
             return
-        command = [str(self._program), "--profile", profile]
+        command = [str(self._program), "--profile", profile, "--port", str(self._api_port)]
         where = dock() if dock is not None else None
         if where is not None:
             command += where.arguments()

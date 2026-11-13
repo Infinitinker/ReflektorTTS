@@ -1,10 +1,11 @@
 {
-  "version": 1,
+  "version": 2,
   "app": {
     "title": "Grand Theft Auto: Vice City",
     "year": 2002
   },
-  "rating": "bronze",
+  "rating": "platinum",
+  "tested_languages": ["en", "pl"],
   "match": {
     "executables": [
       {

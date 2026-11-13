@@ -1,21 +1,21 @@
 name: Build Windows app
 
-# Builds the Windows release files: the installer, the portable zip and the sources zip, each kept on
+# Builds the Windows release files: the installer, the Windows zip and the sources zip, each kept on
 # the run's page under its release file name, and checks them. The Release workflow (release.yml)
 # calls it and drafts the release from them; run on its own, it shows early that a change still builds.
 #
-# It runs on every push to dev and main (a merged pull request is a push to main), from the Release
-# workflow, on demand, and for pull requests other than those from this repository's dev and main,
-# whose pushes are built already (so Dependabot's pull requests and other branches get a build too).
-# It is not a required status check: the Checks workflow (checks.yml) is.
+# It runs for every pull request (also Dependabot's and those from forks), from the Release workflow,
+# and on demand (Actions > Build Windows app > Run workflow, on any branch); not for pushes, so a
+# change is built once, in its pull request, rather than on every push to dev. Its build job is a
+# required status check of the main branch ruleset, with the Checks workflow's jobs ("Branches" in
+# docs/development.md).
 on:
-  push:
-    branches: [main, dev]
   pull_request:
   workflow_dispatch:
   workflow_call:
 
-# A newer push cancels the build still going for the older one; a release's build is never cut short.
+# A newer push to a pull request cancels the build still going for the older one; a release's build
+# is never cut short.
 # Called from release.yml, github.workflow is "Release".
 concurrency:
   group: build-windows-${{ github.workflow }}-${{ github.ref }}
@@ -31,45 +31,40 @@ env:
 
 jobs:
   build:
-    # A fork can have a branch named dev too, so forks are always built.
-    if: >-
-      github.event_name != 'pull_request' ||
-      github.event.pull_request.head.repo.fork || (github.head_ref != 'dev' && github.head_ref != 'main')
-    name: Build (windows-x64)
+    name: Windows build (x64)
     runs-on: windows-latest
     timeout-minutes: 60
     outputs:
       # The three files, so the check downloads exactly these, whatever else the run builds.
-      artifacts: ${{ steps.setup.outputs.artifact-id }},${{ steps.portable.outputs.artifact-id }},${{ steps.sources.outputs.artifact-id }}
+      artifacts: ${{ steps.setup.outputs.artifact-id }},${{ steps.windows-zip.outputs.artifact-id }},${{ steps.sources.outputs.artifact-id }}
     steps:
       - uses: actions/checkout@v7
 
       # Both toolchains, as in native/README.md: the 32-bit overlay is for 32-bit apps. MSYS2 calls
       # MINGW32 deprecated, with no replacement for 32-bit builds, and only warns about it.
-      - uses: msys2/setup-msys2@v2
+      - uses: ./.github/actions/msys2
         with:
-          msystem: MINGW64
-          install: >-
-            git
-            mingw-w64-i686-toolchain mingw-w64-i686-cmake mingw-w64-i686-ninja
-            mingw-w64-x86_64-toolchain mingw-w64-x86_64-cmake mingw-w64-x86_64-ninja
+          packages: mingw-w64-i686-toolchain mingw-w64-i686-cmake mingw-w64-i686-ninja
+      # The presets in native/CMakePresets.json, into native/build and native/build64, where
+      # tools/build_release.py looks for the files.
       - name: Build the 32-bit overlay
         shell: msys2 {0}
         env:
           MSYSTEM: MINGW32
         run: |
-          cmake -S native -B native/build -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake -S native --preset release-x86
           cmake --build native/build
       - name: Build the 64-bit overlay and the settings window
         shell: msys2 {0}
         run: |
-          cmake -S native -B native/build64 -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake -S native --preset release
           cmake --build native/build64
 
-      - uses: actions/setup-python@v7
+      # The exact Python a release ships, as THIRD-PARTY-NOTICES.md holds its license; changed together
+      # with tools/release-constraints.txt and the notices.
+      - uses: ./.github/actions/python
         with:
-          python-version: "3.13"
-          cache: pip
+          python-version: "3.13.16"
           cache-dependency-path: tools/release-constraints.txt
       - name: Install
         run: python -m pip install -e .[release] -c tools/release-constraints.txt
@@ -95,7 +90,7 @@ jobs:
           path: build/release/*-windows-x64-setup.exe
           archive: false
           if-no-files-found: error
-      - id: portable
+      - id: windows-zip
         uses: actions/upload-artifact@v7
         with:
           path: build/release/*-windows-x64.zip
@@ -109,9 +104,9 @@ jobs:
           if-no-files-found: error
 
   files:
-    name: Check the files
+    name: Windows release files
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7

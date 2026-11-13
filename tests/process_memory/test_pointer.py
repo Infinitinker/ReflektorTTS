@@ -1,3 +1,5 @@
+"""Pointer chains in Cheat Engine notation: parsing them, picking one by the executable's hash, and following it."""
+
 import pytest
 
 from reflektortts.process_memory.memory import MemoryReadError, ProcessMemoryError
@@ -73,13 +75,18 @@ def test_null_pointer_means_no_text_yet() -> None:
 
 
 def test_missing_module_is_an_error() -> None:
-    with pytest.raises(ProcessMemoryError, match="gta2.exe is not loaded"):
+    with pytest.raises(
+        ProcessMemoryError, match="gta2.exe is not loaded in the app yet: if this lasts, the profile may not fit"
+    ):
         resolve(FakeMemory({}, {}), Address("gta2.exe", 0x10), [0xE4])
 
 
 def test_unreadable_pointer_is_an_error() -> None:
-    with pytest.raises(MemoryReadError, match="400010"):
+    with pytest.raises(MemoryReadError, match="profile may not fit this version") as raised:
         resolve(FakeMemory({}, {"gta2.exe": 0x400000}), Address("gta2.exe", 0x10), [0xE4])
+
+    assert "400010" not in str(raised.value)
+    assert "400010" in str(raised.value.__cause__)
 
 
 def test_64_bit_pointers() -> None:

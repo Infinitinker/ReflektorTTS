@@ -1,3 +1,7 @@
+// Code hooks through MinHook, checked every half second and put back in front when another overlay
+// cuts them out of the chain (as RivaTuner Statistics Server does), and the overlay DLL's address
+// range, to tell its own calls apart.
+
 #include "hooks/code_hook.h"
 
 #include <MinHook.h>
@@ -6,12 +10,16 @@
 #include <cstdint>
 #include <cstring>
 #include <mutex>
+#include <span>
 #include <string>
 #include <unordered_map>
 #include <vector>
 
 #include "diagnostics/describe_address.h"
 #include "log.h"
+#include "memory/addresses.h"
+#include "memory/functions.h"
+#include "memory/pe_image.h"
 
 namespace reflektortts {
 namespace {
@@ -46,26 +54,34 @@ CodeBytes read_code(const void* address) {
 // The jumps hooking libraries write: E9 rel32, FF 25 (indirect, through [rip+disp32] on 64-bit and
 // [disp32] on 32-bit), and the short EB rel8 of hot-patching.
 bool is_jump(const CodeBytes& code) {
-    return code[0] == 0xE9 || code[0] == 0xEB || (code[0] == 0xFF && code[1] == 0x25);
+    std::uint8_t first = std::get<0>(code);
+    std::uint8_t second = std::get<1>(code);
+    return first == 0xE9 || first == 0xEB || (first == 0xFF && second == 0x25);
+}
+
+// The 32-bit value at offset in code: a jump's displacement or address.
+std::int32_t value_at(const CodeBytes& code, std::size_t offset) {
+    std::int32_t value = 0;
+    std::memcpy(&value, std::span(code).subspan(offset, sizeof(value)).data(), sizeof(value));
+    return value;
 }
 
 // Where the jump in code, found at address, leads; nullptr for a short jump, which only reaches a
 // longer one next to it.
-void* jump_destination(const CodeBytes& code, std::uint8_t* address) {
-    std::int32_t value = 0;
-    if (code[0] == 0xE9) {
-        std::memcpy(&value, &code[1], sizeof(value));
-        return address + 5 + value;
+void* jump_destination(const CodeBytes& code, const void* address) {
+    std::uint8_t first = std::get<0>(code);
+    std::uint8_t second = std::get<1>(code);
+    if (first == 0xE9) {
+        return pointer_at<void>(displaced(address_of(address) + 5, value_at(code, 1)));
     }
-    if (code[0] == 0xFF && code[1] == 0x25) {
-        std::memcpy(&value, &code[2], sizeof(value));
+    if (first == 0xFF && second == 0x25) {
 #ifdef _WIN64
-        auto slot = address + 6 + value;
+        const void* slot = pointer_at<const void>(displaced(address_of(address) + 6, value_at(code, 2)));
 #else
-        auto slot = reinterpret_cast<std::uint8_t*>(static_cast<std::uint32_t>(value));
+        const void* slot = pointer_at<const void>(static_cast<std::uint32_t>(value_at(code, 2)));
 #endif
         void* destination = nullptr;
-        ReadProcessMemory(GetCurrentProcess(), slot, &destination, sizeof(destination), nullptr);
+        ReadProcessMemory(GetCurrentProcess(), slot, static_cast<void*>(&destination), sizeof(destination), nullptr);
         return destination;
     }
     return nullptr;
@@ -83,7 +99,8 @@ bool install(void* target, void* detour, void** original) {
         return false;
     }
     g_trampolines[target] = *original;
-    g_watched.push_back({target, detour, original, replaced, read_code(target)});
+    g_watched.push_back(
+        {.target = target, .detour = detour, .original = original, .replaced = replaced, .written = read_code(target)});
     return true;
 }
 
@@ -95,20 +112,21 @@ bool install(void* target, void* detour, void** original) {
 // function. A jump of another kind belongs to an overlay that hooked after us, whose chain still
 // runs through ours, so that is left alone.
 void restore_cut_hooks() {
-    std::lock_guard lock(g_mutex);
-    // By index and by copy: install adds entries as it goes.
-    for (std::size_t i = 0; i < g_watched.size(); ++i) {
-        if (!g_watched[i].watched) {
+    std::scoped_lock lock(g_mutex);
+    // By index and by copy: install adds entries as it goes, which can move the vector's elements, so
+    // a range-based loop, as clang-tidy's modernize-loop-convert would have it, would read freed memory.
+    for (std::size_t i = 0; i < g_watched.size(); ++i) {  // NOLINT(modernize-loop-convert)
+        WatchedHook& watched = g_watched.at(i);  // Used only until install below adds an entry.
+        if (!watched.watched) {
             continue;
         }
-        CodeBytes current = read_code(g_watched[i].target);
-        if (current == g_watched[i].written || (is_jump(current) && current != g_watched[i].replaced)) {
+        CodeBytes current = read_code(watched.target);
+        if (current == watched.written || (is_jump(current) && current != watched.replaced)) {
             continue;
         }
-        WatchedHook cut = g_watched[i];
-        g_watched[i].watched = false;  // Settled either way; a new hook gets an entry of its own.
-        auto* target = static_cast<std::uint8_t*>(cut.target);
-        void* destination = is_jump(cut.replaced) ? jump_destination(cut.replaced, target) : nullptr;
+        WatchedHook cut = watched;
+        watched.watched = false;  // Settled either way; a new hook gets an entry of its own.
+        void* destination = is_jump(cut.replaced) ? jump_destination(cut.replaced, cut.target) : nullptr;
         void* trampoline = nullptr;
         if (destination == nullptr || g_trampolines.contains(destination) ||
             !install(destination, cut.detour, &trampoline)) {
@@ -139,10 +157,9 @@ struct ModuleRange {
 
 ModuleRange overlay_range() {
     static const ModuleRange range = [] {
-        auto base = reinterpret_cast<std::uintptr_t>(overlay_module());
-        auto dos = reinterpret_cast<const IMAGE_DOS_HEADER*>(base);
-        auto nt = reinterpret_cast<const IMAGE_NT_HEADERS*>(base + dos->e_lfanew);
-        return ModuleRange{base, base + nt->OptionalHeader.SizeOfImage};
+        std::uintptr_t base = address_of(overlay_module());
+        const IMAGE_NT_HEADERS& headers = pe_headers(pointer_at<const BYTE>(base));
+        return ModuleRange{.begin = base, .end = base + headers.OptionalHeader.SizeOfImage};
     }();
     return range;
 }
@@ -150,7 +167,7 @@ ModuleRange overlay_range() {
 }  // namespace
 
 bool hook_function(void* target, void* detour, void** original) {
-    std::lock_guard lock(g_mutex);
+    std::scoped_lock lock(g_mutex);
     if (auto hooked = g_trampolines.find(target); hooked != g_trampolines.end()) {
         *original = hooked->second;
         return true;
@@ -176,7 +193,7 @@ bool hook_function(void* target, void* detour, void** original) {
 }
 
 bool is_overlay_code(const void* address) {
-    auto value = reinterpret_cast<std::uintptr_t>(address);
+    std::uintptr_t value = address_of(address);
     ModuleRange range = overlay_range();
     return value >= range.begin && value < range.end;
 }
@@ -185,7 +202,7 @@ HMODULE overlay_module() {
     static const HMODULE module = [] {
         HMODULE handle = nullptr;
         GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
-                           reinterpret_cast<LPCWSTR>(&overlay_module), &handle);
+                           static_cast<LPCWSTR>(code_address(&overlay_module)), &handle);
         return handle;
     }();
     return module;

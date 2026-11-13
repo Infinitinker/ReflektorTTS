@@ -1,3 +1,5 @@
+"""Finding a glossary's terms in text: in each spelling, in capitals, and as whole words only."""
+
 from reflektortts.glossary import GlossaryTerm, TermFinder
 
 SMOKE = GlossaryTerm("Big Smoke", keep=True, other_spellings=("Big smoke",))

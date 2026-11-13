@@ -9,7 +9,8 @@ import logging
 from collections.abc import Callable
 from pathlib import Path
 
-from reflektortts.sources.avalanche.archives import Archive, ArchiveEntry, ArchiveError
+from reflektortts.languages import language_name
+from reflektortts.sources.avalanche.archives import Archive, ArchiveEntry, ArchiveError, damaged
 from reflektortts.sources.avalanche.bundles import HEADER_SIZE, BundleError, bundle_files, is_bundle, table_size
 from reflektortts.sources.avalanche.lookup3 import hashlittle
 from reflektortts.sources.avalanche.stringlookup import StringLookupError, is_adf, read_stringlookup
@@ -18,8 +19,20 @@ logger = logging.getLogger(__name__)
 
 ARCHIVE_FOLDERS = ("archives_win64", "dlc_win64", "patch_win64")
 """Folders of a game's archives, those that replace files of others last."""
-LANGUAGE_SUFFIXES = {"en": "eng", "pl": "pol"}
-"""Our languages (ISO 639-1) to the suffixes of the game's text files."""
+LANGUAGE_SUFFIXES = {
+    "de": "ger",
+    "en": "eng",
+    "es": "spa",
+    "fr": "fre",
+    "it": "ita",
+    "ja": "jpn",
+    "pl": "pol",
+    "pt": "brp",
+    "ru": "rus",
+}
+"""The languages of Mad Max's text (ISO 639-1) to the suffixes of its text files: mostly ISO 639-2
+codes, but "brp" is Brazilian Portuguese. Spanish is "spa", the Spanish of Spain; the game's Latin
+American Spanish ("nsp") is not read."""
 SUFFIX = ".stringlookup"
 
 
@@ -35,11 +48,16 @@ def archive_tables(game_dir: Path) -> list[Path]:
 def read_text(game_dir: Path, language: str, stopped: Callable[[], bool] = lambda: False) -> dict[int, str]:
     """Line ID to text, for every line of dialogue in language (one of LANGUAGE_SUFFIXES)."""
     suffix = f"_{LANGUAGE_SUFFIXES[language]}{SUFFIX}"
-    tabs = archive_tables(game_dir)
-    if not tabs:
-        raise ArchiveError(f"No game archives in {game_dir}: is this the game's folder?")
-    archives = [Archive(tab) for tab in tabs]
     try:
+        tabs = archive_tables(game_dir)
+    except OSError as error:
+        raise ArchiveError(damaged(game_dir.name)) from error
+    if not tabs:
+        raise ArchiveError(f"No game archives in {game_dir}: is this the game’s folder?")
+    archives: list[Archive] = []
+    try:
+        for tab in tabs:
+            archives.append(Archive(tab))
         files: dict[int, tuple[Archive, ArchiveEntry]] = {}
         tables: dict[str, dict[int, str]] = {}
         for archive in archives:
@@ -54,6 +72,8 @@ def read_text(game_dir: Path, language: str, stopped: Callable[[], bool] = lambd
                 table = _standalone_table(*found, name)
                 if table is not None:
                     tables[name] = table
+        if not tables:
+            raise ArchiveError(f"The game’s files have no text in {language_name(language)}: is the game complete?")
         lines: dict[int, str] = {}
         for table in tables.values():
             lines.update(table)

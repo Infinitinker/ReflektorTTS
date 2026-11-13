@@ -1,3 +1,5 @@
+"""The tables' helpers: a flat table's rows lose the expand arrow."""
+
 from reflektortts.desktop.widgets.tables import _without_indicator
 
 

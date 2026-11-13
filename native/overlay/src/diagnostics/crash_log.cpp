@@ -1,13 +1,17 @@
+// Logs where the app crashed, from an exception handler that runs before the app's own: the
+// exception, the module and offset of the crashing code, and the call stack in 64-bit apps.
+
 #include "diagnostics/crash_log.h"
 
 #include <windows.h>
 
 #include <atomic>
-#include <cstdio>
+#include <format>
 #include <string>
 
 #include "diagnostics/describe_address.h"
 #include "log.h"
+#include "memory/addresses.h"
 
 namespace reflektortts {
 namespace {
@@ -35,12 +39,12 @@ constexpr int kMaxLoggedFrames = 12;
 // Walks the stack from the crash, as a debugger would, using the unwind data of 64-bit code.
 void log_call_stack(CONTEXT context) {
     for (int frame = 0; frame < kMaxLoggedFrames && context.Rip != 0; ++frame) {
-        log_message("  called from " + describe_address(reinterpret_cast<const void*>(context.Rip)));
+        log_message("  called from " + describe_address(pointer_at<const void>(context.Rip)));
         DWORD64 image_base = 0;
         RUNTIME_FUNCTION* function = RtlLookupFunctionEntry(context.Rip, &image_base, nullptr);
         if (function == nullptr) {
             // A leaf function: the return address is on top of the stack.
-            context.Rip = *reinterpret_cast<DWORD64*>(context.Rsp);
+            context.Rip = *pointer_at<const DWORD64>(context.Rsp);
             context.Rsp += sizeof(DWORD64);
         } else {
             void* handler_data = nullptr;
@@ -57,13 +61,10 @@ LONG CALLBACK log_crash(EXCEPTION_POINTERS* exception) {
     if (!is_crash(record->ExceptionCode) || g_logged++ >= kMaxLoggedCrashes) {
         return EXCEPTION_CONTINUE_SEARCH;
     }
-    char text[64];
     // For access violations, the second parameter is the address that could not be read or written.
-    std::snprintf(text, sizeof(text), ", data address %p",
-                  record->NumberParameters > 1 ? reinterpret_cast<void*>(record->ExceptionInformation[1]) : nullptr);
-    char code[32];
-    std::snprintf(code, sizeof(code), "Exception 0x%08lX at ", record->ExceptionCode);
-    log_message(code + describe_address(record->ExceptionAddress) + text);
+    ULONG_PTR data_address = record->NumberParameters > 1 ? record->ExceptionInformation[1] : 0;
+    log_message(std::format("Exception 0x{:08X} at {}, data address 0x{:X}", record->ExceptionCode,
+                            describe_address(record->ExceptionAddress), data_address));
 #ifdef _WIN64
     log_call_stack(*exception->ContextRecord);
 #endif

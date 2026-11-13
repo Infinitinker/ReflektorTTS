@@ -1,12 +1,18 @@
+// Hooks keyboard and mouse reads of DirectInput 8 and 1-7 devices, found through throwaway devices:
+// while input is blocked, the app reads no keys pressed, a still mouse, and of buffered events only
+// key and button releases.
+
 #include "input/dinput_hook.h"
 
 #define DIRECTINPUT_VERSION 0x0800
 #include <dinput.h>
 
 #include <array>
+#include <cstddef>
 #include <cstring>
 #include <initializer_list>
 #include <mutex>
+#include <span>
 #include <string>
 #include <utility>
 
@@ -14,6 +20,9 @@
 #include "hooks/vtable_hook.h"
 #include "input/blocking.h"
 #include "log.h"
+#include "memory/addresses.h"
+#include "memory/exported_function.h"
+#include "memory/functions.h"
 
 namespace reflektortts {
 namespace {
@@ -23,10 +32,10 @@ using ReleaseFn = ULONG(STDMETHODCALLTYPE*)(void* object);
 using GetCapabilitiesFn = HRESULT(STDMETHODCALLTYPE*)(void* device, DIDEVCAPS* capabilities);
 using GetDeviceStateFn = HRESULT(STDMETHODCALLTYPE*)(void* device, DWORD size, void* data);
 using GetDeviceDataFn = HRESULT(STDMETHODCALLTYPE*)(void* device, DWORD object_size, DIDEVICEOBJECTDATA* data,
-                                                     DWORD* count, DWORD flags);
+                                                    DWORD* count, DWORD flags);
 using CreateDeviceFn = HRESULT(STDMETHODCALLTYPE*)(void* input, REFGUID kind, void** device, IUnknown* outer);
 using CreateDeviceExFn = HRESULT(STDMETHODCALLTYPE*)(void* input, REFGUID kind, REFIID iid, void** device,
-                                                      IUnknown* outer);
+                                                     IUnknown* outer);
 using CreateInputFn = HRESULT(WINAPI*)(HINSTANCE instance, DWORD version, REFIID iid, void** input, IUnknown* outer);
 
 constexpr int kReleaseIndex = 2;
@@ -50,21 +59,17 @@ struct HookedVtable {
     GetDeviceStateFn get_device_state = nullptr;
     GetDeviceDataFn get_device_data = nullptr;
 };
-constexpr int kMaxVtables = 8;
-HookedVtable g_hooked[kMaxVtables];
-int g_hooked_count = 0;
+constexpr std::size_t kMaxVtables = 8;
+std::array<HookedVtable, kMaxVtables> g_hooked;
+std::size_t g_hooked_count = 0;
 std::mutex g_install_mutex;
-
-void** vtable_of(void* object) {
-    return *static_cast<void***>(object);
-}
 
 enum class DeviceKind { other, keyboard, mouse };
 
 DeviceKind device_kind(void* device) {
     DIDEVCAPS capabilities{};
     capabilities.dwSize = sizeof(capabilities);
-    auto get_capabilities = reinterpret_cast<GetCapabilitiesFn>(vtable_of(device)[kGetCapabilitiesIndex]);
+    auto get_capabilities = method_of<GetCapabilitiesFn>(device, kGetCapabilitiesIndex);
     if (FAILED(get_capabilities(device, &capabilities))) {
         return DeviceKind::other;
     }
@@ -86,7 +91,7 @@ HRESULT get_device_state(GetDeviceStateFn original, void* device, DWORD size, vo
 // A release of a key or mouse button: the high bit of the event's data is clear.
 bool is_release(DeviceKind kind, const DIDEVICEOBJECTDATA& event) {
     bool button = kind == DeviceKind::keyboard || (event.dwOfs >= DIMOFS_BUTTON0 && event.dwOfs <= DIMOFS_BUTTON7);
-    return button && (event.dwData & 0x80) == 0;
+    return button && (event.dwData & 0x80U) == 0;
 }
 
 // Events are still read, so they do not pile up and reach the app after the panel closes.
@@ -104,12 +109,13 @@ HRESULT get_device_data(GetDeviceDataFn original, void* device, DWORD object_siz
     if (kind == DeviceKind::other) {
         return result;
     }
-    auto* events = reinterpret_cast<BYTE*>(data);
+    std::span<BYTE> events(bytes_of(data), static_cast<std::size_t>(*count) * object_size);
     DWORD kept = 0;
     for (DWORD i = 0; i < *count; ++i) {
-        BYTE* event = events + i * object_size;
-        if (is_release(kind, *reinterpret_cast<const DIDEVICEOBJECTDATA*>(event))) {
-            std::memmove(events + kept * object_size, event, object_size);
+        std::span<BYTE> event = events.subspan(static_cast<std::size_t>(i) * object_size, object_size);
+        if (is_release(kind, *object_at<const DIDEVICEOBJECTDATA>(event.data()))) {
+            std::memmove(events.subspan(static_cast<std::size_t>(kept) * object_size).data(), event.data(),
+                         object_size);
             ++kept;
         }
     }
@@ -118,18 +124,18 @@ HRESULT get_device_data(GetDeviceDataFn original, void* device, DWORD object_siz
 }
 
 void release(void* object) {
-    reinterpret_cast<ReleaseFn>(vtable_of(object)[kReleaseIndex])(object);
+    method_of<ReleaseFn>(object, kReleaseIndex)(object);
 }
 
-template <int N>
+template <std::size_t N>
 HRESULT STDMETHODCALLTYPE get_device_state_detour(void* device, DWORD size, void* data) {
-    return get_device_state(g_hooked[N].get_device_state, device, size, data);
+    return get_device_state(std::get<N>(g_hooked).get_device_state, device, size, data);
 }
 
-template <int N>
+template <std::size_t N>
 HRESULT STDMETHODCALLTYPE get_device_data_detour(void* device, DWORD object_size, DIDEVICEOBJECTDATA* data,
                                                  DWORD* count, DWORD flags) {
-    return get_device_data(g_hooked[N].get_device_data, device, object_size, data, count, flags);
+    return get_device_data(std::get<N>(g_hooked).get_device_data, device, object_size, data, count, flags);
 }
 
 template <std::size_t... N>
@@ -141,9 +147,9 @@ constexpr auto kDetours = make_detours(std::make_index_sequence<kMaxVtables>());
 
 void hook_device_vtable(void* device) {
     void** vtable = vtable_of(device);
-    int count = g_hooked_count;
-    for (int i = 0; i < count; ++i) {
-        if (g_hooked[i].vtable == vtable) {
+    std::size_t count = g_hooked_count;
+    for (const HookedVtable& hooked : std::span(g_hooked).first(count)) {
+        if (hooked.vtable == vtable) {
             return;
         }
     }
@@ -152,11 +158,11 @@ void hook_device_vtable(void* device) {
         return;
     }
     // hook_method stores each original before anything can call the detour that uses it.
-    HookedVtable& entry = g_hooked[count];
+    HookedVtable& entry = g_hooked.at(count);
     entry.vtable = vtable;
     g_hooked_count = count + 1;
-    if (!hook_method(vtable, kGetDeviceStateIndex, kDetours.first[count], &entry.get_device_state) ||
-        !hook_method(vtable, kGetDeviceDataIndex, kDetours.second[count], &entry.get_device_data)) {
+    if (!hook_method(vtable, kGetDeviceStateIndex, kDetours.first.at(count), &entry.get_device_state) ||
+        !hook_method(vtable, kGetDeviceDataIndex, kDetours.second.at(count), &entry.get_device_data)) {
         log_message("Could not hook DirectInput device methods");
     }
 }
@@ -166,7 +172,7 @@ void hook_device_vtable(void* device) {
 void hook_devices(void* input, const IID* device_iid) {
     for (const GUID* kind : {&GUID_SysKeyboard, &GUID_SysMouse}) {
         void* device = nullptr;
-        auto create_device = reinterpret_cast<CreateDeviceFn>(vtable_of(input)[kCreateDeviceIndex]);
+        auto create_device = method_of<CreateDeviceFn>(input, kCreateDeviceIndex);
         if (SUCCEEDED(create_device(input, *kind, &device, nullptr)) && device != nullptr) {
             hook_device_vtable(device);
             release(device);
@@ -176,7 +182,7 @@ void hook_devices(void* input, const IID* device_iid) {
         }
         // DirectInput 7 can also hand out its newest device interface, in case its vtable differs.
         device = nullptr;
-        auto create_device_ex = reinterpret_cast<CreateDeviceExFn>(vtable_of(input)[kCreateDeviceExIndex]);
+        auto create_device_ex = method_of<CreateDeviceExFn>(input, kCreateDeviceExIndex);
         if (SUCCEEDED(create_device_ex(input, *kind, *device_iid, &device, nullptr)) && device != nullptr) {
             hook_device_vtable(device);
             release(device);
@@ -187,7 +193,7 @@ void hook_devices(void* input, const IID* device_iid) {
 bool hook_version(const wchar_t* module_name, const char* create_name, DWORD version,
                   std::initializer_list<std::pair<const IID*, const IID*>> interfaces) {
     HMODULE module = GetModuleHandleW(module_name);
-    auto create = module == nullptr ? nullptr : reinterpret_cast<CreateInputFn>(GetProcAddress(module, create_name));
+    auto create = exported_function<CreateInputFn>(module, create_name);
     if (create == nullptr) {
         return false;
     }
@@ -204,13 +210,13 @@ bool hook_version(const wchar_t* module_name, const char* create_name, DWORD ver
 }  // namespace
 
 void install_dinput_hooks() {
-    std::lock_guard lock(g_install_mutex);
-    int before = g_hooked_count;
+    std::scoped_lock lock(g_install_mutex);
+    std::size_t before = g_hooked_count;
     bool dinput8 = hook_version(L"dinput8.dll", "DirectInput8Create", 0x0800,
                                 {{&IID_IDirectInput8A, nullptr}, {&IID_IDirectInput8W, nullptr}});
-    bool dinput = hook_version(L"dinput.dll", "DirectInputCreateEx", 0x0700,
-                               {{&IID_IDirectInput7A, &IID_IDirectInputDevice7A},
-                                {&IID_IDirectInput7W, &IID_IDirectInputDevice7W}});
+    bool dinput = hook_version(
+        L"dinput.dll", "DirectInputCreateEx", 0x0700,
+        {{&IID_IDirectInput7A, &IID_IDirectInputDevice7A}, {&IID_IDirectInput7W, &IID_IDirectInputDevice7W}});
     if (g_hooked_count > before) {
         const char* versions = dinput8 && dinput ? "8 and 1-7" : dinput8 ? "8" : "1-7";
         log_message(std::string("Blocking keyboard and mouse input through DirectInput ") + versions +

@@ -1,3 +1,6 @@
+// The settings panel's Processing box, drawn by settings_panel.cpp between the Input and Output
+// boxes.
+
 #pragma once
 
 #include "core_state.h"

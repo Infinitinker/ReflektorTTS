@@ -40,7 +40,7 @@ class Integration(Protocol):
 
     name: str
     """What the user calls it, read after "the", e.g. "VLC integration"; titles its group in the
-    desktop window's Profiles tab."""
+    ReflektorTTS window's Profiles tab."""
     description: str
     """What enabling it changes and what disabling it puts back, in a sentence or two for the user."""
 

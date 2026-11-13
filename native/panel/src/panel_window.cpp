@@ -1,3 +1,6 @@
+// Opens the SDL window and ImGui, and runs the frame loop: it draws only while something happens,
+// follows the display's scale, and keeps drawing while the user drags the window's edge.
+
 #include "panel_window.h"
 
 #include <SDL3/SDL.h>
@@ -42,6 +45,16 @@ std::string sdl_error(const std::string& what) {
     return what + " (" + SDL_GetError() + ")";
 }
 
+// What the user is told when the window cannot open; the cause goes to the log.
+constexpr const char* kCannotOpen =
+    "The settings window cannot open: update the graphics driver, then open the window again.";
+
+// Logs why the window cannot open, and throws WindowError with the text for the user.
+[[noreturn]] void cannot_open(const std::string& cause) {
+    log_message("The settings window cannot open: " + cause);
+    throw WindowError(kCannotOpen);
+}
+
 // What the window is made of, released in reverse order, also when it was opened only in part.
 struct Window {
     bool sdl = false;
@@ -78,24 +91,24 @@ struct Window {
     }
 };
 
-// Throws WindowError with a message for the user if a part cannot be made.
+// Throws WindowError with a message for the user if a part cannot be made (see cannot_open).
 void open_window(Window& parts) {
     if (!SDL_Init(SDL_INIT_VIDEO)) {
-        throw WindowError(sdl_error("The settings window cannot open"));
+        cannot_open(sdl_error("SDL's video did not start"));
     }
     parts.sdl = true;
     enable_wakeups();
 
     // Hidden until run() has sized and placed it.
-    parts.window = SDL_CreateWindow("Settings - ReflektorTTS", 1, 1,
+    parts.window = SDL_CreateWindow("Settings – ReflektorTTS", 1, 1,
                                     SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIDDEN | SDL_WINDOW_HIGH_PIXEL_DENSITY);
     if (parts.window == nullptr) {
-        throw WindowError(sdl_error("The settings window cannot open"));
+        cannot_open(sdl_error("SDL cannot create the window"));
     }
     // SDL picks the renderer: Direct3D 11 where it works, else Direct3D 12, 9, OpenGL or software.
     parts.renderer = SDL_CreateRenderer(parts.window, nullptr);
     if (parts.renderer == nullptr) {
-        throw WindowError(sdl_error("The settings window cannot draw"));
+        cannot_open(sdl_error("SDL has no renderer that works"));
     }
     log_message(std::string("Drawing with SDL's ") + SDL_GetRendererName(parts.renderer) + " renderer");
     parts.vsync = SDL_SetRenderVSync(parts.renderer, 1);
@@ -109,11 +122,11 @@ void open_window(Window& parts) {
     ImGui::GetIO().IniFilename = nullptr;
     load_system_font(kFontSize);
     if (!ImGui_ImplSDL3_InitForSDLRenderer(parts.window, parts.renderer)) {
-        throw WindowError("The settings window cannot read input.");
+        cannot_open("ImGui's SDL backend did not start, so the window cannot read input");
     }
     parts.platform_backend = true;
     if (!ImGui_ImplSDLRenderer3_Init(parts.renderer)) {
-        throw WindowError("The settings window cannot draw.");
+        cannot_open("ImGui's SDL renderer backend did not start, so the window cannot draw");
     }
     parts.renderer_backend = true;
 }
@@ -197,9 +210,7 @@ public:
     }
     Frames(const Frames&) = delete;
     Frames& operator=(const Frames&) = delete;
-    ~Frames() {
-        SDL_RemoveEventWatch(&Frames::on_event, this);
-    }
+    ~Frames() { SDL_RemoveEventWatch(&Frames::on_event, this); }
 
     // Follows the display's scale and the window's title, then draws a frame; does nothing while
     // the window is minimized or a frame is being drawn already.

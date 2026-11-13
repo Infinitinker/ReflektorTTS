@@ -1,8 +1,13 @@
+// The settings panel's Processing box: each stage of the profile, grouped by source, with a tick
+// for the text shown and one for speech, and a few words on what it does, or why it does nothing
+// with the chosen languages, or that reading needs it while it is off.
+
 #include "processing_section.h"
 
 #include <imgui.h>
 
 #include <algorithm>
+#include <array>
 #include <string>
 
 #include "api_client.h"
@@ -35,7 +40,7 @@ void draw_tick_headings() {
     for (const char* heading : {kTextHeading, kSpeechHeading}) {
         float width = tick_column_width(heading);
         ImGui::SameLine(x + (width - ImGui::CalcTextSize(heading).x) * 0.5f);
-        ImGui::TextDisabled("%s", heading);
+        disabled_text(heading);
         x += width + ImGui::GetStyle().ItemSpacing.x;
     }
 }
@@ -58,9 +63,9 @@ void draw_stage_note(const StageOption& stage) {
     ImGui::SameLine();
     float width = tick_columns_x() - ImGui::GetCursorPosX() - ImGui::GetStyle().ItemSpacing.x;
     std::string shown = fit_width(*note, width);
-    ImGui::TextColored(color, "%s", shown.c_str());
+    colored_text(color, shown);
     if (shown != *note && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
-        ImGui::SetTooltip("%s", note->c_str());
+        tooltip(*note);
     }
 }
 
@@ -71,8 +76,9 @@ void draw_stage_ticks(const StageOption& stage) {
         StageOutput output;
         bool on;
     };
-    const Tick ticks[] = {{kTextHeading, StageOutput::Text, stage.text},
-                          {kSpeechHeading, StageOutput::Speech, stage.speech}};
+    const auto ticks =
+        std::to_array<Tick>({{.heading = kTextHeading, .output = StageOutput::Text, .on = stage.text},
+                             {.heading = kSpeechHeading, .output = StageOutput::Speech, .on = stage.speech}});
     float x = tick_columns_x();
     for (const Tick& tick : ticks) {
         float width = tick_column_width(tick.heading);

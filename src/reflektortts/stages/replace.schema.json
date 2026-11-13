@@ -17,7 +17,7 @@
             "additionalProperties": false,
             "properties": {
               "find": { "description": "Text to look for, matched literally.", "type": "string", "minLength": 1 },
-              "replace": { "description": "Text to put in its place; empty to remove it.", "type": "string" }
+              "replace": { "description": "Text to put in its place: an empty one removes it.", "type": "string" }
             }
           },
           {
@@ -32,7 +32,7 @@
                 "format": "regex"
               },
               "replace": {
-                "description": "Replacement; \\1, \\2... insert the pattern's groups, e.g. \"\\1\".",
+                "description": "Replacement: \\1, \\2… insert the pattern’s groups, e.g. \"\\1\".",
                 "type": "string"
               }
             }

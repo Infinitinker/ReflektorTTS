@@ -1,3 +1,6 @@
+// Wakes the frame loop when the API client's state changes, by posting an SDL event from the
+// client's threads; at most one waits at a time, and none is posted while SDL is not running.
+
 #include "wakeup.h"
 
 #include <atomic>
@@ -16,17 +19,19 @@ struct Wakeups {
     std::atomic<bool> pending = false;
 };
 
+// It allocates as the program loads, where running out of memory ends the program anyway.
+// NOLINTNEXTLINE(bugprone-throwing-static-initialization)
 Wakeups& g_wakeups = *new Wakeups();
 
 }  // namespace
 
 void enable_wakeups() {
-    std::lock_guard lock(g_wakeups.mutex);
+    std::scoped_lock lock(g_wakeups.mutex);
     g_wakeups.enabled = true;
 }
 
 void disable_wakeups() {
-    std::lock_guard lock(g_wakeups.mutex);
+    std::scoped_lock lock(g_wakeups.mutex);
     g_wakeups.enabled = false;
 }
 
@@ -34,7 +39,7 @@ void wake_window() {
     if (g_wakeups.pending.exchange(true)) {
         return;
     }
-    std::lock_guard lock(g_wakeups.mutex);
+    std::scoped_lock lock(g_wakeups.mutex);
     if (!g_wakeups.enabled) {
         g_wakeups.pending = false;
         return;

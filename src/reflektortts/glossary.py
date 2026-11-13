@@ -4,6 +4,8 @@ import re
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field, replace
 
+from reflektortts.letters import LATIN_WORD_CHARACTER, WORD_CHARACTER
+
 
 @dataclass(frozen=True)
 class GlossaryTerm:
@@ -24,6 +26,10 @@ class GlossaryTerm:
     def spellings(self) -> tuple[str, ...]:
         return (self.term, *self.other_spellings)
 
+
+GLOSSARY_GRAMMAR = "Glossary grammar"
+"""The speech rule of output languages whose grammar glossary terms follow: a kept term put back in
+a translation, and a respelled one, get the ending the sentence needs."""
 
 type Glossary = tuple[GlossaryTerm, ...]
 type Glossaries = Mapping[str, Glossary]
@@ -56,6 +62,15 @@ class TermFinder:
         others = tuple(other for other in term.spellings if other != spelling)
         return replace(term, term=spelling, other_spellings=others), matched != spelling
 
-    def whole_words(self) -> re.Pattern[str] | None:
-        """Matches the terms as whole words; None if there are none."""
-        return re.compile(rf"(?<!\w)(?:{self.alternation})(?!\w)") if self else None
+    def whole_words(self, separates_words: bool = True) -> re.Pattern[str] | None:
+        """Matches the terms as whole words, or anywhere in text without spaces between words;
+        None if there are none."""
+        return re.compile(word_bounded(self.alternation, separates_words)) if self else None
+
+
+def word_bounded(pattern: str, separates_words: bool = True) -> str:
+    """The pattern matched only as whole words, not inside longer ones. In text without spaces
+    between words, as Chinese is written, a word can end anywhere, but not inside a word in Latin
+    letters ("Al" is not found in "Alice和Al")."""
+    edge = WORD_CHARACTER if separates_words else LATIN_WORD_CHARACTER
+    return rf"(?<!{edge})(?:{pattern})(?!{edge})"

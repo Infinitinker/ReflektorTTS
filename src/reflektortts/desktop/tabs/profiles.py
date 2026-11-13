@@ -7,7 +7,7 @@ The buttons never move: the one that enables or disables is as wide as its longe
 button that does not apply to the selected profile is grayed out."""
 
 import tkinter as tk
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from tkinter import ttk
 
 from reflektortts.desktop.api.integrations import IntegrationItem, integrations_hint, integrations_of
@@ -17,6 +17,7 @@ from reflektortts.desktop.api.profiles import (
     ProfileItem,
     details_text,
     file_name,
+    languages_column_text,
     name_text,
     overlay_text,
     rating_text,
@@ -39,6 +40,7 @@ RATING = "Rating"
 """The first column's title: the profile's medal."""
 COLUMNS = (
     ("name", "Name"),
+    ("tested", "Tested languages"),
     ("origin", "Origin"),
     ("executables", "Executables"),
     ("overlay", "Overlay"),
@@ -72,9 +74,11 @@ class ProfilesTab:
         on_reload: Callable[[], None],
         on_open_folder: Callable[[], None],
         on_integration: Callable[[IntegrationItem, bool], None],
+        languages_text: Callable[[Sequence[str]], str],
     ) -> None:
         """app_settings_missing: why the settings window cannot be opened, or None when it can.
         on_integration is given an integration and whether to enable it."""
+        self._languages_text = languages_text
         self.frame = ttk.Frame(parent, padding=(8, 8, 8, 6))
         self._status_bar = status_bar
         self._on_enable = on_enable
@@ -190,7 +194,9 @@ class ProfilesTab:
     def show_message(self, message: str) -> None:
         """Shows a message in place of the profiles, e.g. while they load."""
         self._tree.delete(*self._tree.get_children())
-        self._tree.insert("", "end", iid="message", values=(message, "", "", "", ""), tags=("message",))
+        for index, line in enumerate(message.splitlines()):  # A row holds one line.
+            iid = "message" if index == 0 else f"message-{index}"
+            self._tree.insert("", "end", iid=iid, values=(line, "", "", "", "", ""), tags=("message",))
         self._items = {}
         self._fit_columns()
         self._status_bar.set_text(self.frame, "")
@@ -205,7 +211,14 @@ class ProfilesTab:
         self._items = {item.id: item for item in sorted(items, key=lambda item: name_text(item).lower())}
         for item in self._items.values():
             executables = ", ".join(executable.name for executable in item.executables)
-            values = (name_text(item), ORIGINS[item.origin], executables, overlay_text(item), STATES[item.state])
+            values = (
+                name_text(item),
+                languages_column_text(item),
+                ORIGINS[item.origin],
+                executables,
+                overlay_text(item),
+                STATES[item.state],
+            )
             medal, _ = rating_text(item)
             # A broken file has no medal, nor its image ("" is none).
             image = self._medals[item.rating] if medal else ""
@@ -237,7 +250,7 @@ class ProfilesTab:
         self._details.configure(state="normal")
         self._details.delete("1.0", "end")
         if item is not None:
-            self._details.insert("1.0", details_text(item))
+            self._details.insert("1.0", details_text(item, lambda code: self._languages_text((code,))))
         self._details.configure(state="disabled")
         self._integration.configure(state="normal" if integrations_of(item, self._integrations) else "disabled")
         self._app_settings.configure(state="normal" if self._can_open_app_settings(item) else "disabled")
@@ -255,7 +268,7 @@ class ProfilesTab:
         if item is None:
             return ""
         if item.state == "broken":
-            return "A broken profile is not used; fix its file, or remove it."
+            return "A broken profile is not used: fix its file, or remove it."
         if item.state == "disabled":
             return "Use this profile again."
         return "Stop using this profile: its app is not read until it is enabled again."
@@ -268,8 +281,8 @@ class ProfilesTab:
             return self._app_settings_missing
         item = self._selected()
         if item is not None and item.state == "broken":
-            return "A broken profile has no settings; fix its file, or remove it."
-        return "Change this app's voice, languages and the rest, also while it isn't running."
+            return "A broken profile has no settings: fix its file, or remove it."
+        return "Change this app’s voice, languages and the rest, also while it isn’t running."
 
     def _integration_hint(self) -> str:
         return integrations_hint(integrations_of(self._selected(), self._integrations))
@@ -313,7 +326,7 @@ class ProfilesTab:
     def _remove_hint(self) -> str:
         item = self._selected()
         if item is not None and item.origin == "override":
-            return "Delete your own file; the bundled profile is used again."
+            return "Delete your own file: the bundled profile is used again."
         return "Delete your own profile file."
 
     def _open_app_settings(self) -> None:

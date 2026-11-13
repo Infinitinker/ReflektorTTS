@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Pronounce stage settings",
-  "description": "Respells the profile's glossary terms that have a pronunciation for the output language, e.g. \"Carl\" as \"Karl\" for a Polish voice. Place it after translate and before normalize, usually only for speech (\"text\": false). It has no settings.",
+  "description": "Respells the profile’s glossary terms that have a pronunciation for the output language, e.g. \"Carl\" as \"Karl\" for a Polish voice. Place it after translate and before normalize, usually only for speech (\"text\": false). It has no settings.",
   "type": "object",
   "additionalProperties": false,
   "properties": {}

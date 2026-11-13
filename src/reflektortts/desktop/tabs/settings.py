@@ -1,5 +1,5 @@
 """The window's Settings tab: settings of ReflektorTTS itself, not of the apps it reads (those are set
-in the overlay's panel): whether it starts with Windows, and where its files are."""
+in the settings panel): whether it starts with Windows, and where its files are."""
 
 import tkinter as tk
 from collections.abc import Callable
@@ -78,4 +78,4 @@ class SettingsTab:
     def _autostart_hint(self) -> str:
         if self._available:
             return "Start hidden next to the clock when you sign in to Windows."
-        return "Only ReflektorTTS.exe from a release can start with Windows."
+        return "Only reflektortts.exe from a release can start with Windows."

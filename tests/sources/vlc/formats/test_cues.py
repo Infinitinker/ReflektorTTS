@@ -1,3 +1,5 @@
+"""Subtitle cues: their times, cues that start together, and the one shown at a moment."""
+
 import pytest
 
 from reflektortts.sources.vlc.formats.cues import Cue, Cues, collect, seconds

@@ -7,7 +7,6 @@ there: the status feed and the tray menu hand their work over through a queue.
 import json
 import logging
 import queue
-import sys
 import threading
 import tkinter as tk
 import webbrowser
@@ -17,7 +16,7 @@ from pathlib import Path
 from tkinter import filedialog, messagebox
 from typing import Any
 
-from reflektortts.api.server import PORT, ApiError
+from reflektortts.api.server import ApiError
 from reflektortts.arguments import Arguments
 from reflektortts.desktop.about import about
 from reflektortts.desktop.api.catalog import DownloadItem, DownloadList, DownloadProgress, other_voices, parse_list
@@ -30,6 +29,7 @@ from reflektortts.desktop.api.client import (
     request_json,
 )
 from reflektortts.desktop.api.integrations import IntegrationItem, failure_text, parse_integrations
+from reflektortts.desktop.api.languages import LanguageItem, languages_text, parse_languages
 from reflektortts.desktop.api.profiles import ProfileItem, file_name, name_text, parse_profiles
 from reflektortts.desktop.api.status import CoreStatus, describe
 from reflektortts.desktop.core_thread import CoreThread
@@ -37,15 +37,25 @@ from reflektortts.desktop.panel.dock import dock_of
 from reflektortts.desktop.panel.launcher import PanelWindows, find_program
 from reflektortts.desktop.system.autostart import autostart_supported, system_autostart
 from reflektortts.desktop.system.folders import open_folder, show_file, where_files_are
+from reflektortts.desktop.system.session import quit_on_sign_out
 from reflektortts.desktop.system.state import load_state, save_state
+from reflektortts.desktop.system.tray_host import tray_available
 from reflektortts.desktop.tray import Tray
 from reflektortts.desktop.window import Window
+from reflektortts.identity import api_port, app_name
 from reflektortts.settings import SETTINGS_FOLDER
 from reflektortts.user_dirs import config_dir, log_dir, state_dir
 
 logger = logging.getLogger(__name__)
 
 POLL_MS = 100
+
+
+def error_text(failure: str, message: str) -> str:
+    """An error for the user: what failed, then on a line of its own the core's message, which says why
+    and what to do, e.g. "The VLC integration could not be enabled." over "Close VLC first, then try
+    again: …"."""
+    return f"{failure}.\n{message}"
 
 
 class Application:
@@ -58,10 +68,12 @@ class Application:
         """Set by quit: the window is gone, so nothing may touch it any more."""
         self._state = load_state(state_dir())
         self._autostart = system_autostart()
-        self._hidden = args.hidden
+        self._has_tray = tray_available()
+        """Without a tray there is no icon to open the window from again, so the window is never hidden."""
+        self._hidden = args.hidden and self._has_tray
         self._refreshed = False
         """Whether the download lists were fetched since the window was opened."""
-        self._language_names: dict[str, str] = {}
+        self._languages: dict[str, LanguageItem] = {}
         self._voice_titles: dict[str, str] = {}
         """Voices by their ID, e.g. "Microsoft Adam (Windows)", as the core lists them."""
         self._fetching_names = False
@@ -69,7 +81,7 @@ class Application:
         """The voice the names were last fetched for, so a voice the core does not list is asked about once."""
         self._items: dict[str, DownloadItem] = {}
         self._core = CoreThread(args.profiles, config_dir(), args.overlay)
-        self._panels = PanelWindows(find_program(args.overlay))
+        self._panels = PanelWindows(find_program(args.overlay), api_port())
         """The settings windows, one per profile, opened from the Profiles tab or, for the app being
         read, the Status tab."""
         self._feed = StatusFeed(
@@ -91,12 +103,12 @@ class Application:
             on_pause_toggle=self._toggle_pause,
             on_open_logs=lambda: open_folder(log_dir()),
             on_open_settings=lambda: open_folder(config_dir() / SETTINGS_FOLDER),
-            on_close=self._hide,
+            on_close=self._close,
             on_downloads_opened=self._downloads_opened,
             on_download=self._start_download,
             on_remove=self._remove_download,
             on_preview=self._preview,
-            language_name=lambda code: self._language_names.get(code, code),
+            languages_text=lambda codes: languages_text(codes, self._languages),
             voice_title=lambda voice: self._voice_titles.get(voice, voice),
             on_profiles_opened=self._profiles_opened,
             on_enable_profile=self._enable_profile,
@@ -117,18 +129,16 @@ class Application:
             about=about(),
             files_text=where_files_are(),
             autostart_supported=autostart_supported(),
+            has_tray=self._has_tray,
         )
         self._window.settings.show_start_with_windows(self._start_with_windows())
 
     def start(self) -> None:
-        if sys.platform == "win32":
-            # Windows asks before logging off or shutting down (Tk calls that saving yourself):
-            # quitting then puts a lowered app's volume back. Tk tells nothing more, so if the user
-            # cancels the shutdown, ReflektorTTS has quit all the same.
-            self._root.protocol("WM_SAVE_YOURSELF", self._quit)
+        quit_on_sign_out(self._root, self._quit)
         self._core.start()
         self._feed.start()
-        self._tray.start()
+        if self._has_tray:
+            self._tray.start()
         self._root.after(POLL_MS, self._run_tasks)
         if self._hidden:
             self._window.hide()
@@ -170,8 +180,7 @@ class Application:
     def _fetch_names(self) -> None:
         """Runs in the background; the status is shown again with the names on Tkinter's thread."""
         try:
-            languages = request_json("GET", "/languages")["languages"]
-            names = {language["code"]: language["name"] for language in languages}
+            languages = parse_languages(request_json("GET", "/languages"))
             voices = request_json("GET", "/voices")["voices"]
             titles = {voice["id"]: f"{voice['name']} ({voice['engine_title']})" for voice in voices}
         except (ApiClientError, KeyError, TypeError) as error:
@@ -181,7 +190,7 @@ class Application:
 
         def show() -> None:
             self._fetching_names = False
-            self._language_names = names
+            self._languages = languages
             self._voice_titles = titles
             if not self._stopped:
                 self._window.status.show(self._status)
@@ -212,10 +221,10 @@ class Application:
     def _port_taken(self, by_reflektortts: bool) -> None:
         """The local API could not open its port: tells the user why, then quits."""
         if by_reflektortts:
-            message = "ReflektorTTS is already running: look for its icon next to the clock."
+            message = f"{app_name()} is already running: look for its icon next to the clock."
         else:
             message = (
-                f"ReflektorTTS cannot start: port {PORT} on this computer is used by another program, "
+                f"{app_name()} cannot start: port {api_port()} on this computer is used by another program, "
                 "or reserved by the system. Close the other program, or restart the computer, and start "
                 "ReflektorTTS again."
             )
@@ -226,12 +235,14 @@ class Application:
         if self._status is None:
             return
         path = "/resume" if self._status.paused else "/pause"
+        action = "resumed" if self._status.paused else "paused"
 
         def toggle() -> None:
             try:
                 post(path)
             except ApiClientError as error:
-                logger.warning("%s", error)
+                message = str(error)
+                self._later(lambda: self._show_error(error_text(f"ReflektorTTS could not be {action}", message)))
 
         # In the background, like every request, so the window never waits for the core.
         self._in_background(toggle)
@@ -243,11 +254,15 @@ class Application:
     def _fetch_profiles(self) -> None:
         """Runs in the background; the list is shown on Tkinter's thread, with the integrations."""
         try:
+            if not self._languages:
+                self._languages = parse_languages(request_json("GET", "/languages"))
             items = parse_profiles(request_json("GET", "/profiles"))
             integrations = parse_integrations(request_json("GET", "/integrations"))
         except ApiClientError as error:
             message = str(error)
-            self._later(lambda: self._window.profiles.show_message(f"The profiles could not be loaded: {message}"))
+            self._later(
+                lambda: self._window.profiles.show_message(error_text("The profiles could not be loaded", message))
+            )
             return
         self._later(lambda: self._window.profiles.show(items, integrations))
 
@@ -265,10 +280,12 @@ class Application:
         the core itself. title names the app in an error."""
         try:
             self._panels.open(profile, lambda: dock_of(self._root))
-        except OSError as error:
+        except OSError:
             logger.exception("Cannot open the settings window for %s", profile)
-            reason = error.strerror or str(error)
-            self._show_error(f"The settings window for {title} could not be opened: {reason}")
+            self._show_error(
+                f"The settings window for {title} could not be opened: try again, and if it still does not "
+                "open, install or unpack ReflektorTTS again."
+            )
 
     def _copy_profile(self, item: ProfileItem) -> None:
         """Copies a bundled profile and shows the copy, ready to edit."""
@@ -278,7 +295,7 @@ class Application:
                 answer = request_json("POST", f"/profiles/{item.id}/copy")
             except ApiClientError as error:
                 message = str(error)
-                self._later(lambda: self._show_error(f"{name_text(item)} could not be copied: {message}"))
+                self._later(lambda: self._show_error(error_text(f"{name_text(item)} could not be copied", message)))
                 return
             show_file(Path(answer["file"]))
 
@@ -300,10 +317,16 @@ class Application:
         )
         if not path:
             return
+        name = Path(path).name
         try:
             data = json.loads(Path(path).read_text("utf-8-sig"))
-        except (OSError, ValueError) as error:
-            self._show_error(f"{Path(path).name} cannot be read as a profile: {error}")
+        except OSError as error:
+            logger.warning("Cannot open %s: %s", path, error)
+            self._show_error(f"{name} could not be opened: check that the file is still there, then try again.")
+            return
+        except ValueError as error:
+            logger.warning("Cannot read %s as a profile: %s", path, error)
+            self._show_error(f"{name} cannot be read as a profile: choose a profile file, written in JSON.")
             return
         body = {"id": Path(path).stem, "profile": data, "replace": replace}
 
@@ -315,7 +338,7 @@ class Application:
                 if error.status == 409:
                     self._later(lambda: self._confirm_replace(message, path))
                 else:
-                    self._later(lambda: self._show_error(f"{Path(path).name} was not imported: {message}"))
+                    self._later(lambda: self._show_error(error_text(f"{Path(path).name} was not imported", message)))
 
         self._in_background(send)
 
@@ -332,7 +355,7 @@ class Application:
                 request_json(method, path, body)
             except ApiClientError as error:
                 message = str(error)
-                self._later(lambda: self._show_error(f"{failure}: {message}"))
+                self._later(lambda: self._show_error(error_text(failure, message)))
 
         self._in_background(send)
 
@@ -350,15 +373,14 @@ class Application:
         """Runs in the background; the list is shown on Tkinter's thread. Errors are reported
         when the list is fetched from the internet, not each time it is shown again."""
         try:
-            if not self._language_names:
-                languages = request_json("GET", "/languages")["languages"]
-                self._language_names = {language["code"]: language["name"] for language in languages}
+            if not self._languages:
+                self._languages = parse_languages(request_json("GET", "/languages"))
             if refresh:
                 answer = request_json("POST", "/downloads/refresh", timeout=REFRESH_TIMEOUT_SECONDS)
             else:
                 answer = request_json("GET", "/downloads")
             downloads = parse_list(answer)
-            others = other_voices(request_json("GET", "/voices"), downloads.items, self._language_names)
+            others = other_voices(request_json("GET", "/voices"), downloads.items, self._languages)
         except ApiClientError as error:
             message = str(error)
             self._later(lambda: self._list_failed(message))
@@ -389,7 +411,7 @@ class Application:
                 request_json("POST", "/downloads", {"id": item.id})
             except ApiClientError as error:
                 message = str(error)
-                self._later(lambda: self._show_error(f"{item.name} could not be downloaded: {message}"))
+                self._later(lambda: self._show_error(error_text(f"{item.name} could not be downloaded", message)))
                 self._fetch_list(refresh=False)
 
         self._in_background(start)
@@ -403,7 +425,7 @@ class Application:
                 request_json("DELETE", f"/downloads/{item.id}")
             except ApiClientError as error:
                 message = str(error)
-                self._later(lambda: self._show_error(f"{item.name} could not be removed: {message}"))
+                self._later(lambda: self._show_error(error_text(f"{item.name} could not be removed", message)))
 
         self._in_background(remove)
 
@@ -414,7 +436,7 @@ class Application:
         if progress.state in ("installed", "removed", "failed"):
             self._in_background(lambda: self._fetch_list(refresh=False))
         if progress.state == "failed" and item is not None:
-            self._show_error(f"{item.name} could not be downloaded: {progress.message}")
+            self._show_error(error_text(f"{item.name} could not be downloaded", progress.message))
 
     def _preview(self, item: DownloadItem) -> None:
         def preview() -> None:
@@ -423,7 +445,7 @@ class Application:
             except ApiClientError as error:
                 message = str(error)
                 self._later(lambda: self._show_preview(item.id, False))
-                self._later(lambda: self._show_error(f"{item.name} could not be previewed: {message}"))
+                self._later(lambda: self._show_error(error_text(f"{item.name} could not be previewed", message)))
 
         self._in_background(preview)
 
@@ -440,10 +462,17 @@ class Application:
         self._tray.refresh()
         self._window.show()
 
+    def _close(self) -> None:
+        """Closing the window hides it, and the tray icon opens it again; with no tray, it quits."""
+        if self._has_tray:
+            self._hide()
+        else:
+            self._quit()
+
     def _hide(self) -> None:
         self._window.hide()
         self._refreshed = False
-        if not self._state.told_about_tray:
+        if self._tray.can_notify and not self._state.told_about_tray:
             self._state = replace(self._state, told_about_tray=True)
             try:
                 save_state(self._state, state_dir())
@@ -466,9 +495,12 @@ class Application:
             return
         try:
             self._autostart.enable(enabled)
-        except OSError as error:
+        except OSError:
             logger.exception("Cannot change whether ReflektorTTS starts with Windows")
-            self._show_error(f"Start with Windows could not be changed: {error.strerror}")
+            self._show_error(
+                "Start with Windows could not be changed: try again, or turn it on or off in Windows "
+                "Settings > Apps > Startup."
+            )
         self._window.settings.show_start_with_windows(self._start_with_windows())
         self._tray.refresh()
 

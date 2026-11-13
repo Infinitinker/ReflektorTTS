@@ -1,119 +1,31 @@
 # Contributing to ReflektorTTS
 
-Thank you for helping! Profiles for more games are the most welcome contribution, and you don't need to be a programmer to write one. Fixes, ideas and bug reports are welcome too.
+Thank you for helping! Profiles for more apps are the most welcome contribution, and you don't need to be a programmer to write one. Fixes, ideas and bug reports are welcome too.
 
 - **Found a bug?** Open an issue with the bug report form. The logs help most: the Settings tab's **Open logs folder** button opens them.
-- **Want a game supported?** Open an issue with the app support form, or write its profile yourself (below).
+- **Want an app supported?** Open an issue with the app support form, or write its profile yourself (below).
 - **Found a security problem?** Report it privately, as [SECURITY.md](SECURITY.md) describes, not in an issue.
 
 Everything in the project is written in English, with American spelling (license, color, canceled). Contributions are accepted under the project's license: the GPL-3.0-or-later with the additional permission in [COPYRIGHT](COPYRIGHT).
 
 ## Contributing a profile
 
-A profile is one JSON file that tells ReflektorTTS how to recognize a game and where its text is. [docs/profiles.md](docs/profiles.md) explains the format.
+A profile is one JSON file that tells ReflektorTTS how to recognize an app and where its text is. [Writing a profile](docs/profiles.md#writing-a-profile) walks through writing one, finding the game's text with Cheat Engine included, and [docs/profiles.md](docs/profiles.md) explains the format.
 
 1. In the ReflektorTTS window's Profiles tab, select a bundled profile close to what you need and choose **Copy to edit**, or start a new file in `%LOCALAPPDATA%\ReflektorTTS\profiles\`.
 2. Edit it in any text editor, saved as UTF-8, and choose **Reload**. A profile with a mistake is shown as broken, with the reason.
-3. Play the game and check that its text is read. List the `sha256` of each build you tested, which a profile with the overlay must do: once a profile lists builds, the Status tab shows the SHA-256 of any other build it meets.
-4. Give it a `rating` medal for how far you tested it, from `bronze` (tried briefly) to `platinum` (every text read, tested to the end); [docs/profiles.md](docs/profiles.md) says what each one takes.
-5. Share it: open a pull request that adds it to `src/reflektortts/profiles/bundled/`, with its row and section in [SUPPORTED_APPS.md](SUPPORTED_APPS.md), or attach it to an app support issue.
+3. Use the app and check that its text is read. List the `sha256` of each build you tested, which a profile with the overlay must do: once a profile lists builds, the Status tab shows the SHA-256 of any other build it meets.
+4. Give it a `rating` medal for how far you tested it, from `bronze` (tried briefly) to `platinum` (every text read, tested to the end), and list the languages you tested it with as `tested_languages`: the app's own and those you had it translated into, such as `["en", "pl"]`; [docs/profiles.md](docs/profiles.md) says what each one takes.
+5. Share it: open a pull request that adds it to `src/reflektortts/profiles/bundled/`, with its row and section in [SUPPORTED-APPS.md](SUPPORTED-APPS.md), or attach it to an app support issue.
 
-Name the file after the game and its release year, in lowercase with dashes, like `grand-theft-auto-2-1999.json`.
+Name the file after the app and its release year, in lowercase with dashes, like `grand-theft-auto-2-1999.json`.
 
 ## Code
 
-### Setting up from source (Windows)
+[docs/development.md](docs/development.md) has the setup on Windows, how to run ReflektorTTS from source, every check with its command, and the end-to-end test; [docs/architecture.md](docs/architecture.md) explains how the code is organized, and [docs/plugins.md](docs/plugins.md) how to add sources, processing stages, speech engines and download sources as plugins.
 
-You need Python 3.13 and, for the overlay, MSYS2 (see [native/README.md](native/README.md)). The commands below are for PowerShell or the Command Prompt, run from the repository root:
-
-```powershell
-py -3.13 -m venv .venv
-```
-```powershell
-.venv\Scripts\pip install -e .[dev]
-```
-
-This installs ReflektorTTS with everything it needs, and the `dev` extra adds the tools for tests and checks. Build the overlay as described in [native/README.md](native/README.md).
-
-### Running from source
-
-The desktop app, as users run it: double-click `start.bat` in the repository root, or run
-
-```powershell
-.venv\Scripts\reflektortts-desktop --overlay native\build\bin --overlay native\build64\bin
-```
-
-Logs are written to `%LOCALAPPDATA%\ReflektorTTS\Logs`. To see the log while working on the code, run ReflektorTTS without the window, in a console, and stop it with Ctrl+C:
-
-```powershell
-.venv\Scripts\python -m reflektortts --overlay native\build\bin --overlay native\build64\bin
-```
-
-Both take the same options:
-
-- `--overlay DIR`: folder with an overlay build. Repeat it to give both a 32-bit and a 64-bit build; the one matching the app is used. Without it, apps run without the overlay. A release finds its overlay builds next to `ReflektorTTS.exe` by itself. The desktop app also finds the settings window (`reflektortts-panel.exe`, which the 64-bit build makes) in the first of these folders that has it; a release has it next to `ReflektorTTS.exe`.
-- `--profiles DIR`: folder with your own profiles, used next to the bundled ones. Default: `profiles` in your user data folder (`%LOCALAPPDATA%\ReflektorTTS\profiles`).
-
-### Checks
-
-Every pull request is checked by the `Checks` workflow: lint and formatting once, types and tests on both Windows and Linux. Run them yourself first:
-
-```powershell
-.venv\Scripts\python -m pytest
-```
-```powershell
-.venv\Scripts\python -m ruff check
-```
-```powershell
-.venv\Scripts\python -m ruff format --check
-```
-```powershell
-.venv\Scripts\python -m mypy
-```
-
-mypy checks the code as it runs on your system. To check it as it runs on the other one too, add `--platform linux` on Windows, or `--platform win32` on Linux:
-
-```powershell
-.venv\Scripts\python -m mypy --platform linux
-```
-
-Tests live in `tests/`, mirroring `src/reflektortts/`, and run without a game, a GPU or the network. [docs/architecture.md](docs/architecture.md) explains how the code is organized, and [docs/plugins.md](docs/plugins.md) how to add sources, processing stages, speech engines and download sources as plugins.
-
-The icon of ReflektorTTS is drawn in code by `tools/draw_icon.py`, into `src/reflektortts/desktop/icon.ico` and the README's `docs/images/icon.png`. After changing the drawing, run it from the repository root:
-
-```powershell
-.venv\Scripts\python tools\draw_icon.py
-```
-
-### Building a release
-
-`tools/build_release.py` builds three files into `build\release\`, all uploaded to the release's page on GitHub, under the tag `v<version>`:
-
-- `ReflektorTTS-<version>-windows-x64-setup.exe`: the installer, made by [Inno Setup](https://jrsoftware.org/isinfo.php) 7 from `tools/installer.iss`. It installs the same files as the zip, for the current user into `%LOCALAPPDATA%\Programs\ReflektorTTS` with no administrator rights, or for all users into Program Files; Setup and Uninstall ask the user to quit a running ReflektorTTS first (`desktop/system/session.py` holds named mutexes they look for, one in the user's session and a global one that an all-users install also checks), and uninstalling an install for the current user asks whether to delete their data too. A first install for the current user also offers to start ReflektorTTS with Windows (the same entry `desktop/system/autostart.py` changes), which uninstalling removes for the user who uninstalls. In an install for all users, each user can switch it on in the app; removing that install leaves the other users' entries, which then point to nothing and do no harm.
-- `ReflektorTTS-<version>-windows-x64.zip`: `ReflektorTTS.exe` (the desktop app with its own Python, built with PyInstaller), `reflektortts-panel.exe` next to it (the settings window, from the 64-bit native build), both overlay builds, `LICENSE.txt`, `COPYRIGHT.txt`, a `README.txt` for users, and `THIRD_PARTY_NOTICES.txt`, generated by `tools/notices.py` from the installed packages' metadata.
-- `ReflektorTTS-<version>-sources.zip`: the source code the release offers, as the GPL asks, made by `tools/sources.py`: ReflektorTTS at the commit the release is built from, and the source of every shipped package under the GPL, LGPL or MPL, at the shipped version.
-
-It needs git, Inno Setup 7 (found where its installer puts it, or wherever the `ISCC` environment variable points), the `release` extra and both native builds, with the overlays and the settings window (see [native/README.md](native/README.md)), and every change committed:
-
-```powershell
-.venv\Scripts\pip install -e .[release] -c tools\release-constraints.txt
-```
-```powershell
-.venv\Scripts\python tools\build_release.py
-```
-
-`tools/release-constraints.txt` holds the exact version of every package a release is built with, so a release built on GitHub ships the versions it was tested with. After adding or upgrading a dependency and testing the app with it, refresh the file as its first lines say.
-
-A release is refused while a shipped package has no license text, or a shipped package under the GPL, LGPL or MPL has no source listed:
-
-- Add a license text that a package doesn't install, or the notices of parts it contains without them (such as native libraries compiled into it), to `tools/licenses/<package>.txt`, from the project's source at the shipped version.
-- Add where a package's source is, for its exact version, to `SOURCES` in `tools/sources.py`.
-
-`--draft` builds anyway, to test, from uncommitted changes too, marking what is missing and the files' names.
-
-Releases are built on GitHub the same way, on a clean Windows runner, by the `Build Windows app` workflow (`.github/workflows/build-windows.yml`): it builds both native builds with MSYS2, installs Inno Setup and runs `tools/build_release.py`, then checks that exactly the three release files arrived, under the version's name, with whole zips. It runs on every push to `dev` and `main` and for other pull requests, keeping the files on the run's page, so a change that breaks the release shows up before a release is made.
-
-The `Release` workflow (`.github/workflows/release.yml`) checks the version and calls that build:
-
-- Pushing a tag `v<version>` on `main`, where `<version>` is the version in `pyproject.toml`, does that, records where each file was built (a provenance attestation, which `gh attestation verify <file> --repo Infinitinker/ReflektorTTS` checks), and drafts the release's page with the three files and their checksums. Write the release notes there, then publish it. A tag that differs from the version, or is not on `main`, fails before anything is built.
-- Before tagging, run it by hand on `dev` (Actions > Release > Run workflow): it does everything but the draft, so a change to either workflow shows up before the tag does, and keeps the files on the run's page.
+1. Work on a branch from `dev`, and open the pull request to `dev`. `main` gets the changes from `dev` through a pull request.
+2. Run the checks before pushing: `pytest`, `mypy`, `ruff check`, `ruff format --check` and `lint-imports`; after C++ changes also `tools/check_includes.py`, clang-format and clang-tidy. The `Checks` workflow runs them, with the license check, for every pull request, and the `E2E tests` workflow the end-to-end test.
+3. A new dependency needs a license compatible with the GPL-3.0 (MIT, BSD, Apache-2.0, LGPL, GPL, or the permissive PSF-2.0, Zlib and MIT-CMU), checked before it is added, and every runtime dependency is required, never optional. After adding or upgrading one, `tools/licenses.py` must pass, `tools/release-constraints.txt` and `THIRD-PARTY-NOTICES.md` are written again and committed, and a package under the GPL, LGPL or MPL gets its source listed in `tools/sources.py` ([docs/releasing.md](docs/releasing.md#dependencies-and-notices)).
+4. Tests live in `tests/`, mirroring `src/reflektortts/` (the tests for `src/reflektortts/stages/tracker.py` are in `tests/stages/test_tracker.py`), together with their fakes; nothing test-only goes in `src/`. They run without a running app, a GPU or the network. The tools' tests are in `tests/tools/`, and the end-to-end test in `tests/e2e/`.
+5. Update the docs in the same pull request as the code they describe. Commits follow [Conventional Commits](https://www.conventionalcommits.org/), with a scope from CLAUDE.md, such as `fix(overlay): keep the panel on top`.

@@ -1,0 +1,28 @@
+# Sets up the project's Python, 3.13 (CLAUDE.md and pyproject.toml's requires-python), with pip's
+# download cache. Used by every job that runs Python: in checks.yml, e2e.yml and build-windows.yml.
+# Needs a checkout first, as every local action does, with the file the cache is keyed on.
+name: Python
+description: Sets up Python 3.13, with pip's download cache unless told otherwise.
+
+inputs:
+  python-version:
+    description: The Python version. The release builds with the exact one it ships.
+    required: false
+    default: "3.13"
+  cache-dependency-path:
+    description: The file pip's cache is keyed on, the one that decides what the job installs.
+    required: false
+    default: pyproject.toml
+  cache:
+    description: Whether to cache pip's downloads. A job that installs nothing passes false.
+    required: false
+    default: "true"
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-python@v7
+      with:
+        python-version: ${{ inputs.python-version }}
+        cache: ${{ inputs.cache == 'true' && 'pip' || '' }}
+        cache-dependency-path: ${{ inputs.cache-dependency-path }}

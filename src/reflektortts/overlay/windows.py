@@ -1,4 +1,4 @@
-"""Loads the overlay into an app, using the injector built with the overlay."""
+"""Loads the overlay into an app on Windows, with the injector built with the overlay."""
 
 import logging
 import subprocess
@@ -15,11 +15,9 @@ TIMEOUT_S = 30
 BLOCKED_BY_ANTIVIRUS = {225, 1260}
 
 
-def inject_overlay(pid: int, overlay_dirs: Sequence[Path]) -> bool:
-    """Tries each overlay build (e.g. 32-bit, then 64-bit) until one matches the app.
-
-    A failure is reported and the app is read without the overlay.
-    """
+def inject(pid: int, overlay_dirs: Sequence[Path], api_port: int) -> bool:
+    """Tries each overlay build (e.g. 32-bit, then 64-bit) until one matches the app; see
+    inject_overlay."""
     found = False
     for directory in overlay_dirs:
         injector = directory / INJECTOR
@@ -29,7 +27,7 @@ def inject_overlay(pid: int, overlay_dirs: Sequence[Path]) -> bool:
         found = True
         try:
             result = subprocess.run(
-                [str(injector), "--pid", str(pid)],
+                [str(injector), "--pid", str(pid), "--port", str(api_port)],
                 capture_output=True,
                 encoding="utf-8",
                 errors="replace",

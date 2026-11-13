@@ -1,3 +1,5 @@
+"""Finding running apps by their executable's name and, where a profile lists builds, its hash."""
+
 from reflektortts.apps.detector import Builds, ProcessInfo, RunningApp, find_running_apps, running_processes
 from reflektortts.apps.executable import ExecutableError
 from reflektortts.profiles.model import App, Executable, Match, Profile

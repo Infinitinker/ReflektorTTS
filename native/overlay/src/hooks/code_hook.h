@@ -1,6 +1,11 @@
+// Code hooks (MinHook) on exported functions and COM methods, and telling the overlay's own calls
+// apart from the app's by their return address.
+
 #pragma once
 
 #include <windows.h>
+
+#include "memory/functions.h"
 
 namespace reflektortts {
 
@@ -13,8 +18,7 @@ bool hook_function(void* target, void* detour, void** original);
 template <typename Fn>
 bool hook_export(HMODULE module, const char* name, Fn detour, Fn* original) {
     FARPROC target = module == nullptr ? nullptr : GetProcAddress(module, name);
-    return target != nullptr && hook_function(reinterpret_cast<void*>(target), reinterpret_cast<void*>(detour),
-                                              reinterpret_cast<void**>(original));
+    return target != nullptr && hook_function(code_address(target), code_address(detour), function_slot(original));
 }
 
 // Whether a code address lies in the overlay DLL. Input hooks let the overlay's own calls

@@ -1,3 +1,6 @@
+// What a client knows about the core: the app (the one being read, or the panel's profile's), its
+// profile's settings, sources and stages, the voices and languages.
+
 #pragma once
 
 #include <optional>
@@ -15,7 +18,8 @@ struct VoiceOption {
 
 struct LanguageOption {
     std::string code;
-    std::string name;
+    std::string name;  // The language's own name, e.g. "Polski".
+    std::string english_name;
 };
 
 // What a line is prepared for; each stage is switched on and off for each.

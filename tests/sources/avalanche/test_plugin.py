@@ -1,3 +1,5 @@
+"""Registering the avalanche source through its entry point."""
+
 from reflektortts.pipeline.plugins import source_plugins
 from reflektortts.sources.avalanche.plugin import PLUGIN
 
