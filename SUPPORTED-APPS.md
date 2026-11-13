@@ -9,7 +9,7 @@ ReflektorTTS reads these apps as soon as they start, with the profile it comes w
 | [Grand Theft Auto: Vice City](#grand-theft-auto-vice-city) | 2002, Steam | 💎 Platinum | English, Polish | Subtitles, mission objectives and the help box | No |
 | [Grand Theft Auto: San Andreas](#grand-theft-auto-san-andreas) | 2004, Steam | 💎 Platinum | English, Polish | Subtitles and the help box | Yes |
 | [Mad Max](#mad-max) | 2015, Steam | 💎 Platinum | English, Polish | Subtitles, in the game language you choose | Yes |
-| [VLC media player](#vlc-media-player) | 3, installed from videolan.org | 🥇 Gold | Any language | The subtitles of the video playing, from its subtitle file, once the VLC integration is enabled | No |
+| [VLC media player](#vlc-media-player) | 3, installed from videolan.org | 💎 Platinum | Any language | The subtitles of the video playing, from its subtitle file, once the VLC integration is enabled | No |
 
 ## Ratings
 
@@ -71,7 +71,7 @@ Every app keeps its own settings: the voice, the languages, the reading speed an
 ## VLC media player
 
 - **Edition**: VLC 3, installed from videolan.org. A portable copy of VLC keeps its settings elsewhere, and VLC 4 has not been tried yet.
-- **Rating**: 🥇 Gold, tested with any language.
+- **Rating**: 💎 Platinum, tested with any language.
 - **What is read**: the subtitles of the video playing, in time with VLC, also when you pause, change the speed or the subtitle delay. They are read from the video's subtitle file next to it, in SubRip (`.srt`), WebVTT (`.vtt`), Advanced SubStation Alpha or SubStation Alpha (`.ass`, `.ssa`) or YouTube SubViewer (`.sbv`) format; subtitles inside the video file are not read.
 - **Overlay**: none: VLC shows the video's own subtitles, and ReflektorTTS reads them aloud, translated if you choose, without an in-game panel or subtitles of its own. Change its settings with **App settings…**: in the Status tab while a video is read, or in the Profiles tab.
 - **Setting it up**: ReflektorTTS follows VLC through VLC's web interface, which is off by default. With VLC closed, select VLC media player in the Profiles tab, choose **Integration…**, then **Enable**: it turns the web interface on for this computer only. **Disable** puts back what it changed. [docs/profiles.md](docs/profiles.md#vlc-source-type-vlc) says how subtitle files are found and more.
