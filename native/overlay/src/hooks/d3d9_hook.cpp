@@ -43,11 +43,11 @@ struct DeviceClass {
     ResetFn reset = nullptr;
     PresentFn present = nullptr;
 };
-constexpr int kMaxDeviceClasses = 4;
+constexpr std::size_t kMaxDeviceClasses = 4;
 DeviceClass g_devices[kMaxDeviceClasses];
-int g_device_count = 0;
+std::size_t g_device_count = 0;
 
-template <int N>
+template <std::size_t N>
 HRESULT STDMETHODCALLTYPE reset_detour(IDirect3DDevice9* device, D3DPRESENT_PARAMETERS* parameters) {
     g_before_reset(device);
     HRESULT result = g_devices[N].reset(device, parameters);
@@ -57,7 +57,7 @@ HRESULT STDMETHODCALLTYPE reset_detour(IDirect3DDevice9* device, D3DPRESENT_PARA
     return result;
 }
 
-template <int N>
+template <std::size_t N>
 HRESULT STDMETHODCALLTYPE present_detour(IDirect3DDevice9* device, const RECT* source, const RECT* destination,
                                          HWND window, const RGNDATA* dirty_region) {
     g_on_present(device);
@@ -73,7 +73,7 @@ constexpr auto kDeviceDetours = make_device_detours(std::make_index_sequence<kMa
 
 bool hook_device_class(void** vtable) {
     std::scoped_lock lock(g_mutex);
-    for (int i = 0; i < g_device_count; ++i) {
+    for (std::size_t i = 0; i < g_device_count; ++i) {
         if (g_devices[i].vtable == vtable) {
             return true;
         }
@@ -82,7 +82,7 @@ bool hook_device_class(void** vtable) {
         log_message("Too many Direct3D 9 device classes to hook");
         return false;
     }
-    int n = g_device_count++;
+    std::size_t n = g_device_count++;
     DeviceClass& hooked = g_devices[n];
     hooked.vtable = vtable;
     bool ok = hook_method(vtable, kResetIndex, kDeviceDetours.first[n], &hooked.reset) &&
@@ -98,9 +98,9 @@ struct FactoryClass {
     void** vtable = nullptr;
     CreateDeviceFn create_device = nullptr;
 };
-constexpr int kMaxFactoryClasses = 2;
+constexpr std::size_t kMaxFactoryClasses = 2;
 std::array<FactoryClass, kMaxFactoryClasses> g_factories{};
-int g_factory_count = 0;
+std::size_t g_factory_count = 0;
 CreateDeviceExFn g_original_create_device_ex = nullptr;
 
 void hook_new_device(HRESULT result, void* device) {
@@ -109,7 +109,7 @@ void hook_new_device(HRESULT result, void* device) {
     }
 }
 
-template <int N>
+template <std::size_t N>
 HRESULT STDMETHODCALLTYPE create_device_detour(IDirect3D9* direct3d, UINT adapter, D3DDEVTYPE type, HWND window,
                                                DWORD flags, D3DPRESENT_PARAMETERS* parameters,
                                                IDirect3DDevice9** device) {
@@ -131,7 +131,7 @@ constexpr std::array<CreateDeviceFn, kMaxFactoryClasses> kFactoryDetours{&create
 
 bool hook_factory_class(void** vtable, bool is_ex) {
     std::scoped_lock lock(g_mutex);
-    int n = 0;
+    std::size_t n = 0;
     while (n < g_factory_count && g_factories[n].vtable != vtable) {
         ++n;
     }

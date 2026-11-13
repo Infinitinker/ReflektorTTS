@@ -147,7 +147,7 @@ ModuleRange overlay_range() {
     static const ModuleRange range = [] {
         auto base = reinterpret_cast<std::uintptr_t>(overlay_module());
         const auto* dos = reinterpret_cast<const IMAGE_DOS_HEADER*>(base);
-        const auto* nt = reinterpret_cast<const IMAGE_NT_HEADERS*>(base + dos->e_lfanew);
+        const auto* nt = reinterpret_cast<const IMAGE_NT_HEADERS*>(base + static_cast<std::uintptr_t>(dos->e_lfanew));
         return ModuleRange{.begin = base, .end = base + nt->OptionalHeader.SizeOfImage};
     }();
     return range;

@@ -8,6 +8,7 @@
 #include <dinput.h>
 
 #include <array>
+#include <cstddef>
 #include <cstring>
 #include <initializer_list>
 #include <mutex>
@@ -55,9 +56,9 @@ struct HookedVtable {
     GetDeviceStateFn get_device_state = nullptr;
     GetDeviceDataFn get_device_data = nullptr;
 };
-constexpr int kMaxVtables = 8;
+constexpr std::size_t kMaxVtables = 8;
 HookedVtable g_hooked[kMaxVtables];
-int g_hooked_count = 0;
+std::size_t g_hooked_count = 0;
 std::mutex g_install_mutex;
 
 void** vtable_of(void* object) {
@@ -126,12 +127,12 @@ void release(void* object) {
     reinterpret_cast<ReleaseFn>(vtable_of(object)[kReleaseIndex])(object);
 }
 
-template <int N>
+template <std::size_t N>
 HRESULT STDMETHODCALLTYPE get_device_state_detour(void* device, DWORD size, void* data) {
     return get_device_state(g_hooked[N].get_device_state, device, size, data);
 }
 
-template <int N>
+template <std::size_t N>
 HRESULT STDMETHODCALLTYPE get_device_data_detour(void* device, DWORD object_size, DIDEVICEOBJECTDATA* data,
                                                  DWORD* count, DWORD flags) {
     return get_device_data(g_hooked[N].get_device_data, device, object_size, data, count, flags);
@@ -146,8 +147,8 @@ constexpr auto kDetours = make_detours(std::make_index_sequence<kMaxVtables>());
 
 void hook_device_vtable(void* device) {
     void** vtable = vtable_of(device);
-    int count = g_hooked_count;
-    for (int i = 0; i < count; ++i) {
+    std::size_t count = g_hooked_count;
+    for (std::size_t i = 0; i < count; ++i) {
         if (g_hooked[i].vtable == vtable) {
             return;
         }
@@ -210,7 +211,7 @@ bool hook_version(const wchar_t* module_name, const char* create_name, DWORD ver
 
 void install_dinput_hooks() {
     std::scoped_lock lock(g_install_mutex);
-    int before = g_hooked_count;
+    std::size_t before = g_hooked_count;
     bool dinput8 = hook_version(L"dinput8.dll", "DirectInput8Create", 0x0800,
                                 {{&IID_IDirectInput8A, nullptr}, {&IID_IDirectInput8W, nullptr}});
     bool dinput = hook_version(

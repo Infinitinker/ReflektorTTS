@@ -47,7 +47,7 @@ void clamped_wrapped_text(const std::string& text, int max_lines) {
     float width = ImGui::GetContentRegionAvail().x;
     std::vector<std::string> lines = wrap_lines(ImGui::GetFont(), ImGui::GetFontSize(), text, width);
     if (lines.size() > static_cast<std::size_t>(max_lines)) {
-        lines.resize(max_lines);
+        lines.resize(static_cast<std::size_t>(max_lines));
         std::string& last = lines.back();
         while (!last.empty() && ImGui::CalcTextSize((last + kEllipsis).c_str()).x > width) {
             drop_last_character(last);
