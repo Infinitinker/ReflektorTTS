@@ -1,5 +1,6 @@
 # Sets up the project's Python, 3.13 (CLAUDE.md and pyproject.toml's requires-python), with pip's
-# download cache. Used by every job that runs Python: in checks.yml, e2e.yml and build-windows.yml.
+# download cache. Used by every job that runs Python: in checks.yml, e2e.yml, build-windows.yml and
+# advisories.yml.
 # Needs a checkout first, as every local action does, with the file the cache is keyed on.
 name: Python
 description: Sets up Python 3.13, with pip's download cache unless told otherwise.

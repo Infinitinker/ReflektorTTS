@@ -68,6 +68,8 @@ The `Checks` workflow (`.github/workflows/checks.yml`) runs every check below fo
 - `Licenses`: the licenses of everything a release ships, on Windows.
 - `C++ checks`: the include directions, clang-format and clang-tidy, on Windows.
 
+The `Advisories` workflow (`.github/workflows/advisories.yml`) checks the packages a release ships, pinned in `tools/release-constraints.txt`, against the published security advisories, in one job, `Python advisories`. It runs every Monday, for each push to `main` and `dev` and each pull request that changes the pins or the workflow, on request (Actions > Advisories > Run workflow), and in every release, which is not drafted while it fails ("Publishing a release" in [releasing.md](releasing.md#publishing-a-release) says what to do then).
+
 Once a month Dependabot opens a pull request to `dev` with new versions of the actions the workflows and the shared actions in `.github/actions/` use (`.github/dependabot.yml`).
 
 ### Lint
@@ -249,6 +251,12 @@ python -m mypy && xvfb-run -a python -m pytest
 
 ```bash
 xvfb-run -a -s "-screen 0 1920x1080x24" sh -c 'stalonetray & python -m tests.e2e.wait_for_tray && python -m pytest -m e2e'
+```
+
+**Python advisories** (`advisories.yml`), with pip-audit installed first:
+
+```bash
+python -m pip install pip-audit==2.10.1 && pip-audit --no-deps --disable-pip -r tools/release-constraints.txt
 ```
 
 **Windows release files** (`build-windows.yml`) and the Release workflow's **Check the version** and **Draft the release** run on Linux too, but only check a build's files, the tag and the version, and draft the release on GitHub: they have nothing to run locally.

@@ -1,0 +1,53 @@
+name: Advisories
+
+# Checks every package a release ships, as pinned in tools/release-constraints.txt, against the
+# published security advisories, and fails on any it finds. It runs on a schedule of its own because
+# an advisory can be published for a pin that hasn't changed, which no push would check. A change to
+# the pins, or to this workflow, runs it too, and the Release workflow calls it, so no release is
+# drafted while an advisory is open ("Publishing a release" in docs/releasing.md says what to do).
+on:
+  schedule:
+    - cron: "0 6 * * 1" # Every Monday, 06:00 UTC.
+  push:
+    branches: [main, dev]
+    paths:
+      - tools/release-constraints.txt
+      - .github/workflows/advisories.yml
+  pull_request:
+    paths:
+      - tools/release-constraints.txt
+      - .github/workflows/advisories.yml
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  python:
+    name: Python advisories
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    steps:
+      # The pins and the shared actions are all the job needs.
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: |
+            .github
+            tools
+      # Installs nothing from the pins, so it has no cache to keep.
+      - uses: ./.github/actions/python
+        with:
+          cache: "false"
+      - name: Install pip-audit
+        run: python -m pip install pip-audit==2.10.1
+      # --no-deps checks the pins as they are, without resolving or installing them, and --disable-pip
+      # then leaves pip out entirely: the file is a pip freeze of the Windows venv a release is built
+      # in, with Windows-only packages (winrt, pywin32-ctypes) that a Linux runner can't install. The
+      # pins are the whole set a release ships, so no package is missed by not resolving them.
+      #
+      # An advisory that can't be fixed yet, because no fixed version exists or the fix breaks the app,
+      # is allowed by adding --ignore-vuln <ID> to the command, with a comment above it saying why
+      # and when to look again. Never let the step pass otherwise.
+      - name: Check the pins
+        run: pip-audit --no-deps --disable-pip -r tools/release-constraints.txt

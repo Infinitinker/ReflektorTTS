@@ -5,7 +5,9 @@ name: Release
 # does the same without drafting, to try a release before tagging it; it keeps the files on the
 # run's page for 90 days. Each system's build is a workflow of its own (build-windows.yml), which also
 # checks its files, and which builds every pull request on its own. Windows is the only system with a
-# release for now: Linux gets a build workflow when the Linux ports land.
+# release for now: Linux gets a build workflow when the Linux ports land. The pinned packages are
+# checked against the security advisories by a workflow of its own too (advisories.yml), which also
+# runs every week.
 on:
   push:
     tags: ["v*"]
@@ -57,9 +59,15 @@ jobs:
     needs: version
     uses: ./.github/workflows/build-windows.yml
 
+  # The pinned packages against the published security advisories, at the moment of the release.
+  advisories:
+    name: Advisories
+    uses: ./.github/workflows/advisories.yml
+
+  # No release is drafted while an advisory is open for a package it ships.
   draft:
     name: Draft the release
-    needs: [version, windows]
+    needs: [version, windows, advisories]
     if: github.event_name == 'push'
     runs-on: ubuntu-26.04
     timeout-minutes: 15

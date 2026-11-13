@@ -57,6 +57,11 @@ The `Release` workflow (`.github/workflows/release.yml`) checks the version and 
 3. Merge `dev` into `main` with a pull request, then push a tag `v<version>` on `main`, where `<version>` is the version in `pyproject.toml`. The workflow builds the files, records where each was built (a provenance attestation, which `gh attestation verify <file> --repo Infinitinker/ReflektorTTS` checks), and drafts the release's page with the three files and their checksums. A tag that differs from the version, or is not on `main`, fails before anything is built.
 4. Write the release notes on the draft, then publish it.
 
+The release is drafted only once the `Advisories` workflow (`.github/workflows/advisories.yml`), which the Release workflow calls, passes. It checks every package in `tools/release-constraints.txt` against the published security advisories with [pip-audit](https://pypi.org/project/pip-audit/), and also runs every Monday, for each push to `main` or `dev` and each pull request that changes the pins, and by hand (Actions > Advisories > Run workflow), so an advisory usually shows up before a release does. When it fails, its log names each package, its version, the advisory and the version that fixes it:
+
+- Upgrade the package to a fixed version, test the app with it, and refresh the constraints as the file's first lines say, with the notices (see [Dependencies and notices](#dependencies-and-notices)).
+- If no fixed version exists yet, or the fix breaks the app, allow the advisory: add `--ignore-vuln <ID>` to the command in `advisories.yml`, with a comment above it saying why and when to look again. Remove it once the package can be upgraded.
+
 ## Signing
 
 The release files are not signed with a paid code-signing certificate: ReflektorTTS is free, and the certificates Windows trusts cost money every year. Windows warns about an unsigned app the first time it starts, and Smart App Control, where it is on, blocks it; the README's [questions](../README.md#questions) tell users how to allow it. A user can still make sure a download is the real one, with the checksums on the release's page or the build attestation, which `gh attestation verify` checks (see above).
