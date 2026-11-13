@@ -29,8 +29,10 @@ FrameInsets visible_frame_insets(SDL_Window* window) {
         log_message("Cannot measure the window's frame; it may open a few pixels off its place");
         return {};
     }
-    return {origin.x - frame.left, origin.y - frame.top, frame.right - (origin.x + client.right),
-            frame.bottom - (origin.y + client.bottom)};
+    return {.left = origin.x - frame.left,
+            .top = origin.y - frame.top,
+            .right = frame.right - (origin.x + client.right),
+            .bottom = frame.bottom - (origin.y + client.bottom)};
 }
 
 #else
@@ -44,7 +46,10 @@ FrameInsets visible_frame_insets(SDL_Window* window) {
     // SDL's borders are in window coordinates.
     float density = SDL_GetWindowPixelDensity(window);
     auto pixels = [density](int size) { return static_cast<int>(static_cast<float>(size) * density + 0.5f); };
-    return {pixels(insets.left), pixels(insets.top), pixels(insets.right), pixels(insets.bottom)};
+    return {.left = pixels(insets.left),
+            .top = pixels(insets.top),
+            .right = pixels(insets.right),
+            .bottom = pixels(insets.bottom)};
 }
 
 #endif

@@ -75,8 +75,8 @@ void draw_stage_ticks(const StageOption& stage) {
         StageOutput output;
         bool on;
     };
-    const Tick ticks[] = {{kTextHeading, StageOutput::Text, stage.text},
-                          {kSpeechHeading, StageOutput::Speech, stage.speech}};
+    const Tick ticks[] = {{.heading = kTextHeading, .output = StageOutput::Text, .on = stage.text},
+                          {.heading = kSpeechHeading, .output = StageOutput::Speech, .on = stage.speech}};
     float x = tick_columns_x();
     for (const Tick& tick : ticks) {
         float width = tick_column_width(tick.heading);

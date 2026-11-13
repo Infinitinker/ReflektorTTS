@@ -180,7 +180,7 @@ BOOL WINAPI get_cursor_pos(POINT* point) {
 BOOL WINAPI set_cursor_pos(int x, int y) {
     if (blocked_for_caller(__builtin_return_address(0))) {
         std::scoped_lock lock(g_cursor_mutex);
-        g_app_cursor = {x, y};
+        g_app_cursor = {.x = x, .y = y};
         return TRUE;
     }
     return g_set_cursor_pos(x, y);

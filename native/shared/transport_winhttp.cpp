@@ -148,7 +148,7 @@ public:
         if (!response_body) {
             return std::nullopt;
         }
-        return HttpResponse{static_cast<int>(status), std::move(*response_body)};
+        return HttpResponse{.status = static_cast<int>(status), .body = std::move(*response_body)};
     }
 
     std::unique_ptr<EventStream> open_event_stream(const std::string& path) override {

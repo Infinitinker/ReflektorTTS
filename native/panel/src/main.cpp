@@ -36,7 +36,7 @@ int main(int argc, char* argv[]) {
                 "The settings window cannot connect to ReflektorTTS: WinHTTP, part of Windows, did not start.");
             return 1;
         }
-        start_api_client(std::move(transport), {arguments.profile, wake_window});
+        start_api_client(std::move(transport), {.profile = arguments.profile, .on_change = wake_window});
         return run_panel_window(arguments.dock);
     } catch (const ArgumentError& error) {
         report_startup_error(error.what());

@@ -86,15 +86,18 @@ std::optional<std::string> optional_text(const json& value) {
 std::vector<SourceStages> read_sources(const json& sources) {
     std::vector<SourceStages> result;
     for (const json& source : sources) {
-        SourceStages entry{source.at("name").get<std::string>(),
-                           source.at("type").get<std::string>(),
-                           source.at("enabled").get<bool>(),
-                           {}};
+        SourceStages entry{.source = source.at("name").get<std::string>(),
+                           .type = source.at("type").get<std::string>(),
+                           .enabled = source.at("enabled").get<bool>(),
+                           .stages = {}};
         for (const json& stage : source.at("stages")) {
-            entry.stages.push_back({stage.at("key").get<std::string>(), stage.at("type").get<std::string>(),
-                                    stage.at("summary").get<std::string>(), optional_text(stage.at("warning")),
-                                    stage.at("enabled").at("text").get<bool>(),
-                                    stage.at("enabled").at("speech").get<bool>(), optional_text(stage.at("inactive"))});
+            entry.stages.push_back({.key = stage.at("key").get<std::string>(),
+                                    .type = stage.at("type").get<std::string>(),
+                                    .summary = stage.at("summary").get<std::string>(),
+                                    .warning = optional_text(stage.at("warning")),
+                                    .text = stage.at("enabled").at("text").get<bool>(),
+                                    .speech = stage.at("enabled").at("speech").get<bool>(),
+                                    .inactive = optional_text(stage.at("inactive"))});
         }
         result.push_back(std::move(entry));
     }
@@ -307,16 +310,18 @@ bool load_options() {
         std::vector<VoiceOption> voice_options;
         if (!voices->is_null()) {
             for (const json& voice : voices->at("voices")) {
-                voice_options.push_back({voice.at("id").get<std::string>(), voice.at("engine").get<std::string>(),
-                                         voice.at("name").get<std::string>(), voice.at("language").get<std::string>()});
+                voice_options.push_back({.id = voice.at("id").get<std::string>(),
+                                         .engine = voice.at("engine").get<std::string>(),
+                                         .name = voice.at("name").get<std::string>(),
+                                         .language = voice.at("language").get<std::string>()});
             }
         }
         std::vector<LanguageOption> language_options;
         if (!languages->is_null()) {
             for (const json& language : languages->at("languages")) {
-                language_options.push_back({language.at("code").get<std::string>(),
-                                            language.at("name").get<std::string>(),
-                                            language.at("english_name").get<std::string>()});
+                language_options.push_back({.code = language.at("code").get<std::string>(),
+                                            .name = language.at("name").get<std::string>(),
+                                            .english_name = language.at("english_name").get<std::string>()});
             }
         }
         update_state([&](CoreState& state) {
@@ -426,7 +431,7 @@ void request_profile_change(const char* route, const json& body) {
             [](CoreState& state) { set_error(state, "No app is being read, so the change cannot be saved."); });
         return;
     }
-    enqueue({"PATCH", profile_path(profile, route), body.dump()});
+    enqueue({.method = "PATCH", .path = profile_path(profile, route), .body = body.dump()});
 }
 
 void request_setting(const json& setting) {
@@ -451,11 +456,11 @@ CoreState core_state() {
 }
 
 void request_paused(bool paused) {
-    enqueue({"POST", paused ? "/v1/pause" : "/v1/resume", ""});
+    enqueue({.method = "POST", .path = paused ? "/v1/pause" : "/v1/resume", .body = ""});
 }
 
 void request_stop_line() {
-    enqueue({"POST", "/v1/stop", ""});
+    enqueue({.method = "POST", .path = "/v1/stop", .body = ""});
 }
 
 void request_voice(const std::string& voice_id) {

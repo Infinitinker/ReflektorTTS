@@ -87,7 +87,8 @@ bool install(void* target, void* detour, void** original) {
         return false;
     }
     g_trampolines[target] = *original;
-    g_watched.push_back({target, detour, original, replaced, read_code(target)});
+    g_watched.push_back(
+        {.target = target, .detour = detour, .original = original, .replaced = replaced, .written = read_code(target)});
     return true;
 }
 
@@ -147,7 +148,7 @@ ModuleRange overlay_range() {
         auto base = reinterpret_cast<std::uintptr_t>(overlay_module());
         const auto* dos = reinterpret_cast<const IMAGE_DOS_HEADER*>(base);
         const auto* nt = reinterpret_cast<const IMAGE_NT_HEADERS*>(base + dos->e_lfanew);
-        return ModuleRange{base, base + nt->OptionalHeader.SizeOfImage};
+        return ModuleRange{.begin = base, .end = base + nt->OptionalHeader.SizeOfImage};
     }();
     return range;
 }

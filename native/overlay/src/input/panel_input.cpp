@@ -125,7 +125,7 @@ void send_to_panel(HWND window, UINT message, WPARAM wparam, LPARAM lparam) {
     }
     std::scoped_lock lock(g_messages_mutex);
     if (g_waiting_messages.size() < kMaxWaitingMessages) {
-        g_waiting_messages.push_back({window, message, wparam, lparam});
+        g_waiting_messages.push_back({.window = window, .message = message, .wparam = wparam, .lparam = lparam});
     }
 }
 

@@ -32,7 +32,6 @@ Checks: >
 
   -modernize-avoid-c-arrays,
   -modernize-return-braced-init-list,
-  -modernize-use-designated-initializers,
   -modernize-use-trailing-return-type,
 
   -performance-enum-size,
@@ -70,8 +69,6 @@ Checks: >
 #   the check takes for missing includes.
 # modernize-return-braced-init-list: it misses constructors that are explicit through a using
 #   declaration (ArgumentError's), where {} does not compile.
-# modernize-use-designated-initializers: Windows' structs are filled in positionally, as their
-#   documentation does, or field by field.
 # modernize-use-trailing-return-type: return types go in front.
 # performance-enum-size: the enums are few and small; their size saves nothing.
 # portability-avoid-pragma-once: #pragma once is the code's include guard, and every compiler it is
