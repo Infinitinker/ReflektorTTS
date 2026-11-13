@@ -139,9 +139,10 @@ BYTE* load_library_in(HANDLE process, DWORD process_id, const std::filesystem::p
     }
     bool started = false;
     if (WriteProcessMemory(process, remote_path, path.c_str(), size, nullptr)) {
-        // LoadLibraryW takes one pointer and returns a handle, as a thread's start routine does, so the
-        // new thread runs it. Casting through void (*)(), which stands for any function, tells the
-        // compiler that the cast is meant.
+        // The new thread runs LoadLibraryW as its start routine: both are WINAPI and take one pointer.
+        // The HMODULE it returns comes back cut to the thread's DWORD exit code, which nothing reads,
+        // since module_base finds the DLL. Casting through void (*)(), which stands for any function,
+        // tells the compiler that the cast is meant.
         auto load_library = reinterpret_cast<LPTHREAD_START_ROUTINE>(
             reinterpret_cast<void (*)()>(GetProcAddress(GetModuleHandleW(L"kernel32.dll"), "LoadLibraryW")));
         HANDLE thread = CreateRemoteThread(process, nullptr, 0, load_library, remote_path, 0, nullptr);
