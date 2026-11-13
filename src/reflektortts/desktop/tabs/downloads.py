@@ -164,7 +164,9 @@ class DownloadsTab:
         return item.name, item.source, self._languages(item), size_text(item.size), state
 
     def _languages(self, item: DownloadItem) -> str:
-        return self._languages_text(item.languages)
+        """Its languages, each named in full: a model's from and to as "English, Polish (Polski)",
+        since its name already reads "English → Polish"."""
+        return ", ".join(self._languages_text((language,)) for language in item.languages)
 
     def _show_downloading(self, item_id: str, done: int, total: int | None) -> None:
         self._tree.set(item_id, "state", state_text("downloading", done, total))
