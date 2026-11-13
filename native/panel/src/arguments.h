@@ -35,7 +35,7 @@ struct Dock {
 struct PanelArguments {
     std::string profile;  // The ID of the profile whose settings are shown.
     int port = kDefaultCorePort;  // The port of the core's API.
-    std::optional<Dock> dock;  // None: the panel opens centered, at its default size.
+    std::optional<Dock> dock = std::nullopt;  // None: the panel opens centered, at its default size.
 };
 
 // Reads the arguments after the program's name: "--profile <id>", optionally "--port <port>", and
