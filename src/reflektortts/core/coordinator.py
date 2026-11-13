@@ -5,7 +5,7 @@ and its API."""
 import functools
 import logging
 import threading
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Collection, Mapping, Sequence
 from dataclasses import replace
 from pathlib import Path
 from typing import Any, Concatenate
@@ -220,8 +220,8 @@ class Core:
     def voices(self) -> list[VoiceInfo]:
         return self._list_voices()
 
-    def speech_rules(self) -> dict[str, tuple[str, ...]]:
-        return speech_rules(self._stages.values())
+    def speech_rules(self, stages: Collection[str]) -> dict[str, tuple[str, ...]]:
+        return speech_rules(plugin for type_, plugin in self._stages.items() if type_ in stages)
 
     def preview_voice(self, voice: str) -> None:
         """Speaks a sample sentence in the voice's language, or the language's name, also while an

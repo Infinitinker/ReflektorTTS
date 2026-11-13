@@ -62,10 +62,10 @@ class StagePlugin:
     "Input and output language are the same"; None if it works with them. Meanwhile the stage is
     skipped, and the settings panel grays it out and shows the reason instead of the summary."""
     speech_rules: Mapping[str, Collection[str]] = field(default_factory=dict)
-    """What the stage does only for some output languages, listed for each language in the desktop
-    app: a few words naming each rule, written like a label, mapped to the codes of the languages
-    that have it, e.g. {"Numbers, dates and units": {"en", "pl"}}. Stages that name the same rule
-    share it."""
+    """What the stage does only for some output languages, listed in the desktop app's details of
+    each profile that uses the stage: a few words naming each rule, written like a label, mapped to
+    the codes of the languages that have it, e.g. {"Numbers, dates and units": {"en", "pl"}}.
+    Stages that name the same rule share it."""
 
 
 _failed_checks: set[str] = set()
@@ -85,13 +85,13 @@ def inactive_reason(plugin: StagePlugin, languages: Languages) -> str | None:
 
 
 def speech_rules(plugins: Iterable[StagePlugin]) -> dict[str, tuple[str, ...]]:
-    """The speech rules each output language has, by its code, in alphabetical order."""
+    """The plugins' speech rules, each with the codes of the output languages that have it from any
+    of them, in alphabetical order."""
     rules: dict[str, set[str]] = {}
     for plugin in plugins:
         for rule, languages in plugin.speech_rules.items():
-            for language in languages:
-                rules.setdefault(language, set()).add(rule)
-    return {language: tuple(sorted(names)) for language, names in rules.items()}
+            rules.setdefault(rule, set()).update(languages)
+    return {rule: tuple(sorted(languages)) for rule, languages in sorted(rules.items())}
 
 
 def load_schema(package: str, file_name: str) -> Mapping[str, Any]:

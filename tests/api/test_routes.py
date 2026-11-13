@@ -209,14 +209,7 @@ def test_download_progress_comes_as_events() -> None:
 def test_languages() -> None:
     async def test(client: TestClient[Any, Any]) -> None:
         languages = (await (await client.get("/v1/languages")).json())["languages"]
-        polish = {
-            "code": "pl",
-            "name": "Polski",
-            "english_name": "Polish",
-            "speech_rules": ["Glossary grammar", "Numbers, dates and units"],
-        }
-        assert polish in languages
-        assert {"code": "de", "name": "Deutsch", "english_name": "German", "speech_rules": []} in languages
+        assert {"code": "pl", "name": "Polski", "english_name": "Polish"} in languages
         english_names = [language["english_name"] for language in languages]
         assert english_names == sorted(english_names)
 
@@ -471,6 +464,7 @@ def test_profiles_are_listed_and_switched() -> None:
                     "tested_languages": ["en", "pl"],
                     "glossary_languages": ["en", "fr"],
                     "pronunciation_languages": ["de", "pl"],
+                    "speech_rules": [{"name": "Glossary grammar", "languages": ["pl"]}],
                     "executables": [{"name": "MadMax.exe", "sha256": ["cd71"]}],
                     "sources": [{"name": "subtitles", "type": "avalanche", "stages": ["tracker"]}],
                 }

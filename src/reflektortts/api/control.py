@@ -1,6 +1,6 @@
 """What the local API needs from the core: the CoreControl protocol, which the core implements."""
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Collection, Mapping
 from pathlib import Path
 from typing import Any, Protocol
 
@@ -22,8 +22,8 @@ class CoreControl(Protocol):
 
     def voices(self) -> list[VoiceInfo]: ...
 
-    def speech_rules(self) -> Mapping[str, tuple[str, ...]]:
-        """The speech rules of the installed stages that each output language has, by its code."""
+    def speech_rules(self, stages: Collection[str]) -> Mapping[str, tuple[str, ...]]:
+        """The speech rules of the installed stages of these types, each with its languages' codes."""
         ...
 
     def preview_voice(self, voice: str) -> None:

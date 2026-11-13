@@ -66,7 +66,6 @@ async def get_voices(request: web.Request) -> web.Response:
 
 async def get_languages(request: web.Request) -> web.Response:
     languages = sorted(LANGUAGES.values(), key=lambda language: language.english_name)
-    rules = request.app[CORE].speech_rules()
     return web.json_response(
         {
             "languages": [
@@ -74,7 +73,6 @@ async def get_languages(request: web.Request) -> web.Response:
                     "code": language.code,
                     "name": language.name,
                     "english_name": language.english_name,
-                    "speech_rules": list(rules.get(language.code, ())),
                 }
                 for language in languages
             ]
@@ -147,7 +145,8 @@ async def patch_profile_stages(request: web.Request) -> web.Response:
 
 async def get_profiles(request: web.Request) -> web.Response:
     views = await asyncio.to_thread(request.app[CORE].profiles)
-    return web.json_response({"profiles": [profile_json(view) for view in views]})
+    core = request.app[CORE]
+    return web.json_response({"profiles": [profile_json(view, core.speech_rules) for view in views]})
 
 
 async def patch_profiles(request: web.Request) -> web.Response:

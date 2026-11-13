@@ -1,7 +1,7 @@
 """A fake core for the API's tests, with the views and JSON it answers with, which the other API tests share."""
 
 import asyncio
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Collection
 from dataclasses import asdict, replace
 from pathlib import Path
 from typing import Any
@@ -160,8 +160,9 @@ class FakeCore:
     def voices(self) -> list[VoiceInfo]:
         return [ADAM]
 
-    def speech_rules(self) -> dict[str, tuple[str, ...]]:
-        return {"pl": ("Glossary grammar", "Numbers, dates and units")}
+    def speech_rules(self, stages: Collection[str]) -> dict[str, tuple[str, ...]]:
+        # Mad Max's one stage, the tracker, stands in for one with a rule.
+        return {"Glossary grammar": ("pl",)} if "tracker" in stages else {}
 
     def preview_voice(self, voice: str) -> None:
         if voice != ADAM.id:

@@ -1,5 +1,6 @@
 """Turns the core's views and events into the API's JSON."""
 
+from collections.abc import Callable, Collection, Mapping
 from typing import Any
 
 from reflektortts.bus import Event
@@ -15,8 +16,10 @@ from reflektortts.events import (
     SubtitleEvent,
     TextEvent,
 )
+from reflektortts.glossary import GLOSSARY_GRAMMAR
 from reflektortts.integrations import IntegrationView
 from reflektortts.profiles.catalog import ProfileView
+from reflektortts.profiles.model import Profile
 
 
 def stage_json(stage: StageState) -> dict[str, Any]:
@@ -111,7 +114,10 @@ def event_json(event: Event) -> dict[str, Any]:
     return status_json(event)
 
 
-def profile_json(view: ProfileView) -> dict[str, Any]:
+def profile_json(
+    view: ProfileView, speech_rules: Callable[[Collection[str]], Mapping[str, tuple[str, ...]]]
+) -> dict[str, Any]:
+    """speech_rules gives the speech rules of the stages of the given types."""
     entry = view.choice.entry
     profile = entry.profile
     return {
@@ -131,6 +137,7 @@ def profile_json(view: ProfileView) -> dict[str, Any]:
         else sorted(
             {language for glossary in profile.glossary.values() for term in glossary for language in term.pronounce}
         ),
+        "speech_rules": [] if profile is None else _speech_rules(profile, speech_rules),
         "executables": []
         if profile is None
         else [{"name": executable.name, "sha256": list(executable.sha256)} for executable in profile.match.executables],
@@ -141,6 +148,19 @@ def profile_json(view: ProfileView) -> dict[str, Any]:
             for source in profile.sources
         ],
     }
+
+
+def _speech_rules(
+    profile: Profile, speech_rules: Callable[[Collection[str]], Mapping[str, tuple[str, ...]]]
+) -> list[dict[str, Any]]:
+    """The speech rules of the stages the profile's sources use. Glossary grammar works on glossary
+    terms, so a profile without a glossary has no use for it."""
+    stages = {stage.type for source in profile.sources for stage in source.stages}
+    return [
+        {"name": rule, "languages": list(languages)}
+        for rule, languages in speech_rules(stages).items()
+        if rule != GLOSSARY_GRAMMAR or profile.glossary
+    ]
 
 
 def _codes(languages: tuple[str, ...] | str) -> list[str] | str:
