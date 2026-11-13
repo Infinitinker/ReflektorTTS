@@ -7,6 +7,9 @@
 #include <imgui.h>
 #include <imgui_impl_dx11.h>
 
+#include <array>
+#include <span>
+
 #include "log.h"
 #include "renderers/overlay_frame.h"
 
@@ -76,16 +79,16 @@ void attach(IDXGISwapChain* swap_chain) {
 template <typename Shader>
 struct ShaderBinding {
     Shader* shader = nullptr;
-    ID3D11ClassInstance* instances[D3D11_SHADER_MAX_INTERFACES] = {};
+    std::array<ID3D11ClassInstance*, D3D11_SHADER_MAX_INTERFACES> instances{};
     UINT instance_count = D3D11_SHADER_MAX_INTERFACES;
 
     void release() {
         if (shader != nullptr) {
             shader->Release();
         }
-        for (UINT i = 0; i < instance_count; ++i) {
-            if (instances[i] != nullptr) {
-                instances[i]->Release();
+        for (ID3D11ClassInstance* instance : std::span(instances).first(instance_count)) {
+            if (instance != nullptr) {
+                instance->Release();
             }
         }
     }
@@ -97,15 +100,15 @@ struct ShaderStages {
     ShaderBinding<ID3D11ComputeShader> compute;
 
     explicit ShaderStages(ID3D11DeviceContext* context) {
-        context->HSGetShader(&hull.shader, hull.instances, &hull.instance_count);
-        context->DSGetShader(&domain.shader, domain.instances, &domain.instance_count);
-        context->CSGetShader(&compute.shader, compute.instances, &compute.instance_count);
+        context->HSGetShader(&hull.shader, hull.instances.data(), &hull.instance_count);
+        context->DSGetShader(&domain.shader, domain.instances.data(), &domain.instance_count);
+        context->CSGetShader(&compute.shader, compute.instances.data(), &compute.instance_count);
     }
 
     void restore(ID3D11DeviceContext* context) {
-        context->HSSetShader(hull.shader, hull.instances, hull.instance_count);
-        context->DSSetShader(domain.shader, domain.instances, domain.instance_count);
-        context->CSSetShader(compute.shader, compute.instances, compute.instance_count);
+        context->HSSetShader(hull.shader, hull.instances.data(), hull.instance_count);
+        context->DSSetShader(domain.shader, domain.instances.data(), domain.instance_count);
+        context->CSSetShader(compute.shader, compute.instances.data(), compute.instance_count);
         hull.release();
         domain.release();
         compute.release();
@@ -144,14 +147,14 @@ void render_d3d11_frame(IDXGISwapChain* swap_chain) {
     build_overlay_frame(desc.Width, desc.Height);
 
     // Setting one render target unbinds the others, so all of the app's are put back.
-    ID3D11RenderTargetView* app_targets[D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT] = {};
+    std::array<ID3D11RenderTargetView*, D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT> app_targets{};
     ID3D11DepthStencilView* app_depth = nullptr;
-    g_context->OMGetRenderTargets(D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT, app_targets, &app_depth);
+    g_context->OMGetRenderTargets(D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT, app_targets.data(), &app_depth);
     ShaderStages app_stages(g_context);
     g_context->OMSetRenderTargets(1, &target, nullptr);
     ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
     app_stages.restore(g_context);
-    g_context->OMSetRenderTargets(D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT, app_targets, app_depth);
+    g_context->OMSetRenderTargets(D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT, app_targets.data(), app_depth);
     for (ID3D11RenderTargetView* app_target : app_targets) {
         if (app_target != nullptr) {
             app_target->Release();

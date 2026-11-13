@@ -54,7 +54,7 @@ std::string primary_language(const std::string& tag) {
 
 std::string engine_title(std::string engine) {
     if (!engine.empty()) {
-        engine[0] = static_cast<char>(std::toupper(static_cast<unsigned char>(engine[0])));
+        engine.front() = static_cast<char>(std::toupper(static_cast<unsigned char>(engine.front())));
     }
     return engine;
 }

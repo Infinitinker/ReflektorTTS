@@ -11,6 +11,7 @@
 #include <format>
 #include <functional>
 #include <map>
+#include <memory>
 #include <string_view>
 #include <system_error>
 
@@ -33,7 +34,7 @@ ArgumentError usage_error(const std::string& what) {
 
 int number(const std::string& name, const std::string& value) {
     int result = 0;
-    const char* end = value.data() + value.size();
+    const char* end = std::to_address(value.end());
     auto [last, error] = std::from_chars(value.data(), end, result);
     if (error != std::errc() || last != end) {
         throw usage_error(std::format("\"{}\" after {} is not a whole number.", value, name));
@@ -64,18 +65,19 @@ Dock read_dock(const std::map<std::string, std::string, std::less<>>& values) {
 
 PanelArguments parse_arguments(std::span<char* const> arguments) {
     std::map<std::string, std::string, std::less<>> values;
-    for (std::size_t i = 0; i < arguments.size(); ++i) {
-        std::string name = arguments[i];
+    for (auto argument = arguments.begin(); argument != arguments.end(); ++argument) {
+        std::string name = *argument;
         if (!known(name)) {
             throw usage_error(std::format("Unknown argument \"{}\".", name));
         }
         if (values.contains(name)) {
             throw usage_error(std::format("{} is given twice.", name));
         }
-        if (i + 1 == arguments.size() || std::string_view(arguments[i + 1]).empty()) {
+        ++argument;
+        if (argument == arguments.end() || std::string_view(*argument).empty()) {
             throw usage_error(std::format("Nothing given after {}.", name));
         }
-        values[name] = arguments[++i];
+        values[name] = *argument;
     }
     auto profile = values.find("--profile");
     if (profile == values.end()) {

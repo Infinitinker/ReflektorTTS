@@ -7,6 +7,7 @@
 #include <array>
 #include <cstddef>
 #include <mutex>
+#include <span>
 #include <string>
 #include <utility>
 
@@ -44,13 +45,13 @@ struct DeviceClass {
     PresentFn present = nullptr;
 };
 constexpr std::size_t kMaxDeviceClasses = 4;
-DeviceClass g_devices[kMaxDeviceClasses];
+std::array<DeviceClass, kMaxDeviceClasses> g_devices;
 std::size_t g_device_count = 0;
 
 template <std::size_t N>
 HRESULT STDMETHODCALLTYPE reset_detour(IDirect3DDevice9* device, D3DPRESENT_PARAMETERS* parameters) {
     g_before_reset(device);
-    HRESULT result = g_devices[N].reset(device, parameters);
+    HRESULT result = std::get<N>(g_devices).reset(device, parameters);
     if (SUCCEEDED(result)) {
         g_after_reset(device);
     }
@@ -61,7 +62,7 @@ template <std::size_t N>
 HRESULT STDMETHODCALLTYPE present_detour(IDirect3DDevice9* device, const RECT* source, const RECT* destination,
                                          HWND window, const RGNDATA* dirty_region) {
     g_on_present(device);
-    return g_devices[N].present(device, source, destination, window, dirty_region);
+    return std::get<N>(g_devices).present(device, source, destination, window, dirty_region);
 }
 
 template <std::size_t... N>
@@ -73,8 +74,8 @@ constexpr auto kDeviceDetours = make_device_detours(std::make_index_sequence<kMa
 
 bool hook_device_class(void** vtable) {
     std::scoped_lock lock(g_mutex);
-    for (std::size_t i = 0; i < g_device_count; ++i) {
-        if (g_devices[i].vtable == vtable) {
+    for (const DeviceClass& hooked : std::span(g_devices).first(g_device_count)) {
+        if (hooked.vtable == vtable) {
             return true;
         }
     }
@@ -83,10 +84,10 @@ bool hook_device_class(void** vtable) {
         return false;
     }
     std::size_t n = g_device_count++;
-    DeviceClass& hooked = g_devices[n];
+    DeviceClass& hooked = g_devices.at(n);
     hooked.vtable = vtable;
-    bool ok = hook_method(vtable, kResetIndex, kDeviceDetours.first[n], &hooked.reset) &&
-              hook_method(vtable, kPresentIndex, kDeviceDetours.second[n], &hooked.present);
+    bool ok = hook_method(vtable, kResetIndex, kDeviceDetours.first.at(n), &hooked.reset) &&
+              hook_method(vtable, kPresentIndex, kDeviceDetours.second.at(n), &hooked.present);
     if (!ok) {
         log_message("Could not hook IDirect3DDevice9 methods");
     }
@@ -104,7 +105,7 @@ std::size_t g_factory_count = 0;
 CreateDeviceExFn g_original_create_device_ex = nullptr;
 
 void hook_new_device(HRESULT result, void* device) {
-    if (SUCCEEDED(result) && device != nullptr && hook_device_class(*static_cast<void***>(device))) {
+    if (SUCCEEDED(result) && device != nullptr && hook_device_class(vtable_of(device))) {
         log_message("Hooked the app's Direct3D 9 device as it was created");
     }
 }
@@ -113,7 +114,7 @@ template <std::size_t N>
 HRESULT STDMETHODCALLTYPE create_device_detour(IDirect3D9* direct3d, UINT adapter, D3DDEVTYPE type, HWND window,
                                                DWORD flags, D3DPRESENT_PARAMETERS* parameters,
                                                IDirect3DDevice9** device) {
-    HRESULT result = g_factories[N].create_device(direct3d, adapter, type, window, flags, parameters, device);
+    HRESULT result = std::get<N>(g_factories).create_device(direct3d, adapter, type, window, flags, parameters, device);
     hook_new_device(result, device != nullptr ? *device : nullptr);
     return result;
 }
@@ -132,16 +133,17 @@ constexpr std::array<CreateDeviceFn, kMaxFactoryClasses> kFactoryDetours{&create
 bool hook_factory_class(void** vtable, bool is_ex) {
     std::scoped_lock lock(g_mutex);
     std::size_t n = 0;
-    while (n < g_factory_count && g_factories[n].vtable != vtable) {
+    while (n < g_factory_count && g_factories.at(n).vtable != vtable) {
         ++n;
     }
     if (n == g_factory_count) {
         if (n == kMaxFactoryClasses) {
             return false;
         }
-        g_factories[n].vtable = vtable;
+        FactoryClass& hooked = g_factories.at(n);
+        hooked.vtable = vtable;
         ++g_factory_count;
-        if (!hook_method(vtable, kCreateDeviceIndex, kFactoryDetours[n], &g_factories[n].create_device)) {
+        if (!hook_method(vtable, kCreateDeviceIndex, kFactoryDetours.at(n), &hooked.create_device)) {
             return false;
         }
     }

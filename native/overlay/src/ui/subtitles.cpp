@@ -50,8 +50,8 @@ void draw_subtitle(const CoreState& state) {
     ImDrawList* draw = ImGui::GetBackgroundDrawList();
     draw->AddRectFilled(ImVec2(x, y), ImVec2(x + band.x, y + band.y), IM_COL32(0, 0, 0, 160), size * 0.25f);
     for (std::size_t i = 0; i < lines.size(); ++i) {
-        ImVec2 position(x + padding.x + (widest - widths[i]) * 0.5f, y + padding.y + size * static_cast<float>(i));
-        draw->AddText(font, size, position, IM_COL32(255, 255, 255, 255), lines[i].c_str());
+        ImVec2 position(x + padding.x + (widest - widths.at(i)) * 0.5f, y + padding.y + size * static_cast<float>(i));
+        draw->AddText(font, size, position, IM_COL32(255, 255, 255, 255), lines.at(i).c_str());
     }
 }
 

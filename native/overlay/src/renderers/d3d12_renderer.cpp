@@ -36,7 +36,7 @@ IDXGISwapChain* g_swap_chain = nullptr;
 ID3D12Device* g_device = nullptr;
 ID3D12CommandQueue* g_queue = nullptr;
 ID3D12DescriptorHeap* g_srv_heap = nullptr;
-UINT g_free_srv_slots[kSrvDescriptorCount];
+std::array<UINT, kSrvDescriptorCount> g_free_srv_slots{};
 UINT g_free_srv_count = 0;
 // How many of ImGui's textures use each descriptor: one, or more for the first once all are taken.
 // A descriptor goes back on the free list when its last texture is freed, so the list never holds
@@ -47,7 +47,7 @@ ID3D12GraphicsCommandList* g_command_list = nullptr;
 ID3D12Fence* g_fence = nullptr;
 HANDLE g_fence_event = nullptr;
 UINT64 g_last_fence_value = 0;
-FrameSlot g_slots[kMaxBackBuffers];
+std::array<FrameSlot, kMaxBackBuffers> g_slots;
 // The back buffer format ImGui's pipeline draws to.
 DXGI_FORMAT g_format = DXGI_FORMAT_UNKNOWN;
 
@@ -60,21 +60,21 @@ void allocate_srv(ImGui_ImplDX12_InitInfo*, D3D12_CPU_DESCRIPTOR_HANDLE* cpu, D3
     if (g_free_srv_count == 0) {
         log_message("Out of D3D12 texture descriptors; sharing the first one");
     } else {
-        slot = g_free_srv_slots[--g_free_srv_count];
+        slot = g_free_srv_slots.at(--g_free_srv_count);
     }
-    ++g_srv_users[slot];
+    ++g_srv_users.at(slot);
     cpu->ptr = g_srv_heap->GetCPUDescriptorHandleForHeapStart().ptr + static_cast<SIZE_T>(slot) * srv_descriptor_size();
     gpu->ptr = g_srv_heap->GetGPUDescriptorHandleForHeapStart().ptr + static_cast<UINT64>(slot) * srv_descriptor_size();
 }
 
 void free_srv(ImGui_ImplDX12_InitInfo*, D3D12_CPU_DESCRIPTOR_HANDLE cpu, D3D12_GPU_DESCRIPTOR_HANDLE) {
     SIZE_T slot = (cpu.ptr - g_srv_heap->GetCPUDescriptorHandleForHeapStart().ptr) / srv_descriptor_size();
-    if (slot >= kSrvDescriptorCount || g_srv_users[slot] == 0) {
+    if (slot >= kSrvDescriptorCount || g_srv_users.at(slot) == 0) {
         log_message("ImGui freed a D3D12 texture descriptor the overlay did not give out; ignoring it");
         return;
     }
-    if (--g_srv_users[slot] == 0) {
-        g_free_srv_slots[g_free_srv_count++] = static_cast<UINT>(slot);
+    if (--g_srv_users.at(slot) == 0) {
+        g_free_srv_slots.at(g_free_srv_count++) = static_cast<UINT>(slot);
     }
 }
 
@@ -115,14 +115,14 @@ bool create_device_objects(DXGI_FORMAT format) {
         return false;
     }
     for (UINT slot = kSrvDescriptorCount; slot > 0; --slot) {
-        g_free_srv_slots[g_free_srv_count++] = slot - 1;
+        g_free_srv_slots.at(g_free_srv_count++) = slot - 1;
     }
     for (FrameSlot& slot : g_slots) {
         if (FAILED(g_device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&slot.allocator)))) {
             return false;
         }
     }
-    if (FAILED(g_device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, g_slots[0].allocator, nullptr,
+    if (FAILED(g_device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, g_slots.front().allocator, nullptr,
                                            IID_PPV_ARGS(&g_command_list))) ||
         FAILED(g_device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&g_fence)))) {
         return false;
@@ -244,7 +244,7 @@ void render_d3d12_frame(IDXGISwapChain* swap_chain) {
         back_buffer->Release();
         return;
     }
-    FrameSlot& slot = g_slots[index];
+    FrameSlot& slot = g_slots.at(index);
     wait_for_fence(slot.fence_value);
     slot.allocator->Reset();
     g_command_list->Reset(slot.allocator, nullptr);
@@ -271,8 +271,8 @@ void render_d3d12_frame(IDXGISwapChain* swap_chain) {
     g_command_list->ResourceBarrier(1, &barrier);
     g_command_list->Close();
 
-    ID3D12CommandList* lists[] = {g_command_list};
-    g_queue->ExecuteCommandLists(1, lists);
+    ID3D12CommandList* list = g_command_list;
+    g_queue->ExecuteCommandLists(1, &list);
     g_queue->Signal(g_fence, ++g_last_fence_value);
     slot.fence_value = g_last_fence_value;
     back_buffer->Release();

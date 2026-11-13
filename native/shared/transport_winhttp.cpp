@@ -6,6 +6,7 @@
 #include <windows.h>
 #include <winhttp.h>
 
+#include <array>
 #include <cstddef>
 #include <string>
 #include <utility>
@@ -81,11 +82,12 @@ public:
     std::optional<std::string> receive() override {
         std::string message;
         bool too_big = false;
-        char buffer[4096];
+        std::array<char, 4096> buffer{};
         for (;;) {
             DWORD read = 0;
             WINHTTP_WEB_SOCKET_BUFFER_TYPE type{};
-            if (WinHttpWebSocketReceive(socket_.get(), buffer, sizeof(buffer), &read, &type) != NO_ERROR ||
+            if (WinHttpWebSocketReceive(socket_.get(), buffer.data(), static_cast<DWORD>(buffer.size()), &read,
+                                        &type) != NO_ERROR ||
                 type == WINHTTP_WEB_SOCKET_CLOSE_BUFFER_TYPE) {
                 return std::nullopt;
             }
@@ -95,7 +97,7 @@ public:
                 message.clear();
             }
             if (!too_big) {
-                message.append(buffer, read);
+                message.append(buffer.data(), read);
             }
             if (type == WINHTTP_WEB_SOCKET_UTF8_MESSAGE_BUFFER_TYPE ||
                 type == WINHTTP_WEB_SOCKET_BINARY_MESSAGE_BUFFER_TYPE) {

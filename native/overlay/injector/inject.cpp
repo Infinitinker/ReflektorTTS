@@ -13,9 +13,11 @@
 #include <filesystem>
 #include <format>
 #include <optional>
+#include <span>
 #include <string>
 #include <system_error>
 #include <utility>
+#include <vector>
 
 #include "memory/addresses.h"
 #include "memory/exported_function.h"
@@ -36,9 +38,10 @@ constexpr int kFailed = 1;
 constexpr int kUsageError = 2;
 constexpr int kWrongBitness = 3;
 
-constexpr wchar_t kUsage[] = L"Usage: reflektortts-inject (<process.exe> | --pid <id>) [--port <port>] [overlay.dll]\n";
+constexpr const wchar_t* kUsage =
+    L"Usage: reflektortts-inject (<process.exe> | --pid <id>) [--port <port>] [overlay.dll]\n";
 // The overlay's entry point, which the DLL exports (native/overlay/src/dllmain.cpp).
-constexpr char kEntryPoint[] = "reflektortts_start_overlay";
+constexpr const char* kEntryPoint = "reflektortts_start_overlay";
 constexpr unsigned long kMaxPort = 65535;
 
 DWORD find_process_id(const std::wstring& process_name) {
@@ -50,7 +53,7 @@ DWORD find_process_id(const std::wstring& process_name) {
     entry.dwSize = sizeof(entry);
     DWORD process_id = 0;
     for (BOOL more = Process32FirstW(snapshot, &entry); more; more = Process32NextW(snapshot, &entry)) {
-        if (_wcsicmp(entry.szExeFile, process_name.c_str()) == 0) {
+        if (_wcsicmp(std::data(entry.szExeFile), process_name.c_str()) == 0) {
             process_id = entry.th32ProcessID;
             break;
         }
@@ -81,6 +84,13 @@ bool same_bitness(HANDLE process) {
     return own_wow64 == target_wow64;
 }
 
+// The count values of a table at rva in the image mapped at base.
+template <typename T>
+std::vector<T> table(const BYTE* base, DWORD rva, DWORD count) {
+    std::span<const T> values(at_rva<T>(base, rva), count);
+    return {values.begin(), values.end()};
+}
+
 // Where the DLL exports name, relative to the start of the DLL once loaded, or nullopt if it does
 // not export it. The DLL is mapped here as an image, without running any of it, and its export table
 // read; the injector and the DLL have the same bitness, so the table has the injector's layout.
@@ -98,12 +108,13 @@ std::optional<DWORD> export_offset(const std::filesystem::path& dll_path, const 
     std::optional<DWORD> offset;
     if (own_bitness && directory.Size != 0) {
         const auto* exports = at_rva<IMAGE_EXPORT_DIRECTORY>(base, directory.VirtualAddress);
-        const auto* names = at_rva<DWORD>(base, exports->AddressOfNames);
-        const auto* ordinals = at_rva<WORD>(base, exports->AddressOfNameOrdinals);
-        const auto* functions = at_rva<DWORD>(base, exports->AddressOfFunctions);
-        for (DWORD i = 0; i < exports->NumberOfNames && !offset; ++i) {
-            if (std::strcmp(at_rva<char>(base, names[i]), name) == 0) {
-                offset = functions[ordinals[i]];
+        // The tables are copied out, so each lookup in them is checked against their size.
+        std::vector<DWORD> names = table<DWORD>(base, exports->AddressOfNames, exports->NumberOfNames);
+        std::vector<WORD> ordinals = table<WORD>(base, exports->AddressOfNameOrdinals, exports->NumberOfNames);
+        std::vector<DWORD> functions = table<DWORD>(base, exports->AddressOfFunctions, exports->NumberOfFunctions);
+        for (std::size_t i = 0; i < names.size() && !offset; ++i) {
+            if (std::strcmp(at_rva<char>(base, names.at(i)), name) == 0) {
+                offset = functions.at(ordinals.at(i));
             }
         }
     }
@@ -208,15 +219,18 @@ int wmain(int argc, wchar_t** argv) {
     // one outside Latin-1.
     _setmode(_fileno(stdout), _O_U8TEXT);
     _setmode(_fileno(stderr), _O_U8TEXT);
-    bool by_pid = argc > 1 && std::wcscmp(argv[1], L"--pid") == 0;
-    int next = by_pid ? 3 : 2;
-    if (argc < next) {
+    std::span<wchar_t*> given_args(argv, static_cast<std::size_t>(argc));
+    std::vector<std::wstring> args(given_args.begin(), given_args.end());
+    bool by_pid = args.size() > 1 && args.at(1) == L"--pid";
+    std::size_t next = by_pid ? 3 : 2;
+    if (args.size() < next) {
         std::fputws(kUsage, stderr);
         return kUsageError;
     }
     unsigned long port = 0;
-    if (next < argc && std::wcscmp(argv[next], L"--port") == 0) {
-        std::optional<unsigned long> given = next + 1 < argc ? read_port(argv[next + 1]) : std::nullopt;
+    if (next < args.size() && args.at(next) == L"--port") {
+        std::optional<unsigned long> given =
+            next + 1 < args.size() ? read_port(args.at(next + 1).c_str()) : std::nullopt;
         if (!given) {
             print(stderr, L"The port after --port must be from 1 to 65535.\n{}", kUsage);
             return kUsageError;
@@ -224,12 +238,12 @@ int wmain(int argc, wchar_t** argv) {
         port = *given;
         next += 2;
     }
-    if (argc > next + 1) {
+    if (args.size() > next + 1) {
         std::fputws(kUsage, stderr);
         return kUsageError;
     }
-    std::wstring process_name = by_pid ? std::wstring(L"PID ") + argv[2] : argv[1];
-    std::filesystem::path dll_path = argc > next ? std::filesystem::absolute(argv[next]) : default_dll_path();
+    std::wstring process_name = by_pid ? L"PID " + args.at(2) : args.at(1);
+    std::filesystem::path dll_path = args.size() > next ? std::filesystem::absolute(args.at(next)) : default_dll_path();
 
     if (!std::filesystem::exists(dll_path)) {
         print(stderr, L"Overlay DLL not found: {}\n", dll_path.native());
@@ -241,7 +255,8 @@ int wmain(int argc, wchar_t** argv) {
               dll_path.native());
         return kFailed;
     }
-    DWORD process_id = by_pid ? static_cast<DWORD>(std::wcstoul(argv[2], nullptr, 10)) : find_process_id(process_name);
+    DWORD process_id =
+        by_pid ? static_cast<DWORD>(std::wcstoul(args.at(2).c_str(), nullptr, 10)) : find_process_id(process_name);
     if (process_id == 0) {
         print(stderr, L"{} is not running: start the game first.\n", process_name);
         return kFailed;
@@ -260,7 +275,8 @@ int wmain(int argc, wchar_t** argv) {
         return kWrongBitness;
     }
     BYTE* loaded_at = load_library_in(process, process_id, dll_path);
-    bool started = loaded_at != nullptr && start_overlay_in(process, loaded_at + *entry_offset, port);
+    bool started = loaded_at != nullptr &&
+                   start_overlay_in(process, pointer_at<BYTE>(address_of(loaded_at) + *entry_offset), port);
     DWORD start_error = started ? 0 : GetLastError();
     CloseHandle(process);
     if (loaded_at == nullptr) {

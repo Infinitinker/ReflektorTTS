@@ -5,10 +5,11 @@
 
 #include <windows.h>
 
+#include <array>
 #include <cstdint>
-#include <cstring>
 #include <format>
 #include <string>
+#include <string_view>
 
 #include "memory/addresses.h"
 
@@ -17,12 +18,14 @@ namespace reflektortts {
 // "module+offset" for a code address, which stays the same between runs.
 inline std::string describe_address(const void* address) {
     HMODULE module = nullptr;
-    char path[MAX_PATH] = "?";
+    std::array<char, MAX_PATH> path{'?'};
     if (GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
                            static_cast<LPCSTR>(address), &module)) {
-        GetModuleFileNameA(module, path, MAX_PATH);
+        GetModuleFileNameA(module, path.data(), MAX_PATH);
     }
-    const char* name = std::strrchr(path, '\\') != nullptr ? std::strrchr(path, '\\') + 1 : path;
+    std::string_view full(path.data());
+    // The file name after the last backslash; the whole path if it has none (npos + 1 is 0).
+    std::string_view name = full.substr(full.rfind('\\') + 1);
     return std::format("{}+0x{:X}", name, address_of(address) - address_of(module));
 }
 

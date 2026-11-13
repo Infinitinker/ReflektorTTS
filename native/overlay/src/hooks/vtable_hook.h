@@ -30,16 +30,30 @@ inline void** vtable_of(void* object) {
     return *static_cast<void***>(object);
 }
 
+// The entry of a vtable that holds the method at index. Only the class knows how long its vtable is,
+// so the entry is found by its offset.
+inline void** vtable_slot(void** vtable, int index) {
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    return vtable + index;
+}
+
+// The method at index in a COM object's vtable, as the type it has.
+template <typename Fn>
+Fn method_of(void* object, int index) {
+    return function_at<Fn>(*vtable_slot(vtable_of(object), index));
+}
+
 // Replaces one entry of a COM vtable with detour and stores the previous entry in original.
 template <typename Fn>
 bool hook_vtable_entry(void** vtable, int index, Fn detour, Fn* original) {
+    void** slot = vtable_slot(vtable, index);
     DWORD protection = 0;
-    if (!VirtualProtect(static_cast<void*>(&vtable[index]), sizeof(void*), PAGE_READWRITE, &protection)) {
+    if (!VirtualProtect(static_cast<void*>(slot), sizeof(void*), PAGE_READWRITE, &protection)) {
         return false;
     }
-    *original = function_at<Fn>(vtable[index]);
-    vtable[index] = code_address(detour);
-    VirtualProtect(static_cast<void*>(&vtable[index]), sizeof(void*), protection, &protection);
+    *original = function_at<Fn>(*slot);
+    *slot = code_address(detour);
+    VirtualProtect(static_cast<void*>(slot), sizeof(void*), protection, &protection);
     return true;
 }
 
@@ -53,7 +67,7 @@ bool hook_vtable_entry(void** vtable, int index, Fn detour, Fn* original) {
 // vtable each frame are caught as well. Patching the vtable remains the fallback.
 template <typename Fn>
 bool hook_method(void** vtable, int index, Fn detour, Fn* original) {
-    void* method = vtable[index];
+    void* method = *vtable_slot(vtable, index);
     // Already ours (hooked before): hooking again would make the detour call itself.
     if (method == code_address(detour)) {
         return true;
@@ -65,7 +79,8 @@ bool hook_method(void** vtable, int index, Fn detour, Fn* original) {
     if (hook_vtable_entry(vtable, index, detour, original)) {
         return true;
     }
-    log_message("Cannot patch a vtable either (" + describe_memory(static_cast<void*>(&vtable[index])) + ")");
+    log_message("Cannot patch a vtable either (" + describe_memory(static_cast<void*>(vtable_slot(vtable, index))) +
+                ")");
     return false;
 }
 

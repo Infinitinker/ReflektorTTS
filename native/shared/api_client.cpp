@@ -154,8 +154,8 @@ void apply_profile_settings(const json& view) {
 // The core's message for a request it refused; else, with the HTTP status in the log, what to do.
 std::string error_message(const HttpResponse& response) {
     json body = json::parse(response.body, nullptr, false);
-    if (body.is_object() && body.contains("error") && body["error"].is_string()) {
-        return body["error"].get<std::string>();
+    if (body.is_object() && body.contains("error") && body.at("error").is_string()) {
+        return body.at("error").get<std::string>();
     }
     log_message("The core refused a request with HTTP " + std::to_string(response.status));
     return "ReflektorTTS did not take the change: try again.";

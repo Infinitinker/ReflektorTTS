@@ -5,6 +5,7 @@
 
 #include <imgui.h>
 
+#include <array>
 #include <filesystem>
 #include <system_error>
 
@@ -20,11 +21,11 @@ namespace {
 // Where the system's interface font is, or an empty path if it is not known for this system.
 std::filesystem::path system_font_path() {
 #ifdef _WIN32
-    wchar_t windows_dir[MAX_PATH];
-    if (GetWindowsDirectoryW(windows_dir, MAX_PATH) == 0) {
+    std::array<wchar_t, MAX_PATH> windows_dir{};
+    if (GetWindowsDirectoryW(windows_dir.data(), MAX_PATH) == 0) {
         return {};
     }
-    return std::filesystem::path(windows_dir) / L"Fonts" / L"segoeui.ttf";
+    return std::filesystem::path(windows_dir.data()) / L"Fonts" / L"segoeui.ttf";
 #else
     return {};
 #endif

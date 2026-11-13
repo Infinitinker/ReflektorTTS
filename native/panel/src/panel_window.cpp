@@ -46,7 +46,7 @@ std::string sdl_error(const std::string& what) {
 }
 
 // What the user is told when the window cannot open; the cause goes to the log.
-constexpr char kCannotOpen[] =
+constexpr const char* kCannotOpen =
     "The settings window cannot open: update the graphics driver, then open the window again.";
 
 // Logs why the window cannot open, and throws WindowError with the text for the user.

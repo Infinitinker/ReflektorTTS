@@ -6,7 +6,7 @@
 namespace reflektortts {
 namespace {
 
-constexpr wchar_t kClassName[] = L"ReflektorTTSProbe";
+constexpr const wchar_t* kClassName = L"ReflektorTTSProbe";
 
 }  // namespace
 

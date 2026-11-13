@@ -134,7 +134,7 @@ void hand_over_raw_input(BYTE* blocks, UINT count, std::uintptr_t alignment) {
     BYTE* block = blocks;
     for (UINT i = 0; i < count; ++i) {
         auto* header = object_at<Header>(block);
-        BYTE* payload = block + sizeof(Header);
+        BYTE* payload = pointer_at<BYTE>(address_of(block) + sizeof(Header));
         if (header->dwType == RIM_TYPEMOUSE) {
             header->hDevice = {};
             header->wParam = RIM_INPUTSINK;

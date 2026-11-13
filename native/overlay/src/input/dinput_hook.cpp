@@ -12,6 +12,7 @@
 #include <cstring>
 #include <initializer_list>
 #include <mutex>
+#include <span>
 #include <string>
 #include <utility>
 
@@ -59,7 +60,7 @@ struct HookedVtable {
     GetDeviceDataFn get_device_data = nullptr;
 };
 constexpr std::size_t kMaxVtables = 8;
-HookedVtable g_hooked[kMaxVtables];
+std::array<HookedVtable, kMaxVtables> g_hooked;
 std::size_t g_hooked_count = 0;
 std::mutex g_install_mutex;
 
@@ -68,7 +69,7 @@ enum class DeviceKind { other, keyboard, mouse };
 DeviceKind device_kind(void* device) {
     DIDEVCAPS capabilities{};
     capabilities.dwSize = sizeof(capabilities);
-    auto get_capabilities = function_at<GetCapabilitiesFn>(vtable_of(device)[kGetCapabilitiesIndex]);
+    auto get_capabilities = method_of<GetCapabilitiesFn>(device, kGetCapabilitiesIndex);
     if (FAILED(get_capabilities(device, &capabilities))) {
         return DeviceKind::other;
     }
@@ -108,12 +109,13 @@ HRESULT get_device_data(GetDeviceDataFn original, void* device, DWORD object_siz
     if (kind == DeviceKind::other) {
         return result;
     }
-    BYTE* events = bytes_of(data);
+    std::span<BYTE> events(bytes_of(data), static_cast<std::size_t>(*count) * object_size);
     DWORD kept = 0;
     for (DWORD i = 0; i < *count; ++i) {
-        BYTE* event = events + static_cast<std::size_t>(i) * object_size;
-        if (is_release(kind, *object_at<const DIDEVICEOBJECTDATA>(event))) {
-            std::memmove(events + static_cast<std::size_t>(kept) * object_size, event, object_size);
+        std::span<BYTE> event = events.subspan(static_cast<std::size_t>(i) * object_size, object_size);
+        if (is_release(kind, *object_at<const DIDEVICEOBJECTDATA>(event.data()))) {
+            std::memmove(events.subspan(static_cast<std::size_t>(kept) * object_size).data(), event.data(),
+                         object_size);
             ++kept;
         }
     }
@@ -122,18 +124,18 @@ HRESULT get_device_data(GetDeviceDataFn original, void* device, DWORD object_siz
 }
 
 void release(void* object) {
-    function_at<ReleaseFn>(vtable_of(object)[kReleaseIndex])(object);
+    method_of<ReleaseFn>(object, kReleaseIndex)(object);
 }
 
 template <std::size_t N>
 HRESULT STDMETHODCALLTYPE get_device_state_detour(void* device, DWORD size, void* data) {
-    return get_device_state(g_hooked[N].get_device_state, device, size, data);
+    return get_device_state(std::get<N>(g_hooked).get_device_state, device, size, data);
 }
 
 template <std::size_t N>
 HRESULT STDMETHODCALLTYPE get_device_data_detour(void* device, DWORD object_size, DIDEVICEOBJECTDATA* data,
                                                  DWORD* count, DWORD flags) {
-    return get_device_data(g_hooked[N].get_device_data, device, object_size, data, count, flags);
+    return get_device_data(std::get<N>(g_hooked).get_device_data, device, object_size, data, count, flags);
 }
 
 template <std::size_t... N>
@@ -146,8 +148,8 @@ constexpr auto kDetours = make_detours(std::make_index_sequence<kMaxVtables>());
 void hook_device_vtable(void* device) {
     void** vtable = vtable_of(device);
     std::size_t count = g_hooked_count;
-    for (std::size_t i = 0; i < count; ++i) {
-        if (g_hooked[i].vtable == vtable) {
+    for (const HookedVtable& hooked : std::span(g_hooked).first(count)) {
+        if (hooked.vtable == vtable) {
             return;
         }
     }
@@ -156,11 +158,11 @@ void hook_device_vtable(void* device) {
         return;
     }
     // hook_method stores each original before anything can call the detour that uses it.
-    HookedVtable& entry = g_hooked[count];
+    HookedVtable& entry = g_hooked.at(count);
     entry.vtable = vtable;
     g_hooked_count = count + 1;
-    if (!hook_method(vtable, kGetDeviceStateIndex, kDetours.first[count], &entry.get_device_state) ||
-        !hook_method(vtable, kGetDeviceDataIndex, kDetours.second[count], &entry.get_device_data)) {
+    if (!hook_method(vtable, kGetDeviceStateIndex, kDetours.first.at(count), &entry.get_device_state) ||
+        !hook_method(vtable, kGetDeviceDataIndex, kDetours.second.at(count), &entry.get_device_data)) {
         log_message("Could not hook DirectInput device methods");
     }
 }
@@ -170,7 +172,7 @@ void hook_device_vtable(void* device) {
 void hook_devices(void* input, const IID* device_iid) {
     for (const GUID* kind : {&GUID_SysKeyboard, &GUID_SysMouse}) {
         void* device = nullptr;
-        auto create_device = function_at<CreateDeviceFn>(vtable_of(input)[kCreateDeviceIndex]);
+        auto create_device = method_of<CreateDeviceFn>(input, kCreateDeviceIndex);
         if (SUCCEEDED(create_device(input, *kind, &device, nullptr)) && device != nullptr) {
             hook_device_vtable(device);
             release(device);
@@ -180,7 +182,7 @@ void hook_devices(void* input, const IID* device_iid) {
         }
         // DirectInput 7 can also hand out its newest device interface, in case its vtable differs.
         device = nullptr;
-        auto create_device_ex = function_at<CreateDeviceExFn>(vtable_of(input)[kCreateDeviceExIndex]);
+        auto create_device_ex = method_of<CreateDeviceExFn>(input, kCreateDeviceExIndex);
         if (SUCCEEDED(create_device_ex(input, *kind, *device_iid, &device, nullptr)) && device != nullptr) {
             hook_device_vtable(device);
             release(device);

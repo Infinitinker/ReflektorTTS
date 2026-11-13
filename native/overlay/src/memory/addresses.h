@@ -18,6 +18,12 @@ inline std::uintptr_t address_of(const void* pointer) {
     return reinterpret_cast<std::uintptr_t>(pointer);
 }
 
+// The address offset bytes from address, as a jump's displacement gives it: offset may be negative,
+// and the sum wraps around as the CPU's does.
+inline std::uintptr_t displaced(std::uintptr_t address, std::intptr_t offset) {
+    return address + static_cast<std::uintptr_t>(offset);
+}
+
 // What lies at an address given as an integer: one computed with address_of, or one Windows hands
 // over as an integer (a CPU register, the slot of a 32-bit jump, a thread's parameter).
 template <typename T>

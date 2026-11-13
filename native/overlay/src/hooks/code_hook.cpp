@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <cstring>
 #include <mutex>
+#include <span>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -53,23 +54,31 @@ CodeBytes read_code(const void* address) {
 // The jumps hooking libraries write: E9 rel32, FF 25 (indirect, through [rip+disp32] on 64-bit and
 // [disp32] on 32-bit), and the short EB rel8 of hot-patching.
 bool is_jump(const CodeBytes& code) {
-    return code[0] == 0xE9 || code[0] == 0xEB || (code[0] == 0xFF && code[1] == 0x25);
+    std::uint8_t first = std::get<0>(code);
+    std::uint8_t second = std::get<1>(code);
+    return first == 0xE9 || first == 0xEB || (first == 0xFF && second == 0x25);
+}
+
+// The 32-bit value at offset in code: a jump's displacement or address.
+std::int32_t value_at(const CodeBytes& code, std::size_t offset) {
+    std::int32_t value = 0;
+    std::memcpy(&value, std::span(code).subspan(offset, sizeof(value)).data(), sizeof(value));
+    return value;
 }
 
 // Where the jump in code, found at address, leads; nullptr for a short jump, which only reaches a
 // longer one next to it.
-void* jump_destination(const CodeBytes& code, std::uint8_t* address) {
-    std::int32_t value = 0;
-    if (code[0] == 0xE9) {
-        std::memcpy(&value, &code[1], sizeof(value));
-        return address + 5 + value;
+void* jump_destination(const CodeBytes& code, const void* address) {
+    std::uint8_t first = std::get<0>(code);
+    std::uint8_t second = std::get<1>(code);
+    if (first == 0xE9) {
+        return pointer_at<void>(displaced(address_of(address) + 5, value_at(code, 1)));
     }
-    if (code[0] == 0xFF && code[1] == 0x25) {
-        std::memcpy(&value, &code[2], sizeof(value));
+    if (first == 0xFF && second == 0x25) {
 #ifdef _WIN64
-        auto* slot = address + 6 + value;
+        const void* slot = pointer_at<const void>(displaced(address_of(address) + 6, value_at(code, 2)));
 #else
-        auto* slot = pointer_at<std::uint8_t>(static_cast<std::uint32_t>(value));
+        const void* slot = pointer_at<const void>(static_cast<std::uint32_t>(value_at(code, 2)));
 #endif
         void* destination = nullptr;
         ReadProcessMemory(GetCurrentProcess(), slot, static_cast<void*>(&destination), sizeof(destination), nullptr);
@@ -107,17 +116,17 @@ void restore_cut_hooks() {
     // By index and by copy: install adds entries as it goes, which can move the vector's elements, so
     // a range-based loop, as clang-tidy's modernize-loop-convert would have it, would read freed memory.
     for (std::size_t i = 0; i < g_watched.size(); ++i) {  // NOLINT(modernize-loop-convert)
-        if (!g_watched[i].watched) {
+        WatchedHook& watched = g_watched.at(i);  // Used only until install below adds an entry.
+        if (!watched.watched) {
             continue;
         }
-        CodeBytes current = read_code(g_watched[i].target);
-        if (current == g_watched[i].written || (is_jump(current) && current != g_watched[i].replaced)) {
+        CodeBytes current = read_code(watched.target);
+        if (current == watched.written || (is_jump(current) && current != watched.replaced)) {
             continue;
         }
-        WatchedHook cut = g_watched[i];
-        g_watched[i].watched = false;  // Settled either way; a new hook gets an entry of its own.
-        auto* target = static_cast<std::uint8_t*>(cut.target);
-        void* destination = is_jump(cut.replaced) ? jump_destination(cut.replaced, target) : nullptr;
+        WatchedHook cut = watched;
+        watched.watched = false;  // Settled either way; a new hook gets an entry of its own.
+        void* destination = is_jump(cut.replaced) ? jump_destination(cut.replaced, cut.target) : nullptr;
         void* trampoline = nullptr;
         if (destination == nullptr || g_trampolines.contains(destination) ||
             !install(destination, cut.detour, &trampoline)) {
