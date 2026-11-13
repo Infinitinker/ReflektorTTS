@@ -9,7 +9,6 @@
 #include <imgui_impl_dx12.h>
 
 #include <array>
-#include <utility>
 
 #include "hooks/d3d12_queue_hook.h"
 #include "log.h"
@@ -83,6 +82,17 @@ void wait_for_fence(UINT64 value) {
         g_fence->SetEventOnCompletion(value, g_fence_event);
         WaitForSingleObject(g_fence_event, INFINITE);
     }
+}
+
+// A barrier that moves all of resource from one state to another. The barrier holds the transition
+// in a union, so it is set as the barrier is made rather than written into it.
+D3D12_RESOURCE_BARRIER transition(ID3D12Resource* resource, D3D12_RESOURCE_STATES before, D3D12_RESOURCE_STATES after) {
+    return {.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION,
+            .Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE,
+            .Transition = {.pResource = resource,
+                           .Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES,
+                           .StateBefore = before,
+                           .StateAfter = after}};
 }
 
 bool create_heap(D3D12_DESCRIPTOR_HEAP_TYPE type, UINT count, D3D12_DESCRIPTOR_HEAP_FLAGS flags,
@@ -257,18 +267,15 @@ void render_d3d12_frame(IDXGISwapChain* swap_chain) {
     ImGui_ImplDX12_NewFrame();
     build_overlay_frame(static_cast<UINT>(desc.Width), desc.Height);
 
-    D3D12_RESOURCE_BARRIER barrier{};
-    barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-    barrier.Transition.pResource = back_buffer;
-    barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-    barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;
-    barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
-    g_command_list->ResourceBarrier(1, &barrier);
+    D3D12_RESOURCE_BARRIER to_target =
+        transition(back_buffer, D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET);
+    g_command_list->ResourceBarrier(1, &to_target);
     g_command_list->OMSetRenderTargets(1, &target, FALSE, nullptr);
     g_command_list->SetDescriptorHeaps(1, &g_srv_heap);
     ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), g_command_list);
-    std::swap(barrier.Transition.StateBefore, barrier.Transition.StateAfter);
-    g_command_list->ResourceBarrier(1, &barrier);
+    D3D12_RESOURCE_BARRIER to_present =
+        transition(back_buffer, D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
+    g_command_list->ResourceBarrier(1, &to_present);
     g_command_list->Close();
 
     ID3D12CommandList* list = g_command_list;
