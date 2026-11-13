@@ -13,7 +13,7 @@ from reflektortts.profiles.loader import PluginSchemas, ProfileError, load_profi
 from reflektortts.profiles.model import App, Executable, Match, Profile, Rating, SourceSettings, StageSettings
 
 VALID: dict[str, Any] = {
-    "version": 1,
+    "version": 2,
     "app": {"title": "Test App", "year": 1999},
     "match": {"executables": [{"name": "test.exe"}]},
 }
@@ -51,6 +51,24 @@ def test_a_profile_is_rated_with_a_medal_or_not_at_all(tmp_path: Path) -> None:
     assert load_profile(write(tmp_path, "app.json", VALID | {"rating": "silver"})).rating == Rating.SILVER
     with pytest.raises(ProfileError, match=r"app.json: .*\$.rating"):
         load_profile(write(tmp_path, "app.json", VALID | {"rating": "wood"}))
+
+
+def test_a_profile_says_which_app_languages_it_was_tested_in_or_that_it_reads_any(tmp_path: Path) -> None:
+    assert load_profile(write(tmp_path, "app.json", VALID)).tested_languages == ()
+    tested = VALID | {"tested_languages": ["en", "pl"]}
+    assert load_profile(write(tmp_path, "app.json", tested)).tested_languages == ("en", "pl")
+    assert load_profile(write(tmp_path, "app.json", VALID | {"tested_languages": "any"})).tested_languages == "any"
+
+
+@pytest.mark.parametrize("languages", [[], ["en", "en"], ["EN"], "all"])
+def test_tested_languages_that_cannot_be_used_are_refused(tmp_path: Path, languages: object) -> None:
+    with pytest.raises(ProfileError, match=r"app.json: .*\$.tested_languages"):
+        load_profile(write(tmp_path, "app.json", VALID | {"tested_languages": languages}))
+
+
+def test_a_tested_language_not_known_by_that_code_is_refused(tmp_path: Path) -> None:
+    with pytest.raises(ProfileError, match=r'app.json: \$.tested_languages\[1\]: There is no language "xx"'):
+        load_profile(write(tmp_path, "app.json", VALID | {"tested_languages": ["en", "xx"]}))
 
 
 def test_the_overlay_needs_the_builds_it_was_tested_with(tmp_path: Path) -> None:
@@ -113,16 +131,23 @@ def with_sources(*sources: dict[str, Any]) -> dict[str, Any]:
 
 
 def test_an_older_profile_is_migrated_to_the_current_version(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    # No migration exists before the first release, so a stand-in version 2 renames the title.
-    monkeypatch.setattr(loader, "CURRENT_VERSION", 2)
+    monkeypatch.setattr(loader, "CURRENT_VERSION", 3)
     monkeypatch.setattr(
-        loader, "MIGRATIONS", {1: lambda data: data | {"version": 2, "app": data["app"] | {"title": "Renamed"}}}
+        loader,
+        "MIGRATIONS",
+        loader.MIGRATIONS | {2: lambda data: data | {"version": 3, "app": data["app"] | {"title": "Renamed"}}},
     )
     monkeypatch.setattr(loader, "_validator", lambda: Draft202012Validator({}))
 
-    profile = load_profile(write(tmp_path, "old.json", VALID), SCHEMAS)
+    profile = load_profile(write(tmp_path, "old.json", VALID | {"version": 1}), SCHEMAS)
 
     assert profile.app.title == "Renamed"
+
+
+def test_a_version_1_profile_does_not_say_which_languages_it_was_tested_in(tmp_path: Path) -> None:
+    profile = load_profile(write(tmp_path, "app.json", VALID | {"version": 1, "rating": "gold"}))
+
+    assert (profile.rating, profile.tested_languages) == (Rating.GOLD, ())
 
 
 def test_sources_are_split_into_core_fields_and_plugin_settings(tmp_path: Path) -> None:
@@ -309,7 +334,7 @@ def test_a_profile_nested_too_deeply_is_refused(tmp_path: Path) -> None:
 
 @pytest.mark.parametrize("version", [0, -1])
 def test_a_version_below_1_is_refused(tmp_path: Path, version: int) -> None:
-    with pytest.raises(ProfileError, match='app.json: "version" must be from 1 to 1'):
+    with pytest.raises(ProfileError, match='app.json: "version" must be from 1 to 2'):
         load_profile(write(tmp_path, "app.json", VALID | {"version": version}))
 
 

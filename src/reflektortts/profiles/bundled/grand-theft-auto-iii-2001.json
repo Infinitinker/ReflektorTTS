@@ -1,10 +1,11 @@
 {
-  "version": 1,
+  "version": 2,
   "app": {
     "title": "Grand Theft Auto III",
     "year": 2001
   },
   "rating": "bronze",
+  "tested_languages": ["en"],
   "match": {
     "executables": [
       {

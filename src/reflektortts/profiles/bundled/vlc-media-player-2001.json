@@ -1,10 +1,11 @@
 {
-  "version": 1,
+  "version": 2,
   "app": {
     "title": "VLC media player",
     "year": 2001
   },
   "rating": "gold",
+  "tested_languages": "any",
   "match": {
     "executables": [{ "name": "vlc.exe" }, { "name": "vlc" }]
   },

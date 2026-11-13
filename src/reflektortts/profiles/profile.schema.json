@@ -17,7 +17,7 @@
     },
     "version": {
       "description": "Profile format version.",
-      "const": 1
+      "const": 2
     },
     "app": {
       "type": "object",
@@ -83,6 +83,23 @@
     "rating": {
       "description": "How far the profile is tested, as a medal: bronze (some texts read, tried only briefly), silver (the main texts read, tested in the first part of the app), gold (the main texts read, tested through most of the app) or platinum (every text the app shows read, tested through all of it). Without it, the profile is not rated.",
       "enum": ["bronze", "silver", "gold", "platinum"]
+    },
+    "tested_languages": {
+      "description": "The app languages (two-letter codes) the profile was tested in, which its rating holds for, e.g. [\"en\", \"pl\"]; or \"any\" for a profile that reads text whatever its language, such as subtitle files. Without it, the profile does not say.",
+      "oneOf": [
+        {
+          "const": "any"
+        },
+        {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z]{2}$"
+          }
+        }
+      ]
     },
     "overlay": {
       "description": "Whether the overlay is loaded into the app. Default: false. Needs the executables’ sha256, so the overlay only goes into builds it was tested with.",

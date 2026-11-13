@@ -19,7 +19,7 @@ An editor that understands JSON Schema (e.g. [VSCodium](https://vscodium.com), a
 ```json
 {
   "$schema": "https://raw.githubusercontent.com/Infinitinker/ReflektorTTS/main/src/reflektortts/profiles/profile.schema.json",
-  "version": 1,
+  "version": 2,
   ...
 }
 ```
@@ -49,7 +49,7 @@ In the ReflektorTTS window's Profiles tab, select a bundled profile close to you
 
 ```json
 {
-  "version": 1,
+  "version": 2,
   "app": { "title": "Grand Theft Auto 2", "year": 1999 },
   "match": {
     "executables": [{ "name": "gta2.exe" }]
@@ -115,7 +115,7 @@ A game that shows text in several places, such as subtitles and a help box, gets
 
 ### 5. Clean up the text
 
-The `stages` of a source work on each line before it is shown and spoken, in order. Start with `tracker`, which every source like this needs: it passes a line on once it has stayed on screen for a moment, and not again until it changes. Then add what the app's text needs, as [the format](#format-version-1) describes each stage:
+The `stages` of a source work on each line before it is shown and spoken, in order. Start with `tracker`, which every source like this needs: it passes a line on once it has stayed on screen for a moment, and not again until it changes. Then add what the app's text needs, as [the format](#format-version-2) describes each stage:
 
 - `replace`, if the app's text has formatting marks: GTA2 writes colored words as `#word#`, and `{"pattern": "#([^#]*)#", "replace": "\\1"}` keeps the word without the marks;
 - `translate`, so the voice can read the app in another language (lektor mode);
@@ -131,13 +131,13 @@ Leave `overlay` off until the rest works. It loads the overlay into the app, so 
 
 ### 7. Rate and share
 
-Give the profile a `rating` medal for how far you tested it yourself, from `bronze` to `platinum`, as [the format](#format-version-1) describes. Then share it, as [CONTRIBUTING.md](../CONTRIBUTING.md#contributing-a-profile) says: in a pull request, or attached to an app support issue.
+Give the profile a `rating` medal for how far you tested it yourself, from `bronze` to `platinum`, and list the app languages you tested it in as `tested_languages`, as [the format](#format-version-2) describes. Then share it, as [CONTRIBUTING.md](../CONTRIBUTING.md#contributing-a-profile) says: in a pull request, or attached to an app support issue.
 
-## Format (version 1)
+## Format (version 2)
 
 A profile is a JSON file saved as UTF-8 (with or without a byte order mark), as current editors do by default.
 
-- `version`: the profile format version. Older profiles are migrated automatically.
+- `version`: the profile format version, now 2. Older profiles are migrated automatically: a version 1 profile, which has no `tested_languages`, keeps working. A profile of a newer version than ReflektorTTS knows is shown as broken, asking to update ReflektorTTS.
 - `app`: the app's `title` and original release `year`, for display.
 - `match`: how the app is recognized. `executables` lists its executables, because one app can ship several. Each has a `name` (the file name, e.g. `"gta2.exe"`) and, optionally, `sha256`: the SHA-256 of each build of that file the profile supports, in lowercase hex. With `sha256`, only those builds are read, and another build is reported as not supported yet, with its SHA-256, in the Status tab of the desktop app. Without it, any build with that name is read, which suits programs that update often.
 - `rating` (optional): how far the profile is tested, as a medal, shown in the Profiles tab with what it means. Rate your profile by what you checked yourself, not by what you expect:
@@ -147,6 +147,7 @@ A profile is a JSON file saved as UTF-8 (with or without a byte order mark), as 
   - `platinum`: every text the app shows is read, tested through all of it.
 
   Without it, the profile is shown as not rated. Every bundled profile has one.
+- `tested_languages` (optional): the app languages you tested the profile in, as two-letter codes, e.g. `["en", "pl"]`: the languages the app showed its text in, which ReflektorTTS reads as the input language. The `rating` holds for each of them, so list only those you tested that far. For a profile that reads text whatever its language, such as subtitle files, write `"any"`. Shown in the Profiles tab beside the medal; without it, the profile does not say. Every bundled profile has it.
 - `overlay` (optional, default `false`): whether the overlay is loaded into the app. It needs `sha256` for every executable, so the overlay is only ever loaded into builds it was tested with.
 - `glossary` (optional): words and phrases of the app that translation and speech treat specially, by the input language they are written in (two-letter code, e.g. `"en"`; Norwegian is `"nb"`). A line read in another language gets none of them, since terms of one language turn another into gibberish; a glossary for another language can be added next to it. Each language has one entry per `term` (as the app writes it, e.g. `"Big Smoke"`, or a list of the ways it writes it, e.g. `["Big Smoke", "Big smoke"]`; each is matched as written, and in capitals in shouted lines, so a lowercase "big smoke" is still smoke), with one or more of:
   - `keep`: `true` if the term is never translated, e.g. a name that is also a word, like `"Sweet"`, which would otherwise become "Słodki". Matched with the same capitals, so "sweet" is still translated. Add `"female": true` for a woman's name, so it is declined as one.

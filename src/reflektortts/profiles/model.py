@@ -3,7 +3,7 @@
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from enum import StrEnum
-from typing import Any
+from typing import Any, Final, Literal
 
 from reflektortts.glossary import Glossaries
 
@@ -12,6 +12,10 @@ from reflektortts.glossary import Glossaries
 class App:
     title: str
     year: int
+
+
+ANY_LANGUAGE: Final = "any"
+"""tested_languages of a profile that reads text whatever its language."""
 
 
 class Rating(StrEnum):
@@ -79,3 +83,6 @@ class Profile:
     every stage."""
     rating: Rating | None = None
     """How far the profile is tested; None if it is not rated."""
+    tested_languages: tuple[str, ...] | Literal["any"] = ()
+    """The app languages the profile was tested in, which its rating holds for; ANY_LANGUAGE if it
+    reads text whatever its language; empty if it does not say."""

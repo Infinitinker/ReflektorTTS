@@ -59,6 +59,13 @@ def test_every_bundled_profile_is_rated() -> None:
     assert unrated == []
 
 
+def test_every_bundled_profile_says_which_languages_it_was_tested_in() -> None:
+    catalog = load_catalog(Path("no-such-folder"), BUNDLED_DIR)
+    unsaid = [entry.id for entry in catalog if entry.profile is None or not entry.profile.tested_languages]
+
+    assert unsaid == []
+
+
 def test_a_user_profile_with_a_bundled_id_replaces_it_even_when_broken(tmp_path: Path) -> None:
     write(tmp_path / "bundled", "game-2000", profile("Bundled"))
     write(tmp_path / "bundled", "other-2000", profile("Other", "other.exe"))
