@@ -69,8 +69,8 @@ Checks: >
 # Not on yet. These can find bugs, and each comes on once what it finds is fixed, or moved into a
 # small helper that says, with a NOLINT, why the API it wraps needs it. What they find now:
 #
-# bugprone-easily-swappable-parameters: two hooks, which take the parameters of the function they
-#   replace, and two of the transport's functions.
+# bugprone-easily-swappable-parameters: install_d3d9_hooks' three callbacks, the raw input
+#   helper's count and alignment, and two of the transport's functions.
 # bugprone-invalid-enum-default-initialization: Direct3D 9's structs are zeroed with {} before they
 #   are filled in, though zero is not a value of some of their enums.
 # bugprone-signed-bitwise: ImGui's and Windows' flags, IM_COL32's colors and sizes written as
@@ -84,8 +84,9 @@ Checks: >
 #   and code addresses and module bases as integers.
 # cppcoreguidelines-pro-type-union-access: Direct3D 12's resource barrier holds its transition in a
 #   union.
-# cppcoreguidelines-pro-type-vararg: printf-style formatting: snprintf in the log and the crash
-#   handler, fwprintf in the injector, and ImGui's Text functions.
+# cppcoreguidelines-pro-type-vararg: printf-style formatting: snprintf in the log, the crash
+#   handler and the API client's URL encoding, fprintf in the panel's startup error, fwprintf in the
+#   injector, and ImGui's Text functions.
 # readability-implicit-bool-conversion: Windows' BOOL is an int, and pointers and handles are tested
 #   as they are.
 WarningsAsErrors: '*'
