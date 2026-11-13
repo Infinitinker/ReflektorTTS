@@ -4,7 +4,8 @@ writes down:
 - shared/ includes nothing from overlay/ or panel/, and panel/ nothing from overlay/;
 - the overlay's own headers are included by their path from overlay/src/ ("hooks/code_hook.h");
 - in overlay/src/, each folder includes only from itself and the folders listed above it, in the order
-  of OVERLAY_FOLDERS, while dllmain.cpp, at the top, ties them together.
+  of OVERLAY_FOLDERS, while dllmain.cpp, at the top, ties them together;
+- the injector includes from overlay/src/ only the memory/ helpers.
 
 Run it from the repository root:
     python tools/check_includes.py
@@ -25,9 +26,11 @@ ALLOWED_PARTS = {"shared": {"shared"}, "overlay": {"overlay", "shared"}, "panel"
 INCLUDE_DIRECTORIES = {"shared": ["shared"], "overlay": ["overlay/src", "shared"], "panel": ["shared"]}
 """Where the compiler looks for each part's includes besides the including file's own folder, as in the
 CMakeLists.txt files: the overlay's src/, and the shared library, which the overlay and the panel link."""
-OVERLAY_FOLDERS = ("diagnostics", "hooks", "input", "ui", "renderers")
+OVERLAY_FOLDERS = ("memory", "diagnostics", "hooks", "input", "ui", "renderers")
 """The overlay's folders in overlay/src/, in the order native/README.md lists them: each includes only
 from itself and the folders before it."""
+INJECTOR_FOLDER = "memory"
+"""The one folder of overlay/src/ the injector, which is outside it, includes from."""
 SOURCES = {".cpp", ".h", ".hpp"}
 INCLUDE = re.compile(r'^\s*#\s*include\s*([<"])([^>"]+)[>"]')
 
@@ -99,11 +102,15 @@ def judge(source: PurePosixPath, include: str, header: PurePosixPath) -> str | N
     if header_part not in ALLOWED_PARTS[part]:
         return f"is in {header_part}/, which {part}/ does not include from"
     folder, header_folder = overlay_folder(source), overlay_folder(header)
-    if folder is None or header_folder is None:
+    if header_folder is None:
         return None
     from_src = header.relative_to("overlay/src").as_posix()
     if include[1:-1] != from_src:
         return f'is the overlay\'s own header, included by its path from overlay/src/: "{from_src}"'
+    if folder is None:
+        if header_folder != INJECTOR_FOLDER:
+            return f"is not in overlay/src/{INJECTOR_FOLDER}/, the one folder the injector includes from"
+        return None
     if folder == "":
         return None
     if header_folder == "":

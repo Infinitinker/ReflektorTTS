@@ -37,10 +37,8 @@ Checks: >
   -cppcoreguidelines-pro-bounds-avoid-unchecked-container-access,
   -cppcoreguidelines-pro-bounds-constant-array-index,
   -cppcoreguidelines-pro-bounds-pointer-arithmetic,
-  -cppcoreguidelines-pro-type-reinterpret-cast,
   -cppcoreguidelines-pro-type-union-access,
   -modernize-avoid-c-arrays,
-  -performance-no-int-to-ptr,
   -readability-implicit-bool-conversion
 
 # Style only. These say how the code is written, not whether it is right, so they stay off:
@@ -78,9 +76,6 @@ Checks: >
 #   library's functions with their size, and fixed tables (descriptors, hooked classes, choices).
 # cppcoreguidelines-pro-bounds-*: the hooks read code, vtables and buffers through the pointers that
 #   Windows and the app hand over, and fixed tables are indexed by counters checked before.
-# cppcoreguidelines-pro-type-reinterpret-cast, performance-no-int-to-ptr: functions found through
-#   GetProcAddress and vtables, COM's void** out parameters, window procedures stored as LONG_PTR,
-#   and code addresses and module bases as integers.
 # cppcoreguidelines-pro-type-union-access: Direct3D 12's resource barrier holds its transition in a
 #   union.
 # readability-implicit-bool-conversion: Windows' BOOL is an int, and pointers and handles are tested

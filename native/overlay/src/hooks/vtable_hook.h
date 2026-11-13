@@ -11,6 +11,7 @@
 #include "diagnostics/describe_address.h"
 #include "hooks/code_hook.h"
 #include "log.h"
+#include "memory/functions.h"
 
 namespace reflektortts {
 
@@ -24,6 +25,11 @@ inline std::string describe_memory(const void* address) {
                        info.Type, describe_address(address));
 }
 
+// The vtable of a COM object: the first thing in it.
+inline void** vtable_of(void* object) {
+    return *static_cast<void***>(object);
+}
+
 // Replaces one entry of a COM vtable with detour and stores the previous entry in original.
 template <typename Fn>
 bool hook_vtable_entry(void** vtable, int index, Fn detour, Fn* original) {
@@ -31,8 +37,8 @@ bool hook_vtable_entry(void** vtable, int index, Fn detour, Fn* original) {
     if (!VirtualProtect(static_cast<void*>(&vtable[index]), sizeof(void*), PAGE_READWRITE, &protection)) {
         return false;
     }
-    *original = reinterpret_cast<Fn>(vtable[index]);
-    vtable[index] = reinterpret_cast<void*>(detour);
+    *original = function_at<Fn>(vtable[index]);
+    vtable[index] = code_address(detour);
     VirtualProtect(static_cast<void*>(&vtable[index]), sizeof(void*), protection, &protection);
     return true;
 }
@@ -49,10 +55,10 @@ template <typename Fn>
 bool hook_method(void** vtable, int index, Fn detour, Fn* original) {
     void* method = vtable[index];
     // Already ours (hooked before): hooking again would make the detour call itself.
-    if (method == reinterpret_cast<void*>(detour)) {
+    if (method == code_address(detour)) {
         return true;
     }
-    if (hook_function(method, reinterpret_cast<void*>(detour), reinterpret_cast<void**>(original))) {
+    if (hook_function(method, code_address(detour), function_slot(original))) {
         return true;
     }
     log_message("Cannot hook a method's code; patching its vtable entry instead");

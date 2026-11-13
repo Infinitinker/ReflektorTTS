@@ -36,7 +36,8 @@ def test_includes_that_follow_the_directions_pass(tmp_path: Path) -> None:
             "overlay/src/hooks/code_hook.h": '#include "diagnostics/crash_log.h"\n',
             "overlay/src/hooks/code_hook.cpp": '#include "hooks/code_hook.h"\n#include "log.h"\n',
             "overlay/src/ui/overlay_ui.h": '#include "hooks/code_hook.h"\n#include <api_client.h>\n',
-            "overlay/injector/inject.cpp": "#include <windows.h>\n",
+            "overlay/src/memory/addresses.h": "",
+            "overlay/injector/inject.cpp": '#include <windows.h>\n#include "memory/addresses.h"\n',
             "panel/src/main.cpp": '#include "arguments.h"\n#include "api_client.h"\n',
             "panel/src/arguments.h": "#include <optional>\n",
         },
@@ -81,9 +82,9 @@ def test_an_overlay_folder_includes_only_from_folders_listed_above_it(tmp_path: 
     )
     assert found(native) == [
         'native/overlay/src/hooks/d3d9_hook.cpp:1: "renderers/d3d9_renderer.h" is in renderers/, listed below hooks/, '
-        "which includes only from diagnostics/, hooks/",
+        "which includes only from memory/, diagnostics/, hooks/",
         'native/overlay/src/hooks/d3d9_hook.cpp:2: "input/blocking.h" is in input/, listed below hooks/, '
-        "which includes only from diagnostics/, hooks/",
+        "which includes only from memory/, diagnostics/, hooks/",
     ]
 
 
@@ -106,6 +107,21 @@ def test_only_dllmain_includes_what_is_directly_in_src(tmp_path: Path) -> None:
     assert found(native) == [
         'native/overlay/src/ui/overlay_ui.cpp:1: "frame.h" is directly in overlay/src/, which only dllmain.cpp '
         "there ties together; ui/ includes none"
+    ]
+
+
+def test_the_injector_includes_only_the_memory_helpers(tmp_path: Path) -> None:
+    native = write(
+        tmp_path,
+        {
+            "overlay/injector/inject.cpp": '#include "memory/addresses.h"\n#include "hooks/code_hook.h"\n',
+            "overlay/src/memory/addresses.h": "",
+            "overlay/src/hooks/code_hook.h": "",
+        },
+    )
+    assert found(native) == [
+        'native/overlay/injector/inject.cpp:2: "hooks/code_hook.h" is not in overlay/src/memory/, '
+        "the one folder the injector includes from"
     ]
 
 

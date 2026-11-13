@@ -6,9 +6,9 @@
 #include <atomic>
 #include <string>
 
-#include "hooks/exported_function.h"
 #include "hooks/vtable_hook.h"
 #include "log.h"
+#include "memory/exported_function.h"
 
 namespace reflektortts {
 namespace {
@@ -25,7 +25,7 @@ std::atomic<ID3D12CommandQueue*> g_queue = nullptr;
 
 bool on_device(ID3D12CommandQueue* queue, ID3D12Device* device) {
     ID3D12Device* queue_device = nullptr;
-    if (FAILED(queue->GetDevice(__uuidof(ID3D12Device), reinterpret_cast<void**>(&queue_device)))) {
+    if (FAILED(queue->GetDevice(IID_PPV_ARGS(&queue_device)))) {
         return false;
     }
     queue_device->Release();
@@ -58,7 +58,7 @@ void** find_command_queue_vtable() {
     }
 
     ID3D12Device* device = nullptr;
-    HRESULT result = create(nullptr, D3D_FEATURE_LEVEL_11_0, __uuidof(ID3D12Device), reinterpret_cast<void**>(&device));
+    HRESULT result = create(nullptr, D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&device));
     if (FAILED(result)) {
         log_message("Could not create a probe D3D12 device (HRESULT " + std::to_string(result) + ")");
         return nullptr;
@@ -67,8 +67,8 @@ void** find_command_queue_vtable() {
     desc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
     ID3D12CommandQueue* queue = nullptr;
     void** vtable = nullptr;
-    if (SUCCEEDED(device->CreateCommandQueue(&desc, __uuidof(ID3D12CommandQueue), reinterpret_cast<void**>(&queue)))) {
-        vtable = *reinterpret_cast<void***>(queue);
+    if (SUCCEEDED(device->CreateCommandQueue(&desc, IID_PPV_ARGS(&queue)))) {
+        vtable = vtable_of(queue);
         queue->Release();
     } else {
         log_message("Could not create a probe D3D12 command queue");

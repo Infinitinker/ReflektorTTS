@@ -10,10 +10,10 @@
 #include <string>
 #include <utility>
 
-#include "hooks/exported_function.h"
 #include "hooks/probe_window.h"
 #include "hooks/vtable_hook.h"
 #include "log.h"
+#include "memory/exported_function.h"
 
 namespace reflektortts {
 namespace {
@@ -153,13 +153,13 @@ bool hook_device_creation(HMODULE d3d9) {
     bool hooked = false;
     auto create = exported_function<decltype(&Direct3DCreate9)>(d3d9, "Direct3DCreate9");
     if (IDirect3D9* direct3d = create != nullptr ? create(D3D_SDK_VERSION) : nullptr) {
-        hooked = hook_factory_class(*reinterpret_cast<void***>(direct3d), false);
+        hooked = hook_factory_class(vtable_of(direct3d), false);
         direct3d->Release();
     }
     auto create_ex = exported_function<decltype(&Direct3DCreate9Ex)>(d3d9, "Direct3DCreate9Ex");
     IDirect3D9Ex* direct3d_ex = nullptr;
     if (create_ex != nullptr && SUCCEEDED(create_ex(D3D_SDK_VERSION, &direct3d_ex))) {
-        hooked = hook_factory_class(*reinterpret_cast<void***>(direct3d_ex), true) && hooked;
+        hooked = hook_factory_class(vtable_of(direct3d_ex), true) && hooked;
         direct3d_ex->Release();
     }
     if (!hooked) {
@@ -191,7 +191,7 @@ void** probe_device_vtable(HMODULE d3d9) {
         IDirect3DDevice9* device = nullptr;
         HRESULT result = direct3d->CreateDevice(D3DADAPTER_DEFAULT, type, window.handle(), flags, &parameters, &device);
         if (SUCCEEDED(result)) {
-            vtable = *reinterpret_cast<void***>(device);
+            vtable = vtable_of(device);
             device->Release();
             break;
         }

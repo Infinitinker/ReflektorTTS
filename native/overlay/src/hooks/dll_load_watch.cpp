@@ -3,7 +3,7 @@
 
 #include "hooks/dll_load_watch.h"
 
-#include "hooks/exported_function.h"
+#include "memory/exported_function.h"
 
 namespace reflektortts {
 namespace {

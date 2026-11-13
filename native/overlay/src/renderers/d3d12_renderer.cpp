@@ -91,8 +91,7 @@ bool create_heap(D3D12_DESCRIPTOR_HEAP_TYPE type, UINT count, D3D12_DESCRIPTOR_H
     desc.Type = type;
     desc.NumDescriptors = count;
     desc.Flags = flags;
-    return SUCCEEDED(
-        g_device->CreateDescriptorHeap(&desc, __uuidof(ID3D12DescriptorHeap), reinterpret_cast<void**>(heap)));
+    return SUCCEEDED(g_device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(heap)));
 }
 
 bool init_imgui(DXGI_FORMAT format) {
@@ -119,16 +118,13 @@ bool create_device_objects(DXGI_FORMAT format) {
         g_free_srv_slots[g_free_srv_count++] = slot - 1;
     }
     for (FrameSlot& slot : g_slots) {
-        if (FAILED(g_device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, __uuidof(ID3D12CommandAllocator),
-                                                    reinterpret_cast<void**>(&slot.allocator)))) {
+        if (FAILED(g_device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&slot.allocator)))) {
             return false;
         }
     }
     if (FAILED(g_device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, g_slots[0].allocator, nullptr,
-                                           __uuidof(ID3D12GraphicsCommandList),
-                                           reinterpret_cast<void**>(&g_command_list))) ||
-        FAILED(g_device->CreateFence(0, D3D12_FENCE_FLAG_NONE, __uuidof(ID3D12Fence),
-                                     reinterpret_cast<void**>(&g_fence)))) {
+                                           IID_PPV_ARGS(&g_command_list))) ||
+        FAILED(g_device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&g_fence)))) {
         return false;
     }
     g_command_list->Close();
@@ -150,7 +146,7 @@ bool follow_format(DXGI_FORMAT format) {
 
 void start(IDXGISwapChain* swap_chain) {
     ID3D12Device* device = nullptr;
-    if (FAILED(swap_chain->GetDevice(__uuidof(ID3D12Device), reinterpret_cast<void**>(&device)))) {
+    if (FAILED(swap_chain->GetDevice(IID_PPV_ARGS(&device)))) {
         return;
     }
     // The overlay's drawing goes through the app's queue, which is known only once
@@ -183,7 +179,7 @@ void start(IDXGISwapChain* swap_chain) {
 // does not tell.
 bool on_our_device(IDXGISwapChain* swap_chain) {
     ID3D12Device* device = nullptr;
-    if (FAILED(swap_chain->GetDevice(__uuidof(ID3D12Device), reinterpret_cast<void**>(&device)))) {
+    if (FAILED(swap_chain->GetDevice(IID_PPV_ARGS(&device)))) {
         return false;
     }
     device->Release();
@@ -195,7 +191,7 @@ bool on_our_device(IDXGISwapChain* swap_chain) {
 // supported yet; the old one is abandoned, never released (see forget_renderer_backend).
 void switch_swap_chain(IDXGISwapChain* swap_chain) {
     ID3D12Device* device = nullptr;
-    if (FAILED(swap_chain->GetDevice(__uuidof(ID3D12Device), reinterpret_cast<void**>(&device)))) {
+    if (FAILED(swap_chain->GetDevice(IID_PPV_ARGS(&device)))) {
         return;
     }
     device->Release();
@@ -213,14 +209,13 @@ void switch_swap_chain(IDXGISwapChain* swap_chain) {
 // The back buffer is taken per frame so the overlay never keeps the app's buffers alive.
 ID3D12Resource* current_back_buffer(IDXGISwapChain* swap_chain, UINT& index) {
     IDXGISwapChain3* swap_chain3 = nullptr;
-    if (FAILED(swap_chain->QueryInterface(__uuidof(IDXGISwapChain3), reinterpret_cast<void**>(&swap_chain3)))) {
+    if (FAILED(swap_chain->QueryInterface(IID_PPV_ARGS(&swap_chain3)))) {
         return nullptr;
     }
     index = swap_chain3->GetCurrentBackBufferIndex();
     swap_chain3->Release();
     ID3D12Resource* back_buffer = nullptr;
-    if (index >= kMaxBackBuffers ||
-        FAILED(swap_chain->GetBuffer(index, __uuidof(ID3D12Resource), reinterpret_cast<void**>(&back_buffer)))) {
+    if (index >= kMaxBackBuffers || FAILED(swap_chain->GetBuffer(index, IID_PPV_ARGS(&back_buffer)))) {
         return nullptr;
     }
     return back_buffer;

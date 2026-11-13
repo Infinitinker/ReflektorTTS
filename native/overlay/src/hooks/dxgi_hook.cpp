@@ -8,10 +8,10 @@
 
 #include <string>
 
-#include "hooks/exported_function.h"
 #include "hooks/probe_window.h"
 #include "hooks/vtable_hook.h"
 #include "log.h"
+#include "memory/exported_function.h"
 
 namespace reflektortts {
 namespace {
@@ -79,10 +79,10 @@ bool find_swap_chain_vtable(SwapChainVtable& vtable) {
         log_message("Could not create a probe D3D11 device (HRESULT " + std::to_string(result) + ")");
         return false;
     }
-    vtable.entries = *reinterpret_cast<void***>(swap_chain);
+    vtable.entries = vtable_of(swap_chain);
     IDXGISwapChain1* swap_chain1 = nullptr;
-    if (SUCCEEDED(swap_chain->QueryInterface(__uuidof(IDXGISwapChain1), reinterpret_cast<void**>(&swap_chain1)))) {
-        vtable.has_present1 = *reinterpret_cast<void***>(swap_chain1) == vtable.entries;
+    if (SUCCEEDED(swap_chain->QueryInterface(IID_PPV_ARGS(&swap_chain1)))) {
+        vtable.has_present1 = vtable_of(swap_chain1) == vtable.entries;
         swap_chain1->Release();
     }
     swap_chain->Release();

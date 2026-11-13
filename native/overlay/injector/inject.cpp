@@ -17,7 +17,19 @@
 #include <system_error>
 #include <utility>
 
+#include "memory/addresses.h"
+#include "memory/exported_function.h"
+#include "memory/functions.h"
+#include "memory/pe_image.h"
+
 namespace {
+
+using reflektortts::address_of;
+using reflektortts::at_rva;
+using reflektortts::exported_function;
+using reflektortts::function_at;
+using reflektortts::pe_headers;
+using reflektortts::pointer_at;
 
 // Exit codes; the core relies on kWrongBitness to try the other (32/64-bit) build.
 constexpr int kFailed = 1;
@@ -78,20 +90,19 @@ std::optional<DWORD> export_offset(const std::filesystem::path& dll_path, const 
         return std::nullopt;
     }
     // The handle's low bits mark a DLL mapped as an image resource; the image starts at the rest.
-    const auto* base = reinterpret_cast<const BYTE*>(reinterpret_cast<std::uintptr_t>(image) & ~std::uintptr_t{3});
-    const auto* dos = reinterpret_cast<const IMAGE_DOS_HEADER*>(base);
-    const auto* headers = reinterpret_cast<const IMAGE_NT_HEADERS*>(base + dos->e_lfanew);
+    const auto* base = pointer_at<const BYTE>(address_of(image) & ~std::uintptr_t{3});
+    const IMAGE_NT_HEADERS& headers = pe_headers(base);
     // A DLL of the other bitness has headers of another layout, so it is not read on.
-    bool own_bitness = headers->OptionalHeader.Magic == IMAGE_NT_OPTIONAL_HDR_MAGIC;
-    const IMAGE_DATA_DIRECTORY& directory = headers->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT];
+    bool own_bitness = headers.OptionalHeader.Magic == IMAGE_NT_OPTIONAL_HDR_MAGIC;
+    const IMAGE_DATA_DIRECTORY& directory = headers.OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT];
     std::optional<DWORD> offset;
     if (own_bitness && directory.Size != 0) {
-        const auto* exports = reinterpret_cast<const IMAGE_EXPORT_DIRECTORY*>(base + directory.VirtualAddress);
-        const auto* names = reinterpret_cast<const DWORD*>(base + exports->AddressOfNames);
-        const auto* ordinals = reinterpret_cast<const WORD*>(base + exports->AddressOfNameOrdinals);
-        const auto* functions = reinterpret_cast<const DWORD*>(base + exports->AddressOfFunctions);
+        const auto* exports = at_rva<IMAGE_EXPORT_DIRECTORY>(base, directory.VirtualAddress);
+        const auto* names = at_rva<DWORD>(base, exports->AddressOfNames);
+        const auto* ordinals = at_rva<WORD>(base, exports->AddressOfNameOrdinals);
+        const auto* functions = at_rva<DWORD>(base, exports->AddressOfFunctions);
         for (DWORD i = 0; i < exports->NumberOfNames && !offset; ++i) {
-            if (std::strcmp(reinterpret_cast<const char*>(base + names[i]), name) == 0) {
+            if (std::strcmp(at_rva<char>(base, names[i]), name) == 0) {
                 offset = functions[ordinals[i]];
             }
         }
@@ -143,10 +154,9 @@ BYTE* load_library_in(HANDLE process, DWORD process_id, const std::filesystem::p
     if (WriteProcessMemory(process, remote_path, path.c_str(), size, nullptr)) {
         // The new thread runs LoadLibraryW as its start routine: both are WINAPI and take one pointer.
         // The HMODULE it returns comes back cut to the thread's DWORD exit code, which nothing reads,
-        // since module_base finds the DLL. Casting through void (*)(), which stands for any function,
-        // tells the compiler that the cast is meant.
-        auto load_library = reinterpret_cast<LPTHREAD_START_ROUTINE>(
-            reinterpret_cast<void (*)()>(GetProcAddress(GetModuleHandleW(L"kernel32.dll"), "LoadLibraryW")));
+        // since module_base finds the DLL.
+        auto load_library =
+            exported_function<LPTHREAD_START_ROUTINE>(GetModuleHandleW(L"kernel32.dll"), "LoadLibraryW");
         HANDLE thread = CreateRemoteThread(process, nullptr, 0, load_library, remote_path, 0, nullptr);
         if (thread != nullptr) {
             WaitForSingleObject(thread, INFINITE);
@@ -161,9 +171,9 @@ BYTE* load_library_in(HANDLE process, DWORD process_id, const std::filesystem::p
 // Starts the overlay's entry point on a thread of its own in the game, given port (0 for the
 // installed ReflektorTTS's). The thread runs for as long as the game does, so it is not waited for.
 bool start_overlay_in(HANDLE process, BYTE* entry_point, unsigned long port) {
-    auto start = reinterpret_cast<LPTHREAD_START_ROUTINE>(entry_point);
+    auto start = function_at<LPTHREAD_START_ROUTINE>(entry_point);
     // The port travels as the thread's parameter, a pointer-sized number.
-    auto* parameter = reinterpret_cast<void*>(static_cast<std::uintptr_t>(port));
+    auto* parameter = pointer_at<void>(port);
     HANDLE thread = CreateRemoteThread(process, nullptr, 0, start, parameter, 0, nullptr);
     if (thread == nullptr) {
         return false;

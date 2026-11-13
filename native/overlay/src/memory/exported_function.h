@@ -13,8 +13,10 @@ Fn exported_function(HMODULE module, const char* name) {
     if (module == nullptr) {
         return nullptr;
     }
-    // GetProcAddress gives every function as FARPROC. Casting through void (*)(), which stands for any
-    // function, tells the compiler that the cast to the function's own type is meant.
+    // GetProcAddress gives every function as FARPROC, whatever its type. Casting through void (*)(),
+    // which stands for any function, tells the compiler that the cast to the function's own type is
+    // meant.
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
     return reinterpret_cast<Fn>(reinterpret_cast<void (*)()>(GetProcAddress(module, name)));
 }
 

@@ -50,6 +50,8 @@ target_link_libraries(reflektortts-overlay PRIVATE reflektortts-shared imgui-bac
                                                    reflektortts-warnings)
 
 add_executable(reflektortts-inject injector/inject.cpp)
+# The injector reads the app's modules with the overlay's helpers in src/memory/.
+target_include_directories(reflektortts-inject PRIVATE src)
 target_link_libraries(reflektortts-inject PRIVATE reflektortts-warnings)
 
 if(MINGW)

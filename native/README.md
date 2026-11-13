@@ -40,14 +40,17 @@ Mouse buttons are read directly while the panel is open, because games using Dir
 
 Blocking the app's input works like ReShade's default "block all input while the overlay is visible". The first time the panel opens, the overlay hooks every keyboard and mouse API the app has loaded (and on later openings, any loaded since), all through code hooks: the reads of DirectInput 8 and 1–7 devices, the message queue (`GetMessage`, `PeekMessage`: input messages for the app's window go to the panel and the app gets `WM_NULL`; other windows are left alone, since DirectInput reads the keyboard through raw input sent to a hidden window of its own), key state (`GetAsyncKeyState`, `GetKeyState`, `GetKeyboardState`), buffered raw input (`GetRawInputBuffer`) and the cursor (`GetCursorPos`, `SetCursorPos`, `ClipCursor`). The overlay's own calls are let through, recognized by their return address, so the panel keeps seeing real input. XInput gamepads are not blocked. Window messages reach the panel on the thread that draws, at the start of its next frame, since many games handle their window on another thread. The panel is laid out in window coordinates and scaled to the app's back buffer, so it lines up with the mouse when the image is scaled (the Direct3D 9 backend ignores that scale).
 
-The overlay's files, in `overlay/`. Its own headers are included by their path from `src/` (`"hooks/code_hook.h"`), and each folder includes only from itself and the folders listed above it, in the table's order: `diagnostics/`, `hooks/`, `input/`, `ui/`, `renderers/` (`hooks/` from `diagnostics/`, `ui/` from `input/`), while `dllmain.cpp` ties them together. A new folder goes into this order here and into `OVERLAY_FOLDERS` in `tools/check_includes.py`.
+The overlay's files, in `overlay/`. Its own headers are included by their path from `src/` (`"hooks/code_hook.h"`), and each folder includes only from itself and the folders listed above it, in the table's order: `memory/`, `diagnostics/`, `hooks/`, `input/`, `ui/`, `renderers/` (`hooks/` from `memory/` and `diagnostics/`, `ui/` from `input/`), while `dllmain.cpp` ties them together. The injector includes only from `memory/`. A new folder goes into this order here and into `OVERLAY_FOLDERS` in `tools/check_includes.py`.
 
 | Path | Job |
 |---|---|
 | `src/dllmain.cpp` | The DLL's one export, `reflektortts_start_overlay`, which the injector starts with the core's port: installs the hooks for each graphics API the app loads, starts the API client |
+| `src/memory/addresses.h` | Addresses as integers and the objects at them, for code that reads memory by its layout |
+| `src/memory/functions.h` | Functions as code addresses and back, as MinHook and vtables hold them |
+| `src/memory/exported_function.h` | Finds a function a module exports, as the type it has |
+| `src/memory/pe_image.h` | Reads a mapped EXE's or DLL's headers, and what lies at an offset from its start |
 | `src/diagnostics/crash_log.cpp` | Logs where the app crashed, with the call stack in 64-bit apps |
 | `src/diagnostics/describe_address.h` | Names a code address as module and offset, for the log |
-| `src/hooks/exported_function.h` | Finds a function a module exports, as the type it has |
 | `src/hooks/code_hook.cpp` | Code hooks (MinHook), kept in place when another overlay cuts them out, and telling the overlay's own calls apart |
 | `src/hooks/vtable_hook.h` | Hooks a COM method found through a vtable: in its code, or by replacing the vtable entry |
 | `src/hooks/dll_load_watch.cpp` | Wakes the overlay when the app loads a DLL |

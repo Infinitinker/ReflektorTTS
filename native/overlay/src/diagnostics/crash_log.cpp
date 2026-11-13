@@ -11,6 +11,7 @@
 
 #include "diagnostics/describe_address.h"
 #include "log.h"
+#include "memory/addresses.h"
 
 namespace reflektortts {
 namespace {
@@ -38,12 +39,12 @@ constexpr int kMaxLoggedFrames = 12;
 // Walks the stack from the crash, as a debugger would, using the unwind data of 64-bit code.
 void log_call_stack(CONTEXT context) {
     for (int frame = 0; frame < kMaxLoggedFrames && context.Rip != 0; ++frame) {
-        log_message("  called from " + describe_address(reinterpret_cast<const void*>(context.Rip)));
+        log_message("  called from " + describe_address(pointer_at<const void>(context.Rip)));
         DWORD64 image_base = 0;
         RUNTIME_FUNCTION* function = RtlLookupFunctionEntry(context.Rip, &image_base, nullptr);
         if (function == nullptr) {
             // A leaf function: the return address is on top of the stack.
-            context.Rip = *reinterpret_cast<DWORD64*>(context.Rsp);
+            context.Rip = *pointer_at<const DWORD64>(context.Rsp);
             context.Rsp += sizeof(DWORD64);
         } else {
             void* handler_data = nullptr;

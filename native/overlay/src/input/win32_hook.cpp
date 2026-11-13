@@ -16,6 +16,7 @@
 #include "input/blocking.h"
 #include "input/panel_input.h"
 #include "log.h"
+#include "memory/addresses.h"
 
 namespace reflektortts {
 namespace {
@@ -132,7 +133,7 @@ template <typename Header>
 void hand_over_raw_input(BYTE* blocks, UINT count, std::uintptr_t alignment) {
     BYTE* block = blocks;
     for (UINT i = 0; i < count; ++i) {
-        auto* header = reinterpret_cast<Header*>(block);
+        auto* header = object_at<Header>(block);
         BYTE* payload = block + sizeof(Header);
         if (header->dwType == RIM_TYPEMOUSE) {
             header->hDevice = {};
@@ -141,12 +142,12 @@ void hand_over_raw_input(BYTE* blocks, UINT count, std::uintptr_t alignment) {
         } else if (header->dwType == RIM_TYPEKEYBOARD) {
             header->hDevice = {};
             header->wParam = RIM_INPUTSINK;
-            auto* keyboard = reinterpret_cast<RAWKEYBOARD*>(payload);
+            auto* keyboard = object_at<RAWKEYBOARD>(payload);
             keyboard->Flags |= RI_KEY_BREAK;
             keyboard->VKey = 0;
         }
-        std::uintptr_t next = reinterpret_cast<std::uintptr_t>(block) + header->dwSize;
-        block = reinterpret_cast<BYTE*>((next + alignment - 1) & ~(alignment - 1));
+        std::uintptr_t next = address_of(block) + header->dwSize;
+        block = pointer_at<BYTE>((next + alignment - 1) & ~(alignment - 1));
     }
 }
 
@@ -160,7 +161,7 @@ UINT WINAPI get_raw_input_buffer(RAWINPUT* data, UINT* size, UINT header_size) {
     if (count == kRawInputError || data == nullptr || !app_input_blocked()) {
         return count;
     }
-    auto* blocks = reinterpret_cast<BYTE*>(data);
+    BYTE* blocks = bytes_of(data);
     if (sizeof(void*) == 4 && runs_on_wow64()) {
         hand_over_raw_input<RawInputHeader64>(blocks, count, 8);
     } else {

@@ -16,6 +16,9 @@
 
 #include "diagnostics/describe_address.h"
 #include "log.h"
+#include "memory/addresses.h"
+#include "memory/functions.h"
+#include "memory/pe_image.h"
 
 namespace reflektortts {
 namespace {
@@ -66,7 +69,7 @@ void* jump_destination(const CodeBytes& code, std::uint8_t* address) {
 #ifdef _WIN64
         auto* slot = address + 6 + value;
 #else
-        auto* slot = reinterpret_cast<std::uint8_t*>(static_cast<std::uint32_t>(value));
+        auto* slot = pointer_at<std::uint8_t>(static_cast<std::uint32_t>(value));
 #endif
         void* destination = nullptr;
         ReadProcessMemory(GetCurrentProcess(), slot, static_cast<void*>(&destination), sizeof(destination), nullptr);
@@ -145,10 +148,9 @@ struct ModuleRange {
 
 ModuleRange overlay_range() {
     static const ModuleRange range = [] {
-        auto base = reinterpret_cast<std::uintptr_t>(overlay_module());
-        const auto* dos = reinterpret_cast<const IMAGE_DOS_HEADER*>(base);
-        const auto* nt = reinterpret_cast<const IMAGE_NT_HEADERS*>(base + static_cast<std::uintptr_t>(dos->e_lfanew));
-        return ModuleRange{.begin = base, .end = base + nt->OptionalHeader.SizeOfImage};
+        std::uintptr_t base = address_of(overlay_module());
+        const IMAGE_NT_HEADERS& headers = pe_headers(pointer_at<const BYTE>(base));
+        return ModuleRange{.begin = base, .end = base + headers.OptionalHeader.SizeOfImage};
     }();
     return range;
 }
@@ -182,7 +184,7 @@ bool hook_function(void* target, void* detour, void** original) {
 }
 
 bool is_overlay_code(const void* address) {
-    auto value = reinterpret_cast<std::uintptr_t>(address);
+    std::uintptr_t value = address_of(address);
     ModuleRange range = overlay_range();
     return value >= range.begin && value < range.end;
 }
@@ -191,7 +193,7 @@ HMODULE overlay_module() {
     static const HMODULE module = [] {
         HMODULE handle = nullptr;
         GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
-                           reinterpret_cast<LPCWSTR>(&overlay_module), &handle);
+                           static_cast<LPCWSTR>(code_address(&overlay_module)), &handle);
         return handle;
     }();
     return module;

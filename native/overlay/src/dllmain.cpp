@@ -15,6 +15,7 @@
 #include "hooks/d3d9_hook.h"
 #include "hooks/dll_load_watch.h"
 #include "hooks/dxgi_hook.h"
+#include "memory/addresses.h"
 #include "renderers/d3d11_renderer.h"
 #include "renderers/d3d12_renderer.h"
 #include "renderers/d3d9_renderer.h"
@@ -114,7 +115,8 @@ extern "C" __declspec(dllexport) DWORD WINAPI reflektortts_start_overlay(LPVOID 
     if (g_started.test_and_set()) {
         return 0;
     }
-    auto given = static_cast<int>(reinterpret_cast<std::intptr_t>(port));
+    // The port travels as the thread's parameter, a pointer-sized number.
+    auto given = static_cast<int>(address_of(port));
     return run_overlay(given != 0 ? given : kDefaultCorePort);
 }
 

@@ -16,10 +16,12 @@
 #include <utility>
 
 #include "hooks/code_hook.h"
-#include "hooks/exported_function.h"
 #include "hooks/vtable_hook.h"
 #include "input/blocking.h"
 #include "log.h"
+#include "memory/addresses.h"
+#include "memory/exported_function.h"
+#include "memory/functions.h"
 
 namespace reflektortts {
 namespace {
@@ -61,16 +63,12 @@ HookedVtable g_hooked[kMaxVtables];
 std::size_t g_hooked_count = 0;
 std::mutex g_install_mutex;
 
-void** vtable_of(void* object) {
-    return *static_cast<void***>(object);
-}
-
 enum class DeviceKind { other, keyboard, mouse };
 
 DeviceKind device_kind(void* device) {
     DIDEVCAPS capabilities{};
     capabilities.dwSize = sizeof(capabilities);
-    auto get_capabilities = reinterpret_cast<GetCapabilitiesFn>(vtable_of(device)[kGetCapabilitiesIndex]);
+    auto get_capabilities = function_at<GetCapabilitiesFn>(vtable_of(device)[kGetCapabilitiesIndex]);
     if (FAILED(get_capabilities(device, &capabilities))) {
         return DeviceKind::other;
     }
@@ -110,11 +108,11 @@ HRESULT get_device_data(GetDeviceDataFn original, void* device, DWORD object_siz
     if (kind == DeviceKind::other) {
         return result;
     }
-    auto* events = reinterpret_cast<BYTE*>(data);
+    BYTE* events = bytes_of(data);
     DWORD kept = 0;
     for (DWORD i = 0; i < *count; ++i) {
         BYTE* event = events + static_cast<std::size_t>(i) * object_size;
-        if (is_release(kind, *reinterpret_cast<const DIDEVICEOBJECTDATA*>(event))) {
+        if (is_release(kind, *object_at<const DIDEVICEOBJECTDATA>(event))) {
             std::memmove(events + static_cast<std::size_t>(kept) * object_size, event, object_size);
             ++kept;
         }
@@ -124,7 +122,7 @@ HRESULT get_device_data(GetDeviceDataFn original, void* device, DWORD object_siz
 }
 
 void release(void* object) {
-    reinterpret_cast<ReleaseFn>(vtable_of(object)[kReleaseIndex])(object);
+    function_at<ReleaseFn>(vtable_of(object)[kReleaseIndex])(object);
 }
 
 template <std::size_t N>
@@ -172,7 +170,7 @@ void hook_device_vtable(void* device) {
 void hook_devices(void* input, const IID* device_iid) {
     for (const GUID* kind : {&GUID_SysKeyboard, &GUID_SysMouse}) {
         void* device = nullptr;
-        auto create_device = reinterpret_cast<CreateDeviceFn>(vtable_of(input)[kCreateDeviceIndex]);
+        auto create_device = function_at<CreateDeviceFn>(vtable_of(input)[kCreateDeviceIndex]);
         if (SUCCEEDED(create_device(input, *kind, &device, nullptr)) && device != nullptr) {
             hook_device_vtable(device);
             release(device);
@@ -182,7 +180,7 @@ void hook_devices(void* input, const IID* device_iid) {
         }
         // DirectInput 7 can also hand out its newest device interface, in case its vtable differs.
         device = nullptr;
-        auto create_device_ex = reinterpret_cast<CreateDeviceExFn>(vtable_of(input)[kCreateDeviceExIndex]);
+        auto create_device_ex = function_at<CreateDeviceExFn>(vtable_of(input)[kCreateDeviceExIndex]);
         if (SUCCEEDED(create_device_ex(input, *kind, *device_iid, &device, nullptr)) && device != nullptr) {
             hook_device_vtable(device);
             release(device);

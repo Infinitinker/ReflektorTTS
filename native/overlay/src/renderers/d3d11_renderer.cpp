@@ -39,7 +39,7 @@ bool use_device(ID3D11Device* device) {
 // does not tell.
 bool on_our_device(IDXGISwapChain* swap_chain) {
     ID3D11Device* device = nullptr;
-    if (FAILED(swap_chain->GetDevice(__uuidof(ID3D11Device), reinterpret_cast<void**>(&device)))) {
+    if (FAILED(swap_chain->GetDevice(IID_PPV_ARGS(&device)))) {
         return false;
     }
     device->Release();
@@ -50,7 +50,7 @@ bool on_our_device(IDXGISwapChain* swap_chain) {
 // the menu to gameplay, so the overlay follows the swap chain that presented last.
 void attach(IDXGISwapChain* swap_chain) {
     ID3D11Device* device = nullptr;
-    if (FAILED(swap_chain->GetDevice(__uuidof(ID3D11Device), reinterpret_cast<void**>(&device)))) {
+    if (FAILED(swap_chain->GetDevice(IID_PPV_ARGS(&device)))) {
         return;
     }
     DXGI_SWAP_CHAIN_DESC desc{};
@@ -114,7 +114,7 @@ struct ShaderStages {
 
 ID3D11RenderTargetView* create_render_target(IDXGISwapChain* swap_chain, D3D11_TEXTURE2D_DESC& desc) {
     ID3D11Texture2D* back_buffer = nullptr;
-    if (FAILED(swap_chain->GetBuffer(0, __uuidof(ID3D11Texture2D), reinterpret_cast<void**>(&back_buffer)))) {
+    if (FAILED(swap_chain->GetBuffer(0, IID_PPV_ARGS(&back_buffer)))) {
         return nullptr;
     }
     back_buffer->GetDesc(&desc);

@@ -12,6 +12,8 @@
 #include <vector>
 
 #include "input/blocking.h"
+#include "memory/addresses.h"
+#include "memory/functions.h"
 
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND window, UINT message, WPARAM wparam, LPARAM lparam);
 
@@ -86,8 +88,10 @@ void attach_input(HWND window) {
         return;
     }
     // Register the original first: the new procedure may run as soon as it is set.
-    g_original_procs[window] = reinterpret_cast<WNDPROC>(GetWindowLongPtrW(window, GWLP_WNDPROC));
-    SetWindowLongPtrW(window, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(&overlay_window_proc));
+    // Windows keeps a window's procedure as a LONG_PTR.
+    auto original = static_cast<std::uintptr_t>(GetWindowLongPtrW(window, GWLP_WNDPROC));
+    g_original_procs[window] = function_at<WNDPROC>(pointer_at<void>(original));
+    SetWindowLongPtrW(window, GWLP_WNDPROC, static_cast<LONG_PTR>(address_of(code_address(&overlay_window_proc))));
 }
 
 bool update_panel_toggle(HWND window) {
