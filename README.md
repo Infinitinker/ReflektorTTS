@@ -51,7 +51,7 @@ Rather not install anything? Download `ReflektorTTS-<version>-windows-x64.zip` i
 <table>
   <tr>
     <td><img src="docs/images/status.png" alt="The Status tab: what ReflektorTTS is doing, its voice, languages and the app's sound, with links to the project and its support pages"></td>
-    <td><img src="docs/images/profiles.png" alt="The Profiles tab, listing the bundled profiles with their rating medals and states, and the selected profile's details"></td>
+    <td><img src="docs/images/profiles.png" alt="The Profiles tab, listing the bundled profiles with their rating medals, tested languages and states, with Grand Theft Auto: San Andreas selected and its details: its tested languages, glossary and speech rules"></td>
   </tr>
   <tr>
     <td align="center">What ReflektorTTS is doing</td>
