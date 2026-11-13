@@ -126,8 +126,14 @@ Each app is described by one JSON file, a profile: how to recognize the app, whe
 **My antivirus blocks `reflektortts-inject.exe`.**
 The overlay works by loading into the game, as in-game overlays do, which antivirus programs may distrust. Allow `reflektortts-inject.exe` in the `overlay` folder to use the overlay; games are read without it too.
 
+**Why isn't ReflektorTTS signed?**
+ReflektorTTS is free, and the certificates Windows trusts cost money every year, so Windows warns you the first time you start it (see the next two answers). To make sure a download is the real one, compare its checksum with the list on its [release page](https://github.com/Infinitinker/ReflektorTTS/releases/latest), or check with the [GitHub CLI](https://cli.github.com/) that this repository built it: `gh attestation verify <file> --repo Infinitinker/ReflektorTTS`.
+
 **Windows says "Windows protected your PC".**
-ReflektorTTS is not code-signed yet, so Windows SmartScreen doesn't know it. Choose **More info**, then **Run anyway**.
+Windows SmartScreen doesn't know ReflektorTTS yet. Choose **More info**, then **Run anyway**. It asks only once.
+
+**Windows says Smart App Control blocked ReflektorTTS.**
+Smart App Control is on for some Windows 11 PCs. It runs only apps that are signed or that Microsoft knows, and it has no **Run anyway** button, so ReflektorTTS can't run while it is on. You can turn it off in **Windows Security > App & browser control > Smart App Control settings**. Recent Windows updates let you turn it back on later; without them, turning it on again needs Windows to be reset or reinstalled, so update Windows first.
 
 **Can I use it in online games?**
 No. The overlay and reading a game's memory are meant for single-player and offline modes. Anti-cheat software may treat them as cheating, which can get your account banned.
