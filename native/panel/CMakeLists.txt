@@ -11,7 +11,7 @@ FetchContent_MakeAvailable(SDL3)
 add_library(imgui-backends-panel STATIC
     ${imgui_SOURCE_DIR}/backends/imgui_impl_sdl3.cpp
     ${imgui_SOURCE_DIR}/backends/imgui_impl_sdlrenderer3.cpp)
-target_include_directories(imgui-backends-panel PUBLIC ${imgui_SOURCE_DIR}/backends)
+target_include_directories(imgui-backends-panel SYSTEM PUBLIC ${imgui_SOURCE_DIR}/backends)
 target_link_libraries(imgui-backends-panel PUBLIC imgui SDL3::SDL3-static)
 
 # A windowed program, so no console opens with it.
@@ -25,7 +25,7 @@ add_executable(reflektortts-panel WIN32
     src/placement.cpp
     src/panel_ui.cpp
     src/panel_window.cpp)
-target_link_libraries(reflektortts-panel PRIVATE reflektortts-shared imgui-backends-panel)
+target_link_libraries(reflektortts-panel PRIVATE reflektortts-shared imgui-backends-panel reflektortts-warnings)
 if(WIN32)
     # DWM tells where the window's visible frame is (window_frame.cpp).
     target_link_libraries(reflektortts-panel PRIVATE dwmapi)

@@ -162,9 +162,9 @@ The builds are named in `CMakePresets.json`, each a Ninja build with the toolcha
 | `release-x86` | 32-bit, Release: the overlay for 32-bit apps | `native/build` | MSYS2 MINGW32 |
 | `release` | 64-bit, Release: the overlay for 64-bit apps, and the settings window | `native/build64` | MSYS2 MINGW64 |
 | `debug` | 64-bit, Debug: debug information and no optimization | `build/native-debug` | MSYS2 MINGW64 |
-| `ci` | 64-bit, Release, only configured: the compile commands clang-tidy reads | `build/native-ci` | MSYS2 MINGW64 |
+| `ci` | 64-bit, Release, only configured: the compile commands clang-tidy reads for the 64-bit code, with the compiler's warnings as errors | `build/native-ci` | MSYS2 MINGW64 |
 
-The folders are relative to the repository root. Each preset also writes `compile_commands.json` into its folder, for clang-tidy and editors.
+The folders are relative to the repository root. Each preset also writes `compile_commands.json` into its folder, for clang-tidy and editors. Every build shows the compiler's warnings for ReflektorTTS's own code, those `CMakeLists.txt` turns on; the `ci` preset makes them errors.
 
 The 32-bit build, from the **MSYS2 MINGW32** shell in the repository root:
 

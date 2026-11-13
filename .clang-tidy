@@ -1,8 +1,10 @@
 # What clang-tidy checks in the C++ code in native/. Each check left out says why: most fight the
 # Windows API and COM (raw pointers, casts, C arrays, BOOL and flag macros), which the overlay and the
-# transport are written against, or the code's style. Every finding is an error.
+# transport are written against, or the code's style. The compiler's warnings that
+# native/CMakeLists.txt turns on are reported too (clang-diagnostic-*). Every finding is an error.
 Checks: >
   -*,
+  clang-diagnostic-*,
   bugprone-*,
   clang-analyzer-*,
   concurrency-*,

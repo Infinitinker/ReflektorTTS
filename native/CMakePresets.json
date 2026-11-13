@@ -36,9 +36,9 @@
       "name": "ci",
       "inherits": "base",
       "displayName": "Checks",
-      "description": "What the Checks workflow configures for clang-tidy: a 64-bit release build, into build/native-ci in the repository root, whose compile_commands.json clang-tidy reads.",
+      "description": "What the Checks workflow configures for clang-tidy: a 64-bit release build, into build/native-ci in the repository root, whose compile_commands.json clang-tidy reads. The compiler's warnings are errors in it.",
       "binaryDir": "${sourceDir}/../build/native-ci",
-      "cacheVariables": {"CMAKE_BUILD_TYPE": "Release"}
+      "cacheVariables": {"CMAKE_BUILD_TYPE": "Release", "REFLEKTORTTS_WARNINGS_AS_ERRORS": "ON"}
     }
   ],
   "buildPresets": [
