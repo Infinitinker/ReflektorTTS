@@ -11,6 +11,7 @@
 #include "input/panel_input.h"
 #include "settings_panel.h"
 #include "ui/subtitles.h"
+#include "widgets.h"
 
 namespace reflektortts {
 namespace {
@@ -34,7 +35,7 @@ void draw_panel(const CoreState& state) {
                  ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings |
                      ImGuiWindowFlags_AlwaysAutoResize);
     draw_settings_panel(state, PanelPlace::Overlay);
-    ImGui::TextDisabled("Ctrl+Shift+R closes this panel.");
+    disabled_text("Ctrl+Shift+R closes this panel.");
     ImGui::End();
 }
 

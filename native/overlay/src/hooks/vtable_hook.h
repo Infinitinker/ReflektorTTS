@@ -5,30 +5,23 @@
 
 #include <windows.h>
 
-#include <cstdio>
+#include <format>
 #include <string>
 
+#include "diagnostics/describe_address.h"
 #include "hooks/code_hook.h"
 #include "log.h"
 
 namespace reflektortts {
 
-// Why a vtable could not be patched, for the log: the last error, and the memory's protection
-// and owning module.
+// Why a vtable could not be patched, for the log: the last error, the memory's protection and type,
+// and where it is, as module and offset.
 inline std::string describe_memory(const void* address) {
     DWORD error = GetLastError();
     MEMORY_BASIC_INFORMATION info{};
     VirtualQuery(address, &info, sizeof(info));
-    wchar_t module[MAX_PATH] = L"?";
-    HMODULE handle = nullptr;
-    if (GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
-                           static_cast<LPCWSTR>(address), &handle)) {
-        GetModuleFileNameW(handle, module, MAX_PATH);
-    }
-    char text[512];
-    std::snprintf(text, sizeof(text), "error %lu, address %p, protection 0x%lx, type 0x%lx, module %ls", error, address,
-                  info.Protect, info.Type, module);
-    return text;
+    return std::format("error {}, address {}, protection 0x{:x}, type 0x{:x}, at {}", error, address, info.Protect,
+                       info.Type, describe_address(address));
 }
 
 // Replaces one entry of a COM vtable with detour and stores the previous entry in original.

@@ -7,6 +7,7 @@
 
 #include <span>
 #include <string>
+#include <string_view>
 
 namespace reflektortts {
 
@@ -15,6 +16,13 @@ inline constexpr ImVec4 kWarningColor(1.0f, 0.75f, 0.3f, 1.0f);
 inline constexpr ImU32 kGreen = IM_COL32(90, 200, 110, 255);
 inline constexpr ImU32 kAmber = IM_COL32(240, 180, 60, 255);
 inline constexpr ImU32 kGray = IM_COL32(140, 140, 140, 255);
+
+// Text as it is: ImGui's Text functions take a printf format instead, which "%s" would have to pass
+// it through. Grayed out, in a color, wrapped at the window's edge, or as the hovered item's tooltip.
+void disabled_text(std::string_view text);
+void colored_text(const ImVec4& color, std::string_view text);
+void wrapped_text(std::string_view text);
+void tooltip(std::string_view text);
 
 // A colored dot followed by a label, on the current line.
 void dot_label(ImU32 color, const char* label);

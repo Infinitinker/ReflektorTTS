@@ -39,7 +39,6 @@ Checks: >
   -cppcoreguidelines-pro-bounds-pointer-arithmetic,
   -cppcoreguidelines-pro-type-reinterpret-cast,
   -cppcoreguidelines-pro-type-union-access,
-  -cppcoreguidelines-pro-type-vararg,
   -modernize-avoid-c-arrays,
   -performance-no-int-to-ptr,
   -readability-implicit-bool-conversion
@@ -84,9 +83,6 @@ Checks: >
 #   and code addresses and module bases as integers.
 # cppcoreguidelines-pro-type-union-access: Direct3D 12's resource barrier holds its transition in a
 #   union.
-# cppcoreguidelines-pro-type-vararg: printf-style formatting: snprintf in the log, the crash
-#   handler and the API client's URL encoding, fprintf in the panel's startup error, fwprintf in the
-#   injector, and ImGui's Text functions.
 # readability-implicit-bool-conversion: Windows' BOOL is an int, and pointers and handles are tested
 #   as they are.
 WarningsAsErrors: '*'

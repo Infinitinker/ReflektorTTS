@@ -12,7 +12,7 @@
 namespace reflektortts {
 
 void report_startup_error(const std::string& message) {
-    std::fprintf(stderr, "%s\n", message.c_str());
+    std::fputs((message + "\n").c_str(), stderr);
     std::fflush(stderr);
     log_message(message);
     if (!SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Settings – ReflektorTTS", message.c_str(), nullptr)) {

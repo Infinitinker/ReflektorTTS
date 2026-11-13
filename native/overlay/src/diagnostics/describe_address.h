@@ -6,8 +6,8 @@
 #include <windows.h>
 
 #include <cstdint>
-#include <cstdio>
 #include <cstring>
+#include <format>
 #include <string>
 
 namespace reflektortts {
@@ -21,11 +21,8 @@ inline std::string describe_address(const void* address) {
         GetModuleFileNameA(module, path, MAX_PATH);
     }
     const char* name = std::strrchr(path, '\\') != nullptr ? std::strrchr(path, '\\') + 1 : path;
-    char text[MAX_PATH + 32];
-    std::snprintf(text, sizeof(text), "%s+0x%llX", name,
-                  static_cast<unsigned long long>(reinterpret_cast<std::uintptr_t>(address) -
-                                                  reinterpret_cast<std::uintptr_t>(module)));
-    return text;
+    return std::format("{}+0x{:X}", name,
+                       reinterpret_cast<std::uintptr_t>(address) - reinterpret_cast<std::uintptr_t>(module));
 }
 
 }  // namespace reflektortts

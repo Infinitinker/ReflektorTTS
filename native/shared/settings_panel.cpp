@@ -83,7 +83,7 @@ void draw_status(const CoreState& state, PanelPlace place) {
     align_right(dot_label_width(reading));
     dot_label(state.running ? kGreen : kGray, reading);
     if (!state.running) {
-        ImGui::TextDisabled("Changes apply when the app starts.");
+        disabled_text("Changes apply when the app starts.");
     }
 }
 
@@ -128,7 +128,7 @@ void draw_voice_combo(const CoreState& state) {
         }
         if (voice.engine != engine) {
             engine = voice.engine;
-            ImGui::TextDisabled("%s", engine_title(engine).c_str());
+            disabled_text(engine_title(engine));
         }
         bool selected = voice.id == settings.voice;
         ImGui::Indent();
@@ -190,7 +190,7 @@ void draw_input(const CoreState& state) {
             request_source_enabled(source.source, enabled);
         }
         ImGui::SameLine();
-        ImGui::TextDisabled("%s", source.type.c_str());
+        disabled_text(source.type);
     }
     end_box();
 }
@@ -241,7 +241,7 @@ void draw_output(const CoreState& state, PanelPlace place) {
 void draw_last_line(const CoreState& state) {
     begin_box("Last line");
     if (state.last_line.empty()) {
-        ImGui::TextDisabled("-");
+        disabled_text("-");
     } else {
         clamped_wrapped_text(state.last_line, kMaxLastLineRows);
     }
@@ -254,7 +254,7 @@ void draw_error(const CoreState& state) {
     }
     ImGui::PushStyleColor(ImGuiCol_Text, kErrorColor);
     ImGui::PushTextWrapPos(ImGui::GetContentRegionMax().x - ImGui::GetFrameHeight() * 1.5f);
-    ImGui::TextWrapped("%s", state.last_error.c_str());
+    wrapped_text(state.last_error);
     ImGui::PopTextWrapPos();
     ImGui::PopStyleColor();
     align_right(ImGui::GetFrameHeight());
@@ -268,10 +268,10 @@ void draw_error(const CoreState& state) {
 void draw_settings_panel(const CoreState& state, PanelPlace place) {
     draw_header(state);
     if (!state.connected) {
-        ImGui::TextWrapped("Not connected to ReflektorTTS: is it running?");
+        wrapped_text("Not connected to ReflektorTTS: is it running?");
     } else if (!state.settings_error.empty()) {
         ImGui::PushStyleColor(ImGuiCol_Text, kErrorColor);
-        ImGui::TextWrapped("%s", state.settings_error.c_str());
+        wrapped_text(state.settings_error);
         ImGui::PopStyleColor();
     } else {
         // Top to bottom, the way a line goes through ReflektorTTS: input, processing, output.

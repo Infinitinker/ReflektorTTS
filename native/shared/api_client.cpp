@@ -7,9 +7,10 @@
 #include <chrono>
 #include <condition_variable>
 #include <cstddef>
-#include <cstdio>
 #include <deque>
 #include <exception>
+#include <format>
+#include <iterator>
 #include <memory>
 #include <mutex>
 #include <nlohmann/json.hpp>
@@ -171,9 +172,7 @@ std::string encode_path_segment(const std::string& text) {
         if (unreserved) {
             encoded += c;
         } else {
-            char escape[4];
-            std::snprintf(escape, sizeof(escape), "%%%02X", byte);
-            encoded += escape;
+            std::format_to(std::back_inserter(encoded), "%{:02X}", byte);
         }
     }
     return encoded;

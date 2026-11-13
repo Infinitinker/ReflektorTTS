@@ -11,9 +11,11 @@
 #include <cstring>
 #include <cwchar>
 #include <filesystem>
+#include <format>
 #include <optional>
 #include <string>
 #include <system_error>
+#include <utility>
 
 namespace {
 
@@ -180,6 +182,12 @@ std::optional<unsigned long> read_port(const wchar_t* text) {
     return port;
 }
 
+// Writes a message, formatted as std::format does, to stream.
+template <typename... Args>
+void print(std::FILE* stream, std::wformat_string<Args...> format, Args&&... args) {
+    std::fputws(std::format(format, std::forward<Args>(args)...).c_str(), stream);
+}
+
 }  // namespace
 
 // The program's entry point, found by its name, so it keeps external linkage.
@@ -200,7 +208,7 @@ int wmain(int argc, wchar_t** argv) {
     if (next < argc && std::wcscmp(argv[next], L"--port") == 0) {
         std::optional<unsigned long> given = next + 1 < argc ? read_port(argv[next + 1]) : std::nullopt;
         if (!given) {
-            std::fwprintf(stderr, L"The port after --port must be from 1 to 65535.\n%ls", kUsage);
+            print(stderr, L"The port after --port must be from 1 to 65535.\n{}", kUsage);
             return kUsageError;
         }
         port = *given;
@@ -214,31 +222,30 @@ int wmain(int argc, wchar_t** argv) {
     std::filesystem::path dll_path = argc > next ? std::filesystem::absolute(argv[next]) : default_dll_path();
 
     if (!std::filesystem::exists(dll_path)) {
-        std::fwprintf(stderr, L"Overlay DLL not found: %ls\n", dll_path.c_str());
+        print(stderr, L"Overlay DLL not found: {}\n", dll_path.native());
         return kFailed;
     }
     std::optional<DWORD> entry_offset = export_offset(dll_path, kEntryPoint);
     if (!entry_offset) {
-        std::fwprintf(stderr, L"%ls is not an overlay this injector can start: use the injector from its build.\n",
-                      dll_path.c_str());
+        print(stderr, L"{} is not an overlay this injector can start: use the injector from its build.\n",
+              dll_path.native());
         return kFailed;
     }
     DWORD process_id = by_pid ? static_cast<DWORD>(std::wcstoul(argv[2], nullptr, 10)) : find_process_id(process_name);
     if (process_id == 0) {
-        std::fwprintf(stderr, L"%ls is not running: start the game first.\n", process_name.c_str());
+        print(stderr, L"{} is not running: start the game first.\n", process_name);
         return kFailed;
     }
     HANDLE process = OpenProcess(
         PROCESS_CREATE_THREAD | PROCESS_QUERY_INFORMATION | PROCESS_VM_OPERATION | PROCESS_VM_WRITE | PROCESS_VM_READ,
         FALSE, process_id);
     if (process == nullptr) {
-        std::fwprintf(stderr, L"Cannot open %ls (error %lu): is it running as administrator?\n", process_name.c_str(),
-                      GetLastError());
+        print(stderr, L"Cannot open {} (error {}): is it running as administrator?\n", process_name, GetLastError());
         return kFailed;
     }
     if (!same_bitness(process)) {
-        std::fwprintf(stderr, L"%ls and this injector differ in bitness (32-bit vs 64-bit): use the matching build.\n",
-                      process_name.c_str());
+        print(stderr, L"{} and this injector differ in bitness (32-bit vs 64-bit): use the matching build.\n",
+              process_name);
         CloseHandle(process);
         return kWrongBitness;
     }
@@ -247,14 +254,13 @@ int wmain(int argc, wchar_t** argv) {
     DWORD start_error = started ? 0 : GetLastError();
     CloseHandle(process);
     if (loaded_at == nullptr) {
-        std::fwprintf(stderr, L"Failed to load the overlay into %ls.\n", process_name.c_str());
+        print(stderr, L"Failed to load the overlay into {}.\n", process_name);
         return kFailed;
     }
     if (!started) {
-        std::fwprintf(stderr, L"The overlay was loaded into %ls, but could not start (error %lu).\n",
-                      process_name.c_str(), start_error);
+        print(stderr, L"The overlay was loaded into {}, but could not start (error {}).\n", process_name, start_error);
         return kFailed;
     }
-    std::fwprintf(stdout, L"Overlay loaded into %ls (PID %lu).\n", process_name.c_str(), process_id);
+    print(stdout, L"Overlay loaded into {} (PID {}).\n", process_name, process_id);
     return 0;
 }

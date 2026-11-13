@@ -6,7 +6,7 @@
 #include <windows.h>
 
 #include <atomic>
-#include <cstdio>
+#include <format>
 #include <string>
 
 #include "diagnostics/describe_address.h"
@@ -60,13 +60,10 @@ LONG CALLBACK log_crash(EXCEPTION_POINTERS* exception) {
     if (!is_crash(record->ExceptionCode) || g_logged++ >= kMaxLoggedCrashes) {
         return EXCEPTION_CONTINUE_SEARCH;
     }
-    char text[64];
     // For access violations, the second parameter is the address that could not be read or written.
-    std::snprintf(text, sizeof(text), ", data address %p",
-                  record->NumberParameters > 1 ? reinterpret_cast<void*>(record->ExceptionInformation[1]) : nullptr);
-    char code[32];
-    std::snprintf(code, sizeof(code), "Exception 0x%08lX at ", record->ExceptionCode);
-    log_message(code + describe_address(record->ExceptionAddress) + text);
+    ULONG_PTR data_address = record->NumberParameters > 1 ? record->ExceptionInformation[1] : 0;
+    log_message(std::format("Exception 0x{:08X} at {}, data address 0x{:X}", record->ExceptionCode,
+                            describe_address(record->ExceptionAddress), data_address));
 #ifdef _WIN64
     log_call_stack(*exception->ContextRecord);
 #endif

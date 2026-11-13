@@ -39,7 +39,7 @@ void draw_tick_headings() {
     for (const char* heading : {kTextHeading, kSpeechHeading}) {
         float width = tick_column_width(heading);
         ImGui::SameLine(x + (width - ImGui::CalcTextSize(heading).x) * 0.5f);
-        ImGui::TextDisabled("%s", heading);
+        disabled_text(heading);
         x += width + ImGui::GetStyle().ItemSpacing.x;
     }
 }
@@ -62,9 +62,9 @@ void draw_stage_note(const StageOption& stage) {
     ImGui::SameLine();
     float width = tick_columns_x() - ImGui::GetCursorPosX() - ImGui::GetStyle().ItemSpacing.x;
     std::string shown = fit_width(*note, width);
-    ImGui::TextColored(color, "%s", shown.c_str());
+    colored_text(color, shown);
     if (shown != *note && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
-        ImGui::SetTooltip("%s", note->c_str());
+        tooltip(*note);
     }
 }
 
