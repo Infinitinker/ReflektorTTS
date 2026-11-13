@@ -9,12 +9,12 @@ from dataclasses import replace
 from typing import Any
 
 from reflektortts.events import TextEvent
-from reflektortts.glossary import Glossaries
+from reflektortts.glossary import GLOSSARY_GRAMMAR, Glossaries
 from reflektortts.languages import Languages, separates_words
 from reflektortts.pipeline.plugins import StagePlugin, load_schema
 from reflektortts.stages.translate.engine import Engine, load_engine
 from reflektortts.stages.translate.glossary import GlossaryRules
-from reflektortts.stages.translate.languages import output_language
+from reflektortts.stages.translate.languages import OUTPUT_LANGUAGES, output_language
 from reflektortts.stages.translate.model import ModelNotInstalledError, installed_model
 from reflektortts.stages.translate.sentences import split_sentences
 
@@ -121,4 +121,5 @@ PLUGIN = StagePlugin(
     create=create,
     summary="Translates into the output language",
     inactive_reason=inactive_reason,
+    speech_rules={GLOSSARY_GRAMMAR: frozenset(OUTPUT_LANGUAGES)},
 )

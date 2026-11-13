@@ -7,7 +7,7 @@ from dataclasses import replace
 from typing import Any
 
 from reflektortts.events import TextEvent
-from reflektortts.glossary import Glossaries, TermFinder, word_bounded
+from reflektortts.glossary import GLOSSARY_GRAMMAR, Glossaries, TermFinder, word_bounded
 from reflektortts.languages import NAME_ENDINGS, separates_words
 from reflektortts.pipeline.plugins import StagePlugin, load_schema
 
@@ -68,4 +68,5 @@ PLUGIN = StagePlugin(
     settings_schema=load_schema("reflektortts.stages", "pronounce.schema.json"),
     create=create,
     summary="Respells terms so they sound right",
+    speech_rules={GLOSSARY_GRAMMAR: frozenset(NAME_ENDINGS)},
 )

@@ -13,6 +13,8 @@ from reflektortts.stages.normalize.languages.polish import PolishWords
 from reflektortts.stages.normalize.text import Words, normalize
 
 WORDS: dict[str, Words] = {"en": EnglishWords(), "pl": PolishWords()}
+NUMBERS = "Numbers, dates and units"
+"""The speech rule this stage gives the languages it has words for."""
 
 
 class Normalize:
@@ -38,6 +40,7 @@ PLUGIN = StagePlugin(
     type="normalize",
     settings_schema=load_schema("reflektortts.stages.normalize", "normalize.schema.json"),
     create=create,
-    summary="Spells out numbers and money",
+    summary="Spells out numbers, dates and units",
     inactive_reason=inactive_reason,
+    speech_rules={NUMBERS: frozenset(WORDS)},
 )

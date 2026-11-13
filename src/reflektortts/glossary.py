@@ -27,6 +27,10 @@ class GlossaryTerm:
         return (self.term, *self.other_spellings)
 
 
+GLOSSARY_GRAMMAR = "Glossary grammar"
+"""The speech rule of output languages whose grammar glossary terms follow: a kept term put back in
+a translation, and a respelled one, get the ending the sentence needs."""
+
 type Glossary = tuple[GlossaryTerm, ...]
 type Glossaries = Mapping[str, Glossary]
 """A profile's glossaries, by the input language (ISO 639-1) their terms are written in: a line
