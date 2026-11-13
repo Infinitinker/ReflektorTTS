@@ -162,7 +162,7 @@ The builds are named in `CMakePresets.json`, each a Ninja build with the toolcha
 | `release-x86` | 32-bit, Release: the overlay for 32-bit apps | `native/build` | MSYS2 MINGW32 |
 | `release` | 64-bit, Release: the overlay for 64-bit apps, and the settings window | `native/build64` | MSYS2 MINGW64 |
 | `debug` | 64-bit, Debug: debug information and no optimization | `build/native-debug` | MSYS2 MINGW64 |
-| `ci` | 64-bit, Release, only configured: the compile commands clang-tidy reads for the 64-bit code, with the compiler's warnings as errors | `build/native-ci` | MSYS2 MINGW64 |
+| `ci` | 64-bit, Release, with the compiler's warnings as errors: the compile commands clang-tidy reads for the 64-bit code, and the build that checks GCC's warnings | `build/native-ci` | MSYS2 MINGW64 |
 
 The folders are relative to the repository root. Each preset also writes `compile_commands.json` into its folder, for clang-tidy and editors. Every build shows the compiler's warnings for ReflektorTTS's own code, those `CMakeLists.txt` turns on; the `ci` preset makes them errors.
 
@@ -186,4 +186,4 @@ The results are in `native/build/bin/` and `native/build64/bin/`: `reflektortts-
 
 ### Checks
 
-The `C++ checks` job of the `Checks` workflow checks this code: the include directions with `tools/check_includes.py`, the formatting with clang-format (`.clang-format` in the repository root) and the code, with the compiler's warnings, with clang-tidy (`.clang-tidy`), for each build: the 64-bit code through the `ci` preset's compile commands and the 32-bit code through the `release-x86` preset's. Every finding fails it. [C++ checks](../docs/development.md#c-checks) in docs/development.md says how to install clang-format and clang-tidy in MSYS2 and run them; run them, and both builds, before committing a change here.
+The `C++ checks` job of the `Checks` workflow checks this code: the include directions with `tools/check_includes.py`, the formatting with clang-format (`.clang-format` in the repository root) the code with clang-tidy (`.clang-tidy`), which reports the compiler's warnings as Clang sees them, for each build: the 64-bit code through the `ci` preset's compile commands and the 32-bit code through the `release-x86` preset's; and GCC's warnings, by building the `ci` preset, which makes them errors. Every finding fails it. [C++ checks](../docs/development.md#c-checks) in docs/development.md says how to install clang-format and clang-tidy in MSYS2 and run them; run them, and both builds, before committing a change here.

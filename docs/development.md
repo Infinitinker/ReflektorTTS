@@ -143,7 +143,7 @@ Then, in the repository root:
 git ls-files 'native/*.cpp' 'native/*.h' | xargs clang-format --dry-run --Werror
 ```
 
-The same with `-i` in place of `--dry-run --Werror` formats the files. clang-tidy checks both builds' code, since each compiles some that the other does not (an `#else` of `_WIN64`), and reports the compiler's warnings too, those `native/CMakeLists.txt` turns on. For the 64-bit build, it reads the compile commands of the `ci` preset, which only needs configuring:
+The same with `-i` in place of `--dry-run --Werror` formats the files. clang-tidy checks both builds' code, since each compiles some that the other does not (an `#else` of `_WIN64`), and reports the compiler's warnings too, those `native/CMakeLists.txt` turns on, as Clang sees them. For the 64-bit build, it reads the compile commands of the `ci` preset, which clang-tidy needs only configured:
 
 ```bash
 cmake -S native --preset ci
@@ -158,7 +158,11 @@ For the 32-bit build, it reads those of the `release-x86` preset, configured in 
 git ls-files 'native/*.cpp' ':!native/panel/*' | xargs -P 4 -n 1 clang-tidy -p native/build --quiet --extra-arg=--target=i686-w64-mingw32
 ```
 
-Any finding fails it. The `ci` preset also makes the compiler's warnings errors, should you build it (`cmake --build build/native-ci`); the other presets only show them.
+Any finding fails it. Clang and GCC warn about different things, so the `ci` preset also makes GCC's warnings errors when it is built, as CI does; the other presets only show them:
+
+```bash
+cmake --build build/native-ci
+```
 
 ### Generated files
 

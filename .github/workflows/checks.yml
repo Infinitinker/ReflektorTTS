@@ -85,10 +85,11 @@ jobs:
         run: python tools/licenses.py
 
   # The C++ code in native/: the include directions of native/README.md, clang-format and clang-tidy
-  # (.clang-format and .clang-tidy at the root), which reports the compiler's warnings too. Each step
-  # fails on any finding. clang-tidy checks each build's code, as each compiles some the other does
-  # not: the 64-bit build's through the ci preset's compile commands, the 32-bit build's through the
-  # release-x86 preset's. Configuring is enough, nothing is built.
+  # (.clang-format and .clang-tidy at the root), which reports the compiler's warnings as Clang sees
+  # them, and the ci preset's build, where GCC's warnings are errors. Each step fails on any finding.
+  # clang-tidy checks each build's code, as each compiles some the other does not: the 64-bit build's
+  # through the ci preset's compile commands, the 32-bit build's through the release-x86 preset's,
+  # which is only configured.
   cpp:
     name: C++ checks
     runs-on: windows-latest
@@ -117,6 +118,11 @@ jobs:
       - name: clang-tidy
         shell: msys2 {0}
         run: git ls-files 'native/*.cpp' | xargs -P 4 -n 1 clang-tidy -p build/native-ci --quiet
+      # GCC with the warnings as errors (-Werror), which clang-tidy, reading the code as Clang, does not
+      # cover.
+      - name: Build with the warnings as errors
+        shell: msys2 {0}
+        run: cmake --build build/native-ci
       - name: Configure the 32-bit build
         shell: msys2 {0}
         env:
