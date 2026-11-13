@@ -29,6 +29,7 @@ from reflektortts.desktop.api.client import (
     request_json,
 )
 from reflektortts.desktop.api.integrations import IntegrationItem, failure_text, parse_integrations
+from reflektortts.desktop.api.languages import LanguageItem, languages_text, parse_languages
 from reflektortts.desktop.api.profiles import ProfileItem, file_name, name_text, parse_profiles
 from reflektortts.desktop.api.status import CoreStatus, describe
 from reflektortts.desktop.core_thread import CoreThread
@@ -72,7 +73,7 @@ class Application:
         self._hidden = args.hidden and self._has_tray
         self._refreshed = False
         """Whether the download lists were fetched since the window was opened."""
-        self._language_names: dict[str, str] = {}
+        self._languages: dict[str, LanguageItem] = {}
         self._voice_titles: dict[str, str] = {}
         """Voices by their ID, e.g. "Microsoft Adam (Windows)", as the core lists them."""
         self._fetching_names = False
@@ -107,7 +108,7 @@ class Application:
             on_download=self._start_download,
             on_remove=self._remove_download,
             on_preview=self._preview,
-            language_name=lambda code: self._language_names.get(code, code),
+            languages_text=lambda codes: languages_text(codes, self._languages),
             voice_title=lambda voice: self._voice_titles.get(voice, voice),
             on_profiles_opened=self._profiles_opened,
             on_enable_profile=self._enable_profile,
@@ -179,8 +180,7 @@ class Application:
     def _fetch_names(self) -> None:
         """Runs in the background; the status is shown again with the names on Tkinter's thread."""
         try:
-            languages = request_json("GET", "/languages")["languages"]
-            names = {language["code"]: language["english_name"] for language in languages}
+            languages = parse_languages(request_json("GET", "/languages"))
             voices = request_json("GET", "/voices")["voices"]
             titles = {voice["id"]: f"{voice['name']} ({voice['engine_title']})" for voice in voices}
         except (ApiClientError, KeyError, TypeError) as error:
@@ -190,7 +190,7 @@ class Application:
 
         def show() -> None:
             self._fetching_names = False
-            self._language_names = names
+            self._languages = languages
             self._voice_titles = titles
             if not self._stopped:
                 self._window.status.show(self._status)
@@ -371,15 +371,14 @@ class Application:
         """Runs in the background; the list is shown on Tkinter's thread. Errors are reported
         when the list is fetched from the internet, not each time it is shown again."""
         try:
-            if not self._language_names:
-                languages = request_json("GET", "/languages")["languages"]
-                self._language_names = {language["code"]: language["english_name"] for language in languages}
+            if not self._languages:
+                self._languages = parse_languages(request_json("GET", "/languages"))
             if refresh:
                 answer = request_json("POST", "/downloads/refresh", timeout=REFRESH_TIMEOUT_SECONDS)
             else:
                 answer = request_json("GET", "/downloads")
             downloads = parse_list(answer)
-            others = other_voices(request_json("GET", "/voices"), downloads.items, self._language_names)
+            others = other_voices(request_json("GET", "/voices"), downloads.items, self._languages)
         except ApiClientError as error:
             message = str(error)
             self._later(lambda: self._list_failed(message))

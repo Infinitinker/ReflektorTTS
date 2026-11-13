@@ -6,10 +6,10 @@ from reflektortts.desktop.api.status import (
     CoreStatus,
     describe,
     hint,
-    languages_text,
     parse_status,
     settings_caption,
     sound_text,
+    status_languages,
 )
 
 
@@ -70,14 +70,14 @@ def test_a_status_event_gives_the_voice_languages_and_app_sound() -> None:
 
     assert status is not None
     assert status.voice == "windows:Microsoft Adam"
-    assert languages_text(status, {"en": "English", "pl": "Polish"}.__getitem__) == "English → Polish"
+    assert status_languages(status) == ("en", "pl")
     assert sound_text(status) == "Lowered to 30% while a line is spoken"
 
 
 def test_one_language_is_named_once_and_unlowered_sound_is_said() -> None:
     status = CoreStatus(app=None, paused=False, input_language="pl", output_language="pl", ducking=False)
 
-    assert languages_text(status, {"pl": "Polish"}.__getitem__) == "Polish"
+    assert status_languages(status) == ("pl",)
     assert sound_text(status) == "Not lowered while a line is spoken"
 
 

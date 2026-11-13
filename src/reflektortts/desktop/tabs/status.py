@@ -2,7 +2,7 @@
 settings of the app being read, and about ReflektorTTS: its version, and links to the project and its
 support pages."""
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from tkinter import ttk
 
 from reflektortts.desktop.about import BUYCOFFEE, KO_FI, LICENSE, About
@@ -10,9 +10,9 @@ from reflektortts.desktop.api.status import (
     CoreStatus,
     describe,
     hint,
-    languages_text,
     settings_caption,
     sound_text,
+    status_languages,
 )
 from reflektortts.desktop.icon import icon_photo
 from reflektortts.desktop.widgets.clamped_label import ClampedLabel
@@ -75,12 +75,12 @@ class StatusTab:
         on_quit: Callable[[], None],
         on_open_link: Callable[[str], None],
         about: About,
-        language_name: Callable[[str], str],
+        languages_text: Callable[[Sequence[str]], str],
         voice_title: Callable[[str], str],
         has_tray: bool,
     ) -> None:
         """has_tray: whether closing the window leaves ReflektorTTS running in the tray, or quits it."""
-        self._language_name = language_name
+        self._languages_text = languages_text
         self._voice_title = voice_title
         self._app_settings_missing = app_settings_missing
         self._shown: CoreStatus | None = None
@@ -180,7 +180,7 @@ class StatusTab:
         texts = (
             ("", "", "")
             if status is None
-            else (self._voice_title(status.voice), languages_text(status, self._language_name), sound_text(status))
+            else (self._voice_title(status.voice), self._languages_text(status_languages(status)), sound_text(status))
         )
         for label, text in zip(self._details, texts, strict=True):
             label.configure(text=text)

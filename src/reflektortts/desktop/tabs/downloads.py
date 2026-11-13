@@ -6,7 +6,7 @@ button that cannot be used for the selected entry is grayed out."""
 
 import tkinter as tk
 import webbrowser
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from tkinter import ttk
 
 from reflektortts.desktop.api.catalog import DownloadItem, DownloadProgress, size_text, state_text, summary_text
@@ -29,7 +29,7 @@ class DownloadsTab:
         on_download: Callable[[DownloadItem], None],
         on_remove: Callable[[DownloadItem], None],
         on_preview: Callable[[DownloadItem], None] | None,
-        language_name: Callable[[str], str],
+        languages_text: Callable[[Sequence[str]], str],
     ) -> None:
         """on_preview is None for downloads that cannot be heard."""
         self.frame = ttk.Frame(parent, padding=(8, 8, 8, 6))
@@ -39,7 +39,7 @@ class DownloadsTab:
         self._on_preview = on_preview
         self._playing: str | None = None
         """The voice whose preview is loading or playing."""
-        self._language_name = language_name
+        self._languages_text = languages_text
         self._items: dict[str, DownloadItem] = {}
         self.frame.columnconfigure(0, weight=1)
         # The list and the box under it share the height 60/40 as the window is resized.
@@ -158,7 +158,7 @@ class DownloadsTab:
         return item.name, item.source, self._languages(item), size_text(item.size), state
 
     def _languages(self, item: DownloadItem) -> str:
-        return ", ".join(self._language_name(language) for language in item.languages)
+        return self._languages_text(item.languages)
 
     def _show_downloading(self, item_id: str, done: int, total: int | None) -> None:
         self._tree.set(item_id, "state", state_text("downloading", done, total))
