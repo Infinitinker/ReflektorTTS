@@ -7,6 +7,10 @@ foreach(unused AUDIO CAMERA JOYSTICK HAPTIC HIDAPI SENSOR POWER GPU DIALOG TRAY 
     set(SDL_${unused} OFF CACHE BOOL "" FORCE)
 endforeach()
 FetchContent_MakeAvailable(SDL3)
+# SDL's headers, which SDL3-static takes from SDL3_Headers, are included as system headers, which
+# compilers do not warn about. (CMake 3.25's FetchContent SYSTEM would do this, but the minimum is 3.24.)
+get_target_property(sdl_includes SDL3_Headers INTERFACE_INCLUDE_DIRECTORIES)
+set_property(TARGET SDL3_Headers APPEND PROPERTY INTERFACE_SYSTEM_INCLUDE_DIRECTORIES ${sdl_includes})
 
 add_library(imgui-backends-panel STATIC
     ${imgui_SOURCE_DIR}/backends/imgui_impl_sdl3.cpp
