@@ -29,7 +29,7 @@ from reflektortts.desktop.api.client import (
     request_json,
 )
 from reflektortts.desktop.api.integrations import IntegrationItem, failure_text, parse_integrations
-from reflektortts.desktop.api.languages import LanguageItem, languages_text, parse_languages
+from reflektortts.desktop.api.languages import LanguageItem, languages_text, parse_languages, speech_rules_text
 from reflektortts.desktop.api.profiles import ProfileItem, file_name, name_text, parse_profiles
 from reflektortts.desktop.api.status import CoreStatus, describe
 from reflektortts.desktop.core_thread import CoreThread
@@ -109,6 +109,7 @@ class Application:
             on_remove=self._remove_download,
             on_preview=self._preview,
             languages_text=lambda codes: languages_text(codes, self._languages),
+            speech_rules_text=lambda code: speech_rules_text(code, self._languages),
             voice_title=lambda voice: self._voice_titles.get(voice, voice),
             on_profiles_opened=self._profiles_opened,
             on_enable_profile=self._enable_profile,

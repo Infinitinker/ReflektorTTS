@@ -38,6 +38,7 @@ class Window:
         on_remove: Callable[[DownloadItem], None],
         on_preview: Callable[[DownloadItem], None],
         languages_text: Callable[[Sequence[str]], str],
+        speech_rules_text: Callable[[str], str],
         voice_title: Callable[[str], str],
         on_profiles_opened: Callable[[], None],
         on_enable_profile: Callable[[ProfileItem, bool], None],
@@ -107,7 +108,9 @@ class Window:
         for kind, title in DOWNLOAD_TABS.items():
             # Only voices can be heard before use.
             preview = on_preview if kind == Kind.VOICE else None
-            tab = DownloadsTab(self._notebook, self._status_bar, on_download, on_remove, preview, languages_text)
+            tab = DownloadsTab(
+                self._notebook, self._status_bar, on_download, on_remove, preview, languages_text, speech_rules_text
+            )
             self._notebook.add(tab.frame, text=title)
             self.downloads[kind.value] = tab
         self.settings = SettingsTab(
