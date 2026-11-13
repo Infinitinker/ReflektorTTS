@@ -6,6 +6,8 @@
 
 #include <windows.h>
 
+#include <algorithm>
+#include <array>
 #include <cstdint>
 #include <cstring>
 #include <mutex>
@@ -201,18 +203,19 @@ BOOL WINAPI clip_cursor(const RECT* area) {
 
 void install_win32_input_hooks() {
     HMODULE user32 = GetModuleHandleW(L"user32.dll");
-    bool hooked = hook_export(user32, "GetMessageA", &get_message_a, &g_get_message_a) &
-                  hook_export(user32, "GetMessageW", &get_message_w, &g_get_message_w) &
-                  hook_export(user32, "PeekMessageA", &peek_message_a, &g_peek_message_a) &
-                  hook_export(user32, "PeekMessageW", &peek_message_w, &g_peek_message_w) &
-                  hook_export(user32, "GetAsyncKeyState", &get_async_key_state, &g_get_async_key_state) &
-                  hook_export(user32, "GetKeyState", &get_key_state, &g_get_key_state) &
-                  hook_export(user32, "GetKeyboardState", &get_keyboard_state, &g_get_keyboard_state) &
-                  hook_export(user32, "GetRawInputBuffer", &get_raw_input_buffer, &g_get_raw_input_buffer) &
-                  hook_export(user32, "GetCursorPos", &get_cursor_pos, &g_get_cursor_pos) &
-                  hook_export(user32, "SetCursorPos", &set_cursor_pos, &g_set_cursor_pos) &
-                  hook_export(user32, "ClipCursor", &clip_cursor, &g_clip_cursor);
-    if (!hooked) {
+    // Each is hooked, in order, whether those before it were or not.
+    const std::array hooked{hook_export(user32, "GetMessageA", &get_message_a, &g_get_message_a),
+                            hook_export(user32, "GetMessageW", &get_message_w, &g_get_message_w),
+                            hook_export(user32, "PeekMessageA", &peek_message_a, &g_peek_message_a),
+                            hook_export(user32, "PeekMessageW", &peek_message_w, &g_peek_message_w),
+                            hook_export(user32, "GetAsyncKeyState", &get_async_key_state, &g_get_async_key_state),
+                            hook_export(user32, "GetKeyState", &get_key_state, &g_get_key_state),
+                            hook_export(user32, "GetKeyboardState", &get_keyboard_state, &g_get_keyboard_state),
+                            hook_export(user32, "GetRawInputBuffer", &get_raw_input_buffer, &g_get_raw_input_buffer),
+                            hook_export(user32, "GetCursorPos", &get_cursor_pos, &g_get_cursor_pos),
+                            hook_export(user32, "SetCursorPos", &set_cursor_pos, &g_set_cursor_pos),
+                            hook_export(user32, "ClipCursor", &clip_cursor, &g_clip_cursor)};
+    if (std::ranges::find(hooked, false) != hooked.end()) {
         log_message("Some Windows input functions could not be hooked; the app may still get some input");
     }
 }
