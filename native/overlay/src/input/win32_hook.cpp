@@ -126,11 +126,11 @@ bool runs_on_wow64() {
 }
 
 // Hands each mouse and keyboard block over as meant for another window: movement zeroed, keys
-// released. Gamepads pass unchanged. Blocks follow each other at alignment, as NEXTRAWINPUTBLOCK
+// released. Gamepads pass unchanged. Blocks follow each other at Alignment, as NEXTRAWINPUTBLOCK
 // steps (which MinGW's 64-bit headers cannot expand, lacking its QWORD); a block's data follows
 // its header, and the mouse and keyboard data is laid out the same in 32 and 64 bits.
-template <typename Header>
-void hand_over_raw_input(BYTE* blocks, UINT count, std::uintptr_t alignment) {
+template <typename Header, std::uintptr_t Alignment>
+void hand_over_raw_input(BYTE* blocks, UINT count) {
     BYTE* block = blocks;
     for (UINT i = 0; i < count; ++i) {
         auto* header = object_at<Header>(block);
@@ -147,7 +147,7 @@ void hand_over_raw_input(BYTE* blocks, UINT count, std::uintptr_t alignment) {
             keyboard->VKey = 0;
         }
         std::uintptr_t next = address_of(block) + header->dwSize;
-        block = pointer_at<BYTE>((next + alignment - 1) & ~(alignment - 1));
+        block = pointer_at<BYTE>((next + Alignment - 1) & ~(Alignment - 1));
     }
 }
 
@@ -163,9 +163,9 @@ UINT WINAPI get_raw_input_buffer(RAWINPUT* data, UINT* size, UINT header_size) {
     }
     BYTE* blocks = bytes_of(data);
     if (sizeof(void*) == 4 && runs_on_wow64()) {
-        hand_over_raw_input<RawInputHeader64>(blocks, count, 8);
+        hand_over_raw_input<RawInputHeader64, 8>(blocks, count);
     } else {
-        hand_over_raw_input<RAWINPUTHEADER>(blocks, count, sizeof(void*));
+        hand_over_raw_input<RAWINPUTHEADER, sizeof(void*)>(blocks, count);
     }
     return count;
 }

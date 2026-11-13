@@ -29,8 +29,7 @@ Checks: >
   -readability-trailing-comma,
   -readability-uppercase-literal-suffix,
 
-  -bugprone-easily-swappable-parameters,
-  -bugprone-invalid-enum-default-initialization,
+  -bugprone-invalid-enum-default-initialization
 
 # Style only. These say how the code is written, not whether it is right, so they stay off:
 #
@@ -57,8 +56,6 @@ Checks: >
 # Not on yet. These can find bugs, and each comes on once what it finds is fixed, or moved into a
 # small helper that says, with a NOLINT, why the API it wraps needs it. What they find now:
 #
-# bugprone-easily-swappable-parameters: install_d3d9_hooks' three callbacks, the raw input
-#   helper's count and alignment, and two of the transport's functions.
 # bugprone-invalid-enum-default-initialization: Direct3D 9's structs are zeroed with {} before they
 #   are filled in, though zero is not a value of some of their enums.
 WarningsAsErrors: '*'

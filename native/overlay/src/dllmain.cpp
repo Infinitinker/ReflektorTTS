@@ -84,7 +84,9 @@ DWORD run_overlay(int port) {
         }
         if (!tried_d3d9 && is_loaded(L"d3d9.dll")) {
             tried_d3d9 = true;
-            hooked |= install_d3d9_hooks(render_d3d9_frame, release_d3d9_device_objects, recreate_d3d9_device_objects,
+            hooked |= install_d3d9_hooks({.on_present = render_d3d9_frame,
+                                          .before_reset = release_d3d9_device_objects,
+                                          .after_reset = recreate_d3d9_device_objects},
                                          d3d9_device_may_exist);
         }
         if (hooked && !client_started) {

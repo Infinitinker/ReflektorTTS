@@ -206,16 +206,15 @@ void** probe_device_vtable(HMODULE d3d9) {
 
 }  // namespace
 
-bool install_d3d9_hooks(DeviceCallback on_present, DeviceCallback before_reset, DeviceCallback after_reset,
-                        bool device_may_exist) {
+bool install_d3d9_hooks(const D3d9Callbacks& callbacks, bool device_may_exist) {
     HMODULE d3d9 = GetModuleHandleW(L"d3d9.dll");
     if (d3d9 == nullptr) {
         log_message("d3d9.dll is not loaded");
         return false;
     }
-    g_on_present = on_present;
-    g_before_reset = before_reset;
-    g_after_reset = after_reset;
+    g_on_present = callbacks.on_present;
+    g_before_reset = callbacks.before_reset;
+    g_after_reset = callbacks.after_reset;
     bool hooked = hook_device_creation(d3d9);
     if (device_may_exist) {
         void** vtable = probe_device_vtable(d3d9);

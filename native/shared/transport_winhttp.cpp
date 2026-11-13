@@ -77,7 +77,12 @@ HINTERNET open_web_socket(HINTERNET connection, const std::wstring& path) {
 
 class WinHttpEventStream : public EventStream {
 public:
-    WinHttpEventStream(HINTERNET connection, HINTERNET socket) : connection_(connection), socket_(socket) {}
+    // Opens the WebSocket at path on connection, which the stream owns from now on; is_open says
+    // whether it opened.
+    WinHttpEventStream(HINTERNET connection, const std::wstring& path)
+        : connection_(connection), socket_(open_web_socket(connection, path)) {}
+
+    [[nodiscard]] bool is_open() const { return static_cast<bool>(socket_); }
 
     std::optional<std::string> receive() override {
         std::string message;
@@ -121,8 +126,8 @@ public:
     WinHttpTransport(HINTERNET session, int port)
         : session_(session), host_(widen(kCoreHost)), port_(static_cast<INTERNET_PORT>(port)) {}
 
-    std::optional<HttpResponse> send(const std::string& method, const std::string& path,
-                                     const std::string& body) override {
+    std::optional<HttpResponse> send(const HttpRequest& http_request) override {
+        const auto& [method, path, body] = http_request;
         Handle connection(connect());
         if (!connection) {
             return std::nullopt;
@@ -159,12 +164,11 @@ public:
         if (connection == nullptr) {
             return nullptr;
         }
-        HINTERNET socket = open_web_socket(connection, widen(path));
-        if (socket == nullptr) {
-            WinHttpCloseHandle(connection);
+        auto stream = std::make_unique<WinHttpEventStream>(connection, widen(path));
+        if (!stream->is_open()) {
             return nullptr;
         }
-        return std::make_unique<WinHttpEventStream>(connection, socket);
+        return stream;
     }
 
 private:

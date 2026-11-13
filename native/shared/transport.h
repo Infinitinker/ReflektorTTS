@@ -20,6 +20,12 @@ constexpr std::size_t kMaxEventBytes = std::size_t{1024} * 1024;
 // The same for answers to requests, such as the voice list.
 constexpr std::size_t kMaxResponseBytes = std::size_t{4} * 1024 * 1024;
 
+struct HttpRequest {
+    std::string method;
+    std::string path;
+    std::string body;  // JSON, or empty for none.
+};
+
 struct HttpResponse {
     int status = 0;
     std::string body;
@@ -40,10 +46,9 @@ public:
 class Transport {
 public:
     virtual ~Transport() = default;
-    // Sends a request, with body as its JSON body unless it is empty. Returns nullopt if the
-    // core cannot be reached or the answer is bigger than kMaxResponseBytes.
-    virtual std::optional<HttpResponse> send(const std::string& method, const std::string& path,
-                                             const std::string& body) = 0;
+    // Sends a request. Returns nullopt if the core cannot be reached or the answer is bigger than
+    // kMaxResponseBytes.
+    virtual std::optional<HttpResponse> send(const HttpRequest& request) = 0;
     // Opens the WebSocket at path. Returns nullptr if the core cannot be reached.
     virtual std::unique_ptr<EventStream> open_event_stream(const std::string& path) = 0;
 };

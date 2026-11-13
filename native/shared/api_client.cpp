@@ -31,12 +31,6 @@ constexpr std::chrono::milliseconds kReconnectDelay(2000);
 // How much of an unexpected answer is logged.
 constexpr std::size_t kLoggedBytes = 300;
 
-struct Request {
-    std::string method;
-    std::string path;
-    std::string body;
-};
-
 // The client's threads run until the process ends, so what they use is never destroyed: a static
 // destructor would take it from under them as the process exits.
 struct Client {
@@ -48,7 +42,7 @@ struct Client {
 
     std::mutex requests_mutex;
     std::condition_variable requests_ready;
-    std::deque<Request> requests;
+    std::deque<HttpRequest> requests;
 };
 
 // It allocates as the program loads, where running out of memory ends the program anyway.
@@ -186,7 +180,8 @@ std::string profile_path(const std::string& profile, const char* route) {
 // Loads the settings of the profile the client keeps to. Returns false if the core cannot be
 // reached; a refusal, such as for an unknown profile, is kept to be shown instead of the settings.
 bool load_profile_settings(const std::string& profile) {
-    std::optional<HttpResponse> response = g_client.transport->send("GET", profile_path(profile, "settings"), "");
+    std::optional<HttpResponse> response =
+        g_client.transport->send({.method = "GET", .path = profile_path(profile, "settings"), .body = ""});
     if (!response) {
         return false;
     }
@@ -285,7 +280,7 @@ void handle_event(const std::string& text) {
 // Fetches a JSON document. Returns nullopt if the core cannot be reached, and null JSON
 // (after logging why) if it answered with an error.
 std::optional<json> fetch(const std::string& path) {
-    std::optional<HttpResponse> response = g_client.transport->send("GET", path, "");
+    std::optional<HttpResponse> response = g_client.transport->send({.method = "GET", .path = path, .body = ""});
     if (!response) {
         return std::nullopt;
     }
@@ -381,7 +376,7 @@ void event_loop() {
 
 void request_loop() {
     for (;;) {
-        Request request;
+        HttpRequest request;
         {
             std::unique_lock lock(g_client.requests_mutex);
             g_client.requests_ready.wait(lock, [] { return !g_client.requests.empty(); });
@@ -390,7 +385,7 @@ void request_loop() {
         }
         std::string error;
         try {
-            std::optional<HttpResponse> response = g_client.transport->send(request.method, request.path, request.body);
+            std::optional<HttpResponse> response = g_client.transport->send(request);
             if (!response) {
                 error = "ReflektorTTS does not answer: is it still running?";
             } else if (response->status != 200) {
@@ -409,7 +404,7 @@ void request_loop() {
     }
 }
 
-void enqueue(Request request) {
+void enqueue(HttpRequest request) {
     {
         std::scoped_lock lock(g_client.requests_mutex);
         g_client.requests.push_back(std::move(request));
