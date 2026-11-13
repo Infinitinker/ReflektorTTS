@@ -17,7 +17,7 @@ from reflektortts.desktop.tabs.status import StatusTab
 from reflektortts.desktop.widgets.status_bar import StatusBar
 from reflektortts.downloads.source import Kind
 
-SIZE = (800, 600)
+SIZE = (854, 600)
 """At start, and the smallest; the window can grow."""
 ICON_SIZES = (16, 32, 48, 256)
 """For the title bar, the taskbar and Alt+Tab; the system picks the size it needs."""
