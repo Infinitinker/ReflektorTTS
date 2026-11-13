@@ -32,7 +32,6 @@ Checks: >
   -bugprone-easily-swappable-parameters,
   -bugprone-invalid-enum-default-initialization,
   -bugprone-signed-bitwise,
-  -readability-implicit-bool-conversion
 
 # Style only. These say how the code is written, not whether it is right, so they stay off:
 #
@@ -65,8 +64,6 @@ Checks: >
 #   are filled in, though zero is not a value of some of their enums.
 # bugprone-signed-bitwise: ImGui's and Windows' flags, IM_COL32's colors and sizes written as
 #   1 << 20 are signed values combined with | and <<.
-# readability-implicit-bool-conversion: Windows' BOOL is an int, and pointers and handles are tested
-#   as they are.
 WarningsAsErrors: '*'
 
 # Only the project's own headers: not those of Windows, MinGW or the fetched libraries.

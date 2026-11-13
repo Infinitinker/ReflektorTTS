@@ -20,7 +20,7 @@ inline std::string describe_address(const void* address) {
     HMODULE module = nullptr;
     std::array<char, MAX_PATH> path{'?'};
     if (GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
-                           static_cast<LPCSTR>(address), &module)) {
+                           static_cast<LPCSTR>(address), &module) != FALSE) {
         GetModuleFileNameA(module, path.data(), MAX_PATH);
     }
     std::string_view full(path.data());

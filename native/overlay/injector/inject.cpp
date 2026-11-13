@@ -52,7 +52,7 @@ DWORD find_process_id(const std::wstring& process_name) {
     PROCESSENTRY32W entry{};
     entry.dwSize = sizeof(entry);
     DWORD process_id = 0;
-    for (BOOL more = Process32FirstW(snapshot, &entry); more; more = Process32NextW(snapshot, &entry)) {
+    for (BOOL more = Process32FirstW(snapshot, &entry); more != FALSE; more = Process32NextW(snapshot, &entry)) {
         if (_wcsicmp(std::data(entry.szExeFile), process_name.c_str()) == 0) {
             process_id = entry.th32ProcessID;
             break;
@@ -142,7 +142,7 @@ BYTE* module_base(DWORD process_id, const std::filesystem::path& dll_path) {
     MODULEENTRY32W entry{};
     entry.dwSize = sizeof(entry);
     BYTE* base = nullptr;
-    for (BOOL more = Module32FirstW(snapshot, &entry); more && base == nullptr;
+    for (BOOL more = Module32FirstW(snapshot, &entry); more != FALSE && base == nullptr;
          more = Module32NextW(snapshot, &entry)) {
         std::error_code error;
         if (std::filesystem::equivalent(entry.szExePath, dll_path, error)) {
@@ -162,7 +162,7 @@ BYTE* load_library_in(HANDLE process, DWORD process_id, const std::filesystem::p
         return nullptr;
     }
     bool started = false;
-    if (WriteProcessMemory(process, remote_path, path.c_str(), size, nullptr)) {
+    if (WriteProcessMemory(process, remote_path, path.c_str(), size, nullptr) != FALSE) {
         // The new thread runs LoadLibraryW as its start routine: both are WINAPI and take one pointer.
         // The HMODULE it returns comes back cut to the thread's DWORD exit code, which nothing reads,
         // since module_base finds the DLL.

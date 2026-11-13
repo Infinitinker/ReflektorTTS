@@ -73,7 +73,7 @@ BOOL WINAPI get_message_w(MSG* message, HWND window, UINT first, UINT last) {
 
 BOOL WINAPI peek_message_a(MSG* message, HWND window, UINT first, UINT last, UINT remove) {
     BOOL result = g_peek_message_a(message, window, first, last, remove);
-    if (result) {
+    if (result != FALSE) {
         filter_message(message, (remove & PM_REMOVE) != 0);
     }
     return result;
@@ -81,7 +81,7 @@ BOOL WINAPI peek_message_a(MSG* message, HWND window, UINT first, UINT last, UIN
 
 BOOL WINAPI peek_message_w(MSG* message, HWND window, UINT first, UINT last, UINT remove) {
     BOOL result = g_peek_message_w(message, window, first, last, remove);
-    if (result) {
+    if (result != FALSE) {
         filter_message(message, (remove & PM_REMOVE) != 0);
     }
     return result;
@@ -101,7 +101,7 @@ SHORT WINAPI get_key_state(int key) {
 
 BOOL WINAPI get_keyboard_state(BYTE* keys) {
     BOOL result = g_get_keyboard_state(keys);
-    if (result && keys != nullptr && blocked_for_caller(__builtin_return_address(0))) {
+    if (result != FALSE && keys != nullptr && blocked_for_caller(__builtin_return_address(0))) {
         std::memset(keys, 0, 256);
     }
     return result;

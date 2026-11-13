@@ -48,14 +48,14 @@ std::wstring widen(const std::string& text) {
 std::optional<std::string> read_body(HINTERNET request) {
     std::string body;
     DWORD available = 0;
-    while (WinHttpQueryDataAvailable(request, &available) && available > 0) {
+    while (WinHttpQueryDataAvailable(request, &available) != FALSE && available > 0) {
         if (body.size() + available > kMaxResponseBytes) {
             log_message("Skipping an answer bigger than " + std::to_string(kMaxResponseBytes) + " bytes");
             return std::nullopt;
         }
         std::string chunk(available, '\0');
         DWORD read = 0;
-        if (!WinHttpReadData(request, chunk.data(), available, &read)) {
+        if (WinHttpReadData(request, chunk.data(), available, &read) == FALSE) {
             break;
         }
         body.append(chunk.data(), read);
@@ -66,9 +66,9 @@ std::optional<std::string> read_body(HINTERNET request) {
 HINTERNET open_web_socket(HINTERNET connection, const std::wstring& path) {
     Handle request(WinHttpOpenRequest(connection, L"GET", path.c_str(), nullptr, WINHTTP_NO_REFERER,
                                       WINHTTP_DEFAULT_ACCEPT_TYPES, 0));
-    if (!request || !WinHttpSetOption(request.get(), WINHTTP_OPTION_UPGRADE_TO_WEB_SOCKET, nullptr, 0) ||
-        !WinHttpSendRequest(request.get(), WINHTTP_NO_ADDITIONAL_HEADERS, 0, nullptr, 0, 0, 0) ||
-        !WinHttpReceiveResponse(request.get(), nullptr)) {
+    if (!request || WinHttpSetOption(request.get(), WINHTTP_OPTION_UPGRADE_TO_WEB_SOCKET, nullptr, 0) == FALSE ||
+        WinHttpSendRequest(request.get(), WINHTTP_NO_ADDITIONAL_HEADERS, 0, nullptr, 0, 0, 0) == FALSE ||
+        WinHttpReceiveResponse(request.get(), nullptr) == FALSE) {
         return nullptr;
     }
     // The socket takes over the connection; the HTTP request handle is closed on return.
@@ -139,8 +139,8 @@ public:
         // WinHttpSendRequest only reads the body, though it takes it as void*.
         void* data = has_body ? const_cast<char*>(body.data()) : WINHTTP_NO_REQUEST_DATA;  // NOLINT(*-const-cast)
         auto length = static_cast<DWORD>(body.size());
-        if (!WinHttpSendRequest(request.get(), headers, headers_length, data, length, length, 0) ||
-            !WinHttpReceiveResponse(request.get(), nullptr)) {
+        if (WinHttpSendRequest(request.get(), headers, headers_length, data, length, length, 0) == FALSE ||
+            WinHttpReceiveResponse(request.get(), nullptr) == FALSE) {
             return std::nullopt;
         }
         DWORD status = 0;

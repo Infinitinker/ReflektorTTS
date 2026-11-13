@@ -24,7 +24,7 @@ FrameInsets visible_frame_insets(SDL_Window* window) {
     RECT frame{};
     // SDL makes the process per-monitor DPI aware, so all three are in physical pixels; the frame
     // bounds are anyway. They are known for a window not shown yet too.
-    if (hwnd == nullptr || !GetClientRect(hwnd, &client) || !ClientToScreen(hwnd, &origin) ||
+    if (hwnd == nullptr || GetClientRect(hwnd, &client) == FALSE || ClientToScreen(hwnd, &origin) == FALSE ||
         FAILED(DwmGetWindowAttribute(hwnd, DWMWA_EXTENDED_FRAME_BOUNDS, &frame, sizeof(frame)))) {
         log_message("Cannot measure the window's frame; it may open a few pixels off its place");
         return {};
