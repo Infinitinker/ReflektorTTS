@@ -143,7 +143,7 @@ Then, in the repository root:
 git ls-files 'native/*.cpp' 'native/*.h' | xargs clang-format --dry-run --Werror
 ```
 
-The same with `-i` in place of `--dry-run --Werror` formats the files. clang-tidy reads the compile commands of the `ci` preset, a 64-bit build that only needs configuring:
+The same with `-i` in place of `--dry-run --Werror` formats the files. clang-tidy checks both builds' code, since each compiles some that the other does not (an `#else` of `_WIN64`), and reports the compiler's warnings too, those `native/CMakeLists.txt` turns on. For the 64-bit build, it reads the compile commands of the `ci` preset, which only needs configuring:
 
 ```bash
 cmake -S native --preset ci
@@ -152,7 +152,13 @@ cmake -S native --preset ci
 git ls-files 'native/*.cpp' | xargs -P 4 -n 1 clang-tidy -p build/native-ci --quiet
 ```
 
-Any finding fails it. CI checks the 64-bit build's code only, so code that only the 32-bit build compiles (an `#else` of `_WIN64`) is not checked there.
+For the 32-bit build, it reads those of the `release-x86` preset, configured in the **MSYS2 MINGW32** shell as for [building it](../native/README.md#on-windows-with-msys2) (`cmake -S native --preset release-x86`), and runs in MINGW64, whose clang-tidy is told the 32-bit target; it reads MINGW32's headers. The panel is left out, as the 32-bit build does not make it:
+
+```bash
+git ls-files 'native/*.cpp' ':!native/panel/*' | xargs -P 4 -n 1 clang-tidy -p native/build --quiet --extra-arg=--target=i686-w64-mingw32
+```
+
+Any finding fails it. The `ci` preset also makes the compiler's warnings errors, should you build it (`cmake --build build/native-ci`); the other presets only show them.
 
 ### Generated files
 

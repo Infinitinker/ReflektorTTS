@@ -85,8 +85,10 @@ jobs:
         run: python tools/licenses.py
 
   # The C++ code in native/: the include directions of native/README.md, clang-format and clang-tidy
-  # (.clang-format and .clang-tidy at the root). Each step fails on any finding. clang-tidy reads the
-  # compile commands of the ci preset, the 64-bit build: configuring is enough, nothing is built.
+  # (.clang-format and .clang-tidy at the root), which reports the compiler's warnings too. Each step
+  # fails on any finding. clang-tidy checks each build's code, as each compiles some the other does
+  # not: the 64-bit build's through the ci preset's compile commands, the 32-bit build's through the
+  # release-x86 preset's. Configuring is enough, nothing is built.
   cpp:
     name: C++ checks
     runs-on: windows-latest
@@ -99,9 +101,12 @@ jobs:
           cache: "false"
       - name: Include directions
         run: python tools/check_includes.py
+      # The 32-bit toolchain configures the 32-bit build, whose headers clang-tidy reads for it.
       - uses: ./.github/actions/msys2
         with:
-          packages: mingw-w64-x86_64-clang mingw-w64-x86_64-clang-tools-extra
+          packages: >-
+            mingw-w64-x86_64-clang mingw-w64-x86_64-clang-tools-extra
+            mingw-w64-i686-toolchain mingw-w64-i686-cmake mingw-w64-i686-ninja
       - name: Format
         shell: msys2 {0}
         run: git ls-files 'native/*.cpp' 'native/*.h' | xargs clang-format --dry-run --Werror
@@ -112,3 +117,14 @@ jobs:
       - name: clang-tidy
         shell: msys2 {0}
         run: git ls-files 'native/*.cpp' | xargs -P 4 -n 1 clang-tidy -p build/native-ci --quiet
+      - name: Configure the 32-bit build
+        shell: msys2 {0}
+        env:
+          MSYSTEM: MINGW32
+        run: cmake -S native --preset release-x86
+      # MINGW64's clang-tidy, told the 32-bit target; MINGW32 has none. The 32-bit build has no panel.
+      - name: clang-tidy, 32-bit
+        shell: msys2 {0}
+        run: >-
+          git ls-files 'native/*.cpp' ':!native/panel/*'
+          | xargs -P 4 -n 1 clang-tidy -p native/build --quiet --extra-arg=--target=i686-w64-mingw32

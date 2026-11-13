@@ -1,7 +1,7 @@
 # Sets up MSYS2 with what builds native/ (native/README.md): the 64-bit MinGW toolchain, CMake and
 # Ninja, and git, with which CMake fetches the libraries native/ is built with. Used by build-windows.yml,
-# which adds the 32-bit toolchain, and by the C++ checks job of checks.yml, which adds clang-format and
-# clang-tidy. Steps run in it with `shell: msys2 {0}`, in MINGW64 unless a step sets MSYSTEM. Needs a
+# which adds the 32-bit toolchain, and by the C++ checks job of checks.yml, which adds clang-format,
+# clang-tidy and the 32-bit toolchain. Steps run in it with `shell: msys2 {0}`, in MINGW64 unless a step sets MSYSTEM. Needs a
 # checkout first, as every local action does.
 name: MSYS2
 description: Installs MSYS2 (MINGW64) with the 64-bit toolchain, CMake, Ninja, git and any packages the job adds.
