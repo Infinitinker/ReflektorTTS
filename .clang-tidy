@@ -15,7 +15,6 @@ Checks: >
 
   -bugprone-easily-swappable-parameters,
   -bugprone-invalid-enum-default-initialization,
-  -bugprone-multi-level-implicit-pointer-conversion,
   -bugprone-signed-bitwise,
   -bugprone-throwing-static-initialization,
 
@@ -57,8 +56,6 @@ Checks: >
 # bugprone-easily-swappable-parameters: hooks take the parameters of the function they replace.
 # bugprone-invalid-enum-default-initialization: Windows' structs are zeroed with {} before they are
 #   filled in, as their documentation does, whatever their enums hold.
-# bugprone-multi-level-implicit-pointer-conversion: COM and MinHook hand objects and originals back
-#   through void**.
 # bugprone-signed-bitwise: Windows' and ImGui's flags are signed constants combined with |.
 # bugprone-throwing-static-initialization: the only statics that may throw allocate at load time,
 #   where running out of memory ends the program anyway.

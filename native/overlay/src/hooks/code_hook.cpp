@@ -69,7 +69,7 @@ void* jump_destination(const CodeBytes& code, std::uint8_t* address) {
         auto* slot = reinterpret_cast<std::uint8_t*>(static_cast<std::uint32_t>(value));
 #endif
         void* destination = nullptr;
-        ReadProcessMemory(GetCurrentProcess(), slot, &destination, sizeof(destination), nullptr);
+        ReadProcessMemory(GetCurrentProcess(), slot, static_cast<void*>(&destination), sizeof(destination), nullptr);
         return destination;
     }
     return nullptr;

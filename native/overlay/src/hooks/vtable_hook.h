@@ -35,12 +35,12 @@ inline std::string describe_memory(const void* address) {
 template <typename Fn>
 bool hook_vtable_entry(void** vtable, int index, Fn detour, Fn* original) {
     DWORD protection = 0;
-    if (!VirtualProtect(&vtable[index], sizeof(void*), PAGE_READWRITE, &protection)) {
+    if (!VirtualProtect(static_cast<void*>(&vtable[index]), sizeof(void*), PAGE_READWRITE, &protection)) {
         return false;
     }
     *original = reinterpret_cast<Fn>(vtable[index]);
     vtable[index] = reinterpret_cast<void*>(detour);
-    VirtualProtect(&vtable[index], sizeof(void*), protection, &protection);
+    VirtualProtect(static_cast<void*>(&vtable[index]), sizeof(void*), protection, &protection);
     return true;
 }
 
@@ -66,7 +66,7 @@ bool hook_method(void** vtable, int index, Fn detour, Fn* original) {
     if (hook_vtable_entry(vtable, index, detour, original)) {
         return true;
     }
-    log_message("Cannot patch a vtable either (" + describe_memory(&vtable[index]) + ")");
+    log_message("Cannot patch a vtable either (" + describe_memory(static_cast<void*>(&vtable[index])) + ")");
     return false;
 }
 
