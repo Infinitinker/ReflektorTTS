@@ -4,8 +4,8 @@
     "title": "Grand Theft Auto: San Andreas",
     "year": 2004
   },
-  "rating": "bronze",
-  "tested_languages": ["en"],
+  "rating": "platinum",
+  "tested_languages": ["en", "pl"],
   "match": {
     "executables": [
       {

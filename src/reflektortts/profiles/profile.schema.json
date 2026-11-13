@@ -85,7 +85,7 @@
       "enum": ["bronze", "silver", "gold", "platinum"]
     },
     "tested_languages": {
-      "description": "The app languages (two-letter codes) the profile was tested in, which its rating holds for, e.g. [\"en\", \"pl\"]; or \"any\" for a profile that reads text whatever its language, such as subtitle files. Without it, the profile does not say.",
+      "description": "The languages (two-letter codes) the profile was tested with: the app's own, and those its lines were translated into and spoken in, e.g. [\"en\", \"pl\"]; or \"any\" for a profile that reads text whatever its language, such as subtitle files. ReflektorTTS reads any language the user chooses: these are the ones tried. Without it, the profile does not say.",
       "oneOf": [
         {
           "const": "any"

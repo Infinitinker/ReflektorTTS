@@ -1,14 +1,14 @@
 # Supported apps
 
-ReflektorTTS reads these apps as soon as they start, with the profile it comes with for each; VLC media player once its integration is enabled. Each profile is rated with a medal for how far it is tested, and in which of the app's languages, so you know what to expect.
+ReflektorTTS reads these apps as soon as they start, with the profile it comes with for each; VLC media player once its integration is enabled. Each profile is rated with a medal for how far it is tested, and says which languages it was tested with, so you know what to expect.
 
-| App | Edition | Rating | Languages | What is read | Overlay |
+| App | Edition | Rating | Tested languages | What is read | Overlay |
 | --- | --- | --- | --- | --- | --- |
-| [Grand Theft Auto 2](#grand-theft-auto-2) | 1999, the 9.6 freeware release | 🥉 Bronze | English | Subtitles | No |
-| [Grand Theft Auto III](#grand-theft-auto-iii) | 2001, Steam | 🥉 Bronze | English | Subtitles, mission objectives, pager messages and the help box | No |
-| [Grand Theft Auto: Vice City](#grand-theft-auto-vice-city) | 2002, Steam | 🥉 Bronze | English | Subtitles, mission objectives and the help box | No |
-| [Grand Theft Auto: San Andreas](#grand-theft-auto-san-andreas) | 2004, Steam | 🥉 Bronze | English | Subtitles and the help box | Yes |
-| [Mad Max](#mad-max) | 2015, Steam | 🥉 Bronze | English | Subtitles, in the game language you choose | Yes |
+| [Grand Theft Auto 2](#grand-theft-auto-2) | 1999, the 9.6 freeware release | 💎 Platinum | English, Polish | Subtitles | No |
+| [Grand Theft Auto III](#grand-theft-auto-iii) | 2001, Steam | 💎 Platinum | English, Polish | Subtitles, mission objectives, pager messages and the help box | No |
+| [Grand Theft Auto: Vice City](#grand-theft-auto-vice-city) | 2002, Steam | 💎 Platinum | English, Polish | Subtitles, mission objectives and the help box | No |
+| [Grand Theft Auto: San Andreas](#grand-theft-auto-san-andreas) | 2004, Steam | 💎 Platinum | English, Polish | Subtitles and the help box | Yes |
+| [Mad Max](#mad-max) | 2015, Steam | 💎 Platinum | English, Polish | Subtitles, in the game language you choose | Yes |
 | [VLC media player](#vlc-media-player) | 3, installed from videolan.org | 🥇 Gold | Any language | The subtitles of the video playing, from its subtitle file, once the VLC integration is enabled | No |
 
 ## Ratings
@@ -20,7 +20,7 @@ The medal says how far a profile is tested, by its author, from what they checke
 - 🥇 **Gold**: the main texts are read, tested through most of the app.
 - 💎 **Platinum**: every text the app shows is read, tested through all of it.
 
-The medal holds for the languages listed beside it: the languages of the app's text its author tested it in. In another language, the app's text may sit elsewhere or be read differently, so the profile may read less of it. **Any language** marks a profile that reads text whatever its language, such as subtitle files.
+**Tested languages** lists the languages its author tested the profile with: the app's own, and those its lines were translated into and spoken in. They are the ones tried, not a limit: you can choose any language for any app. **Any language** marks a profile that reads text whatever its language, such as subtitle files.
 
 A profile rises as it is tested further. If you played on and everything was read, or something was missed, say so in an [app support issue](https://github.com/Infinitinker/ReflektorTTS/issues/new/choose).
 
@@ -31,14 +31,14 @@ Every app keeps its own settings: the voice, the languages, the reading speed an
 ## Grand Theft Auto 2
 
 - **Edition**: the 9.6 freeware release (`gta2.exe`). Other releases are not read yet; the Status tab says so when it meets one.
-- **Rating**: 🥉 Bronze, tested in English.
+- **Rating**: 💎 Platinum, tested with English and Polish.
 - **What is read**: subtitles.
 - **Overlay**: none, since the game draws with DirectDraw, which the overlay does not support: no in-game panel, and no subtitles of ReflektorTTS's own. Change its settings with **App settings…**: in the Status tab while the game is read, or in the Profiles tab.
 
 ## Grand Theft Auto III
 
 - **Edition**: the Steam release (`gta3.exe`). Other releases are not read yet; the Status tab says so when it meets one.
-- **Rating**: 🥉 Bronze, tested in English.
+- **Rating**: 💎 Platinum, tested with English and Polish.
 - **What is read**: subtitles with mission objectives, the help box and pager messages.
 - **Overlay**: none, since the game draws with Direct3D 8, which the overlay does not support: no in-game panel, and no subtitles of ReflektorTTS's own. Change its settings with **App settings…**: in the Status tab while the game is read, or in the Profiles tab.
 - **Glossary**: Misty, 8-Ball, Love and SPANK stay untranslated, and the Polish voice says Claude, Luigi, Joey, Leone and Liberty City the English way.
@@ -47,7 +47,7 @@ Every app keeps its own settings: the voice, the languages, the reading speed an
 ## Grand Theft Auto: Vice City
 
 - **Edition**: the Steam release (`gta-vc.exe`). Other releases are not read yet; the Status tab says so when it meets one.
-- **Rating**: 🥉 Bronze, tested in English.
+- **Rating**: 💎 Platinum, tested with English and Polish.
 - **What is read**: subtitles with mission objectives, and the help box.
 - **Overlay**: none, since the game draws with Direct3D 8, which the overlay does not support: no in-game panel, and no subtitles of ReflektorTTS's own. Change its settings with **App settings…**: in the Status tab while the game is read, or in the Profiles tab.
 - **Glossary**: Lance, Vance and Mercedes stay untranslated, the Polish voice says Tommy Vercetti, Sonny, Rosenberg and Vice City the English way, and "the greens" is translated as money.
@@ -56,7 +56,7 @@ Every app keeps its own settings: the voice, the languages, the reading speed an
 ## Grand Theft Auto: San Andreas
 
 - **Edition**: the Steam release (`gta-sa.exe`). Other releases are not read yet; the Status tab says so when it meets one.
-- **Rating**: 🥉 Bronze, tested in English.
+- **Rating**: 💎 Platinum, tested with English and Polish.
 - **What is read**: subtitles and the help box.
 - **Overlay**: yes: change its settings in the in-game panel (**Ctrl+Shift+R**) or with **App settings…**, and switch on subtitles over the game there.
 - **Glossary**: Sweet, Big Smoke, Big Bear, Truth and Kendl stay untranslated, the Polish voice says Carl, CJ, Ryder, Woozie, Cesar and Grove Street the English way, and slang is translated by its meaning: "hood" as turf, "paper" as money, "whip" as car, and more.
@@ -64,14 +64,14 @@ Every app keeps its own settings: the voice, the languages, the reading speed an
 ## Mad Max
 
 - **Edition**: the Steam release (`MadMax.exe`). Other releases are not read yet; the Status tab says so when it meets one.
-- **Rating**: 🥉 Bronze, tested in English.
+- **Rating**: 💎 Platinum, tested with English and Polish.
 - **What is read**: subtitles, in the game language you choose as the input language (English, French, German, Italian, Japanese, Polish, Brazilian Portuguese, Russian or Spanish), whatever language the game itself runs in: with English speech and Polish subtitles, for example, the English or the Polish line can be read. The game's text is read from its own files when it starts, which takes a few seconds.
 - **Overlay**: yes: change its settings in the in-game panel (**Ctrl+Shift+R**) or with **App settings…**, and switch on subtitles over the game there.
 
 ## VLC media player
 
 - **Edition**: VLC 3, installed from videolan.org. A portable copy of VLC keeps its settings elsewhere, and VLC 4 has not been tried yet.
-- **Rating**: 🥇 Gold, in any language.
+- **Rating**: 🥇 Gold, tested with any language.
 - **What is read**: the subtitles of the video playing, in time with VLC, also when you pause, change the speed or the subtitle delay. They are read from the video's subtitle file next to it, in SubRip (`.srt`), WebVTT (`.vtt`), Advanced SubStation Alpha or SubStation Alpha (`.ass`, `.ssa`) or YouTube SubViewer (`.sbv`) format; subtitles inside the video file are not read.
 - **Overlay**: none: VLC shows the video's own subtitles, and ReflektorTTS reads them aloud, translated if you choose, without an in-game panel or subtitles of its own. Change its settings with **App settings…**: in the Status tab while a video is read, or in the Profiles tab.
 - **Setting it up**: ReflektorTTS follows VLC through VLC's web interface, which is off by default. With VLC closed, select VLC media player in the Profiles tab, choose **Integration…**, then **Enable**: it turns the web interface on for this computer only. **Disable** puts back what it changed. [docs/profiles.md](docs/profiles.md#vlc-source-type-vlc) says how subtitle files are found and more.

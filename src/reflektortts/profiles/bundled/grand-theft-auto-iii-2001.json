@@ -4,8 +4,8 @@
     "title": "Grand Theft Auto III",
     "year": 2001
   },
-  "rating": "bronze",
-  "tested_languages": ["en"],
+  "rating": "platinum",
+  "tested_languages": ["en", "pl"],
   "match": {
     "executables": [
       {

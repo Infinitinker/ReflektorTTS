@@ -28,18 +28,19 @@ def bundled_profiles() -> list[Profile]:
 
 
 def languages(profile: Profile) -> str:
-    """The languages it was tested in, as the table names them, e.g. "English, Polish"."""
+    """The languages it was tested with, as the table names them, e.g. "English, Polish"."""
     if profile.tested_languages == ANY_LANGUAGE:
         return "Any language"
     return ", ".join(LANGUAGES[code].english_name for code in profile.tested_languages)
 
 
 def rating(profile: Profile) -> str:
-    """Its section's rating, e.g. "🥉 Bronze, tested in English"."""
+    """Its section's rating, e.g. "💎 Platinum, tested with English and Polish"."""
     assert profile.rating is not None
     if profile.tested_languages == ANY_LANGUAGE:
-        return f"{MEDALS[profile.rating]}, in any language"
-    return f"{MEDALS[profile.rating]}, tested in {languages(profile)}"
+        return f"{MEDALS[profile.rating]}, tested with any language"
+    *others, last = [LANGUAGES[code].english_name for code in profile.tested_languages]
+    return f"{MEDALS[profile.rating]}, tested with {' and '.join([', '.join(others), last] if others else [last])}"
 
 
 def anchor(heading: str) -> str:

@@ -4,8 +4,8 @@
     "title": "Mad Max",
     "year": 2015
   },
-  "rating": "bronze",
-  "tested_languages": ["en"],
+  "rating": "platinum",
+  "tested_languages": ["en", "pl"],
   "match": {
     "executables": [
       {

@@ -84,5 +84,6 @@ class Profile:
     rating: Rating | None = None
     """How far the profile is tested; None if it is not rated."""
     tested_languages: tuple[str, ...] | Literal["any"] = ()
-    """The app languages the profile was tested in, which its rating holds for; ANY_LANGUAGE if it
-    reads text whatever its language; empty if it does not say."""
+    """The languages the profile was tested with: the app's own, and those its lines were translated
+    into and spoken in; ANY_LANGUAGE if it reads text whatever its language; empty if it does not
+    say. Any other language can still be chosen: these are the ones tried."""
