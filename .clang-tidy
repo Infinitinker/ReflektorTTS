@@ -20,7 +20,6 @@ Checks: >
 
   -cppcoreguidelines-avoid-c-arrays,
   -cppcoreguidelines-avoid-magic-numbers,
-  -cppcoreguidelines-avoid-non-const-global-variables,
   -cppcoreguidelines-pro-bounds-array-to-pointer-decay,
   -cppcoreguidelines-pro-bounds-avoid-unchecked-container-access,
   -cppcoreguidelines-pro-bounds-constant-array-index,
@@ -63,8 +62,6 @@ Checks: >
 #   with their size, and fixed tables of descriptors.
 # cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers: byte codes of jumps, Windows'
 #   message values and layout sizes read better where they are used, with a comment.
-# cppcoreguidelines-avoid-non-const-global-variables: the overlay's hooks are free functions called
-#   by the app, so its state lives in globals, each in an anonymous namespace of its own file.
 # cppcoreguidelines-pro-bounds-*: Windows' functions take pointers and sizes, and the hooks read
 #   code, vtables and buffers the app hands over; every index is checked where it is read.
 # cppcoreguidelines-pro-type-reinterpret-cast, performance-no-int-to-ptr: functions found through
@@ -105,3 +102,6 @@ CheckOptions:
   misc-non-private-member-variables-in-classes.IgnoreClassesWithAllMemberVariablesBeingPublic: true
   # dinput.h reads which DirectInput version to declare from this macro.
   cppcoreguidelines-macro-usage.AllowedRegexp: '^DIRECTINPUT_VERSION$'
+  # The overlay's hooks are free functions called by the app, so its state lives in globals, each in
+  # an anonymous namespace of its own file: only globals other files can reach are findings.
+  cppcoreguidelines-avoid-non-const-global-variables.AllowInternalLinkage: true
