@@ -27,9 +27,7 @@ Checks: >
   -readability-math-missing-parentheses,
   -readability-named-parameter,
   -readability-trailing-comma,
-  -readability-uppercase-literal-suffix,
-
-  -bugprone-invalid-enum-default-initialization
+  -readability-uppercase-literal-suffix
 
 # Style only. These say how the code is written, not whether it is right, so they stay off:
 #
@@ -52,12 +50,6 @@ Checks: >
 # readability-trailing-comma: clang-format packs braced lists, which a trailing comma would split
 #   into one item per line.
 # readability-uppercase-literal-suffix: float literals are written 0.5f.
-#
-# Not on yet. These can find bugs, and each comes on once what it finds is fixed, or moved into a
-# small helper that says, with a NOLINT, why the API it wraps needs it. What they find now:
-#
-# bugprone-invalid-enum-default-initialization: Direct3D 9's structs are zeroed with {} before they
-#   are filled in, though zero is not a value of some of their enums.
 WarningsAsErrors: '*'
 
 # Only the project's own headers: not those of Windows, MinGW or the fetched libraries.

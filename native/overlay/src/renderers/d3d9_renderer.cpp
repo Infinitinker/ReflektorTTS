@@ -7,6 +7,7 @@
 #include <imgui_impl_dx9.h>
 
 #include "log.h"
+#include "memory/zeroed.h"
 #include "renderers/overlay_frame.h"
 
 namespace reflektortts {
@@ -18,7 +19,7 @@ State g_state = State::NotStarted;
 IDirect3DDevice9* g_device = nullptr;
 
 HWND device_window(IDirect3DDevice9* device) {
-    D3DDEVICE_CREATION_PARAMETERS creation{};
+    auto creation = zeroed<D3DDEVICE_CREATION_PARAMETERS>();
     device->GetCreationParameters(&creation);
     if (creation.hFocusWindow != nullptr) {
         return creation.hFocusWindow;
@@ -27,7 +28,7 @@ HWND device_window(IDirect3DDevice9* device) {
     if (FAILED(device->GetSwapChain(0, &swap_chain))) {
         return nullptr;
     }
-    D3DPRESENT_PARAMETERS parameters{};
+    auto parameters = zeroed<D3DPRESENT_PARAMETERS>();
     swap_chain->GetPresentParameters(&parameters);
     swap_chain->Release();
     return parameters.hDeviceWindow;
@@ -71,7 +72,7 @@ void render_d3d9_frame(IDirect3DDevice9* device) {
     if (FAILED(device->GetBackBuffer(0, 0, D3DBACKBUFFER_TYPE_MONO, &back_buffer))) {
         return;
     }
-    D3DSURFACE_DESC desc{};
+    auto desc = zeroed<D3DSURFACE_DESC>();
     back_buffer->GetDesc(&desc);
     ImGui_ImplDX9_NewFrame();
     build_overlay_frame(desc.Width, desc.Height);

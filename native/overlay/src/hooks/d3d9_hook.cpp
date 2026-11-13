@@ -15,6 +15,7 @@
 #include "hooks/vtable_hook.h"
 #include "log.h"
 #include "memory/exported_function.h"
+#include "memory/zeroed.h"
 
 namespace reflektortts {
 namespace {
@@ -181,7 +182,7 @@ void** probe_device_vtable(HMODULE d3d9) {
         return nullptr;
     }
     ProbeWindow window;
-    D3DPRESENT_PARAMETERS parameters{};
+    auto parameters = zeroed<D3DPRESENT_PARAMETERS>();
     parameters.Windowed = TRUE;
     parameters.SwapEffect = D3DSWAPEFFECT_DISCARD;
     parameters.BackBufferFormat = D3DFMT_UNKNOWN;

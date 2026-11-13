@@ -48,6 +48,7 @@ The overlay's files, in `overlay/`. Its own headers are included by their path f
 | `src/memory/addresses.h` | Addresses as integers and the objects at them, for code that reads memory by its layout |
 | `src/memory/functions.h` | Functions as code addresses and back, as MinHook and vtables hold them |
 | `src/memory/exported_function.h` | Finds a function a module exports, as the type it has |
+| `src/memory/zeroed.h` | Windows' structs with every field zero, to be filled in |
 | `src/memory/pe_image.h` | Reads a mapped EXE's or DLL's headers, and what lies at an offset from its start |
 | `src/diagnostics/crash_log.cpp` | Logs where the app crashed, with the call stack in 64-bit apps |
 | `src/diagnostics/describe_address.h` | Names a code address as module and offset, for the log |
