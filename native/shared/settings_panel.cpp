@@ -6,6 +6,7 @@
 
 #include <imgui.h>
 
+#include <array>
 #include <cctype>
 #include <cmath>
 #include <format>
@@ -22,13 +23,14 @@ namespace {
 constexpr float kHeaderFontSize = 20.0f;
 constexpr int kMaxLastLineRows = 9;
 
-constexpr Choice kSubtitleSizes[] = {
-    {.value = "small", .name = "Small"}, {.value = "medium", .name = "Medium"}, {.value = "large", .name = "Large"}};
-constexpr Choice kSubtitlePositions[] = {{.value = "top", .name = "Top"}, {.value = "bottom", .name = "Bottom"}};
+constexpr auto kSubtitleSizes = std::to_array<Choice>(
+    {{.value = "small", .name = "Small"}, {.value = "medium", .name = "Medium"}, {.value = "large", .name = "Large"}});
+constexpr auto kSubtitlePositions =
+    std::to_array<Choice>({{.value = "top", .name = "Top"}, {.value = "bottom", .name = "Bottom"}});
 // What a new line does while another is spoken.
-constexpr Choice kNewLines[] = {{.value = "wait", .name = "Wait their turn"},
-                                {.value = "cut_off", .name = "Cut off the current one"},
-                                {.value = "speed_up", .name = "Speed up to catch up"}};
+constexpr auto kNewLines = std::to_array<Choice>({{.value = "wait", .name = "Wait their turn"},
+                                                  {.value = "cut_off", .name = "Cut off the current one"},
+                                                  {.value = "speed_up", .name = "Speed up to catch up"}});
 
 // A language as the combo shows it: its English name, then its own, e.g. "Polish (Polski)".
 std::string language_label(const LanguageOption& language) {

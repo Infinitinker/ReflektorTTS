@@ -7,6 +7,7 @@
 #include <imgui.h>
 
 #include <algorithm>
+#include <array>
 #include <string>
 
 #include "api_client.h"
@@ -75,8 +76,9 @@ void draw_stage_ticks(const StageOption& stage) {
         StageOutput output;
         bool on;
     };
-    const Tick ticks[] = {{.heading = kTextHeading, .output = StageOutput::Text, .on = stage.text},
-                          {.heading = kSpeechHeading, .output = StageOutput::Speech, .on = stage.speech}};
+    const auto ticks =
+        std::to_array<Tick>({{.heading = kTextHeading, .output = StageOutput::Text, .on = stage.text},
+                             {.heading = kSpeechHeading, .output = StageOutput::Speech, .on = stage.speech}});
     float x = tick_columns_x();
     for (const Tick& tick : ticks) {
         float width = tick_column_width(tick.heading);

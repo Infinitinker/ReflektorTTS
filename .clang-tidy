@@ -32,9 +32,7 @@ Checks: >
   -bugprone-easily-swappable-parameters,
   -bugprone-invalid-enum-default-initialization,
   -bugprone-signed-bitwise,
-  -cppcoreguidelines-avoid-c-arrays,
   -cppcoreguidelines-pro-type-union-access,
-  -modernize-avoid-c-arrays,
   -readability-implicit-bool-conversion
 
 # Style only. These say how the code is written, not whether it is right, so they stay off:
@@ -68,8 +66,6 @@ Checks: >
 #   are filled in, though zero is not a value of some of their enums.
 # bugprone-signed-bitwise: ImGui's and Windows' flags, IM_COL32's colors and sizes written as
 #   1 << 20 are signed values combined with | and <<.
-# cppcoreguidelines-avoid-c-arrays, modernize-avoid-c-arrays: buffers handed to Windows' and the C
-#   library's functions with their size, and fixed tables (descriptors, hooked classes, choices).
 # cppcoreguidelines-pro-type-union-access: Direct3D 12's resource barrier holds its transition in a
 #   union.
 # readability-implicit-bool-conversion: Windows' BOOL is an int, and pointers and handles are tested
@@ -91,3 +87,6 @@ CheckOptions:
   # The overlay's hooks are free functions called by the app, so its state lives in globals, each in
   # an anonymous namespace of its own file: only globals other files can reach are findings.
   cppcoreguidelines-avoid-non-const-global-variables.AllowInternalLinkage: true
+  # A string literal's array, such as "--port", is not a table to replace with std::array.
+  cppcoreguidelines-avoid-c-arrays.AllowStringArrays: true
+  modernize-avoid-c-arrays.AllowStringArrays: true
