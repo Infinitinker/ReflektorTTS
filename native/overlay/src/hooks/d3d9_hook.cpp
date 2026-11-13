@@ -10,6 +10,7 @@
 #include <string>
 #include <utility>
 
+#include "hooks/exported_function.h"
 #include "hooks/probe_window.h"
 #include "hooks/vtable_hook.h"
 #include "log.h"
@@ -150,12 +151,12 @@ bool hook_factory_class(void** vtable, bool is_ex) {
 // Making a Direct3D object needs no window or device, so it is safe whatever state the app is in.
 bool hook_device_creation(HMODULE d3d9) {
     bool hooked = false;
-    auto create = reinterpret_cast<decltype(&Direct3DCreate9)>(GetProcAddress(d3d9, "Direct3DCreate9"));
+    auto create = exported_function<decltype(&Direct3DCreate9)>(d3d9, "Direct3DCreate9");
     if (IDirect3D9* direct3d = create != nullptr ? create(D3D_SDK_VERSION) : nullptr) {
         hooked = hook_factory_class(*reinterpret_cast<void***>(direct3d), false);
         direct3d->Release();
     }
-    auto create_ex = reinterpret_cast<decltype(&Direct3DCreate9Ex)>(GetProcAddress(d3d9, "Direct3DCreate9Ex"));
+    auto create_ex = exported_function<decltype(&Direct3DCreate9Ex)>(d3d9, "Direct3DCreate9Ex");
     IDirect3D9Ex* direct3d_ex = nullptr;
     if (create_ex != nullptr && SUCCEEDED(create_ex(D3D_SDK_VERSION, &direct3d_ex))) {
         hooked = hook_factory_class(*reinterpret_cast<void***>(direct3d_ex), true) && hooked;
@@ -171,7 +172,7 @@ bool hook_device_creation(HMODULE d3d9) {
 // app made before the overlay arrived. A hardware (HAL) device is like the ones apps create;
 // while an app owns the screen in fullscreen that fails, but a null-reference device does not.
 void** probe_device_vtable(HMODULE d3d9) {
-    auto create = reinterpret_cast<decltype(&Direct3DCreate9)>(GetProcAddress(d3d9, "Direct3DCreate9"));
+    auto create = exported_function<decltype(&Direct3DCreate9)>(d3d9, "Direct3DCreate9");
     IDirect3D9* direct3d = create != nullptr ? create(D3D_SDK_VERSION) : nullptr;
     if (direct3d == nullptr) {
         log_message("Could not create a probe Direct3D 9 object");

@@ -139,8 +139,11 @@ BYTE* load_library_in(HANDLE process, DWORD process_id, const std::filesystem::p
     }
     bool started = false;
     if (WriteProcessMemory(process, remote_path, path.c_str(), size, nullptr)) {
-        auto load_library =
-            reinterpret_cast<LPTHREAD_START_ROUTINE>(GetProcAddress(GetModuleHandleW(L"kernel32.dll"), "LoadLibraryW"));
+        // LoadLibraryW takes one pointer and returns a handle, as a thread's start routine does, so the
+        // new thread runs it. Casting through void (*)(), which stands for any function, tells the
+        // compiler that the cast is meant.
+        auto load_library = reinterpret_cast<LPTHREAD_START_ROUTINE>(
+            reinterpret_cast<void (*)()>(GetProcAddress(GetModuleHandleW(L"kernel32.dll"), "LoadLibraryW")));
         HANDLE thread = CreateRemoteThread(process, nullptr, 0, load_library, remote_path, 0, nullptr);
         if (thread != nullptr) {
             WaitForSingleObject(thread, INFINITE);

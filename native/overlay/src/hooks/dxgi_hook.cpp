@@ -8,6 +8,7 @@
 
 #include <string>
 
+#include "hooks/exported_function.h"
 #include "hooks/probe_window.h"
 #include "hooks/vtable_hook.h"
 #include "log.h"
@@ -53,9 +54,7 @@ struct SwapChainVtable {
 // Swap chains share their class's vtable, so a throwaway swap chain gives us the app's.
 bool find_swap_chain_vtable(SwapChainVtable& vtable) {
     HMODULE d3d11 = d3d11_module();
-    auto create = d3d11 == nullptr ? nullptr
-                                   : reinterpret_cast<decltype(&D3D11CreateDeviceAndSwapChain)>(
-                                         GetProcAddress(d3d11, "D3D11CreateDeviceAndSwapChain"));
+    auto create = exported_function<decltype(&D3D11CreateDeviceAndSwapChain)>(d3d11, "D3D11CreateDeviceAndSwapChain");
     if (create == nullptr) {
         log_message("d3d11.dll is not available");
         return false;

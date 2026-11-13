@@ -47,6 +47,7 @@ The overlay's files, in `overlay/`. Its own headers are included by their path f
 | `src/dllmain.cpp` | The DLL's one export, `reflektortts_start_overlay`, which the injector starts with the core's port: installs the hooks for each graphics API the app loads, starts the API client |
 | `src/diagnostics/crash_log.cpp` | Logs where the app crashed, with the call stack in 64-bit apps |
 | `src/diagnostics/describe_address.h` | Names a code address as module and offset, for the log |
+| `src/hooks/exported_function.h` | Finds a function a module exports, as the type it has |
 | `src/hooks/code_hook.cpp` | Code hooks (MinHook), kept in place when another overlay cuts them out, and telling the overlay's own calls apart |
 | `src/hooks/vtable_hook.h` | Hooks a COM method found through a vtable: in its code, or by replacing the vtable entry |
 | `src/hooks/dll_load_watch.cpp` | Wakes the overlay when the app loads a DLL |

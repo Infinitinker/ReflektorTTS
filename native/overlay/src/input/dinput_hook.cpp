@@ -15,6 +15,7 @@
 #include <utility>
 
 #include "hooks/code_hook.h"
+#include "hooks/exported_function.h"
 #include "hooks/vtable_hook.h"
 #include "input/blocking.h"
 #include "log.h"
@@ -191,7 +192,7 @@ void hook_devices(void* input, const IID* device_iid) {
 bool hook_version(const wchar_t* module_name, const char* create_name, DWORD version,
                   std::initializer_list<std::pair<const IID*, const IID*>> interfaces) {
     HMODULE module = GetModuleHandleW(module_name);
-    auto create = module == nullptr ? nullptr : reinterpret_cast<CreateInputFn>(GetProcAddress(module, create_name));
+    auto create = exported_function<CreateInputFn>(module, create_name);
     if (create == nullptr) {
         return false;
     }
